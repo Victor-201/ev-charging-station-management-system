@@ -27,13 +27,7 @@ export const registerSchema = Joi.object({
   password: Joi.string().min(8).required()
     .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
     .message('Password must contain at least one uppercase, lowercase, number and special character'),
-  name: Joi.string().min(2).max(255).required(),
-  vehicle: Joi.object({
-    plate_number: Joi.string().required(),
-    brand: Joi.string().required(),
-    model: Joi.string().required(),
-    battery_kwh: Joi.number().optional(),
-  }).optional(),
+  role: Joi.string().valid('driver', 'staff', 'admin').optional(),
 });
 
 export const loginSchema = Joi.object({
@@ -41,11 +35,7 @@ export const loginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
-export const verifyOTPSchema = Joi.object({
-  user_id: Joi.string().uuid().required(),
-  otp: Joi.string().length(6).required(),
-  type: Joi.string().valid('email', 'phone').required(),
-});
+// verifyOTPSchema removed - feature not available with new schema
 
 export const oauthLoginSchema = Joi.object({
   provider: Joi.string().valid('google', 'facebook').required(),

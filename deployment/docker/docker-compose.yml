@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for Auth Service
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: ev-postgres-auth
+    environment:
+      POSTGRES_DB: ev_auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+      - ../../database/schema/ev_auth_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../../database/seeds/seed-auth.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ev-network
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ev-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@evcharging.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - postgres-auth
+    networks:
+      - ev-network
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ../../services/auth-service
+      dockerfile: Dockerfile
+    container_name: ev-auth-service
+    env_file:
+      - ../../services/auth-service/.env
+    environment:
+      PORT: 3001
+      NODE_ENV: development
+      DB_HOST: postgres-auth
+      DB_PORT: 5432
+      DB_NAME: ev_auth_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+    networks:
+      - ev-network
+    restart: unless-stopped
+
+volumes:
+  postgres-auth-data:
+  pgadmin-data:
+
+networks:
+  ev-network:
+    driver: bridge

@@ -9,27 +9,20 @@ export class AuthController {
     
     res.status(201).json({
       status: 'success',
-      message: 'User registered. Please verify your email.',
+      message: 'User registered successfully',
       user_id: result.user_id,
     });
   });
 
-  // Verify OTP
-  verifyOTP = asyncHandler(async (req: Request, res: Response) => {
-    const { user_id, otp, type } = req.body;
-    
-    await authService.verifyOTP(user_id, otp, type);
-    
-    res.status(200).json({
-      status: 'verified',
-    });
-  });
+  // Verify OTP - Feature removed (no otp_verifications table)
+  // verifyOTP endpoint has been removed
 
   // Login
   login = asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body;
+    const deviceInfo = req.headers['user-agent'] || 'unknown';
     
-    const result = await authService.login(email, password);
+    const result = await authService.login(email, password, deviceInfo);
     
     res.status(200).json(result);
   });
@@ -37,8 +30,9 @@ export class AuthController {
   // OAuth Login
   oauthLogin = asyncHandler(async (req: Request, res: Response) => {
     const { provider, provider_token } = req.body;
+    const deviceInfo = req.headers['user-agent'] || 'oauth';
     
-    const result = await authService.oauthLogin(provider, provider_token);
+    const result = await authService.oauthLogin(provider, provider_token, deviceInfo);
     
     res.status(200).json(result);
   });

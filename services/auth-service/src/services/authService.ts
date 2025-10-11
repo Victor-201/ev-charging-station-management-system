@@ -1,11 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
 import { query, getClient } from '../config/database';
 import { AppError } from '../middlewares/errorHandler';
 import { JWTPayload } from '../types';
 import { sendEmail } from '../utils/email';
-import { generateOTP } from '../utils/helpers';
 import axios from 'axios';
 
 export class AuthService {
@@ -37,13 +35,7 @@ export class AuthService {
     email: string;
     phone?: string;
     password: string;
-    name: string;
-    vehicle?: {
-      plate_number: string;
-      brand: string;
-      model: string;
-      battery_kwh?: number;
-    };
+    role?: string;
   }) {
     const client = await getClient();
 
@@ -67,50 +59,19 @@ export class AuthService {
       const userResult = await client.query(
         `INSERT INTO users (email, phone, password_hash, role, status) 
          VALUES ($1, $2, $3, $4, $5) RETURNING id, email, role, created_at`,
-        [data.email, data.phone || null, password_hash, 'driver', 'active']
+        [data.email, data.phone || null, password_hash, data.role || 'driver', 'active']
       );
 
       const user = userResult.rows[0];
 
-      // Create user profile
-      await client.query(
-        'INSERT INTO user_profiles (user_id, full_name) VALUES ($1, $2)',
-        [user.id, data.name]
-      );
-
-      // Create wallet for user
-      await client.query(
-        'INSERT INTO wallets (user_id, balance) VALUES ($1, $2)',
-        [user.id, 0]
-      );
-
-      // Add vehicle if provided
-      if (data.vehicle) {
-        await client.query(
-          `INSERT INTO vehicles (user_id, plate_number, brand, model) 
-           VALUES ($1, $2, $3, $4)`,
-          [user.id, data.vehicle.plate_number, data.vehicle.brand, data.vehicle.model]
-        );
-      }
-
-      // Generate OTP for email verification
-      const otp = generateOTP();
-      const expiresAt = new Date(Date.now() + parseInt(process.env.OTP_EXPIRES_IN || '600') * 1000);
-
-      await client.query(
-        `INSERT INTO otp_verifications (user_id, otp, type, expires_at) 
-         VALUES ($1, $2, $3, $4)`,
-        [user.id, otp, 'email', expiresAt]
-      );
-
       await client.query('COMMIT');
 
-      // Send OTP email (async, don't wait)
+      // Send welcome email (async, don't wait)
       sendEmail({
         to: data.email,
-        subject: 'Verify your email',
-        text: `Your OTP code is: ${otp}. Valid for 10 minutes.`,
-      }).catch(err => console.error('Failed to send OTP email:', err));
+        subject: 'Welcome to EV Charging System',
+        text: `Your account has been created successfully.`,
+      }).catch(err => console.error('Failed to send welcome email:', err));
 
       return {
         user_id: user.id,
@@ -125,41 +86,13 @@ export class AuthService {
     }
   }
 
-  // Verify OTP
-  async verifyOTP(user_id: string, otp: string, type: 'email' | 'phone') {
-    const result = await query(
-      `SELECT * FROM otp_verifications 
-       WHERE user_id = $1 AND otp = $2 AND type = $3 AND expires_at > NOW()
-       ORDER BY created_at DESC LIMIT 1`,
-      [user_id, otp, type]
-    );
-
-    if (result.rows.length === 0) {
-      throw new AppError('Invalid or expired OTP', 400);
-    }
-
-    // Update user status to verified
-    await query(
-      'UPDATE users SET status = $1 WHERE id = $2',
-      ['active', user_id]
-    );
-
-    // Delete used OTP
-    await query(
-      'DELETE FROM otp_verifications WHERE user_id = $1 AND type = $2',
-      [user_id, type]
-    );
-
-    return { status: 'verified' };
-  }
+  // Verify OTP - Removed (no otp_verifications table in new schema)
+  // This feature can be re-implemented using external service or sessions table
 
   // Login with email and password
-  async login(email: string, password: string) {
+  async login(email: string, password: string, deviceInfo?: string) {
     const result = await query(
-      `SELECT u.*, up.full_name 
-       FROM users u 
-       LEFT JOIN user_profiles up ON u.id = up.user_id 
-       WHERE u.email = $1`,
+      `SELECT * FROM users WHERE email = $1`,
       [email]
     );
 
@@ -171,7 +104,7 @@ export class AuthService {
 
     // Check if account is active
     if (user.status !== 'active') {
-      throw new AppError('Account is not active. Please verify your email.', 403);
+      throw new AppError('Account is not active', 403);
     }
 
     // Verify password
@@ -190,14 +123,14 @@ export class AuthService {
     const accessToken = this.generateAccessToken(payload);
     const refreshToken = this.generateRefreshToken(payload);
 
-    // Store refresh token
-    const refreshTokenId = uuidv4();
+    // Store session with hashed refresh token
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     await query(
-      `INSERT INTO refresh_tokens (id, user_id, token, expires_at) 
+      `INSERT INTO sessions (user_id, refresh_token_hash, device_info, expires_at) 
        VALUES ($1, $2, $3, $4)`,
-      [refreshTokenId, user.id, refreshToken, expiresAt]
+      [user.id, refreshTokenHash, deviceInfo || 'unknown', expiresAt]
     );
 
     return {
@@ -209,7 +142,7 @@ export class AuthService {
   }
 
   // OAuth login
-  async oauthLogin(provider: 'google' | 'facebook', providerToken: string) {
+  async oauthLogin(provider: 'google' | 'facebook', providerToken: string, deviceInfo?: string) {
     let providerData;
 
     // Verify token with provider and get user data
@@ -248,18 +181,6 @@ export class AuthService {
 
         userId = userResult.rows[0].id;
 
-        // Create profile
-        await client.query(
-          'INSERT INTO user_profiles (user_id, full_name) VALUES ($1, $2)',
-          [userId, name]
-        );
-
-        // Create wallet
-        await client.query(
-          'INSERT INTO wallets (user_id, balance) VALUES ($1, $2)',
-          [userId, 0]
-        );
-
         await client.query('COMMIT');
       } catch (error) {
         await client.query('ROLLBACK');
@@ -295,14 +216,14 @@ export class AuthService {
     const accessToken = this.generateAccessToken(payload);
     const refreshToken = this.generateRefreshToken(payload);
 
-    // Store refresh token
-    const refreshTokenId = uuidv4();
+    // Store session with hashed refresh token
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     await query(
-      `INSERT INTO refresh_tokens (id, user_id, token, expires_at) 
+      `INSERT INTO sessions (user_id, refresh_token_hash, device_info, expires_at) 
        VALUES ($1, $2, $3, $4)`,
-      [refreshTokenId, userId, refreshToken, expiresAt]
+      [userId, refreshTokenHash, deviceInfo || 'oauth', expiresAt]
     );
 
     return {
@@ -365,15 +286,29 @@ export class AuthService {
         process.env.JWT_REFRESH_SECRET || 'default-refresh-secret'
       ) as JWTPayload;
 
-      // Check if refresh token exists in database
-      const tokenResult = await query(
-        `SELECT * FROM refresh_tokens 
-         WHERE token = $1 AND user_id = $2 AND expires_at > NOW()`,
-        [refreshToken, decoded.user_id]
+      // Check if session exists with matching hashed refresh token
+      const sessionResult = await query(
+        `SELECT id, user_id, refresh_token_hash FROM sessions 
+         WHERE user_id = $1 AND expires_at > NOW()`,
+        [decoded.user_id]
       );
 
-      if (tokenResult.rows.length === 0) {
+      if (sessionResult.rows.length === 0) {
         throw new AppError('Invalid or expired refresh token', 401);
+      }
+
+      // Verify refresh token hash against stored sessions
+      let validSession = null;
+      for (const session of sessionResult.rows) {
+        const isValid = await bcrypt.compare(refreshToken, session.refresh_token_hash);
+        if (isValid) {
+          validSession = session;
+          break;
+        }
+      }
+
+      if (!validSession) {
+        throw new AppError('Invalid refresh token', 401);
       }
 
       // Generate new access token
@@ -396,71 +331,53 @@ export class AuthService {
 
   // Logout
   async logout(refreshToken: string) {
-    await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
-    return { status: 'logged_out' };
+    try {
+      // Verify refresh token to get user_id
+      const decoded = jwt.verify(
+        refreshToken,
+        process.env.JWT_REFRESH_SECRET || 'default-refresh-secret'
+      ) as JWTPayload;
+
+      // Delete sessions matching this refresh token
+      const sessionResult = await query(
+        `SELECT id, refresh_token_hash FROM sessions WHERE user_id = $1`,
+        [decoded.user_id]
+      );
+
+      for (const session of sessionResult.rows) {
+        const isValid = await bcrypt.compare(refreshToken, session.refresh_token_hash);
+        if (isValid) {
+          await query('DELETE FROM sessions WHERE id = $1', [session.id]);
+          break;
+        }
+      }
+
+      return { status: 'logged_out' };
+    } catch (error) {
+      // Even if token is invalid, return success
+      return { status: 'logged_out' };
+    }
   }
 
-  // Forgot password
+  // Forgot password - Feature removed (no password_reset_tokens table)
+  // TODO: Implement password reset via email with JWT tokens or external service
   async forgotPassword(email: string) {
     const user = await query('SELECT id, email FROM users WHERE email = $1', [email]);
 
     if (user.rows.length === 0) {
       // Don't reveal if email exists
-      return { status: 'reset_token_sent' };
+      return { status: 'reset_link_sent' };
     }
 
-    const userId = user.rows[0].id;
-
-    // Generate reset token
-    const resetToken = uuidv4();
-    const expiresAt = new Date(
-      Date.now() + parseInt(process.env.PASSWORD_RESET_TOKEN_EXPIRY || '3600') * 1000
-    );
-
-    // Store reset token
-    await query(
-      `INSERT INTO password_reset_tokens (user_id, token, expires_at) 
-       VALUES ($1, $2, $3)`,
-      [userId, resetToken, expiresAt]
-    );
-
-    // Send reset email (async)
-    sendEmail({
-      to: email,
-      subject: 'Password Reset Request',
-      text: `Your password reset token is: ${resetToken}. Valid for 1 hour.`,
-    }).catch(err => console.error('Failed to send reset email:', err));
-
-    return { status: 'reset_token_sent' };
+    // TODO: Send password reset email with JWT token in link
+    // For now, just return success
+    return { status: 'reset_link_sent' };
   }
 
-  // Reset password
+  // Reset password - Feature removed (no password_reset_tokens table)
+  // TODO: Implement password reset via JWT tokens instead
   async resetPassword(token: string, newPassword: string) {
-    const result = await query(
-      `SELECT user_id FROM password_reset_tokens 
-       WHERE token = $1 AND expires_at > NOW()`,
-      [token]
-    );
-
-    if (result.rows.length === 0) {
-      throw new AppError('Invalid or expired reset token', 400);
-    }
-
-    const userId = result.rows[0].user_id;
-
-    // Hash new password
-    const password_hash = await bcrypt.hash(newPassword, 12);
-
-    // Update password
-    await query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
-      [password_hash, userId]
-    );
-
-    // Delete used token
-    await query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
-
-    return { status: 'password_reset' };
+    throw new AppError('Password reset feature is currently unavailable. Please contact support.', 501);
   }
 
   // Link OAuth provider to existing account

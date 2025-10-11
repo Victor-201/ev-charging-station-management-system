@@ -19,8 +19,9 @@ CREATE TABLE user_auth_providers (
     user_id UUID NOT NULL,
     provider VARCHAR(50) NOT NULL,
     provider_uid VARCHAR(255),
-    access_token VARCHAR(500),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    access_token TEXT,  -- Changed from VARCHAR(500) to TEXT for long JWT tokens
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, provider)  -- Add unique constraint for ON CONFLICT
 );
 
 CREATE INDEX idx_uap_userid ON user_auth_providers(user_id);
