@@ -33,4 +33,7 @@ router.post('/unlink-provider', authenticate, validate(unlinkProviderSchema), au
 // Admin routes - Get user list (requires admin role)
 router.get('/users', authenticate, authorize('admin'), authController.getUserList);
 
+// Admin routes - Deactivate user (requires admin role)
+router.post('/users/:user_id/deactivate', authenticate, authorize('admin'), authController.deactivateUser);
+
 export default router;

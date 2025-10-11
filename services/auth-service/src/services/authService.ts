@@ -506,6 +506,25 @@ export class AuthService {
       throw new AppError('Failed to get user list', 500);
     }
   }
+
+  // Admin: Deactivate user
+  async deactivateUser(userId: string): Promise<void> {
+    try {
+      const result = await query(
+        `UPDATE users 
+         SET status = 'inactive'
+         WHERE id = $1`,
+        [userId]
+      );
+
+      if (result.rowCount === 0) {
+        throw new AppError('User not found', 404);
+      }
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Failed to deactivate user', 500);
+    }
+  }
 }
 
 export default new AuthService();

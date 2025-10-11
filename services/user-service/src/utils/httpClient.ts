@@ -75,6 +75,29 @@ class HttpClient {
       throw error;
     }
   }
+
+  // Call Auth Service API to deactivate user (admin only)
+  async deactivateUserInAuthService(userId: string, token?: string): Promise<any> {
+    try {
+      const headers: any = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await this.authServiceClient.post(
+        `/api/v1/auth/users/${userId}/deactivate`,
+        {},
+        { headers }
+      );
+      return response.data;
+    } catch (error: any) {
+      logger.error('Error calling auth service to deactivate user:', error.message);
+      if (error.response) {
+        logger.error('Response data:', error.response.data);
+      }
+      throw error;
+    }
+  }
 }
 
 export default new HttpClient();

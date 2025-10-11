@@ -126,12 +126,23 @@ export class UserController {
   async deactivateUser(req: Request, res: Response): Promise<void> {
     try {
       const { user_id } = req.params;
+      
+      // Extract token to forward to auth service
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.split(' ')[1];
 
-      await userService.deactivateUser(user_id);
+      await userService.deactivateUser(user_id, token);
 
       res.json({ status: 'deactivated' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error in deactivateUser:', error);
+      
+      // Forward error from auth service
+      if (error.response?.data) {
+        res.status(error.response.status || 500).json(error.response.data);
+        return;
+      }
+      
       res.status(500).json({ error: 'Failed to deactivate user' });
     }
   }

@@ -196,10 +196,14 @@ export class UserService {
   }
 
   // Admin: Deactivate user account
-  async deactivateUser(userId: string): Promise<void> {
+  async deactivateUser(userId: string, token?: string): Promise<void> {
     try {
+      // Call Auth Service to deactivate user in auth database
+      await httpClient.deactivateUserInAuthService(userId, token);
+      
+      // Optionally, mark user profile as inactive in user database
       await pool.query(
-        `UPDATE users SET status = 'INACTIVE', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        `UPDATE user_profiles SET updated_at = CURRENT_TIMESTAMP WHERE user_id = $1`,
         [userId]
       );
     } catch (error) {

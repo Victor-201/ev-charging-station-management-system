@@ -115,6 +115,15 @@ export class AuthController {
     
     res.status(200).json(result);
   });
+
+  // Admin: Deactivate user
+  deactivateUser = asyncHandler(async (req: Request, res: Response) => {
+    const { user_id } = req.params;
+    
+    await authService.deactivateUser(user_id);
+    
+    res.status(200).json({ status: 'deactivated' });
+  });
 }
 
 export default new AuthController();

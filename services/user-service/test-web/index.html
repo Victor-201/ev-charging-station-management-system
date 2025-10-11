@@ -113,17 +113,22 @@
 
         .btn-success:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+            box-shadow: 0 5px 15px rgba(56, 239, 125, 0.4);
         }
 
         .btn-danger {
-            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
             color: white;
         }
 
         .btn-danger:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
+            box-shadow: 0 5px 15px rgba(238, 9, 121, 0.4);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.85rem;
         }
 
         .btn-warning {
@@ -566,6 +571,7 @@
                             <th>Status</th>
                             <th>Phone</th>
                             <th>Created At</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="admin-users-tbody">
@@ -1030,7 +1036,7 @@
             tbody.innerHTML = '';
 
             if (!data.users || data.users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No users found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">No users found</td></tr>';
                 return;
             }
 
@@ -1041,6 +1047,12 @@
                 const statusClass = user.status === 'active' ? 'status-active' : 'status-inactive';
                 const createdAt = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A';
                 
+                // Determine if user can be deactivated
+                const isActive = user.status === 'active';
+                const deactivateBtn = isActive 
+                    ? `<button class="btn btn-danger btn-sm" onclick="deactivateUser('${user.user_id}', '${user.email}')">🔒 Deactivate</button>`
+                    : `<span style="color: #999; font-size: 0.85rem;">Already inactive</span>`;
+                
                 row.innerHTML = `
                     <td>${user.email || 'N/A'}</td>
                     <td>${user.name || 'N/A'}</td>
@@ -1048,6 +1060,7 @@
                     <td><span class="${statusClass}">${(user.status || 'active').toUpperCase()}</span></td>
                     <td>${user.phone || 'N/A'}</td>
                     <td>${createdAt}</td>
+                    <td>${deactivateBtn}</td>
                 `;
                 
                 tbody.appendChild(row);
@@ -1072,6 +1085,49 @@
             // Clear display
             document.getElementById('admin-users-display').classList.add('hidden');
             document.getElementById('admin-response').classList.add('hidden');
+        }
+
+        async function deactivateUser(userId, userEmail) {
+            if (!accessToken) {
+                alert('⚠️ Please login first');
+                return;
+            }
+
+            if (currentUserRole !== 'admin') {
+                alert('⚠️ Only admin users can deactivate accounts');
+                return;
+            }
+
+            // Confirm action
+            const confirmed = confirm(`⚠️ Are you sure you want to deactivate user: ${userEmail}?\n\nThis will lock their account and they won't be able to login.`);
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${USER_API}/users/${userId}/deactivate`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ User ${userEmail} has been deactivated successfully!`);
+                    showResponse('admin-response', data, 'success');
+                    // Refresh user list
+                    getAllUsers();
+                } else {
+                    alert(`❌ Failed to deactivate user: ${data.error || data.message || 'Unknown error'}`);
+                    showResponse('admin-response', data, 'error');
+                }
+            } catch (error) {
+                alert('❌ Network error: ' + error.message);
+                showResponse('admin-response', { error: error.message }, 'error');
+            }
         }
     </script>
 </body>
