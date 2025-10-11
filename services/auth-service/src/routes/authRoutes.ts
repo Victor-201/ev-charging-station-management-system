@@ -11,7 +11,7 @@ import {
   linkProviderSchema,
   unlinkProviderSchema,
 } from '../middlewares/validation';
-import { authenticate } from '../middlewares/authMiddleware';
+import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { authRateLimiter } from '../middlewares/rateLimiter';
 
 const router = Router();
@@ -29,5 +29,8 @@ router.post('/reset-password', validate(resetPasswordSchema), authController.res
 router.post('/logout', authenticate, validate(refreshTokenSchema), authController.logout);
 router.post('/link-provider', authenticate, validate(linkProviderSchema), authController.linkProvider);
 router.post('/unlink-provider', authenticate, validate(unlinkProviderSchema), authController.unlinkProvider);
+
+// Admin routes - Get user list (requires admin role)
+router.get('/users', authenticate, authorize('admin'), authController.getUserList);
 
 export default router;

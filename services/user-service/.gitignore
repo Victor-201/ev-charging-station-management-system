@@ -1,0 +1,13 @@
+node_modules/
+dist/
+logs/
+uploads/
+exports/
+*.log
+.env
+.DS_Store
+coverage/
+.vscode/
+*.swp
+*.swo
+*~

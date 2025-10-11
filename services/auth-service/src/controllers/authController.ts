@@ -100,6 +100,21 @@ export class AuthController {
       status: 'unlinked',
     });
   });
+
+  // Admin: Get list of users
+  getUserList = asyncHandler(async (req: Request, res: Response) => {
+    const { page = '1', size = '10', q, role, status } = req.query;
+    
+    const result = await authService.getUserList({
+      page: parseInt(page as string),
+      size: parseInt(size as string),
+      q: q as string,
+      role: role as string,
+      status: status as string,
+    });
+    
+    res.status(200).json(result);
+  });
 }
 
 export default new AuthController();

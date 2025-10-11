@@ -445,6 +445,67 @@ export class AuthService {
 
     return { status: 'unlinked' };
   }
+
+  // Admin: Get list of users with filtering and pagination
+  async getUserList(params: {
+    page?: number;
+    size?: number;
+    q?: string;
+    role?: string;
+    status?: string;
+  }): Promise<{ total: number; users: any[] }> {
+    try {
+      const { page = 1, size = 10, q, role, status } = params;
+      const offset = (page - 1) * size;
+
+      let whereConditions: string[] = [];
+      let queryParams: any[] = [];
+      let paramIndex = 1;
+
+      if (q) {
+        whereConditions.push(`(email ILIKE $${paramIndex} OR phone ILIKE $${paramIndex})`);
+        queryParams.push(`%${q}%`);
+        paramIndex++;
+      }
+
+      if (role) {
+        whereConditions.push(`role = $${paramIndex}`);
+        queryParams.push(role);
+        paramIndex++;
+      }
+
+      if (status) {
+        whereConditions.push(`status = $${paramIndex}`);
+        queryParams.push(status);
+        paramIndex++;
+      }
+
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Get total count
+      const countResult = await query(
+        `SELECT COUNT(*) FROM users ${whereClause}`,
+        queryParams
+      );
+      const total = parseInt(countResult.rows[0].count);
+
+      // Get paginated users
+      const usersResult = await query(
+        `SELECT id AS user_id, email, phone, role, status, created_at
+         FROM users ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+        [...queryParams, size, offset]
+      );
+
+      return {
+        total,
+        users: usersResult.rows,
+      };
+    } catch (error) {
+      throw new AppError('Failed to get user list', 500);
+    }
+  }
 }
 
 export default new AuthService();

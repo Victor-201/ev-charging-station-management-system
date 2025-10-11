@@ -40,6 +40,28 @@ services:
     networks:
       - ev-network
 
+  # PostgreSQL for User Service
+  postgres-user:
+    image: postgres:15-alpine
+    container_name: ev-postgres-user
+    environment:
+      POSTGRES_DB: ev_user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+      - ../../database/schema/ev_user_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../../database/seeds/seed-user.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ev-network
+
   # Auth Service
   auth-service:
     build:
@@ -65,9 +87,41 @@ services:
       - ev-network
     restart: unless-stopped
 
+  # User Service
+  user-service:
+    build:
+      context: ../../services/user-service
+      dockerfile: Dockerfile
+    container_name: ev-user-service
+    env_file:
+      - ../../services/user-service/.env
+    environment:
+      PORT: 3002
+      NODE_ENV: development
+      DB_HOST: postgres-user
+      DB_PORT: 5432
+      DB_NAME: ev_user_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      AUTH_SERVICE_URL: http://auth-service:3001
+    ports:
+      - "3002:3002"
+    volumes:
+      - user-service-exports:/app/exports
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - ev-network
+    restart: unless-stopped
+
 volumes:
   postgres-auth-data:
+  postgres-user-data:
   pgadmin-data:
+  user-service-exports:
 
 networks:
   ev-network:
