@@ -102,3 +102,23 @@ CREATE TABLE scheduled_notifications (
 CREATE INDEX idx_scheduled_notifications_user_id ON scheduled_notifications(user_id);
 CREATE INDEX idx_scheduled_notifications_send_at ON scheduled_notifications(send_at);
 CREATE INDEX idx_scheduled_notifications_status ON scheduled_notifications(status);
+
+
+-- GDPR Compliance: Data Erasure Audit Log
+CREATE TABLE data_erasure_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    erased_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    erased_tables TEXT[] NOT NULL,
+    requested_by UUID,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_data_erasure_log_user_id ON data_erasure_log(user_id);
+CREATE INDEX idx_data_erasure_log_erased_at ON data_erasure_log(erased_at);
+
+COMMENT ON TABLE data_erasure_log IS 'Audit log for GDPR Article 17 (Right to Erasure) compliance. Tracks all user data deletion requests.';
+COMMENT ON COLUMN data_erasure_log.user_id IS 'ID of user whose data was erased';
+COMMENT ON COLUMN data_erasure_log.erased_tables IS 'Array of table names where data was deleted or anonymized';
+COMMENT ON COLUMN data_erasure_log.requested_by IS 'User ID who initiated the erasure request (self or admin)';

@@ -205,14 +205,49 @@ docker run -d \
 - Future scheduled notifications
 - Processed by background job
 
+## GDPR Compliance
+
+### Data Export (Article 15 - Right to Access)
+**Endpoint**: `GET /api/v1/users/:user_id/export-data`
+
+Exports all personal data in machine-readable format (JSON) packaged in ZIP file:
+- User profile (name, phone, address, avatar)
+- Vehicles (plate numbers, models, specs)
+- Subscriptions history
+- Wallet transactions (last 100)
+- Notifications (last 100)
+
+**Response**: Download URL with file size and export timestamp
+
+**Authorization**: User can export own data, admin can export any user's data
+
+### Data Erasure (Article 17 - Right to be Forgotten)
+**Endpoint**: `DELETE /api/v1/users/:user_id/erase`
+
+Anonymizes or deletes personal data with audit trail:
+- **Anonymize**: user_profiles (name → "Deleted User", phone/avatar/address → NULL)
+- **Delete**: vehicles (contains plate numbers - personal data)
+- **Cancel**: subscriptions (keep for accounting, mark as CANCELLED)
+- **Delete**: notifications (personal communications)
+- **Anonymize**: wallet_transactions (keep amounts for accounting)
+- **Audit**: Log all erasures in `data_erasure_log` table
+
+**Response**: 202 Accepted with "erase_queued" status (processes within 30 days per GDPR)
+
+**Authorization**: User can erase own data, admin can erase any user's data
+
+**Database**: See `database/schema/ev_user_db.sql` for `data_erasure_log` table structure
+
 ## Security
 
 - JWT authentication (tokens issued by auth-service)
 - Role-based access control (ADMIN, STAFF, EV_DRIVER)
-- Resource ownership validation
+- Resource ownership validation (authorizeOwner middleware)
 - Rate limiting on all endpoints
 - Webhook signature verification
-- GDPR compliance (data export & erasure)
+- GDPR Article 15 & 17 compliance (data export & erasure)
+- Database transactions for data integrity
+- Audit logging for sensitive operations
 
 ## Error Handling
 

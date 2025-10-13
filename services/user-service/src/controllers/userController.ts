@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import userService from '../services/userService';
 import logger from '../utils/logger';
 import fs from 'fs/promises';
+import { createWriteStream } from 'fs';
 import path from 'path';
 import archiver from 'archiver';
 
@@ -152,25 +153,67 @@ export class UserController {
     try {
       const { user_id } = req.params;
 
+      logger.info(`Exporting user data for user: ${user_id}`);
+
       const userData = await userService.exportUserData(user_id);
 
       // Create export directory if not exists
       const exportDir = process.env.EXPORT_DIR || './exports';
       await fs.mkdir(exportDir, { recursive: true });
 
-      const exportFile = path.join(exportDir, `${user_id}.zip`);
-      const output = await fs.open(exportFile, 'w');
+      const exportFile = path.join(exportDir, `user_${user_id}_${Date.now()}.zip`);
+      const output = createWriteStream(exportFile);
       const archive = archiver('zip', { zlib: { level: 9 } });
 
-      archive.pipe(output.createWriteStream());
+      // Handle archive errors
+      archive.on('error', (err) => {
+        logger.error('Archive error:', err);
+        throw err;
+      });
+
+      // Pipe archive to file
+      archive.pipe(output);
+
+      // Add user data JSON to archive
       archive.append(JSON.stringify(userData, null, 2), { name: 'user_data.json' });
+
+      // Add README for user
+      const readme = `USER DATA EXPORT
+=================
+
+User ID: ${user_id}
+Export Date: ${userData.exported_at}
+Data Sources: ${userData.data_sources?.join(', ')}
+
+This archive contains all personal data we have stored about you.
+
+Contents:
+- user_data.json: All your data in JSON format
+
+${userData.note || ''}
+`;
+      archive.append(readme, { name: 'README.txt' });
+
+      // Finalize archive
       await archive.finalize();
-      await output.close();
+
+      // Wait for file to be written
+      await new Promise<void>((resolve, reject) => {
+        output.on('close', () => resolve());
+        output.on('error', reject);
+      });
 
       const exportUrlBase = process.env.EXPORT_URL_BASE || 'http://localhost:3002/exports';
-      const exportUrl = `${exportUrlBase}/${user_id}.zip`;
+      const fileName = path.basename(exportFile);
+      const exportUrl = `${exportUrlBase}/${fileName}`;
 
-      res.json({ export_url: exportUrl });
+      logger.info(`User data exported successfully for user: ${user_id}`);
+
+      res.json({ 
+        export_url: exportUrl,
+        file_size_bytes: archive.pointer(),
+        exported_at: userData.exported_at
+      });
     } catch (error) {
       logger.error('Error in exportUserData:', error);
       res.status(500).json({ error: 'Failed to export user data' });
@@ -182,10 +225,18 @@ export class UserController {
     try {
       const { user_id } = req.params;
 
+      logger.info(`Erasing user data for user: ${user_id}`);
+
       // Queue erase operation (should be handled asynchronously)
       await userService.eraseUserData(user_id);
 
-      res.status(202).json({ status: 'erase_queued' });
+      logger.info(`User data erasure queued successfully for user: ${user_id}`);
+
+      res.status(202).json({ 
+        status: 'erase_queued',
+        message: 'Your data erasure request has been queued. This process may take up to 30 days to complete in accordance with GDPR regulations.',
+        user_id
+      });
     } catch (error) {
       logger.error('Error in eraseUserData:', error);
       res.status(500).json({ error: 'Failed to erase user data' });

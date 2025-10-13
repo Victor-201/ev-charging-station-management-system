@@ -637,6 +637,18 @@
                         <span class="method method-get">GET</span>
                         <code>/api/v1/users (Admin Only)</code>
                     </div>
+                    <div class="api-endpoint">
+                        <span class="method method-post">POST</span>
+                        <code>/api/v1/users/:id/deactivate (Admin)</code>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="method method-get">GET</span>
+                        <code>/api/v1/users/:id/export-data (GDPR)</code>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="method method-delete">DELETE</span>
+                        <code>/api/v1/users/:id/erase (GDPR)</code>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1053,6 +1065,12 @@
                     ? `<button class="btn btn-danger btn-sm" onclick="deactivateUser('${user.user_id}', '${user.email}')">🔒 Deactivate</button>`
                     : `<span style="color: #999; font-size: 0.85rem;">Already inactive</span>`;
                 
+                // GDPR action buttons
+                const gdprButtons = `
+                    <button class="btn btn-success btn-sm" onclick="exportUserData('${user.user_id}', '${user.email}')" style="margin-top: 5px;">📦 Export Data</button>
+                    <button class="btn btn-warning btn-sm" onclick="eraseUserData('${user.user_id}', '${user.email}')" style="margin-top: 5px;">🗑️ Erase Data</button>
+                `;
+                
                 row.innerHTML = `
                     <td>${user.email || 'N/A'}</td>
                     <td>${user.name || 'N/A'}</td>
@@ -1060,7 +1078,10 @@
                     <td><span class="${statusClass}">${(user.status || 'active').toUpperCase()}</span></td>
                     <td>${user.phone || 'N/A'}</td>
                     <td>${createdAt}</td>
-                    <td>${deactivateBtn}</td>
+                    <td>
+                        ${deactivateBtn}
+                        ${gdprButtons}
+                    </td>
                 `;
                 
                 tbody.appendChild(row);
@@ -1122,6 +1143,132 @@
                     getAllUsers();
                 } else {
                     alert(`❌ Failed to deactivate user: ${data.error || data.message || 'Unknown error'}`);
+                    showResponse('admin-response', data, 'error');
+                }
+            } catch (error) {
+                alert('❌ Network error: ' + error.message);
+                showResponse('admin-response', { error: error.message }, 'error');
+            }
+        }
+
+        // ==================== GDPR FUNCTIONS ====================
+
+        async function exportUserData(userId, userEmail) {
+            if (!accessToken) {
+                alert('⚠️ Please login first');
+                return;
+            }
+
+            if (currentUserRole !== 'admin') {
+                alert('⚠️ Only admin users can export user data');
+                return;
+            }
+
+            // Confirm action
+            const confirmed = confirm(`📦 Export all data for user: ${userEmail}?\n\nThis will create a ZIP file with all personal data according to GDPR Article 15 (Right to Access).`);
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${USER_API}/users/${userId}/export-data`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Show success message with download link
+                    const message = `✅ Data export successful!\n\n` +
+                        `Export URL: ${data.export_url}\n` +
+                        `File Size: ${(data.file_size_bytes / 1024).toFixed(2)} KB\n` +
+                        `Exported At: ${new Date(data.exported_at).toLocaleString()}\n\n` +
+                        `Click OK to open download link in new tab.`;
+                    
+                    alert(message);
+                    
+                    // Open download link in new tab
+                    window.open(data.export_url, '_blank');
+                    
+                    showResponse('admin-response', data, 'success');
+                } else {
+                    alert(`❌ Failed to export user data: ${data.error || data.message || 'Unknown error'}`);
+                    showResponse('admin-response', data, 'error');
+                }
+            } catch (error) {
+                alert('❌ Network error: ' + error.message);
+                showResponse('admin-response', { error: error.message }, 'error');
+            }
+        }
+
+        async function eraseUserData(userId, userEmail) {
+            if (!accessToken) {
+                alert('⚠️ Please login first');
+                return;
+            }
+
+            if (currentUserRole !== 'admin') {
+                alert('⚠️ Only admin users can erase user data');
+                return;
+            }
+
+            // Strong confirmation with detailed warning
+            const warning = `⚠️⚠️⚠️ CRITICAL WARNING ⚠️⚠️⚠️\n\n` +
+                `You are about to PERMANENTLY DELETE/ANONYMIZE all data for:\n` +
+                `User: ${userEmail}\n\n` +
+                `This action will:\n` +
+                `✗ Anonymize user profile (name, phone, address)\n` +
+                `✗ Delete all vehicles (plate numbers)\n` +
+                `✗ Cancel all subscriptions\n` +
+                `✗ Delete all notifications\n` +
+                `✗ Anonymize wallet transactions\n\n` +
+                `This complies with GDPR Article 17 (Right to be Forgotten).\n` +
+                `This action CANNOT be undone!\n\n` +
+                `Type "DELETE" to confirm:`;
+
+            const userInput = prompt(warning);
+            
+            if (userInput !== 'DELETE') {
+                alert('❌ Erase operation cancelled. User typed: ' + (userInput || '(nothing)'));
+                return;
+            }
+
+            // Second confirmation
+            const finalConfirm = confirm(`🔴 FINAL CONFIRMATION\n\nAre you absolutely sure you want to erase all data for ${userEmail}?\n\nClick OK to proceed with data erasure.`);
+            if (!finalConfirm) {
+                alert('❌ Erase operation cancelled.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${USER_API}/users/${userId}/erase`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const message = `✅ Data erasure request queued successfully!\n\n` +
+                        `User: ${userEmail}\n` +
+                        `Status: ${data.status}\n\n` +
+                        `${data.message || 'Data will be processed within 30 days per GDPR regulations.'}\n\n` +
+                        `An audit log has been created in the database.`;
+                    
+                    alert(message);
+                    showResponse('admin-response', data, 'success');
+                    
+                    // Refresh user list after 2 seconds
+                    setTimeout(() => {
+                        getAllUsers();
+                    }, 2000);
+                } else {
+                    alert(`❌ Failed to erase user data: ${data.error || data.message || 'Unknown error'}`);
                     showResponse('admin-response', data, 'error');
                 }
             } catch (error) {
