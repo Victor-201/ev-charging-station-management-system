@@ -9,6 +9,8 @@
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:ui": "node test-web/server.js",
+    "test:subscription": "jest subscription.test.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix"
   },

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Service - Subscription Testing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .auth-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .auth-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .api-section {
+            margin-bottom: 30px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .api-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .api-header h3 {
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .api-method {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .method-get {
+            background: #61affe;
+            color: white;
+        }
+
+        .method-post {
+            background: #49cc90;
+            color: white;
+        }
+
+        .api-body {
+            padding: 20px;
+        }
+
+        .api-description {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .response-container {
+            margin-top: 20px;
+        }
+
+        .response-container h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .response-box {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-left: 10px;
+        }
+
+        .status-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .subscriptions-list {
+            margin-top: 15px;
+        }
+
+        .subscription-card {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .subscription-card h5 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .subscription-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .info-item {
+            font-size: 0.9rem;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+        }
+
+        .status-active {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .status-cancelled {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .status-expired {
+            color: #ffc107;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 User Service - Subscription Management</h1>
+            <p>Test Subscription APIs for EV Charging Station Management System</p>
+        </div>
+
+        <div class="content">
+            <!-- Auth Section -->
+            <div class="auth-section">
+                <h3>🔐 Authentication Setup</h3>
+                <div class="input-group">
+                    <label for="baseUrl">API Base URL:</label>
+                    <input type="text" id="baseUrl" value="http://localhost:3002/api/v1" placeholder="http://localhost:3002/api/v1">
+                </div>
+                <div class="input-group">
+                    <label for="authToken">JWT Token:</label>
+                    <input type="text" id="authToken" placeholder="Enter your JWT token from auth-service">
+                </div>
+                <div class="input-group">
+                    <label for="userId">User ID:</label>
+                    <input type="text" id="userId" placeholder="Enter user ID">
+                </div>
+            </div>
+
+            <!-- API: Get Subscriptions -->
+            <div class="api-section">
+                <div class="api-header">
+                    <div>
+                        <span class="api-method method-get">GET</span>
+                        <span style="margin-left: 10px; color: #666; font-family: monospace;">/users/{user_id}/subscriptions</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="getSubscriptions()">Test</button>
+                </div>
+                <div class="api-body">
+                    <p class="api-description">Lấy danh sách gói cước user đang dùng</p>
+                    
+                    <div class="subscriptions-list" id="subscriptionsList" style="display: none;">
+                        <h4>Subscriptions:</h4>
+                        <div id="subscriptionsContainer"></div>
+                    </div>
+
+                    <div class="response-container">
+                        <h4>Response: <span id="getSubsStatus"></span></h4>
+                        <div class="response-box" id="getSubsResponse">No response yet...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API: Subscribe to Plan -->
+            <div class="api-section">
+                <div class="api-header">
+                    <div>
+                        <span class="api-method method-post">POST</span>
+                        <span style="margin-left: 10px; color: #666; font-family: monospace;">/users/{user_id}/subscriptions</span>
+                    </div>
+                    <button class="btn btn-success" onclick="subscribeToPlan()">Subscribe</button>
+                </div>
+                <div class="api-body">
+                    <p class="api-description">Đăng ký hoặc gia hạn gói cước</p>
+                    
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="planId">Plan ID:</label>
+                            <input type="text" id="planId" placeholder="e.g., P001" value="P001">
+                        </div>
+                        <div class="input-group">
+                            <label for="autoRenew">Auto Renew:</label>
+                            <select id="autoRenew" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="response-container">
+                        <h4>Response: <span id="subscribeStatus"></span></h4>
+                        <div class="response-box" id="subscribeResponse">No response yet...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API: Cancel Subscription -->
+            <div class="api-section">
+                <div class="api-header">
+                    <div>
+                        <span class="api-method method-post">POST</span>
+                        <span style="margin-left: 10px; color: #666; font-family: monospace;">/users/{user_id}/subscriptions/{subscription_id}/cancel</span>
+                    </div>
+                    <button class="btn btn-danger" onclick="cancelSubscription()">Cancel</button>
+                </div>
+                <div class="api-body">
+                    <p class="api-description">Hủy gói cước</p>
+                    
+                    <div class="input-group">
+                        <label for="subscriptionId">Subscription ID:</label>
+                        <input type="text" id="subscriptionId" placeholder="Enter subscription ID to cancel">
+                    </div>
+
+                    <div class="response-container">
+                        <h4>Response: <span id="cancelStatus"></span></h4>
+                        <div class="response-box" id="cancelResponse">No response yet...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Helper function to make API calls
+        async function apiCall(method, endpoint, body = null) {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const authToken = document.getElementById('authToken').value;
+
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+
+            if (authToken) {
+                options.headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}${endpoint}`, options);
+                const data = await response.json();
+                return { status: response.status, data };
+            } catch (error) {
+                return { status: 'error', data: { error: error.message } };
+            }
+        }
+
+        // Get Subscriptions
+        async function getSubscriptions() {
+            const userId = document.getElementById('userId').value;
+            
+            if (!userId) {
+                alert('Please enter User ID');
+                return;
+            }
+
+            const result = await apiCall('GET', `/users/${userId}/subscriptions`);
+            
+            document.getElementById('getSubsStatus').innerHTML = 
+                `<span class="status-badge ${result.status === 200 ? 'status-success' : 'status-error'}">${result.status}</span>`;
+            document.getElementById('getSubsResponse').textContent = JSON.stringify(result.data, null, 2);
+
+            // Display subscriptions
+            if (result.status === 200 && result.data.subscriptions) {
+                displaySubscriptions(result.data.subscriptions);
+            }
+        }
+
+        // Display subscriptions in cards
+        function displaySubscriptions(subscriptions) {
+            const container = document.getElementById('subscriptionsContainer');
+            const listDiv = document.getElementById('subscriptionsList');
+            
+            if (subscriptions.length === 0) {
+                container.innerHTML = '<p style="color: #666;">No subscriptions found.</p>';
+                listDiv.style.display = 'block';
+                return;
+            }
+
+            container.innerHTML = subscriptions.map(sub => `
+                <div class="subscription-card">
+                    <h5>📋 Subscription: ${sub.subscription_id || sub.id}</h5>
+                    <div class="subscription-info">
+                        <div class="info-item">
+                            <div class="info-label">Plan ID:</div>
+                            <div class="info-value">${sub.plan_id}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Status:</div>
+                            <div class="info-value status-${sub.status.toLowerCase()}">${sub.status.toUpperCase()}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Auto Renew:</div>
+                            <div class="info-value">${sub.auto_renew ? '✅ Yes' : '❌ No'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Start Date:</div>
+                            <div class="info-value">${new Date(sub.start_date).toLocaleDateString()}</div>
+                        </div>
+                        ${sub.end_date ? `
+                        <div class="info-item">
+                            <div class="info-label">End Date:</div>
+                            <div class="info-value">${new Date(sub.end_date).toLocaleDateString()}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ${sub.status.toLowerCase() === 'active' ? `
+                    <button class="btn btn-danger" onclick="quickCancel('${sub.subscription_id || sub.id}')">Cancel This Subscription</button>
+                    ` : ''}
+                </div>
+            `).join('');
+            
+            listDiv.style.display = 'block';
+        }
+
+        // Subscribe to Plan
+        async function subscribeToPlan() {
+            const userId = document.getElementById('userId').value;
+            const planId = document.getElementById('planId').value;
+            const autoRenew = document.getElementById('autoRenew').value === 'true';
+            
+            if (!userId || !planId) {
+                alert('Please enter User ID and Plan ID');
+                return;
+            }
+
+            const body = {
+                plan_id: planId,
+                auto_renew: autoRenew,
+            };
+
+            const result = await apiCall('POST', `/users/${userId}/subscriptions`, body);
+            
+            document.getElementById('subscribeStatus').innerHTML = 
+                `<span class="status-badge ${result.status === 201 ? 'status-success' : 'status-error'}">${result.status}</span>`;
+            document.getElementById('subscribeResponse').textContent = JSON.stringify(result.data, null, 2);
+
+            // Auto-fill subscription ID if successful
+            if (result.status === 201 && result.data.subscription_id) {
+                document.getElementById('subscriptionId').value = result.data.subscription_id;
+                // Refresh subscriptions list
+                setTimeout(() => getSubscriptions(), 500);
+            }
+        }
+
+        // Cancel Subscription
+        async function cancelSubscription() {
+            const userId = document.getElementById('userId').value;
+            const subscriptionId = document.getElementById('subscriptionId').value;
+            
+            if (!userId || !subscriptionId) {
+                alert('Please enter User ID and Subscription ID');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to cancel subscription ${subscriptionId}?`)) {
+                return;
+            }
+
+            const result = await apiCall('POST', `/users/${userId}/subscriptions/${subscriptionId}/cancel`);
+            
+            document.getElementById('cancelStatus').innerHTML = 
+                `<span class="status-badge ${result.status === 200 ? 'status-success' : 'status-error'}">${result.status}</span>`;
+            document.getElementById('cancelResponse').textContent = JSON.stringify(result.data, null, 2);
+
+            // Refresh subscriptions list
+            if (result.status === 200) {
+                setTimeout(() => getSubscriptions(), 500);
+            }
+        }
+
+        // Quick cancel from subscription card
+        async function quickCancel(subscriptionId) {
+            document.getElementById('subscriptionId').value = subscriptionId;
+            await cancelSubscription();
+        }
+
+        // Auto-load subscriptions on page load if credentials are set
+        window.addEventListener('load', () => {
+            const userId = document.getElementById('userId').value;
+            const authToken = document.getElementById('authToken').value;
+            
+            if (userId && authToken) {
+                getSubscriptions();
+            }
+        });
+    </script>
+</body>
+</html>

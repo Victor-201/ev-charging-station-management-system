@@ -7,8 +7,18 @@ export class SubscriptionService {
   async getUserSubscriptions(userId: string): Promise<Subscription[]> {
     try {
       const result = await pool.query(
-        `SELECT id AS subscription_id, user_id, plan_id, status, start_date, end_date, auto_renew, created_at
-         FROM subscriptions WHERE user_id = $1
+        `SELECT 
+          id, 
+          user_id, 
+          plan_id, 
+          status, 
+          start_date, 
+          end_date, 
+          auto_renew, 
+          created_at,
+          updated_at
+         FROM subscriptions 
+         WHERE user_id = $1
          ORDER BY created_at DESC`,
         [userId]
       );
@@ -36,8 +46,8 @@ export class SubscriptionService {
         throw new Error('User already has an active subscription for this plan');
       }
 
-      // TODO: Get plan details from plan-service to calculate end_date
-      // For now, default to 30 days
+      // Get plan details and duration (default to 30 days for now)
+      // TODO: Integrate with plan-service to get actual plan details
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
@@ -50,6 +60,9 @@ export class SubscriptionService {
       );
 
       await client.query('COMMIT');
+      
+      logger.info(`User ${userId} subscribed to plan ${planId}`);
+      
       return result.rows[0].id;
     } catch (error) {
       await client.query('ROLLBACK');

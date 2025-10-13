@@ -10,7 +10,18 @@ export class SubscriptionController {
 
       const subscriptions = await subscriptionService.getUserSubscriptions(user_id);
 
-      res.json({ subscriptions });
+      // Format response according to specification
+      const formattedSubscriptions = subscriptions.map(sub => ({
+        subscription_id: sub.id,
+        plan_id: sub.plan_id,
+        status: sub.status.toLowerCase(),
+        start_date: sub.start_date,
+        end_date: sub.end_date,
+        auto_renew: sub.auto_renew,
+        created_at: sub.created_at,
+      }));
+
+      res.json({ subscriptions: formattedSubscriptions });
     } catch (error) {
       logger.error('Error in getUserSubscriptions:', error);
       res.status(500).json({ error: 'Failed to get subscriptions' });
