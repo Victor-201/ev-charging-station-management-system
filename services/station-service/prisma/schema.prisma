@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model stations {
+  id        String            @id @default(uuid()) @db.Char(36)
+  name      String
+  address   String?           @db.VarChar(500)
+  city      String?           @db.VarChar(100)
+  region    String?           @db.VarChar(100)
+  latitude  Decimal?          @db.Decimal(10,7)
+  longitude Decimal?          @db.Decimal(10,7)
+  status    String            @default("active") @db.VarChar(50)
+  created_at DateTime         @default(now())
+  updated_at DateTime         @updatedAt
+
+  charging_points   charging_points[]
+  station_staff     station_staff[]
+  station_incidents station_incidents[]
+  station_usage_reports station_usage_reports[]
+
+  @@index([city], name: "idx_stations_city")
+}
+
+model charging_points {
+  id            String            @id @default(uuid()) @db.Char(36)
+  station_id    String            @db.Char(36)
+  external_id   String?           @unique @db.VarChar(100)
+  connector_type String?          @db.VarChar(50)
+  max_power_kw  Decimal?          @db.Decimal(8,2)
+  status        String            @default("available") @db.VarChar(50)
+  price_per_kwh Decimal?          @db.Decimal(10,2)
+  price_per_minute Decimal?       @db.Decimal(10,2)
+  created_at    DateTime          @default(now())
+  updated_at    DateTime          @updatedAt
+
+  station       stations          @relation(fields: [station_id], references: [id], onDelete: Cascade)
+  station_incidents station_incidents[]
+
+  @@index([station_id], name: "idx_cp_stationid")
+}
+
+model station_staff {
+  id           String   @id @default(uuid()) @db.Char(36)
+  staff_user_id String   @db.Char(36)
+  station_id   String   @db.Char(36)
+  role         String?  @db.VarChar(50)
+  assigned_at  DateTime @default(now())
+
+  station      stations @relation(fields: [station_id], references: [id], onDelete: Cascade)
+
+  @@index([station_id], name: "idx_station_staff")
+}
+
+model station_incidents {
+  id         String   @id @default(uuid()) @db.Char(36)
+  station_id String   @db.Char(36)
+  point_id   String?  @db.Char(36)
+  reported_by String? @db.Char(36)
+  description String?
+  severity   String   @default("medium") @db.VarChar(20)
+  status     String   @default("open") @db.VarChar(50)
+  created_at DateTime @default(now())
+  resolved_at DateTime?
+
+  station        stations       @relation(fields: [station_id], references: [id], onDelete: Cascade)
+  charging_point charging_points? @relation(fields: [point_id], references: [id], onDelete: SetNull)
+
+  @@index([station_id], name: "idx_incidents_station")
+}
+
+model station_usage_reports {
+  id           String   @id @default(uuid()) @db.Char(36)
+  station_id   String   @db.Char(36)
+  report_date  DateTime
+  total_sessions Int     @default(0)
+  total_kwh     Decimal  @default(0) @db.Decimal(12,2)
+  total_revenue Decimal  @default(0) @db.Decimal(12,2)
+  created_at    DateTime @default(now())
+
+  station      stations @relation(fields: [station_id], references: [id], onDelete: Cascade)
+
+  @@unique([station_id, report_date], name: "uq_station_report_date")
+}
+
+model outbox_events {
+  id            String   @id @default(uuid()) @db.Char(36)
+  aggregate_type String?  @db.VarChar(100)
+  aggregate_id   String?  @db.Char(36)
+  event_type     String?  @db.VarChar(100)
+  payload        Json?
+  published      Boolean  @default(false)
+  created_at     DateTime @default(now())
+}
