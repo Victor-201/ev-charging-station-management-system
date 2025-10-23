@@ -1,13 +1,21 @@
 import { TransactionModel as TM } from '../models/TransactionModel.js';
+import { WalletModel } from '../models/WalletModel.js';
 
 export const PaymentService = {
   async createTransaction({ user_id, amount, method, session_id = null, description = '' }) {
     let referenceCode = null;
     let status = 'pending';
 
-    if (method === 'wallet') status = 'success'; // ví thanh toán ngay
+    if (method === 'wallet') status = 'success';
     if (method === 'bank') referenceCode = `EV${Date.now()}${Math.floor(Math.random() * 10000)}`;
-    if (method === 'cash') status = 'pending'; // xác nhận tại quầy
+    if (method === 'cash') status = 'pending';
+
+    if (method === 'wallet') {
+      const balance = await WalletModel.getBalance(user_id);
+      if (balance < amount) {
+        throw Object.assign(new Error('Insufficient wallet balance'), { status: 400 });
+      }
+    }
 
     const tx = await TM.create({
       external_id: null,
@@ -19,6 +27,16 @@ export const PaymentService = {
       status,
       meta: { referenceCode, description }
     });
+
+    if (method === 'wallet') {
+      await WalletModel.addTransaction({
+        wallet_id: user_id,  
+        user_id,
+        type: 'charge',     
+        amount,
+        reference_id: tx.id 
+      });
+    }
 
     const result = { transaction_id: tx.id, amount, method, status };
     if (referenceCode) result.referenceCode = referenceCode;
