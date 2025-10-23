@@ -11,3 +11,8 @@ coverage/
 *.swp
 *.swo
 *~
+
+# Firebase Service Account (SENSITIVE - DO NOT COMMIT)
+config/firebase-service-account.json
+firebase-service-account.json
+*firebase-adminsdk*.json

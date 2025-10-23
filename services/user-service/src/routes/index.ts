@@ -4,6 +4,7 @@ import vehicleController from '../controllers/vehicleController';
 import subscriptionController from '../controllers/subscriptionController';
 import walletController from '../controllers/walletController';
 import notificationController from '../controllers/notificationController';
+import fcmRoutes from './fcmRoutes';
 import { authenticate, authorize, authorizeOwner } from '../middlewares/authMiddleware';
 import { validate, updateUserSchema, changePasswordSchema, addVehicleSchema, updateVehicleSchema, subscriptionSchema, withdrawSchema, notificationSchema, scheduleNotificationSchema } from '../middlewares/validation';
 
@@ -82,5 +83,8 @@ router.post('/notifications/schedule', authenticate, validate(scheduleNotificati
 
 // POST /api/v1/webhooks/bookings - Booking webhook (no auth - signature verified in controller)
 router.post('/webhooks/bookings', notificationController.handleBookingWebhook);
+
+// ==================== FCM PUSH NOTIFICATION ROUTES ====================
+router.use('/notifications/fcm', fcmRoutes);
 
 export default router;

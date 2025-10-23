@@ -144,3 +144,24 @@ COMMENT ON TABLE processed_events IS 'Tracks processed events for idempotency in
 COMMENT ON COLUMN processed_events.event_id IS 'Unique identifier of the processed event (from RabbitMQ message)';
 COMMENT ON COLUMN processed_events.event_type IS 'Type of the event (e.g., user.created, user.updated, user.deactivated)';
 COMMENT ON COLUMN processed_events.processed_at IS 'Timestamp when the event was successfully processed';
+
+
+-- FCM Tokens table for push notifications
+CREATE TABLE user_fcm_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    fcm_token TEXT NOT NULL UNIQUE,
+    device_type VARCHAR(20) NOT NULL CHECK (device_type IN ('ios', 'android', 'web')),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_fcm_tokens_user_id ON user_fcm_tokens(user_id);
+CREATE INDEX idx_user_fcm_tokens_is_active ON user_fcm_tokens(is_active);
+CREATE INDEX idx_user_fcm_tokens_device_type ON user_fcm_tokens(device_type);
+
+COMMENT ON TABLE user_fcm_tokens IS 'Firebase Cloud Messaging (FCM) tokens for push notifications. Each user can have multiple tokens for different devices.';
+COMMENT ON COLUMN user_fcm_tokens.fcm_token IS 'Firebase Cloud Messaging token for push notifications';
+COMMENT ON COLUMN user_fcm_tokens.device_type IS 'Type of device: ios, android, or web';
+COMMENT ON COLUMN user_fcm_tokens.is_active IS 'Whether the token is still valid and active';

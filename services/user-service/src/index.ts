@@ -9,6 +9,7 @@ import { apiLimiter } from './middlewares/rateLimiter';
 import logger from './utils/logger';
 import pool from './config/database';
 import { rabbitmqConsumer } from './config/rabbitmq';
+import { initializeFirebase } from './config/firebase';
 import {
   handleUserCreated,
   handleUserUpdated,
@@ -63,6 +64,15 @@ const startServer = async () => {
     // Test database connection
     await pool.query('SELECT NOW()');
     logger.info('Database connection established');
+
+    // Initialize Firebase Admin SDK
+    try {
+      initializeFirebase();
+      logger.info('Firebase Admin SDK initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize Firebase (FCM notifications will not work):', error);
+      // Service continues without Firebase
+    }
 
     // Connect to RabbitMQ and setup consumer
     try {
