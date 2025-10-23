@@ -8,6 +8,13 @@ import { errorHandler } from './middlewares/errorHandler';
 import { apiLimiter } from './middlewares/rateLimiter';
 import logger from './utils/logger';
 import pool from './config/database';
+import { rabbitmqConsumer } from './config/rabbitmq';
+import {
+  handleUserCreated,
+  handleUserUpdated,
+  handleUserDeactivated,
+  handleUserRoleUpdated,
+} from './handlers/userEventHandlers';
 
 // Load environment variables
 dotenv.config();
@@ -57,6 +64,35 @@ const startServer = async () => {
     await pool.query('SELECT NOW()');
     logger.info('Database connection established');
 
+    // Connect to RabbitMQ and setup consumer
+    try {
+      await rabbitmqConsumer.connect();
+      logger.info('RabbitMQ consumer connected');
+
+      // Register event handlers
+      rabbitmqConsumer.registerHandler('user.created', handleUserCreated);
+      rabbitmqConsumer.registerHandler('user.updated', handleUserUpdated);
+      rabbitmqConsumer.registerHandler('user.deactivated', handleUserDeactivated);
+      rabbitmqConsumer.registerHandler('user.role_updated', handleUserRoleUpdated);
+      logger.info('Event handlers registered');
+
+      // Subscribe to Auth Service events
+      await rabbitmqConsumer.subscribe([
+        'user.created',
+        'user.updated',
+        'user.deactivated',
+        'user.role_updated',
+      ]);
+      logger.info('Subscribed to Auth Service events');
+
+      // Start consuming messages
+      await rabbitmqConsumer.startConsuming();
+      logger.info('Started consuming events from RabbitMQ');
+    } catch (error) {
+      logger.error('Failed to connect to RabbitMQ (service will continue):', error);
+      // Service continues without RabbitMQ, but event processing won't work
+    }
+
     app.listen(PORT, () => {
       logger.info(`User service listening on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV}`);
@@ -68,5 +104,29 @@ const startServer = async () => {
 };
 
 startServer();
+
+// Graceful shutdown
+const shutdown = async (signal: string) => {
+  logger.info(`${signal} received. Starting graceful shutdown...`);
+  
+  try {
+    // Stop consuming and close RabbitMQ connection
+    await rabbitmqConsumer.close();
+    logger.info('RabbitMQ consumer closed');
+
+    // Close database connection
+    await pool.end();
+    logger.info('Database connection closed');
+
+    // Exit process
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 export default app;

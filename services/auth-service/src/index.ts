@@ -7,6 +7,8 @@ import { logger } from './utils/logger';
 import authRoutes from './routes/authRoutes';
 import { testDbConnection } from './config/database';
 import { rateLimiter } from './middlewares/rateLimiter';
+import { rabbitmqClient } from './config/rabbitmq';
+import { outboxService } from './services/outboxService';
 
 dotenv.config();
 
@@ -62,6 +64,19 @@ const startServer = async () => {
     await testDbConnection();
     logger.info('Database connection established');
 
+    // Connect to RabbitMQ
+    try {
+      await rabbitmqClient.connect();
+      logger.info('RabbitMQ connection established');
+
+      // Start outbox publisher
+      outboxService.startPublisher(5000); // Publish every 5 seconds
+      logger.info('Outbox publisher started');
+    } catch (error) {
+      logger.error('Failed to connect to RabbitMQ (service will continue):', error);
+      // Service continues without RabbitMQ, events will queue in outbox
+    }
+
     app.listen(PORT, () => {
       logger.info(`Auth Service running on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -73,5 +88,29 @@ const startServer = async () => {
 };
 
 startServer();
+
+// Graceful shutdown
+const shutdown = async (signal: string) => {
+  logger.info(`${signal} received. Starting graceful shutdown...`);
+  
+  try {
+    // Stop outbox publisher
+    outboxService.stopPublisher();
+    logger.info('Outbox publisher stopped');
+
+    // Close RabbitMQ connection
+    await rabbitmqClient.close();
+    logger.info('RabbitMQ connection closed');
+
+    // Exit process
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 export default app;

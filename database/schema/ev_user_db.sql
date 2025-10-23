@@ -103,3 +103,44 @@ COMMENT ON TABLE data_erasure_log IS 'Audit log for GDPR Article 17 (Right to Er
 COMMENT ON COLUMN data_erasure_log.user_id IS 'ID of user whose data was erased';
 COMMENT ON COLUMN data_erasure_log.erased_tables IS 'Array of table names where data was deleted or anonymized';
 COMMENT ON COLUMN data_erasure_log.requested_by IS 'User ID who initiated the erasure request (self or admin)';
+
+
+-- Users table (synced from Auth Service via RabbitMQ events)
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    full_name VARCHAR(100),
+    phone_number VARCHAR(20),
+    role VARCHAR(50) DEFAULT 'customer' CHECK (role IN ('customer', 'admin', 'station_owner')),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_is_active ON users(is_active);
+
+COMMENT ON TABLE users IS 'User accounts synced from Auth Service via event-driven architecture';
+COMMENT ON COLUMN users.id IS 'User ID from Auth Service (same UUID)';
+COMMENT ON COLUMN users.email IS 'User email address (unique)';
+COMMENT ON COLUMN users.role IS 'User role for authorization';
+
+
+-- Processed Events table for idempotency
+CREATE TABLE processed_events (
+    id SERIAL PRIMARY KEY,
+    event_id VARCHAR(100) UNIQUE NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_processed_events_event_id ON processed_events(event_id);
+CREATE INDEX idx_processed_events_processed_at ON processed_events(processed_at);
+CREATE INDEX idx_processed_events_event_type ON processed_events(event_type);
+
+COMMENT ON TABLE processed_events IS 'Tracks processed events for idempotency in event-driven architecture. Prevents duplicate processing of RabbitMQ messages.';
+COMMENT ON COLUMN processed_events.event_id IS 'Unique identifier of the processed event (from RabbitMQ message)';
+COMMENT ON COLUMN processed_events.event_type IS 'Type of the event (e.g., user.created, user.updated, user.deactivated)';
+COMMENT ON COLUMN processed_events.processed_at IS 'Timestamp when the event was successfully processed';
