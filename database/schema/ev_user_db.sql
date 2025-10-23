@@ -49,25 +49,6 @@ CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX idx_subscriptions_status ON subscriptions(status);
 
 
--- Wallet Transactions
-CREATE TABLE wallet_transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES user_profiles(user_id) ON DELETE CASCADE,
-    transaction_id VARCHAR(100) NOT NULL UNIQUE,
-    amount DECIMAL(12,2) NOT NULL,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('TOPUP', 'PAYMENT', 'REFUND')),
-    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SUCCEEDED', 'FAILED')),
-    provider VARCHAR(50),
-    provider_ref VARCHAR(200),
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE
-);
-
-CREATE INDEX idx_wallet_transactions_user_id ON wallet_transactions(user_id);
-CREATE INDEX idx_wallet_transactions_created_at ON wallet_transactions(created_at DESC);
-
-
 -- Notifications
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

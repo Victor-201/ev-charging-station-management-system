@@ -32,7 +32,7 @@ CREATE TABLE transactions (
     session_id UUID, -- logical reference to charging_db.charging_sessions.id
     amount NUMERIC(12,2) NOT NULL,
     currency VARCHAR(10) DEFAULT 'VND',
-    method VARCHAR(50), -- ewallet, banking, cash
+    method VARCHAR(50), -- wallet, bank, cash
     status VARCHAR(50) DEFAULT 'pending', -- pending, success, failed, refunded
     meta JSONB, -- gateway response, fees, etc.
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -64,16 +64,22 @@ CREATE TABLE invoice_items (
 
 CREATE INDEX idx_invoice_items_invoice ON invoice_items(invoice_id);
 
--- wallet transactions ledger (optional detailed history)
+-- wallets
+CREATE TABLE wallets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    balance DECIMAL(12,2) DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- wallet_transactions
 CREATE TABLE wallet_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    wallet_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    type VARCHAR(50), -- topup, charge, refund
-    amount NUMERIC(12,2) NOT NULL,
-    balance_after NUMERIC(12,2),
-    reference_id UUID, -- optional (transaction id)
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    wallet_id UUID NOT NULL REFERENCES wallets(id),
+    amount DECIMAL(12,2) NOT NULL,
+    type VARCHAR(20) CHECK (type IN ('TOPUP', 'PAYMENT', 'REFUND')),
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE INDEX idx_wt_user ON wallet_transactions(user_id);
