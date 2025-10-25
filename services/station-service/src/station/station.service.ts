@@ -3,7 +3,7 @@ import { Injectable, BadRequestException, InternalServerErrorException, NotFound
 import { PrismaService } from 'src/prisma.service';
 import { Prisma } from '@prisma/client';
 
-import { SearchStationDto, CreateStationDto, UpdateStationDto, ConnectorDto, ReportIssueDto, ScheduleMaintenanceDto } from 'src/dto/station.dto';
+import { SearchStationDto, CreateStationDto, UpdateStationDto, ConnectorDto, ReportIssueDto, ScheduleMaintenanceDto, PricingItemDto } from 'src/dto/station.dto';
 
 @Injectable()
 export class StationService {
@@ -169,7 +169,7 @@ export class StationService {
         return { incident_id: report.id, status: 'reported' };
     }
 
-    scheduleMaintenance = async (station_id: string,scheduled_by: string, data: ScheduleMaintenanceDto): Promise<any> => {
+    scheduleMaintenance = async (station_id: string, scheduled_by: string, data: ScheduleMaintenanceDto): Promise<any> => {
         const station = await this.prisma.stations.findUnique({
             where: { id: station_id },
         });
@@ -193,6 +193,44 @@ export class StationService {
             },
         });
         return { status: 'scheduled' };
+    }
+
+    getPricingByStation = async (station_id: string): Promise<{ pricing: PricingItemDto[] }> => {
+        const points = await this.prisma.charging_points.findMany({
+            where: { station_id },
+            select: {
+                id: true,
+                price_per_kwh: true,
+                price_per_minute: true,
+            },
+        });
+
+        if (!points || points.length === 0) {
+            return { pricing: [] };
+        }
+
+        const pricing: PricingItemDto[] = [];
+
+        points.forEach((point) => {
+            if (point.price_per_kwh !== null) {
+                pricing.push({
+                    point_id: point.id,
+                    model: 'per_kwh',
+                    price: point.price_per_kwh.toNumber(),
+                    currency: 'USD',
+                });
+            }
+            if (point.price_per_minute !== null) {
+                pricing.push({
+                    point_id: point.id,
+                    model: 'per_min',
+                    price: point.price_per_minute.toNumber(),
+                    currency: 'USD',
+                });
+            }
+        });
+
+        return { pricing }
     }
 }
 

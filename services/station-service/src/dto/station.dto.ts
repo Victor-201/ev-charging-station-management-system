@@ -104,12 +104,23 @@ export class ReportIssueDto {
 }
 
 export class ScheduleMaintenanceDto {
-  @IsString()
-  reason: string;
+    @IsString()
+    reason: string;
 
-  @IsISO8601()
-  start: string;
+    @IsISO8601()
+    start: string;
 
-  @IsISO8601()
-  end: string;
+    @IsISO8601()
+    end: string;
+}
+
+export class PricingItemDto {
+    point_id: string;
+    model: 'per_kwh' | 'per_min' | 'flat';
+    price: number;
+    currency: string;
+}
+
+export class StationPricingDto {
+    pricing: PricingItemDto[];
 }

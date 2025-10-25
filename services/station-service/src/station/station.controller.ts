@@ -3,7 +3,7 @@ import { StationService } from './station.service';
 
 import type { Request } from 'express';
 
-import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto } from 'src/dto/station.dto';
+import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto } from 'src/dto/station.dto';
 
 import { JwtAuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
@@ -59,7 +59,8 @@ export class StationController {
         return this.stationService.reportIssue(body, userId, id);
     }
 
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff')
     @Post(':id/maintenance')
     async scheduleMaintenance( 
         @Param('id') station_id: string, 
@@ -68,5 +69,10 @@ export class StationController {
     }) {
         const scheduled_by = (req as any).user?.id;
         return this.stationService.scheduleMaintenance(station_id, scheduled_by, data);
+    }
+
+    @Get(':id/pricing')
+    async getPricingByStation(@Param('id') id: string) : Promise<StationPricingDto> {
+        return this.stationService.getPricingByStation(id);
     }
 }

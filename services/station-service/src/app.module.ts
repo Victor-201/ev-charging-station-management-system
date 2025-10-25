@@ -15,7 +15,7 @@ import { ChargerModule } from './charger/charger.module';
     }),
 
     StationModule,
-    // ChargerModule,
+    ChargerModule,
   ],
   // controllers: [AppController],
   // providers: [AppService],
