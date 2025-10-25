@@ -10,7 +10,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./sql/data.sql:/docker-entrypoint-initdb.d/data.sql
+      - ./seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
 
   ev_station_service:
     build: .
