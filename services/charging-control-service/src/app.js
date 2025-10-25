@@ -14,6 +14,7 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/qr', qrRoutes);
 app.use('/api/v1/sessions', sessionRoutes);
 
+
 app.get('/', (req, res) => res.send('EV Reservation Service Running 🚗'));
 
 module.exports = app;
