@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from 'src/prisma.service';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { Prisma } from '@prisma/client';
 
 import { SearchStationDto, CreateStationDto, UpdateStationDto, ConnectorDto, ReportIssueDto, ScheduleMaintenanceDto, PricingItemDto } from 'src/dto/station.dto';
@@ -82,7 +83,7 @@ export class StationService {
             console.error('Prisma error:', error);
 
             if (
-                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error instanceof PrismaClientKnownRequestError &&
                 error.code === 'P2002'
             ) {
                 throw new BadRequestException('The station already exists');
