@@ -1,6 +1,28 @@
 version: '3.8'
 
 services:
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: ev-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ev-network
+    restart: unless-stopped
+
   # PostgreSQL for Auth Service
   postgres-auth:
     image: postgres:15-alpine
@@ -78,10 +100,13 @@ services:
       DB_NAME: ev_auth_db
       DB_USER: postgres
       DB_PASSWORD: postgres
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
     ports:
       - "3001:3001"
     depends_on:
       postgres-auth:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - ev-network
@@ -104,12 +129,15 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       AUTH_SERVICE_URL: http://auth-service:3001
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
     ports:
       - "3002:3002"
     volumes:
       - user-service-exports:/app/exports
     depends_on:
       postgres-user:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       auth-service:
         condition: service_started
@@ -118,6 +146,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  rabbitmq-data:
   postgres-auth-data:
   postgres-user-data:
   pgadmin-data:

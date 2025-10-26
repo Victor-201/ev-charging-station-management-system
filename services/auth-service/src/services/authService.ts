@@ -4,6 +4,7 @@ import { query, getClient } from '../config/database';
 import { AppError } from '../middlewares/errorHandler';
 import { JWTPayload } from '../types';
 import { sendEmail } from '../utils/email';
+import { outboxService } from './outboxService';
 import axios from 'axios';
 
 export class AuthService {
@@ -63,6 +64,21 @@ export class AuthService {
       );
 
       const user = userResult.rows[0];
+
+      // Insert event vào outbox (trong cùng transaction)
+      await outboxService.insertEvent(
+        client,
+        'User',
+        user.id,
+        'user.created',
+        {
+          user_id: user.id,
+          email: user.email,
+          role: user.role,
+          phone: data.phone,
+          created_at: user.created_at
+        }
+      );
 
       await client.query('COMMIT');
 

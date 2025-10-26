@@ -4,6 +4,7 @@ import vehicleController from '../controllers/vehicleController';
 import subscriptionController from '../controllers/subscriptionController';
 import walletController from '../controllers/walletController';
 import notificationController from '../controllers/notificationController';
+import fcmRoutes from './fcmRoutes';
 import { authenticate, authorize, authorizeOwner } from '../middlewares/authMiddleware';
 import { validate, updateUserSchema, changePasswordSchema, addVehicleSchema, updateVehicleSchema, subscriptionSchema, withdrawSchema, notificationSchema, scheduleNotificationSchema } from '../middlewares/validation';
 
@@ -71,10 +72,16 @@ router.post('/wallets/:user_id/withdraw', authenticate, authorizeOwner, validate
 router.get('/wallets/:user_id/transactions', authenticate, authorizeOwner, walletController.getTransactions);
 
 // ==================== NOTIFICATION ROUTES ====================
-// GET /api/v1/notifications/:user_id - Get user notifications
+// GET /api/v1/notifications/:user_id - Get user notifications (inbox)
 router.get('/notifications/:user_id', authenticate, authorizeOwner, notificationController.getNotifications);
 
-// POST /api/v1/notifications/send - Send notification (service-to-service)
+// PUT /api/v1/notifications/:notification_id/read - Mark notification as read
+router.put('/notifications/:notification_id/read', authenticate, notificationController.markAsRead);
+
+// PUT /api/v1/notifications/:user_id/read-all - Mark all notifications as read
+router.put('/notifications/:user_id/read-all', authenticate, authorizeOwner, notificationController.markAllAsRead);
+
+// POST /api/v1/notifications/send - Send notification (service-to-service or internal)
 router.post('/notifications/send', authenticate, validate(notificationSchema), notificationController.sendNotification);
 
 // POST /api/v1/notifications/schedule - Schedule notification
@@ -82,5 +89,8 @@ router.post('/notifications/schedule', authenticate, validate(scheduleNotificati
 
 // POST /api/v1/webhooks/bookings - Booking webhook (no auth - signature verified in controller)
 router.post('/webhooks/bookings', notificationController.handleBookingWebhook);
+
+// ==================== FCM PUSH NOTIFICATION ROUTES ====================
+router.use('/notifications/fcm', fcmRoutes);
 
 export default router;

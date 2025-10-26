@@ -21,6 +21,41 @@ export class NotificationController {
     }
   }
 
+  // PUT /api/v1/notifications/:notification_id/read - Mark notification as read
+  async markAsRead(req: Request, res: Response): Promise<void> {
+    try {
+      const { notification_id } = req.params;
+      const userId = (req as any).user?.id; // From auth middleware
+
+      await notificationService.markAsRead(notification_id, userId);
+
+      res.json({ 
+        status: 'success',
+        message: 'Notification marked as read' 
+      });
+    } catch (error) {
+      logger.error('Error in markAsRead:', error);
+      res.status(500).json({ error: 'Failed to mark notification as read' });
+    }
+  }
+
+  // PUT /api/v1/notifications/:user_id/read-all - Mark all notifications as read
+  async markAllAsRead(req: Request, res: Response): Promise<void> {
+    try {
+      const { user_id } = req.params;
+
+      await notificationService.markAllAsRead(user_id);
+
+      res.json({ 
+        status: 'success',
+        message: 'All notifications marked as read' 
+      });
+    } catch (error) {
+      logger.error('Error in markAllAsRead:', error);
+      res.status(500).json({ error: 'Failed to mark all notifications as read' });
+    }
+  }
+
   // POST /api/v1/notifications/send - Send notification
   async sendNotification(req: Request, res: Response): Promise<void> {
     try {

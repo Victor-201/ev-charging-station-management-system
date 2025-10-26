@@ -1,0 +1,27 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: db_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: station_service
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
+
+  ev_station_service:
+    build: .
+    container_name: ev_station_service
+    restart: always
+    depends_on:
+      - mysql
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "mysql://root:root@db_mysql:3306/station_service"
+
+volumes:
+  mysql_data:
