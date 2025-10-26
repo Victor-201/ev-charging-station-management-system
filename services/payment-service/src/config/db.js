@@ -3,17 +3,17 @@ import env from './env.js';
 
 const { Pool } = pkg;
 
-// Initialize connection pool
-const pool = new Pool({
-  connectionString: env.DATABASE_URL,
-});
+// Build connection string from env variables
+const connectionString = `postgresql://${env.DB_USER}:${env.DB_PASS}@${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`;
 
-// Verify database connection
+// Initialize pool
+const pool = new Pool({ connectionString });
+
+// Test connection
 (async () => {
   try {
     const client = await pool.connect();
     console.log('Connected to PostgreSQL database successfully.');
-    console.log(`Database URL: ${env.DATABASE_URL}`);
     client.release();
   } catch (err) {
     console.error('Failed to connect to PostgreSQL database:', err.message);
