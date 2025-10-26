@@ -1,3 +1,4 @@
+// config/env.js
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -19,5 +20,6 @@ export default {
   RABBITMQ_PORT: process.env.RABBITMQ_PORT || 5672,
 
   PAYMENT_GATEWAY_API_KEY: process.env.PAYMENT_GATEWAY_API_KEY,
-  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET
+  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
+  JWT_SECRET: process.env.JWT_SECRET,
 };
