@@ -1,0 +1,390 @@
+:root {
+  --bg: #061025; /* sidebar background */
+  --bg-2: linear-gradient(180deg, rgba(6,16,37,0.95), rgba(4,10,24,0.95));
+  --accent: #0f62fe;
+  --muted: rgba(255,255,255,0.65);
+  --muted-2: rgba(255,255,255,0.45);
+  --width-open: 220px;
+  --width-closed: 64px;
+  --radius: 14px;
+  --transition-fast: 180ms;
+  --transition-med: 240ms;
+  --shadow: 0 8px 30px rgba(6,12,30,0.45);
+  --text-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+
+/* base layout */
+.sidebar {
+  font-family: var(--text-font);
+  width: var(--width-open);
+  background: var(--bg-2);
+  color: #eaf2ff;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px;
+  box-sizing: border-box;
+  gap: 12px;
+  transition: width var(--transition-med) ease, box-shadow var(--transition-fast);
+  position: relative;
+  overflow: visible;
+}
+
+/* closed state */
+.sidebar.closed {
+  width: var(--width-closed);
+  min-width: var(--width-closed);
+  max-width: var(--width-closed);
+  align-items: center;
+}
+
+/* allow hover-open on desktop: when closed but hovered, temporarily expand */
+@media (hover: hover) and (pointer: fine) {
+  .sidebar.closed:hover {
+    width: var(--width-open);
+    box-shadow: var(--shadow);
+  }
+
+  /* when hovered-open, reveal labels & chevron smoothly */
+  .sidebar.closed:hover .item-label,
+  .sidebar.closed:hover .chev {
+    display: inline-block;
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  /* hide tooltip while expanding on hover */
+  .sidebar.closed:hover .tooltip {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* top area */
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* brand */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  user-select: none;
+}
+
+.logo {
+  font-size: 24px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  /* remove any thick outer frame: keep subtle bg only */
+  box-shadow: none;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+}
+
+.title span {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* collapse button */
+.collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.collapse-btn:hover {
+  background: rgba(255,255,255,0.03);
+  transform: translateX(2px);
+}
+
+/* nav */
+.sidebar-nav {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+/* sidebar item */
+.sidebar-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* hover / focus */
+.sidebar-item:hover,
+.sidebar-item:focus {
+  background: rgba(255,255,255,0.02);
+  color: #fff;
+  transform: translateX(2px);
+}
+
+/* icon - make it larger and remove any outer box */
+.item-icon {
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+  flex: 0 0 36px;
+  border-radius: 8px;
+  /* no border/frame */
+  background: transparent;
+  transition: font-size var(--transition-fast), transform var(--transition-fast);
+}
+
+/* label */
+.item-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+/* chevron on right */
+.chev {
+  margin-left: auto;
+  font-size: 18px;
+  color: var(--muted-2);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+/* active item */
+.sidebar-item.active {
+  background: linear-gradient(90deg, rgba(15,98,254,0.12), rgba(15,98,254,0.06));
+  color: #ffffff;
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+
+/* closed state specific rules */
+.sidebar.closed .item-label,
+.sidebar.closed .chev {
+  /* hidden by default when collapsed */
+  display: none;
+  opacity: 0;
+  transform: translateX(-6px);
+}
+
+/* closed icons: center items */
+.sidebar.closed .sidebar-item {
+  justify-content: center;
+  padding: 10px 0;
+  width: 100%;
+}
+
+/* tooltip - used when closed on small screens or if hover not supported */
+.tooltip {
+  position: absolute;
+  left: calc(var(--width-closed) + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-6px);
+  background: rgba(7,16,30,0.98);
+  color: #e6f0ff;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+  z-index: 70;
+}
+
+/* show tooltip when collapsed and hovering over specific item (for touchless devices not expanding) */
+.sidebar.closed .sidebar-item:hover .tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+  pointer-events: auto;
+}
+
+/* hide tooltip when sidebar is open */
+.sidebar.open .tooltip {
+  display: none;
+}
+
+/* footer */
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255,255,255,0.03);
+  width: 100%;
+}
+
+.version {
+  font-size: 12px;
+  color: var(--muted-2);
+}
+
+.footer-actions {
+  opacity: 0.95;
+}
+
+/* accessibility focus */
+.sidebar-item:focus {
+  outline: 2px solid rgba(15,98,254,0.18);
+  outline-offset: 2px;
+}
+
+/* small screens adjustments */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    z-index: 60;
+    left: 0;
+    top: 68px;
+    height: calc(100vh - 68px);
+    transform-origin: left center;
+  }
+}
+
+/* hide tooltips on extra small screens (touch devices) */
+@media (max-width: 520px), (pointer: coarse) {
+  .tooltip {
+    display: none;
+  }
+
+  /* on touch/mobile, when closed keep it closed and don't expand on hover */
+  .sidebar.closed:hover {
+    width: var(--width-closed);
+  }
+}
+:root {
+  /* tăng width open & closed theo yêu cầu */
+  --width-open: 260px;   /* was 220 */
+  --width-closed: 80px;  /* was 64 */
+  /* các biến còn lại giữ nguyên... */
+}
+
+/* --- sidebar cơ bản giữ nguyên --- */
+/* ... (giữ lại các rule cũ) ... */
+
+/* closed state cập nhật */
+.sidebar.closed {
+  width: var(--width-closed);
+  min-width: var(--width-closed);
+  max-width: var(--width-closed);
+  align-items: center;
+}
+
+/* make collapse button bigger and floating when collapsed so it's always easy to tap */
+.collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background var(--transition-fast), right var(--transition-fast);
+}
+
+/* when the sidebar is closed, enlarge and float the button outside the edge */
+.sidebar.closed .collapse-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 30px rgba(15,98,254,0.18);
+  position: absolute;
+  right: -18px; /* stick out so user can always click it */
+  top: 12px;
+  transform: translateX(0);
+  z-index: 90;
+  display: grid;
+  place-items: center;
+}
+
+/* visual feedback on hover/tap */
+.sidebar.closed .collapse-btn:hover {
+  transform: translateX(2px);
+  box-shadow: 0 10px 36px rgba(15,98,254,0.24);
+}
+
+/* rotate icon so it hints 'open' when closed */
+.sidebar.closed .collapse-btn svg {
+  transform: rotate(180deg);
+  transition: transform var(--transition-fast);
+}
+
+/* when open, keep collapse button smaller and more subtle (original spot) */
+.sidebar.open .collapse-btn {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  color: var(--muted);
+  position: static;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ensure the floating button doesn't overlap item icons when closed on small screens */
+@media (max-width: 520px) {
+  .sidebar.closed .collapse-btn {
+    right: -12px;
+    top: 10px;
+  }
+}
+
+/* adjust closed item layout to match larger closed width */
+.sidebar.closed .sidebar-item {
+  justify-content: center;
+  padding: 12px 0;
+  width: 100%;
+}
+
+/* tooltip left offset adjusted to new closed width */
+.tooltip {
+  left: calc(var(--width-closed) + 12px);
+}
+
+/* keep hover-expand behaviour (desktop) but expand to the new --width-open */
+@media (hover: hover) and (pointer: fine) {
+  .sidebar.closed:hover {
+    width: var(--width-open);
+    box-shadow: var(--shadow);
+  }
+}

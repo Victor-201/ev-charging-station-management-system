@@ -1,0 +1,31 @@
+:root{ --bg: #f6f9fc; --card:#ffffff }
+.app-root{ min-height:100vh; background:var(--bg); }
+.app-body{ display:flex; align-items:flex-start; gap:18px; }
+.content{ flex:1; padding:26px; transition: margin-left .28s cubic-bezier(.2,.9,.3,1); }
+.content-inner{ max-width:1100px; margin:0 auto; }
+.content-card{ background:var(--card); padding:22px; border-radius:14px; box-shadow: 0 10px 30px rgba(8,12,20,0.06); }
+.muted{ color:rgba(6,10,20,0.45); }
+
+
+.grid{ display:flex; gap:14px; margin-top:18px; }
+.stat{ flex:1; padding:16px; border-radius:12px; background: linear-gradient(180deg,#fbfdff,#f7fbff); display:flex; align-items:center; gap:12px; font-weight:700; }
+.stat span{ display:block; font-size:20px; font-weight:900; margin-top:6px; }
+
+
+.actions{ margin-top:18px; display:flex; gap:12px; }
+.btn{ padding:10px 14px; border-radius:10px; border:none; cursor:pointer; font-weight:700; }
+.btn.primary{ background: linear-gradient(90deg,var(--accent),#0353c3); color:white; box-shadow: 0 10px 30px rgba(15,98,254,0.12); }
+.btn.ghost{ background:transparent; border:1px solid rgba(8,12,20,0.06); }
+
+
+/* Sidebar open/closed layout shifts */
+.app-body.sidebar-open .content{ margin-left: 0; }
+.app-body.sidebar-closed .content{ margin-left: 0; }
+
+
+/* responsive */
+@media (max-width:900px){ .app-body{ padding-left:0; } .content{ padding:18px; } }
+
+
+/* small polish */
+h1{ margin:0; font-size:22px; }

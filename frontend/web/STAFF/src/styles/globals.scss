@@ -1,0 +1,26 @@
+@use './variables' as *;
+
+// Note: `@import` is deprecated in Dart Sass. Use `@use` or `@forward`.
+// If you prefer the automatic migrator, see: https://sass-lang.com/d/import
+
+*{box-sizing:border-box}
+body{font-family: Inter, system-ui, Arial, sans-serif;background:$bg;color:$text;margin:0}
+
+.app-root{display:flex;flex-direction:column;height:100vh}
+.navbar{height:56px;background:white;display:flex;align-items:center;justify-content:space-between;padding:0 16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.app-body{display:flex;flex:1}
+.sidebar{width:240px;background:$sidebar;color:white;padding:12px;transition:all .25s}
+.sidebar.closed{width:0;padding:0 0}
+.main-content{flex:1;padding:16px;overflow:auto}
+
+.page h1{margin:0 0 12px}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+
+/* basic components fallback styles to avoid missing imports */
+.card{background:$card;border-radius:8px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+
+/* small utilities */
+.two-col{display:grid;grid-template-columns:1fr 320px;gap:12px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}}

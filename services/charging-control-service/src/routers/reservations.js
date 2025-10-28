@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/reservationController');
 
+router.get('/auto-cancel', ctrl.runAutoCancelJob);
 // Check availability (atomic check)
 router.get('/check', ctrl.checkAvailability);
 
@@ -22,5 +23,6 @@ router.put('/:reservation_id', ctrl.updateReservation);
 
 // Cancel reservation
 router.delete('/:reservation_id', ctrl.cancelReservation);
+
 
 module.exports = router;

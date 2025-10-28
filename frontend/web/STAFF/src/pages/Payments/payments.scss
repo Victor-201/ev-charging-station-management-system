@@ -1,0 +1,400 @@
+/* payments.scss — Light theme, all text dark on white background */
+
+/* VARIABLES */
+:root {
+  --bg-card: #ffffff;
+  --bg-card-strong: #f8f9fb;
+  --border: #d1d5db;
+  --muted: #6b7280;
+  --muted-2: #9ca3af;
+  --text: #111827;        /* primary text color */
+  --accent-1: #0f62fe;
+  --accent-2: #2563eb;
+  --danger: #ef4444;
+  --success: #10b981;
+  --shadow-soft: 0 8px 28px rgba(0, 0, 0, 0.08);
+  --shadow-subtle: 0 6px 20px rgba(0, 0, 0, 0.06);
+  --radius-lg: 14px;
+  --radius-md: 12px;
+  --transition: 180ms ease;
+}
+
+/* page wrapper */
+.page.payments-page {
+  padding: 20px;
+  background: #ffffff;
+  color: var(--text);
+  min-height: 100%;
+  box-sizing: border-box;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* ---------- MAIN CARD OPTIONS ---------- */
+.payment-options {
+  display: flex;
+  gap: 24px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* card base */
+.payment-card {
+  flex: 1 1 320px;
+  min-height: 160px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition), border-color var(--transition);
+  box-shadow: var(--shadow-subtle);
+  text-align: left;
+  color: var(--text); /* ensure primary color */
+}
+
+/* card content */
+.payment-card-emoji {
+  font-size: 36px;
+  line-height: 1;
+  /* emojis keep native color — no forcing */
+}
+
+.payment-card-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text); /* forced dark */
+  letter-spacing: 0.2px;
+}
+
+.payment-card-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* hover / active */
+.payment-card:hover {
+  transform: translateY(-6px);
+  background: linear-gradient(135deg, rgba(15, 98, 254, 0.04), rgba(37, 99, 235, 0.02));
+  border-color: rgba(15, 98, 254, 0.24);
+  box-shadow: 0 14px 40px rgba(15, 98, 254, 0.08);
+}
+
+.payment-card:active {
+  transform: translateY(-2px) scale(0.998);
+}
+
+/* center content when needed */
+.payment-card.center {
+  align-items: center;
+  text-align: center;
+}
+
+/* ---------- SUB OPTIONS (Cash / QR) ---------- */
+.payment-options-sub,
+.payment-suboptions {
+  display: flex;
+  gap: 20px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* small card (cash / qr) */
+.small-card {
+  flex: 1 1 260px;
+  min-height: 130px;
+  background: var(--bg-card-strong);
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition), background var(--transition);
+  box-shadow: var(--shadow-subtle);
+  color: var(--text); /* force dark text inside */
+  text-align: center; /* center label for clarity */
+}
+
+/* smaller text elements */
+.small-card .emoji {
+  font-size: 30px;
+}
+
+.small-card .title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.small-card .sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* hover subtle */
+.small-card:hover {
+  transform: translateY(-4px);
+  background: linear-gradient(135deg, rgba(15, 98, 254, 0.08), rgba(15, 98, 254, 0.04));
+  border-color: rgba(15, 98, 254, 0.24);
+  box-shadow: 0 12px 30px rgba(15, 98, 254, 0.08);
+}
+
+/* ---------- CASH FORM ---------- */
+.cash-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 6px;
+  color: var(--text);
+}
+
+.cash-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cash-form input[type="number"],
+.cash-form input[type="text"] {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: var(--text);
+  width: 260px;
+  transition: box-shadow var(--transition), border-color var(--transition);
+  outline: none;
+  box-shadow: none;
+}
+
+/* focus */
+.cash-form input:focus {
+  border-color: var(--accent-1);
+  box-shadow: 0 6px 18px rgba(15, 98, 254, 0.12);
+}
+
+/* actions row */
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+/* button base */
+.btn {
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+  color: #fff; /* primary buttons keep white text on colored bg */
+}
+
+/* primary */
+.btn-primary {
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(15, 98, 254, 0.18);
+}
+
+/* secondary (light btn with dark text) */
+.btn-secondary {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  color: var(--text);
+}
+
+/* disabled */
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---------- MESSAGES ---------- */
+.msg {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  max-width: 520px;
+  color: var(--text);
+}
+
+.msg.success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46; /* darker green text */
+  border: 1px solid rgba(16, 185, 129, 0.14);
+}
+
+.msg.error {
+  background: rgba(239, 68, 68, 0.08);
+  color: #7f1d1d; /* darker red text */
+  border: 1px solid rgba(239, 68, 68, 0.12);
+}
+
+/* ---------- QR AREA ---------- */
+.qr-area {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  color: var(--text);
+}
+
+.qr-box {
+  width: 240px;
+  height: 240px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+  border: 1px solid #e6e9ef;
+}
+
+/* ensure any svg text uses dark fill */
+.qr-svg text {
+  fill: var(--text) !important;
+}
+
+.qr-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 220px;
+  max-height: 220px;
+  display: block;
+}
+
+/* QR actions text */
+.qr-actions {
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text);
+}
+
+.qr-actions .hint {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ---------- PAYMENT HISTORY (FULL WIDTH) ---------- */
+.history {
+  width: 100%;
+  margin-top: 30px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+  padding: 24px;
+  box-sizing: border-box;
+  color: var(--text);
+}
+
+.history h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 18px;
+  text-align: left;
+  color: var(--text);
+}
+
+.history table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+.history th,
+.history td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e6e9ef;
+}
+
+.history th {
+  background: #f8f9fb;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.history td {
+  color: var(--text);
+}
+
+/* ---------- BACK BUTTON ---------- */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--accent-1);
+  font-weight: 800;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+/* focus states */
+.payment-card:focus,
+.small-card:focus,
+.back-btn:focus,
+.btn:focus {
+  outline: 3px solid rgba(15, 98, 254, 0.12);
+  outline-offset: 3px;
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 980px) {
+  .payment-card { flex: 1 1 48%; min-height: 150px; }
+  .small-card { flex: 1 1 45%; min-height: 120px; }
+  .qr-box { width: 200px; height: 200px; }
+}
+
+@media (max-width: 720px) {
+  .payment-options,
+  .payment-options-sub,
+  .payment-suboptions {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .payment-card, .small-card { width: 100%; flex: 1 1 100%; }
+  .cash-form input[type="number"] { width: 100%; max-width: 420px; }
+  .qr-area { flex-direction: column; align-items: stretch; }
+  .qr-box { margin: 0 auto; width: 220px; height: 220px; }
+  .qr-actions { max-width: 100%; }
+}
+
+@media (max-width: 420px) {
+  .payment-card { padding: 14px; min-height: 130px; }
+  .payment-card-emoji { font-size: 28px; }
+  .payment-card-title { font-size: 18px; }
+  .btn { padding: 8px 12px; }
+}
+
+/* SAFETY OVERRIDES: make sure no child inside payment area keeps white text */
+.page.payments-page * {
+  /* only override color for elements that accidentally use white */
+  color: inherit !important;
+}
