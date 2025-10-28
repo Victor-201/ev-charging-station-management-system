@@ -1,11 +1,14 @@
 import express from 'express';
-import * as PaymentController from '../controllers/PaymentController.js';
+import { PaymentController } from '../controllers/PaymentController.js';
 const router = express.Router();
 
-router.post('/create-intent', PaymentController.createIntent);
-router.post('/confirm', PaymentController.confirmPayment);
-router.get('/:payment_id', PaymentController.getPayment);
-router.post('/webhook', PaymentController.webhook);
-router.post('/:payment_id/refund', PaymentController.refundPayment);
+router.post('/transaction', PaymentController.createTransaction);
+router.post('/transaction/:id/confirm', PaymentController.confirmCashPayment);
+router.post('/webhook', PaymentController.processBankWebhook);
+router.post('/transaction/:id/refund', PaymentController.refundPayment);
+router.get('/wallet/:user_id', PaymentController.getWallet);
+router.post('/wallet/topup', PaymentController.topupWallet);
+router.get('/user/:user_id/payments', PaymentController.listUserPayments);
+router.get('/transaction/:id', PaymentController.getPaymentById);
 
 export default router;

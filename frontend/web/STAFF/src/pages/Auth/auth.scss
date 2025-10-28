@@ -1,0 +1,4 @@
+.auth-page{display:flex;align-items:center;justify-content:center;height:calc(100vh - 56px)}
+.auth-card{background:white;padding:24px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);min-width:320px;display:flex;flex-direction:column;gap:8px}
+.auth-card input{padding:8px;border:1px solid #e5e7eb;border-radius:6px}
+.auth-card button{padding:8px;border:none;border-radius:6px;background:#2563eb;color:white}

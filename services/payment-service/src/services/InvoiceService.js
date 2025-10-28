@@ -1,38 +1,90 @@
-import { v4 as uuidv4 } from 'uuid';
 import PDFDocument from 'pdfkit';
-import { InvoiceModel } from '../models/InvoiceModel.js';
-import { TransactionModel } from '../models/TransactionModel.js';
+import InvoiceRepository from '../repositories/InvoiceRepository.js';
+import TransactionRepository from '../repositories/TransactionRepository.js';
 
-export const InvoiceService = {
-  async generateFromTransaction(transaction_id){
-    const tx = await TransactionModel.findById(transaction_id);
-    if(!tx) throw Object.assign(new Error('Transaction not found'), { status: 404 });
+/**
+ * InvoiceService
+ * Chịu trách nhiệm tạo và quản lý hóa đơn:
+ * - Tạo hóa đơn từ transaction
+ * - Lấy hóa đơn theo ID
+ * - Xuất file PDF từ hóa đơn
+ * - Liệt kê hóa đơn theo user
+ * - Cập nhật trạng thái hóa đơn
+ */
+export default class InvoiceService {
+  constructor() {
+    this.invoiceRepo = new InvoiceRepository();
+    this.transactionRepo = new TransactionRepository();
+  }
 
-    const invoice_no = `INV-${Date.now()}-${Math.floor(Math.random()*1000)}`;
-    const invoice = await InvoiceModel.create({ invoice_no, transaction_id, amount: tx.amount, metadata: { tx } });
+  /**
+   * Tạo hóa đơn từ transaction
+   * @param {string} transaction_id
+   * @returns {Promise<Invoice>}
+   */
+  async generateFromTransaction(transaction_id) {
+    const transaction = await this.transactionRepo.findById(transaction_id);
+    if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
+
+    const dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    return this.invoiceRepo.create({
+      transaction_id: transaction.id,
+      user_id: transaction.user_id,
+      total_amount: transaction.amount,
+      due_date: dueDate
+    });
+  }
+
+  /**
+   * Lấy hóa đơn theo ID
+   * @param {string} invoice_id
+   * @returns {Promise<Invoice>}
+   */
+  async getInvoice(invoice_id) {
+    const invoice = await this.invoiceRepo.findById(invoice_id);
+    if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
     return invoice;
-  },
+  }
 
-  async getInvoice(invoice_id){
-    const inv = await InvoiceModel.findById(invoice_id);
-    if(!inv) throw Object.assign(new Error('Invoice not found'), { status: 404 });
-    return inv;
-  },
+  /**
+   * Xuất file PDF từ hóa đơn
+   * @param {Invoice} invoice
+   * @returns {PDFDocument} - Stream PDF
+   */
+  async generatePdfStream(invoice) {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    doc.info.Title = `Invoice #${invoice.id}`;
 
-  async invoicePdfStream(invoice){
-    // invoice: object returned by InvoiceModel
-    const doc = new PDFDocument({ size: 'A4' });
-    doc.info.Title = `Invoice ${invoice.invoice_no}`;
     doc.fontSize(20).text('INVOICE', { align: 'center' });
     doc.moveDown();
-    doc.fontSize(12).text(`Invoice No: ${invoice.invoice_no}`);
-    doc.text(`Amount: ${invoice.amount}`);
-    doc.text(`Issued At: ${invoice.issued_at}`);
+
+    doc.fontSize(12);
+    doc.text(`Invoice ID: ${invoice.id}`);
+    doc.text(`Transaction ID: ${invoice.transaction_id}`);
+    doc.text(`User ID: ${invoice.user_id}`);
+    doc.text(`Amount: ${invoice.total_amount.toLocaleString()} VND`);
+    doc.text(`Due Date: ${invoice.due_date?.toLocaleDateString() || 'N/A'}`);
+    doc.text(`Status: ${invoice.status}`);
     doc.moveDown();
-    doc.text('Thank you for your business');
+    doc.text('Thank you for your payment.', { align: 'center' });
+
     doc.end();
     return doc;
   }
-};
 
-export default InvoiceService;
+  /** Lấy danh sách hóa đơn theo user */
+  async listInvoicesByUser(user_id) {
+    return this.invoiceRepo.listByUser(user_id);
+  }
+
+  /**
+   * Cập nhật trạng thái hóa đơn thành "paid"
+   * @param {string} invoice_id
+   * @returns {Promise<Invoice>}
+   */
+  async markAsPaid(invoice_id) {
+    const invoice = await this.invoiceRepo.updateStatus(invoice_id, 'paid');
+    if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
+    return invoice;
+  }
+}

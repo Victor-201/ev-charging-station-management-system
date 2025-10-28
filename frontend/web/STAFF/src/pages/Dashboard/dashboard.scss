@@ -1,0 +1,187 @@
+/* dashboard.scss — Large action cards layout (5 big tiles) */
+
+:root {
+  --bg: #f5f7fb;
+  --card-bg: #ffffff;
+  --text: #0f1724;
+  --muted: #6b7280;
+  --accent: #0f62fe;
+  --shadow: 0 18px 40px rgba(2,6,23,0.06);
+  --radius: 14px;
+  --gap: 20px;
+  --transition: 200ms ease;
+  --max-width: 1200px;
+  --font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* Page */
+.page.dashboard-page {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 28px;
+  box-sizing: border-box;
+  font-family: var(--font-family);
+  display: flex;
+  justify-content: center;
+}
+
+.page-inner {
+  width: 100%;
+  max-width: var(--max-width);
+}
+
+/* Title */
+.page-inner h1 {
+  margin: 0 0 18px 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* Actions grid
+   Desktop: 3 cols on first row, 2 centered on second.
+   Implement with CSS grid and manual placement for nice composition.
+*/
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: minmax(140px, auto);
+  gap: var(--gap);
+  align-items: stretch;
+  margin-top: 8px;
+}
+
+/* Each action-card styled as a large tile */
+.action-card {
+  background: linear-gradient(180deg, var(--card-bg), #fbfdff);
+  border-radius: var(--radius);
+  padding: 22px;
+  border: 1px solid #e6eef8;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+  color: var(--text);
+  text-align: left;
+  width: 100%;
+}
+
+/* structure inside card */
+.action-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.action-emoji {
+  width: 66px;
+  height: 66px;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  background: linear-gradient(135deg, rgba(15,98,254,0.08), rgba(37,99,235,0.04));
+  border-radius: 12px;
+  border: 1px solid rgba(15,98,254,0.06);
+}
+
+.action-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.action-title {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.action-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* right arrow */
+.action-right {
+  font-size: 22px;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* hover effect */
+.action-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 30px 60px rgba(2,6,23,0.08);
+  border-color: rgba(15,98,254,0.12);
+}
+
+/* --- Layout placements for visual composition --- */
+/* Desktop default (>= 1100px) */
+@media (min-width: 1100px) {
+  /* Payments (big) -> span 5 cols */
+  .action-payments { grid-column: 1 / span 5; grid-row: 1; }
+
+  /* Stations (medium) -> span 4 cols */
+  .action-stations { grid-column: 6 / span 4; grid-row: 1; }
+
+  /* Sessions (medium) -> span 3 cols */
+  .action-sessions { grid-column: 10 / span 3; grid-row: 1; }
+
+  /* Profile (below, left) -> span 5 cols centered */
+  .action-profile { grid-column: 2 / span 5; grid-row: 2; }
+
+  /* History (below, right) -> span 5 cols */
+  .action-history { grid-column: 7 / span 5; grid-row: 2; }
+}
+
+/* Medium screens: a simpler 3-column wrap */
+@media (min-width: 760px) and (max-width: 1099px) {
+  .actions-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .action-payments { grid-column: 1 / span 3; }
+  .action-stations { grid-column: 4 / span 2; }
+  .action-sessions { grid-column: 1 / span 2; }
+  .action-profile { grid-column: 3 / span 2; }
+  .action-history { grid-column: 5 / span 2; }
+}
+
+/* Small screens: single column stacked */
+@media (max-width: 759px) {
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+  .action-card { padding: 18px; }
+  .action-emoji { width: 54px; height: 54px; font-size: 28px; }
+  .action-title { font-size: 18px; }
+  .action-right { display: none; } /* optional compact */
+}
+
+/* Latest sessions table style (kept simple) */
+.latest-sessions { margin-top: 22px; }
+.latest-sessions table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.latest-sessions th, .latest-sessions td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef3fb;
+  text-align: left;
+  color: var(--text);
+}
+
+/* Accessibility focus */
+.action-card:focus {
+  outline: 3px solid rgba(15,98,254,0.12);
+  outline-offset: 3px;
+}
+
+/* small tweaks */
+@media (max-width: 420px) {
+  .action-emoji { width: 48px; height: 48px; font-size: 24px; }
+  .action-title { font-size: 16px; }
+  .action-sub { font-size: 12px; }
+}

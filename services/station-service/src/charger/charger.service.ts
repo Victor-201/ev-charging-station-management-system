@@ -139,8 +139,8 @@ export class ChargerService {
             },
         });
 
-        if (!charger) {
-            throw new NotFoundException('Charger not found');
+        if (!charger ) {
+            return { pricing: [] };
         }
 
         const pricing: ChargerPricingItemDto[] = [];
