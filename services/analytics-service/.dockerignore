@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+yarn-error.log
+.env.local
+.env.*
+dist
+coverage
+Dockerfile*
+docker-compose*
+README.md
