@@ -1,0 +1,203 @@
+/* scanpage.scss - overlay + placeholder styles */
+
+.scan-page {
+  padding: 18px 24px;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.scan-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.back-btn {
+  position: absolute;
+  left: 0;
+  border: none;
+  background: none;
+  color: #0b63d6;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Placeholder displayed inside React tree (for layout) */
+.qr-reader-placeholder {
+  border-radius: 12px;
+  border: 2px dashed rgba(0,0,0,0.12);
+  background: #fafafa;
+  box-shadow: 0 6px 14px rgba(8,35,63,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* overlay container that we append to body (external) */
+.qr-overlay-external {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999; /* rất cao để đè lên mọi thứ */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 15, 25, 0.65); /* mờ nền */
+}
+
+/* the real scanner container inside overlay (created in JS) */
+.qr-external-container {
+  width: 420px;
+  height: 420px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+}
+
+/* ensure injected video/canvas fills container */
+.qr-external-container video,
+.qr-external-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+/* status & results */
+.scan-status {
+  margin-top: 12px;
+}
+
+.scan-result {
+  margin-top: 14px;
+}
+
+.scan-result .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.scan-result button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.scan-result .actions button:first-child {
+  background: #00aaff;
+  color: white;
+}
+
+.scan-result .actions button:last-child {
+  background: #f3f4f6;
+}
+/* overlay external (đã gắn class 'qr-overlay-external') */
+.qr-overlay-external {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 15, 25, 0.65);
+}
+
+/* container created in JS has class 'qr-external-container' */
+.qr-external-container {
+  width: 420px;
+  height: 420px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+}
+
+.qr-external-container video,
+.qr-external-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+/* modal confirmation after scan */
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000; /* hơn overlay */
+  background: rgba(0,0,0,0.35);
+}
+
+.confirm-card {
+  width: 420px;
+  max-width: 92%;
+  padding: 22px;
+  background: #fff;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 12px 34px rgba(0,0,0,0.2);
+}
+
+.checkmark {
+  width: 86px;
+  height: 86px;
+  line-height: 86px;
+  border-radius: 50%;
+  margin: 6px auto 12px;
+  background: #28a745;
+  color: #fff;
+  font-size: 44px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px rgba(40,167,69,0.25);
+  transform: scale(0);
+  animation: popIn 260ms ease-out forwards;
+}
+
+@keyframes popIn {
+  to { transform: scale(1); }
+}
+
+.confirm-card .code {
+  margin-top: 8px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.confirm-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.confirm-btn {
+  background: #00aaff;
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.again-btn {
+  background: #f3f4f6;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}

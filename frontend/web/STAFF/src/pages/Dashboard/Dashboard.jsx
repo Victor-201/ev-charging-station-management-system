@@ -14,13 +14,46 @@ export default function Dashboard() {
     { key: 'history', title: 'History', subtitle: 'Lịch sử sạc', icon: '📜', route: '/history' },
   ];
 
+  // Yêu cầu quyền camera ngay khi bấm vào ô, sau đó điều hướng
+  const requestCameraThenNavigate = async (to) => {
+    try {
+      // request quyền camera (sẽ bật prompt của trình duyệt)
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // tạm dừng stream để giải phóng camera (ScanPage sẽ mở lại bằng html5-qrcode)
+      stream.getTracks().forEach((t) => t.stop());
+      navigate(to);
+    } catch (err) {
+      console.error('Camera permission denied or error:', err);
+      alert('Không thể truy cập camera. Vui lòng cho phép quyền camera và thử lại.');
+    }
+  };
+
   return (
     <div className="page dashboard-page">
       <div className="page-inner">
-        <h1>Dashboard</h1>
+        <h1 className="page-title">Dashboard</h1>
+
+        {/* Ô quét mã QR ở giữa, nổi bật */}
+        <div
+          className="qr-scan-center"
+          role="button"
+          tabIndex={0}
+          onClick={() => requestCameraThenNavigate('/scan')}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') requestCameraThenNavigate('/scan'); }}
+          aria-label="Quét mã QR để xác nhận lượt sạc"
+        >
+          <div className="qr-graphic">
+            {/* bạn có thể thay bằng svg QR đẹp hơn */}
+            <div className="qr-icon">📷</div>
+          </div>
+          <div className="qr-text">
+            <div className="qr-title">Quét mã QR</div>
+            <div className="qr-sub">Nhấn để mở camera và xác nhận lượt sạc</div>
+          </div>
+        </div>
 
         <div className="actions-grid">
-          {quickCards.map((c, idx) => (
+          {quickCards.map((c) => (
             <button
               key={c.key}
               className={`action-card action-${c.key}`}
@@ -39,9 +72,8 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className="latest-sessions" style={{ marginTop: 20 }}>
+        <div className="latest-sessions" style={{ marginTop: 24 }}>
           <Card title="Latest Sessions">
-            {/* giữ table nhỏ như cũ */}
             <table>
               <thead>
                 <tr>

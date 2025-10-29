@@ -6,6 +6,7 @@ import { JWTPayload } from '../types';
 import { sendEmail } from '../utils/email';
 import { outboxService } from './outboxService';
 import axios from 'axios';
+import { logger } from '../utils/logger';
 
 export class AuthService {
   // Generate JWT tokens
@@ -87,7 +88,7 @@ export class AuthService {
         to: data.email,
         subject: 'Welcome to EV Charging System',
         text: `Your account has been created successfully.`,
-      }).catch(err => console.error('Failed to send welcome email:', err));
+      }).catch(err => logger.error('Failed to send welcome email:', err));
 
       return {
         user_id: user.id,
@@ -108,7 +109,7 @@ export class AuthService {
   // Login with email and password
   async login(email: string, password: string, deviceInfo?: string) {
     const result = await query(
-      `SELECT * FROM users WHERE email = $1`,
+      `SELECT id, email, password_hash, role, status FROM users WHERE email = $1`,
       [email]
     );
 
@@ -174,7 +175,7 @@ export class AuthService {
 
     // Check if user exists
     let user = await query(
-      'SELECT * FROM users WHERE email = $1',
+      'SELECT id, email, role, status FROM users WHERE email = $1',
       [email]
     );
 
@@ -271,7 +272,9 @@ export class AuthService {
         name: response.data.name || response.data.email.split('@')[0],
       };
     } catch (error: any) {
-      console.error('Google token verification error:', error.response?.data || error.message);
+      logger.error('Google token verification error:', { 
+        error: error.response?.data || error.message 
+      });
       throw new AppError('Invalid Google token', 401);
     }
   }
