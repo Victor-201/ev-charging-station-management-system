@@ -8,7 +8,12 @@ services:
       - "15672:15672"
 
   rabbitmq-service:
-    build: ../services/rabbitmq-service
+    build:
+      context: .
+      dockerfile: dockerfile
+    image: rabbitmq-service:v1.0.0
+    container_name: rabbitmq-service
+    restart: always
     depends_on:
       - rabbitmq
     environment:
