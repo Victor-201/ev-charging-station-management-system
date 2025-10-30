@@ -1,1 +1,317 @@
-.sessions-page .card{margin-top:8px}
+/* sessions.scss – improved layout & modal design */
+
+.sessions-page {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.sessions-page h1 {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+/* card spacing */
+.sessions-page .card {
+  margin-top: 8px;
+}
+
+/* sessions header */
+.sessions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.station-info {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.session-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-small {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+.btn.danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* table styling */
+.sessions-table-wrap {
+  overflow-x: auto;
+}
+
+.sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.sessions-table th {
+  text-align: left;
+  background: #f1f5fb;
+  color: var(--text);
+  font-weight: 700;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e9f0;
+}
+
+.sessions-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sessions-table tr:hover {
+  background: #f9fafc;
+}
+
+/* status pills */
+.status-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: capitalize;
+  color: #fff;
+}
+
+.status-pill.active { background: var(--ok); }
+.status-pill.paused { background: #f59e0b; }
+.status-pill.finished { background: var(--danger); }
+
+/* modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  animation: fadeIn 0.25s ease;
+}
+
+/* modal box */
+.modal {
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+  width: 460px;
+  max-width: 92%;
+  animation: popIn 0.25s ease;
+}
+
+.modal-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.modal-sub {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+/* chargers list */
+.modal-chargers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.charger-select {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.charger-select:hover {
+  background: #f1f5fb;
+  border-color: var(--accent);
+}
+
+.charger-select.selected {
+  border-color: var(--accent);
+  background: linear-gradient(90deg, rgba(15,98,254,0.08), rgba(37,99,235,0.05));
+  box-shadow: 0 4px 14px rgba(15,98,254,0.08);
+}
+
+.charger-select.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
+.charger-meta-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.charger-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.charger-id {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.charger-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.charger-meta-right {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.charger-disabled {
+  color: var(--danger);
+}
+
+.charger-choose {
+  color: var(--accent);
+}
+
+/* modal actions */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* no sessions */
+.no-sessions {
+  text-align: center;
+  color: var(--muted);
+  padding: 16px;
+}
+
+/* animations */
+@keyframes fadeIn {
+  from { opacity: 0; } to { opacity: 1; }
+}
+
+@keyframes popIn {
+  from { transform: scale(0.94); opacity: 0; } 
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* responsive */
+@media (max-width: 520px) {
+  .modal { padding: 16px; }
+  .sessions-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+  .session-actions { width: 100%; justify-content: flex-start; }
+}
+/* Improve visibility for Cancel / Pause buttons */
+.sessions-page .btn {
+  background: linear-gradient(180deg, #ffffff, #fbfdff); /* nhẹ, sáng */
+  color: var(--accent); /* chữ nổi bật */
+  border: 1px solid rgba(15,98,254,0.14); /* viền accent mềm */
+  box-shadow: 0 6px 14px rgba(15,98,254,0.04);
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+}
+
+/* small variant (used for Pause) — make it slightly stronger */
+.sessions-page .btn.btn-small {
+  padding: 6px 10px;
+  font-size: 13px;
+  background: linear-gradient(180deg, #f8fbff, #f1f6ff);
+  color: var(--accent);
+  border: 1px solid rgba(15,98,254,0.12);
+  box-shadow: 0 6px 12px rgba(15,98,254,0.035);
+}
+
+/* hover states for these buttons - clearer feedback */
+.sessions-page .btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(15,98,254,0.10);
+  background: linear-gradient(180deg, #f1f7ff, #e8f2ff);
+}
+
+/* active / pressed */
+.sessions-page .btn:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(15,98,254,0.06);
+}
+
+/* keep primary & danger but harmonize hover */
+.sessions-page .btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid rgba(15,98,254,0.22);
+  box-shadow: 0 10px 24px rgba(37,99,235,0.12);
+}
+.sessions-page .btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgba(37,99,235,0.14);
+}
+
+/* danger (Kết thúc) stronger on hover */
+.sessions-page .btn.danger {
+  background: var(--danger);
+  color: #fff;
+  border: 1px solid rgba(220,38,38,0.18);
+}
+.sessions-page .btn.danger:hover {
+  box-shadow: 0 14px 36px rgba(220,38,38,0.12);
+  transform: translateY(-3px);
+}
+
+/* Disabled look (if any) — keep readable but dim */
+.sessions-page .btn[disabled], .sessions-page .btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Small accessibility tweak: focus ring */
+.sessions-page .btn:focus {
+  outline: 3px solid rgba(15,98,254,0.12);
+  outline-offset: 3px;
+}

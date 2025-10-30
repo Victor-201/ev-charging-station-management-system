@@ -1,56 +1,73 @@
-/* stations.scss - layout, cards, detail pane */
+/* stations.scss - refreshed: bigger cards, charger-centric layout, detail pane */
 
+/* Palette & tokens */
 :root {
-  --bg: #f7f9fc;
+  --bg: #f6f8fb;
   --card-bg: #ffffff;
-  --text: #111827;
+  --text: #0f1724;
   --muted: #6b7280;
   --accent: #0f62fe;
   --danger: #ef4444;
   --ok: #10b981;
-  --shadow: 0 8px 28px rgba(17,24,39,0.06);
-  --radius: 12px;
+  --warn: #f59e0b;
+  --shadow-lg: 0 36px 80px rgba(2,6,23,0.08);
+  --shadow-md: 0 14px 40px rgba(2,6,23,0.06);
+  --shadow-sm: 0 8px 20px rgba(17,24,39,0.04);
+  --radius: 14px;
+  --gap: 18px;
+  --transition: 220ms cubic-bezier(.2,.9,.2,1);
+  --max-width: 1200px;
+  --font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
 
-/* page */
+/* Page */
 .page.stations-page {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  padding: 24px;
+  padding: 28px;
+  font-family: var(--font-family);
 }
 
 .page-inner {
-  max-width: 1200px;
+  max-width: var(--max-width);
   margin: 0 auto;
+  padding: 8px;
 }
 
-/* title */
+/* Title */
 .page.stations-page h1 {
-  margin: 0 0 16px 0;
-  font-size: 26px;
-  font-weight: 700;
+  margin: 0 0 18px 0;
+  font-size: 28px;
+  font-weight: 800;
+  text-align: left;
+  color: var(--text);
 }
 
-/* stats row */
+/* Stats row */
 .stations-stats {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
 }
 
+/* stat-card base */
 .stat-card {
   background: var(--card-bg);
-  border-radius: 10px;
-  padding: 12px 16px;
-  box-shadow: var(--shadow);
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm);
   border: 1px solid #e6e9ef;
-  min-width: 120px;
+  min-width: 140px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+  user-select: none;
+  align-items: flex-start;
 }
 
 .stat-card .label {
@@ -59,98 +76,127 @@
 }
 
 .stat-card .value {
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 22px;
+  font-weight: 900;
   color: var(--text);
+  line-height: 1;
 }
 
-/* status specific */
-.stat-card.online .value { color: var(--ok); }
-.stat-card.offline .value { color: var(--danger); }
-.stat-card.maintenance .value { color: #f59e0b; }
+.stat-card .sub {
+  color: var(--muted);
+  font-size: 12px;
+}
 
-/* search box to the right when wide */
+/* color accents */
+.stat-card.available .value { color: var(--ok); }
+.stat-card.in_use .value { color: var(--accent); }
+.stat-card.fault .value { color: var(--danger); }
+.stat-card.total .value { color: var(--text); }
+
+/* active state */
+.stat-card.active {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(15,98,254,0.14);
+  background: linear-gradient(90deg, rgba(15,98,254,0.06), rgba(37,99,235,0.03));
+}
+
+/* search box positioning */
 .stat-search {
   margin-left: auto;
   min-width: 260px;
 }
 .stat-search input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid #e6e9ef;
   background: #fff;
   color: var(--text);
+  font-size: 14px;
+  box-shadow: var(--shadow-sm);
 }
 
-/* layout: grid + detail pane */
+/* Layout: grid + detail pane */
 .stations-layout {
   display: flex;
-  gap: 20px;
+  gap: 22px;
   margin-top: 12px;
   align-items: flex-start;
 }
 
-/* grid of station cards */
+/* GRID of chargers (left) */
+/* For the new component, we use .stations-grid and .charger-card */
 .stations-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
   flex: 1 1 0;
+  align-items: start;
 }
 
-/* each station card */
-.station-card {
+/* Charger card (primary element now) */
+.charger-card {
   background: var(--card-bg);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: var(--shadow);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-md);
   border: 1px solid #e6e9ef;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  min-height: 130px;
 }
 
-.station-card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(15,98,254,0.12);
-  box-shadow: 0 14px 40px rgba(15,98,254,0.06);
+/* selected state */
+.charger-card.selected {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(15,98,254,0.16);
 }
 
-.station-card .card-top {
+/* top row */
+.charger-card .card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.station-id {
+/* id and small status */
+.charger-id {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.charger-status {
+  text-transform: capitalize;
+  font-weight: 800;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #fff;
+  letter-spacing: 0.2px;
+}
+
+/* status colors for charger */
+.charger-card.available .charger-status { background: linear-gradient(90deg, rgba(16,185,129,0.9), rgba(16,185,129,0.85)); }
+.charger-card.in_use .charger-status { background: linear-gradient(90deg, rgba(15,98,254,0.9), rgba(37,99,235,0.85)); }
+.charger-card.charging .charger-status { background: linear-gradient(90deg, rgba(99,102,241,0.9), rgba(79,70,229,0.85)); }
+.charger-card.fault .charger-status { background: linear-gradient(90deg, rgba(239,68,68,0.95), rgba(220,38,38,0.88)); }
+.charger-card.offline .charger-status { background: #9ca3af; }
+
+/* big label */
+.charger-name {
+  font-size: 18px;
   font-weight: 800;
   color: var(--text);
 }
 
-.station-status {
-  text-transform: capitalize;
-  font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  color: #fff;
-}
-
-/* status colors */
-.station-card.online .station-status { background: var(--ok); }
-.station-card.offline .station-status { background: var(--danger); }
-.station-card.maintenance .station-status { background: #f59e0b; }
-
-.station-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.station-meta {
+/* meta row */
+.charger-meta {
   font-size: 13px;
   color: var(--muted);
   display: flex;
@@ -158,37 +204,46 @@
   align-items: center;
   flex-wrap: wrap;
 }
+.charger-meta .dot { opacity: 0.6; }
 
-.station-meta .dot { opacity: 0.6; }
+/* hover */
+.charger-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 22px 48px rgba(2,6,23,0.08);
+  border-color: rgba(15,98,254,0.10);
+}
 
-/* empty state */
+/* Empty state */
 .empty {
   padding: 36px;
   text-align: center;
   color: var(--muted);
+  border-radius: 10px;
+  background: #fff;
+  border: 1px dashed #eef2f7;
 }
 
-/* detail pane (right) */
+/* Detail pane (right) */
 .stations-detail {
-  width: 380px;
-  min-width: 280px;
-  max-width: 420px;
+  width: 420px;
+  min-width: 320px;
+  max-width: 480px;
   background: transparent;
   transition: transform 180ms ease, opacity 180ms ease;
   opacity: 0.98;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.stations-detail > .card {
+/* card wrapper inside detail pane */
+.stations-detail > .card,
+.stations-detail .card {
   background: var(--card-bg);
   border-radius: 12px;
-  padding: 12px;
-  box-shadow: var(--shadow);
+  padding: 16px;
+  box-shadow: var(--shadow-md);
   border: 1px solid #e6e9ef;
-  margin-bottom: 12px;
-}
-
-.stations-detail.open {
-  /* visible — card children render content */
 }
 
 /* detail header */
@@ -196,94 +251,90 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
 
 .detail-header h2 {
   margin: 0;
   font-size: 20px;
-  display:flex;
-  gap:8px;
-  align-items:center;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 900;
+  color: var(--text);
 }
-
-.status-badge {
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-weight: 700;
-  text-transform: capitalize;
-  font-size: 12px;
-  color: #fff;
-}
-
-.status-badge.online { background: var(--ok); }
-.status-badge.offline { background: var(--danger); }
-.status-badge.maintenance { background: #f59e0b; }
 
 .small-meta {
   color: var(--muted);
   font-size: 13px;
 }
 
-/* info rows */
-.info-row { padding: 6px 0; border-bottom: 1px dashed #f1f5f9; }
-.actions-row { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+/* station summary badges row */
+.station-summary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
 
-/* action buttons */
-.btn { padding: 8px 12px; border-radius: 8px; border: none; font-weight:700; cursor:pointer; }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-warning { background: #f59e0b; color: #fff; }
-.btn-danger { background: var(--danger); color: #fff; }
+/* status badge style */
+.status-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  text-transform: capitalize;
+  font-size: 13px;
+  color: #fff;
+}
+.status-badge.online { background: linear-gradient(90deg, rgba(16,185,129,0.95), rgba(5,150,105,0.9)); }
+.status-badge.offline { background: linear-gradient(90deg, rgba(239,68,68,0.95), rgba(220,38,38,0.9)); }
+.status-badge.maintenance { background: linear-gradient(90deg, rgba(245,158,11,0.95), rgba(234,88,12,0.9)); }
+
+/* info rows */
+.info-row { padding: 10px 0; border-bottom: 1px dashed #f1f5f9; font-size: 14px; color: var(--text); }
+.info-row:last-child { border-bottom: none; }
+
+/* actions row */
+.actions-row { display:flex; gap:12px; margin-top:14px; flex-wrap:wrap; }
+.btn { padding: 10px 14px; border-radius: 10px; border: none; font-weight:800; cursor:pointer; background: #f3f4f6; color: var(--text); }
+.btn-primary { background: linear-gradient(90deg, var(--accent), #2563eb); color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,0.12); }
+.btn-warning { background: linear-gradient(90deg, var(--warn), #d97706); color: #fff; }
+.btn-danger { background: linear-gradient(90deg, var(--danger), #dc2626); color: #fff; }
 
 /* history list */
-.history-list { list-style: none; padding: 0; margin: 0; display:flex; flex-direction:column; gap:8px; }
-.history-list li { font-size: 13px; color: var(--text); }
+.history-list { list-style: none; padding: 0; margin: 0; display:flex; flex-direction:column; gap:10px; }
+.history-list li { font-size: 13px; color: var(--text); background: #fff; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; }
 
-/* responsive: stack detail under grid on small screens */
-@media (max-width: 980px) {
+/* table card at bottom */
+.card table { width: 100%; border-collapse: collapse; }
+.card th, .card td { padding: 10px 12px; border-bottom: 1px solid #eef3fb; font-size: 14px; color: var(--text); }
+
+/* Responsive: stack detail under grid on small screens */
+@media (max-width: 1000px) {
   .stations-layout { flex-direction: column-reverse; }
   .stations-detail { width: 100%; max-width: none; min-width: auto; }
+  .stations-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .stat-search { min-width: 180px; width: 100%; margin-left: 0; }
 }
 
-/* small screens tweak */
+/* Small screens tweaks */
 @media (max-width: 520px) {
-  .station-card { padding: 12px; }
-  .stat-search { min-width: 160px; width: 100%; margin-left: 0; }
+  .page.stations-page { padding: 16px; }
+  .page-inner { padding: 6px; }
+  .charger-card { padding: 12px; min-height: 100px; }
+  .charger-name { font-size: 16px; }
+  .stat-search { min-width: 100%; }
+  .stat-card { min-width: 100px; padding: 10px; }
   .stations-stats { gap: 8px; }
-}
-/* thêm vào file stations.scss hiện tại (thay thế phần stat-card và thêm active styles) */
-
-/* make stat-cards clickable and show active state */
-.stat-card {
-  cursor: pointer;
-  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
-  user-select: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
+  .stations-grid { grid-template-columns: 1fr; gap: 12px; }
+  .stations-detail { width: 100%; min-width: auto; }
+  .btn { padding: 8px 10px; font-size: 13px; }
 }
 
-/* ensure search stays right on wide screens */
-.stat-search {
-  margin-left: auto;
-}
-
-/* active state highlight */
-.stat-card.active {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 30px rgba(15,98,254,0.08);
-  border-color: rgba(15,98,254,0.18);
-  background: linear-gradient(90deg, rgba(15,98,254,0.06), rgba(37,99,235,0.03));
-}
-
-/* make values more prominent */
-.stat-card .value {
-  font-size: 22px;
-  font-weight: 900;
-}
-
-/* when a filter is active, dim non-matching stat-cards slightly (optional) */
-.stations-stats .stat-card:not(.active) {
-  opacity: 0.92;
+/* Accessibility focus */
+.charger-card:focus, .stat-card:focus, .station-card:focus, .btn:focus {
+  outline: 3px solid rgba(15,98,254,0.12);
+  outline-offset: 3px;
 }
