@@ -5,10 +5,14 @@ import subscriptionController from '../controllers/subscriptionController';
 import walletController from '../controllers/walletController';
 import notificationController from '../controllers/notificationController';
 import fcmRoutes from './fcmRoutes';
+import staffRoutes from './staffRoutes';
 import { authenticate, authorize, authorizeOwner } from '../middlewares/authMiddleware';
 import { validate, updateUserSchema, changePasswordSchema, addVehicleSchema, updateVehicleSchema, subscriptionSchema, withdrawSchema, notificationSchema, scheduleNotificationSchema } from '../middlewares/validation';
 
 const router = express.Router();
+
+// ==================== STAFF ROUTES ====================
+router.use('/staff', staffRoutes);
 
 // ==================== USER ROUTES ====================
 // GET /api/v1/auth/me - Get current user profile
