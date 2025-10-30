@@ -36,6 +36,16 @@ CREATE TABLE `_prisma_migrations` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Dumping data for table `_prisma_migrations`
+--
+
+LOCK TABLES `_prisma_migrations` WRITE;
+/*!40000 ALTER TABLE `_prisma_migrations` DISABLE KEYS */;
+INSERT INTO `_prisma_migrations` VALUES ('675c2013-c04d-4178-985e-e28244b24206','88fa1bc2080c2ea25031f2bb7edae582f1590e45cc341befb0e401be602ba906','2025-10-30 12:20:52.276','20251022092508_init_database',NULL,NULL,'2025-10-30 12:20:51.951',1),('68d0c25c-74b0-4567-a9b9-8f33be6cf6ac','db41c88bb9e9d4871416467ff173ef8ff5fc3ab7d448081eb38e2c641e518587','2025-10-30 12:20:52.346','20251024155806_add_station_maintenance_table',NULL,NULL,'2025-10-30 12:20:52.302',1),('a83cb37b-996b-49ff-9931-dcc6a92d2144','c7ad1a1e3efb9484f30004b69c421d72e64550607675a5b5df966df592baedc4','2025-10-30 12:20:52.300','20251023160449_add_unique_constraint_to_stations',NULL,NULL,'2025-10-30 12:20:52.277',1),('fedde680-13e1-447c-84e1-b42ccbb08d6d','39e000f170cbb37b152326cddf4c8a46f8caaba1fad549e3c57f884aceb2f4e6','2025-10-30 12:20:52.473','20251030121925_add_enum_in_db',NULL,NULL,'2025-10-30 12:20:52.348',1);
+/*!40000 ALTER TABLE `_prisma_migrations` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `charging_points`
 --
 
@@ -48,7 +58,7 @@ CREATE TABLE `charging_points` (
   `external_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `connector_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `max_power_kw` decimal(8,2) DEFAULT NULL,
-  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
+  `status` enum('available','in_use','offline') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
   `price_per_kwh` decimal(10,2) DEFAULT NULL,
   `price_per_minute` decimal(10,2) DEFAULT NULL,
   `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -59,6 +69,15 @@ CREATE TABLE `charging_points` (
   CONSTRAINT `charging_points_station_id_fkey` FOREIGN KEY (`station_id`) REFERENCES `stations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `charging_points`
+--
+
+LOCK TABLES `charging_points` WRITE;
+/*!40000 ALTER TABLE `charging_points` DISABLE KEYS */;
+/*!40000 ALTER TABLE `charging_points` ENABLE KEYS */;
+UNLOCK TABLES;
 
 --
 -- Table structure for table `outbox_events`
@@ -80,6 +99,15 @@ CREATE TABLE `outbox_events` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Dumping data for table `outbox_events`
+--
+
+LOCK TABLES `outbox_events` WRITE;
+/*!40000 ALTER TABLE `outbox_events` DISABLE KEYS */;
+/*!40000 ALTER TABLE `outbox_events` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `station_incidents`
 --
 
@@ -93,7 +121,7 @@ CREATE TABLE `station_incidents` (
   `reported_by` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `description` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `severity` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'medium',
-  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'open',
+  `status` enum('open','investigating','resolved','closed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'open',
   `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `resolved_at` datetime(3) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -103,6 +131,15 @@ CREATE TABLE `station_incidents` (
   CONSTRAINT `station_incidents_station_id_fkey` FOREIGN KEY (`station_id`) REFERENCES `stations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `station_incidents`
+--
+
+LOCK TABLES `station_incidents` WRITE;
+/*!40000 ALTER TABLE `station_incidents` DISABLE KEYS */;
+/*!40000 ALTER TABLE `station_incidents` ENABLE KEYS */;
+UNLOCK TABLES;
 
 --
 -- Table structure for table `station_maintenance`
@@ -126,6 +163,15 @@ CREATE TABLE `station_maintenance` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Dumping data for table `station_maintenance`
+--
+
+LOCK TABLES `station_maintenance` WRITE;
+/*!40000 ALTER TABLE `station_maintenance` DISABLE KEYS */;
+/*!40000 ALTER TABLE `station_maintenance` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `station_staff`
 --
 
@@ -136,13 +182,22 @@ CREATE TABLE `station_staff` (
   `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `staff_user_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `station_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `role` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `role` enum('operator','manager','maintainer') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `assigned_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),
   KEY `idx_station_staff` (`station_id`),
   CONSTRAINT `station_staff_station_id_fkey` FOREIGN KEY (`station_id`) REFERENCES `stations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `station_staff`
+--
+
+LOCK TABLES `station_staff` WRITE;
+/*!40000 ALTER TABLE `station_staff` DISABLE KEYS */;
+/*!40000 ALTER TABLE `station_staff` ENABLE KEYS */;
+UNLOCK TABLES;
 
 --
 -- Table structure for table `station_usage_reports`
@@ -166,6 +221,15 @@ CREATE TABLE `station_usage_reports` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Dumping data for table `station_usage_reports`
+--
+
+LOCK TABLES `station_usage_reports` WRITE;
+/*!40000 ALTER TABLE `station_usage_reports` DISABLE KEYS */;
+/*!40000 ALTER TABLE `station_usage_reports` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `stations`
 --
 
@@ -180,7 +244,7 @@ CREATE TABLE `stations` (
   `region` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `latitude` decimal(10,7) DEFAULT NULL,
   `longitude` decimal(10,7) DEFAULT NULL,
-  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `status` enum('active','closed','maintenance') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
   `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` datetime(3) NOT NULL,
   PRIMARY KEY (`id`),
@@ -188,6 +252,15 @@ CREATE TABLE `stations` (
   KEY `idx_stations_city` (`city`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `stations`
+--
+
+LOCK TABLES `stations` WRITE;
+/*!40000 ALTER TABLE `stations` DISABLE KEYS */;
+/*!40000 ALTER TABLE `stations` ENABLE KEYS */;
+UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -198,7 +271,9 @@ CREATE TABLE `stations` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-26 21:26:30
+-- Dump completed on 2025-10-30 19:24:15
+
+-- Insert additional seed data below this line
 
 -- Seed bảng stations
 INSERT INTO stations (id, name, address, city, region, latitude, longitude, status, updated_at)
@@ -213,13 +288,13 @@ VALUES
 ('cp-002', '11111111-1111-1111-1111-111111111111', 'EXT-002', 'Type2', 22.00, 'available', 2.00, 0.30, NOW()),
 ('cp-003', '22222222-2222-2222-2222-222222222222', 'EXT-003', 'CHAdeMO', 100.00, 'available', 4.00, 0.60, NOW());
 
--- Seed bảng station_staff
+-- ✅ Seed bảng station_staff (chỉnh role cho đúng enum)
 INSERT INTO station_staff (id, staff_user_id, station_id, role)
 VALUES
 ('staff-001', 'user-001', '11111111-1111-1111-1111-111111111111', 'manager'),
-('staff-002', 'user-002', '22222222-2222-2222-2222-222222222222', 'technician');
+('staff-002', 'user-002', '22222222-2222-2222-2222-222222222222', 'operator'); -- thay 'technician' bằng 'operator'
 
--- Seed bảng station_incidents
+-- Seed bảng station_incidents (chú ý status và severity phải đúng enum/string)
 INSERT INTO station_incidents (id, station_id, point_id, reported_by, description, severity, status)
 VALUES
 ('incident-001', '11111111-1111-1111-1111-111111111111', 'cp-001', 'user-003', 'Không thể khởi động sạc', 'high', 'open'),

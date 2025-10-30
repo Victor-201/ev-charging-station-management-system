@@ -13,17 +13,42 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum stationStatus {
+  active
+  closed
+  maintenance
+}
+
+enum chargerStatus {
+  available
+  in_use
+  offline
+}
+
+enum staffRole {
+  operator
+  manager
+  maintainer
+}
+
+enum stationIncidentStatus {
+  open
+  investigating
+  resolved
+  closed
+}
+
 model stations {
-  id         String   @id @default(uuid()) @db.Char(36)
+  id         String        @id @default(uuid()) @db.Char(36)
   name       String
-  address    String?  @db.VarChar(500)
-  city       String?  @db.VarChar(100)
-  region     String?  @db.VarChar(100)
-  latitude   Decimal? @db.Decimal(10, 7)
-  longitude  Decimal? @db.Decimal(10, 7)
-  status     String   @default("active") @db.VarChar(50)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  address    String?       @db.VarChar(500)
+  city       String?       @db.VarChar(100)
+  region     String?       @db.VarChar(100)
+  latitude   Decimal?      @db.Decimal(10, 7)
+  longitude  Decimal?      @db.Decimal(10, 7)
+  status     stationStatus @default(active)
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
 
   charging_points       charging_points[]
   station_staff         station_staff[]
@@ -36,16 +61,16 @@ model stations {
 }
 
 model charging_points {
-  id               String   @id @default(uuid()) @db.Char(36)
-  station_id       String   @db.Char(36)
-  external_id      String?  @unique @db.VarChar(100)
-  connector_type   String?  @db.VarChar(50)
-  max_power_kw     Decimal? @db.Decimal(8, 2)
-  status           String   @default("available") @db.VarChar(50)
-  price_per_kwh    Decimal? @db.Decimal(10, 2)
-  price_per_minute Decimal? @db.Decimal(10, 2)
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
+  id               String        @id @default(uuid()) @db.Char(36)
+  station_id       String        @db.Char(36)
+  external_id      String?       @unique @db.VarChar(100)
+  connector_type   String?       @db.VarChar(50)
+  max_power_kw     Decimal?      @db.Decimal(8, 2)
+  status           chargerStatus @default(available)
+  price_per_kwh    Decimal?      @db.Decimal(10, 2)
+  price_per_minute Decimal?      @db.Decimal(10, 2)
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
 
   station           stations            @relation(fields: [station_id], references: [id], onDelete: Cascade)
   station_incidents station_incidents[]
@@ -54,11 +79,11 @@ model charging_points {
 }
 
 model station_staff {
-  id            String   @id @default(uuid()) @db.Char(36)
-  staff_user_id String   @db.Char(36)
-  station_id    String   @db.Char(36)
-  role          String?  @db.VarChar(50)
-  assigned_at   DateTime @default(now())
+  id            String     @id @default(uuid()) @db.Char(36)
+  staff_user_id String     @db.Char(36)
+  station_id    String     @db.Char(36)
+  role          staffRole?
+  assigned_at   DateTime   @default(now())
 
   station stations @relation(fields: [station_id], references: [id], onDelete: Cascade)
 
@@ -66,14 +91,14 @@ model station_staff {
 }
 
 model station_incidents {
-  id          String    @id @default(uuid()) @db.Char(36)
-  station_id  String    @db.Char(36)
-  point_id    String?   @db.Char(36)
-  reported_by String?   @db.Char(36)
+  id          String                @id @default(uuid()) @db.Char(36)
+  station_id  String                @db.Char(36)
+  point_id    String?               @db.Char(36)
+  reported_by String?               @db.Char(36)
   description String?
-  severity    String    @default("medium") @db.VarChar(20)
-  status      String    @default("open") @db.VarChar(50)
-  created_at  DateTime  @default(now())
+  severity    String                @default("medium") @db.VarChar(20)
+  status      stationIncidentStatus @default(open)
+  created_at  DateTime              @default(now())
   resolved_at DateTime?
 
   station        stations         @relation(fields: [station_id], references: [id], onDelete: Cascade)
