@@ -1,5 +1,12 @@
-import { IsOptional, IsNumberString, IsString, IsNumber, ValidateNested, IsISO8601 } from 'class-validator';
+import { IsOptional, IsNumberString, IsString, IsNumber, ValidateNested, IsISO8601, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+
+enum StationStatus {
+    active = 'active',
+    inactive = 'inactive',
+    maintenance = 'maintenance',
+    closed = 'closed',
+}
 
 export class SearchStationDto {
     @IsNumberString()
@@ -20,8 +27,8 @@ export class SearchStationDto {
     power_min?: string;
 
     @IsOptional()
-    @IsString()
-    status?: string;
+    @IsEnum(StationStatus)
+    status?: StationStatus;
 
     @IsOptional()
     @IsNumberString()
@@ -40,6 +47,7 @@ class LocationDto {
     lng: number;
 }
 
+
 export class CreateStationDto {
     @IsString()
     name: string;
@@ -54,13 +62,14 @@ export class CreateStationDto {
     region: string;
 
     @IsOptional()
-    @IsString()
-    status?: string;
+    @IsEnum(StationStatus)
+    status?: StationStatus;
 
     @ValidateNested()
     @Type(() => LocationDto)
     location: LocationDto;
 }
+
 
 export class UpdateStationDto {
     @IsOptional()
@@ -80,8 +89,8 @@ export class UpdateStationDto {
     region?: string;
 
     @IsOptional()
-    @IsString()
-    status?: string;
+    @IsEnum(StationStatus)
+    status?: StationStatus;
 }
 
 export class ConnectorDto {
@@ -91,17 +100,26 @@ export class ConnectorDto {
     status: string;
 }
 
+enum StationSeverity {
+    low = 'low',
+    medium = 'medium',
+    high = 'high',
+    critical = 'critical',
+}
+
 export class ReportIssueDto {
     @IsString()
     connector_id: string;
 
+    @IsEnum(StationSeverity)
     @IsOptional()
     @IsString()
-    severity?: string;
+    severity?: StationSeverity;
 
     @IsString()
     description: string;
 }
+
 
 export class ScheduleMaintenanceDto {
     @IsString()

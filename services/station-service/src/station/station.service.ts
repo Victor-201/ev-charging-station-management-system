@@ -158,6 +158,7 @@ export class StationService {
     }
 
     reportIssue = async (data: ReportIssueDto, reported_by: string, station_id: string): Promise<any> => {
+        
         const report = await this.prisma.station_incidents.create({
             data: {
                 station_id: station_id,
@@ -181,7 +182,7 @@ export class StationService {
 
         await this.prisma.stations.update({
             where: { id: station_id },
-            data: { status: 'scheduled' },
+            data: { status: 'maintenance' },
         });
 
         await this.prisma.station_maintenance.create({
@@ -193,7 +194,7 @@ export class StationService {
                 scheduled_by,
             },
         });
-        return { status: 'scheduled' };
+        return { status: 'maintance' };
     }
 
     getPricingByStation = async (station_id: string): Promise<{ pricing: PricingItemDto[] }> => {
@@ -202,7 +203,7 @@ export class StationService {
             select: {
                 id: true,
                 price_per_kwh: true,
-                price_per_minute: true,
+                overstay_fee_per_minute: true,
             },
         });
 
@@ -221,11 +222,11 @@ export class StationService {
                     currency: 'USD',
                 });
             }
-            if (point.price_per_minute !== null) {
+            if (point.overstay_fee_per_minute !== null) {
                 pricing.push({
                     point_id: point.id,
                     model: 'per_min',
-                    price: point.price_per_minute.toNumber(),
+                    price: point.overstay_fee_per_minute.toNumber(),
                     currency: 'USD',
                 });
             }

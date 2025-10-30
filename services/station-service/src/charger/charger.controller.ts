@@ -45,4 +45,16 @@ export class ChargerController {
     async getChargerPricing(@Param('charger_id') charger_id: string): Promise<ChargerPricingResponseDto> {
         return this.chargerService.getChargerPricing( charger_id );
     }
+
+    @Post(':charger_id/in_use')
+    async chargerInUse(@Param('charger_id') charger_id: string): Promise<any> {
+        return this.chargerService.chargerInUse(charger_id);
+    }
+    
+
+    @Post(':charger_id/available')
+    async chargerAvailable(@Param('charger_id') charger_id: string): Promise<any> {
+        return this.chargerService.chargerAvailable(charger_id);
+    }
+    
 }

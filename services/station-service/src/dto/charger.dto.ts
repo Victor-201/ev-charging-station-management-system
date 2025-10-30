@@ -14,7 +14,7 @@ export class RegisterChargerDto {
   price_per_kwh: string;
 
   @IsNumberString()
-  price_per_minute: string;
+  overstay_fee_per_minute: string;
 
   @IsNumberString()
   max_power_kw: string;

@@ -21,7 +21,7 @@ export class ChargerService {
                 station_id: body.station_id,
                 connector_type: body.connector_type,
                 price_per_kwh: parseFloat(body.price_per_kwh),
-                price_per_minute: parseFloat(body.price_per_minute),
+                overstay_fee_per_minute: parseFloat(body.overstay_fee_per_minute),
                 max_power_kw: parseFloat(body.max_power_kw),
             },
         });
@@ -57,7 +57,7 @@ export class ChargerService {
                 id: true,
                 status: true,
                 station_incidents: {
-                    where: { status: 'open' },
+                    where: { status: 'pending_confirmation' },
                     select: { description: true }
                 }
             }
@@ -135,11 +135,11 @@ export class ChargerService {
             where: { id: charger_id },
             select: {
                 price_per_kwh: true,
-                price_per_minute: true,
+                overstay_fee_per_minute: true,
             },
         });
 
-        if (!charger ) {
+        if (!charger) {
             return { pricing: [] };
         }
 
@@ -153,10 +153,43 @@ export class ChargerService {
 
         pricing.push({
             model: 'per_min',
-            price: Number(charger.price_per_minute),
+            price: Number(charger.overstay_fee_per_minute),
             currency: 'VND',
         });
 
         return { pricing };
     }
+
+    chargerInUse = async (charger_id: string): Promise<any> => {
+        await this.prisma.charging_points.update({
+            where: { id: charger_id },
+            data: {
+                status: 'in_use'
+            }
+        }
+        );
+        return { status: 'in_use' }
+    }
+
+    chargerAvailable = async (charger_id: string): Promise<any> => {
+        const charger = await this.prisma.charging_points.findUnique({
+            where: { id: charger_id }
+        });
+
+        if (charger?.status !== 'in_use') {
+            throw new ConflictException('Charger with this ID cannot do this action');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 180000));
+
+        await this.prisma.charging_points.update({
+            where: { id: charger_id },
+            data: {
+                status: 'available'
+            }
+        });
+
+        return { status: 'available' };
+    }
+
 }
