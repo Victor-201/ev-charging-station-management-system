@@ -7,7 +7,6 @@ services:
     env_file: .env
     depends_on:
       - postgres
-      - rabbitmq
     restart: always
 
   postgres:
@@ -22,15 +21,4 @@ services:
     volumes:
       - ./pgdata:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    restart: always
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    ports:
-      - "5672:5672" # Port để các service connect
-      - "15672:15672" # Port để mở giao diện web quản lý
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin
     restart: always

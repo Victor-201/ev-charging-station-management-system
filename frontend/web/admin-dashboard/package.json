@@ -1,0 +1,30 @@
+{
+  "name": "admin-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "axios": "^1.7.7",
+    "recharts": "^2.13.3",
+    "react-icons": "^5.3.0",
+    "jspdf": "^2.5.2",
+    "react-toastify": "^10.0.5",
+    "react-datepicker": "^7.5.0",
+    "framer-motion": "^11.11.17"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.13",
+    "vite": "^5.4.0"
+  }
+}

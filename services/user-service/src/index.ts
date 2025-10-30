@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { createServer } from 'http';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -10,6 +11,7 @@ import logger from './utils/logger';
 import pool from './config/database';
 import { rabbitmqConsumer } from './config/rabbitmq';
 import { initializeFirebase } from './config/firebase';
+import socketService from './config/socket';
 import {
   handleUserCreated,
   handleUserUpdated,
@@ -21,6 +23,7 @@ import {
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 3002;
 
 // Middlewares
@@ -65,6 +68,10 @@ const startServer = async () => {
     await pool.query('SELECT NOW()');
     logger.info('Database connection established');
 
+    // Initialize Socket.IO
+    socketService.initialize(httpServer);
+    logger.info('Socket.IO server initialized');
+
     // Initialize Firebase Admin SDK
     try {
       initializeFirebase();
@@ -103,9 +110,10 @@ const startServer = async () => {
       // Service continues without RabbitMQ, but event processing won't work
     }
 
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       logger.info(`User service listening on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV}`);
+      logger.info(`Socket.IO ready for connections`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

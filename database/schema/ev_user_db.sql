@@ -165,3 +165,54 @@ COMMENT ON TABLE user_fcm_tokens IS 'Firebase Cloud Messaging (FCM) tokens for p
 COMMENT ON COLUMN user_fcm_tokens.fcm_token IS 'Firebase Cloud Messaging token for push notifications';
 COMMENT ON COLUMN user_fcm_tokens.device_type IS 'Type of device: ios, android, or web';
 COMMENT ON COLUMN user_fcm_tokens.is_active IS 'Whether the token is still valid and active';
+
+
+-- Staff Information
+CREATE TABLE staff (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    station_id UUID NOT NULL, -- Reference to station (logical reference to station_db)
+    position VARCHAR(50) DEFAULT 'operator' CHECK (position IN ('operator', 'manager', 'technician')),
+    shift VARCHAR(20) DEFAULT 'morning' CHECK (shift IN ('morning', 'afternoon', 'night')),
+    hire_date DATE DEFAULT CURRENT_DATE,
+    is_active BOOLEAN DEFAULT TRUE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_staff_user_id ON staff(user_id);
+CREATE INDEX idx_staff_station_id ON staff(station_id);
+CREATE INDEX idx_staff_position ON staff(position);
+CREATE INDEX idx_staff_is_active ON staff(is_active);
+CREATE INDEX idx_staff_shift ON staff(shift);
+
+COMMENT ON TABLE staff IS 'Staff information for users with staff role';
+COMMENT ON COLUMN staff.user_id IS 'Reference to users table (staff user) - one staff per user. Name, email, phone are in users table';
+COMMENT ON COLUMN staff.station_id IS 'Logical reference to station in station_db (UUID)';
+COMMENT ON COLUMN staff.position IS 'Position: operator, manager, technician';
+COMMENT ON COLUMN staff.shift IS 'Default shift: morning, afternoon, night';
+
+
+-- Attendance (check-in/check-out tracking)
+CREATE TABLE attendance (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+    work_date DATE NOT NULL,
+    check_in TIMESTAMP WITH TIME ZONE NULL,
+    check_out TIMESTAMP WITH TIME ZONE NULL,
+    status VARCHAR(20) DEFAULT 'absent' CHECK (status IN ('present', 'late', 'absent', 'leave')),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_attendance_per_day UNIQUE (staff_id, work_date)
+);
+
+CREATE INDEX idx_attendance_staff ON attendance(staff_id);
+CREATE INDEX idx_attendance_work_date ON attendance(work_date);
+CREATE INDEX idx_attendance_status ON attendance(status);
+
+COMMENT ON TABLE attendance IS 'Staff attendance and check-in/check-out tracking';
+COMMENT ON COLUMN attendance.staff_id IS 'Reference to staff table';
+COMMENT ON COLUMN attendance.work_date IS 'Date of work';
+COMMENT ON COLUMN attendance.status IS 'Attendance status: present, late, absent, leave';
