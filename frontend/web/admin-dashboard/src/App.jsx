@@ -1,11 +1,20 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import AdminLayout from "./layout/AdminLayout.jsx";
 import routes from "./routes/index.jsx";
+import Login from "./pages/Login.jsx";
+import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 
 function App() {
   return (
     <Routes>
-      <Route element={<AdminLayout />}>
+      <Route path="/login" element={<Login />} />
+      <Route
+        element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
         {routes.map((route) => (
           <Route key={route.path} path={route.path} element={route.element} />
         ))}
