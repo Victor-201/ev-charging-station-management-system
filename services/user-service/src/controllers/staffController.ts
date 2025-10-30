@@ -8,15 +8,15 @@ export class StaffController {
    */
   async getAllStaff(req: Request, res: Response): Promise<void> {
     try {
-      const { page, size, station_id, staff_level, employment_status, department, q } = req.query;
+      const { page, size, station_id, position, shift, is_active, q } = req.query;
 
       const result = await staffService.getAllStaff({
         page: page ? parseInt(page as string) : undefined,
         size: size ? parseInt(size as string) : undefined,
         station_id: station_id as string,
-        staff_level: staff_level as string,
-        employment_status: employment_status as string,
-        department: department as string,
+        position: position as string,
+        shift: shift as string,
+        is_active: is_active === 'true' ? true : is_active === 'false' ? false : undefined,
         q: q as string,
       });
 

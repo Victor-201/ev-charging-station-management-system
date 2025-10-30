@@ -88,9 +88,9 @@ export class StaffService {
 
       if (filters.q) {
         conditions.push(`(
-          full_name ILIKE $${paramIndex} OR 
-          email ILIKE $${paramIndex} OR 
-          phone_number ILIKE $${paramIndex}
+          u.full_name ILIKE $${paramIndex} OR 
+          u.email ILIKE $${paramIndex} OR 
+          u.phone_number ILIKE $${paramIndex}
         )`);
         params.push(`%${filters.q}%`);
         paramIndex++;
