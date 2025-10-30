@@ -185,3 +185,106 @@
   .action-title { font-size: 16px; }
   .action-sub { font-size: 12px; }
 }
+.page-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.page-title {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 24px;
+  color: #222;
+}
+
+/* QR center card */
+.qr-scan-center {
+  width: 420px;
+  max-width: calc(100% - 40px);
+  height: 170px;
+  margin: 0 auto 28px;
+  background: linear-gradient(135deg, #00aaff 0%, #0066cc 100%);
+  color: #fff;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 24px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  user-select: none;
+  outline: none;
+
+  &:hover, &:focus {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.16);
+  }
+
+  .qr-graphic {
+    width: 134px;
+    height: 134px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 2px dashed rgba(255,255,255,0.14);
+  }
+
+  .qr-icon {
+    font-size: 44px;
+  }
+
+  .qr-text {
+    flex: 1;
+    .qr-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .qr-sub {
+      font-size: 13px;
+      opacity: 0.95;
+    }
+  }
+}
+
+/* actions grid */
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  box-shadow: 0 6px 14px rgba(8, 35, 63, 0.04);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(8, 35, 63, 0.06);
+  }
+
+  .action-left {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .action-emoji { font-size: 20px; }
+  .action-title { font-weight: 700; }
+  .action-sub { font-size: 12px; color: #666; }
+  .action-right { opacity: 0.7; }
+}

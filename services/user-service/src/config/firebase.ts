@@ -8,15 +8,15 @@ import fs from 'fs';
  * For server-side Firebase Cloud Messaging (FCM) push notifications
  */
 
-// Firebase configuration from your web app
+// Firebase configuration from environment variables or fallback to hardcoded values
 export const firebaseConfig = {
-  apiKey: 'AIzaSyAb_fY-KmhTyXFaKjVweF890Z4MhtrR8sg',
-  authDomain: 'ev-charging-station-ad2b7.firebaseapp.com',
-  projectId: 'ev-charging-station-ad2b7',
-  storageBucket: 'ev-charging-station-ad2b7.firebasestorage.app',
-  messagingSenderId: '497529490549',
-  appId: '1:497529490549:web:cdd0995abcaa22ac297c3c',
-  measurementId: 'G-P29CT0J96N',
+  apiKey: process.env.FIREBASE_API_KEY || 'AIzaSyAb_fY-KmhTyXFaKjVweF890Z4MhtrR8sg',
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || 'ev-charging-station-ad2b7.firebaseapp.com',
+  projectId: process.env.FIREBASE_PROJECT_ID || 'ev-charging-station-ad2b7',
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'ev-charging-station-ad2b7.firebasestorage.app',
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '497529490549',
+  appId: process.env.FIREBASE_APP_ID || '1:497529490549:web:cdd0995abcaa22ac297c3c',
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID || 'G-P29CT0J96N',
 };
 
 /**

@@ -10,9 +10,11 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'ev_user_db',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: 20, // Maximum pool size
+  min: 2, // Minimum pool size (keep connections warm)
+  idleTimeoutMillis: 30000, // Close idle clients after 30s
+  connectionTimeoutMillis: 2000, // Timeout for acquiring connection
+  allowExitOnIdle: false, // Don't exit if all connections are idle
 });
 
 pool.on('connect', () => {

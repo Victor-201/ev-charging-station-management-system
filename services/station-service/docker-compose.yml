@@ -14,6 +14,7 @@ services:
 
   ev_station_service:
     build: .
+    image: ev_station_service:v1.0.0
     container_name: ev_station_service
     restart: always
     depends_on:
