@@ -41,7 +41,7 @@ CREATE TABLE `_prisma_migrations` (
 
 LOCK TABLES `_prisma_migrations` WRITE;
 /*!40000 ALTER TABLE `_prisma_migrations` DISABLE KEYS */;
-INSERT INTO `_prisma_migrations` VALUES ('675c2013-c04d-4178-985e-e28244b24206','88fa1bc2080c2ea25031f2bb7edae582f1590e45cc341befb0e401be602ba906','2025-10-30 12:20:52.276','20251022092508_init_database',NULL,NULL,'2025-10-30 12:20:51.951',1),('68d0c25c-74b0-4567-a9b9-8f33be6cf6ac','db41c88bb9e9d4871416467ff173ef8ff5fc3ab7d448081eb38e2c641e518587','2025-10-30 12:20:52.346','20251024155806_add_station_maintenance_table',NULL,NULL,'2025-10-30 12:20:52.302',1),('a83cb37b-996b-49ff-9931-dcc6a92d2144','c7ad1a1e3efb9484f30004b69c421d72e64550607675a5b5df966df592baedc4','2025-10-30 12:20:52.300','20251023160449_add_unique_constraint_to_stations',NULL,NULL,'2025-10-30 12:20:52.277',1),('fedde680-13e1-447c-84e1-b42ccbb08d6d','39e000f170cbb37b152326cddf4c8a46f8caaba1fad549e3c57f884aceb2f4e6','2025-10-30 12:20:52.473','20251030121925_add_enum_in_db',NULL,NULL,'2025-10-30 12:20:52.348',1);
+INSERT INTO `_prisma_migrations` VALUES ('1d4c1515-149d-4b6a-9802-0fe6e3532cdd','db41c88bb9e9d4871416467ff173ef8ff5fc3ab7d448081eb38e2c641e518587','2025-10-30 12:50:05.881','20251024155806_add_station_maintenance_table',NULL,NULL,'2025-10-30 12:50:05.830',1),('37f403b7-9a0e-417e-b183-325a8660cc44','5d76ce39662b41efd878bc7ac78e973864d7a109359b74abbc7b749a6b15cf0c','2025-10-30 12:50:08.234','20251030125008_refact_enum_values',NULL,NULL,'2025-10-30 12:50:08.139',1),('452e896b-c08c-42d8-8de9-de1c6f46f596','88fa1bc2080c2ea25031f2bb7edae582f1590e45cc341befb0e401be602ba906','2025-10-30 12:50:05.806','20251022092508_init_database',NULL,NULL,'2025-10-30 12:50:05.524',1),('7ea44d75-2936-4d7d-baca-7999915d56d0','c7ad1a1e3efb9484f30004b69c421d72e64550607675a5b5df966df592baedc4','2025-10-30 12:50:05.828','20251023160449_add_unique_constraint_to_stations',NULL,NULL,'2025-10-30 12:50:05.808',1),('a3b2a032-b56d-4261-9eb4-ad9633e97d0a','39e000f170cbb37b152326cddf4c8a46f8caaba1fad549e3c57f884aceb2f4e6','2025-10-30 12:50:06.145','20251030121925_add_enum_in_db',NULL,NULL,'2025-10-30 12:50:05.882',1);
 /*!40000 ALTER TABLE `_prisma_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -58,7 +58,7 @@ CREATE TABLE `charging_points` (
   `external_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `connector_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `max_power_kw` decimal(8,2) DEFAULT NULL,
-  `status` enum('available','in_use','offline') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
+  `status` enum('available','in_use','offline','faulted','reserved') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
   `price_per_kwh` decimal(10,2) DEFAULT NULL,
   `price_per_minute` decimal(10,2) DEFAULT NULL,
   `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -120,8 +120,8 @@ CREATE TABLE `station_incidents` (
   `point_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `reported_by` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `description` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `severity` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'medium',
-  `status` enum('open','investigating','resolved','closed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'open',
+  `severity` enum('low','medium','high','critical') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'medium',
+  `status` enum('pending_confirmation','in_progress','resolved','rejected') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending_confirmation',
   `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `resolved_at` datetime(3) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -182,7 +182,7 @@ CREATE TABLE `station_staff` (
   `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `staff_user_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `station_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `role` enum('operator','manager','maintainer') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `role` enum('manager','technician','operator','security') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `assigned_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),
   KEY `idx_station_staff` (`station_id`),
@@ -244,7 +244,7 @@ CREATE TABLE `stations` (
   `region` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `latitude` decimal(10,7) DEFAULT NULL,
   `longitude` decimal(10,7) DEFAULT NULL,
-  `status` enum('active','closed','maintenance') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `status` enum('active','closed','maintenance','inactive') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
   `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` datetime(3) NOT NULL,
   PRIMARY KEY (`id`),
@@ -271,11 +271,11 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-30 19:24:15
+-- Dump completed on 2025-10-30 19:50:57
 
--- Insert additional seed data below this line
 
--- Seed bảng stations
+-- Insert seeds for stations below
+
 INSERT INTO stations (id, name, address, city, region, latitude, longitude, status, updated_at)
 VALUES
 ('11111111-1111-1111-1111-111111111111', 'Trạm Sạc Tây Ninh', '123 Đường 30/4', 'Tây Ninh', 'Miền Nam', 11.1234567, 106.1234567, 'active', NOW()),
@@ -288,13 +288,13 @@ VALUES
 ('cp-002', '11111111-1111-1111-1111-111111111111', 'EXT-002', 'Type2', 22.00, 'available', 2.00, 0.30, NOW()),
 ('cp-003', '22222222-2222-2222-2222-222222222222', 'EXT-003', 'CHAdeMO', 100.00, 'available', 4.00, 0.60, NOW());
 
--- ✅ Seed bảng station_staff (chỉnh role cho đúng enum)
+-- Seed bảng station_staff
 INSERT INTO station_staff (id, staff_user_id, station_id, role)
 VALUES
 ('staff-001', 'user-001', '11111111-1111-1111-1111-111111111111', 'manager'),
-('staff-002', 'user-002', '22222222-2222-2222-2222-222222222222', 'operator'); -- thay 'technician' bằng 'operator'
+('staff-002', 'user-002', '22222222-2222-2222-2222-222222222222', 'technician');
 
--- Seed bảng station_incidents (chú ý status và severity phải đúng enum/string)
+-- Seed bảng station_incidents
 INSERT INTO station_incidents (id, station_id, point_id, reported_by, description, severity, status)
 VALUES
 ('incident-001', '11111111-1111-1111-1111-111111111111', 'cp-001', 'user-003', 'Không thể khởi động sạc', 'high', 'open'),

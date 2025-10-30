@@ -17,30 +17,41 @@ enum stationStatus {
   active
   closed
   maintenance
+  inactive
 }
 
 enum chargerStatus {
   available
   in_use
   offline
+  faulted
+  reserved
 }
 
 enum staffRole {
-  operator
   manager
-  maintainer
+  technician
+  operator
+  security
 }
 
 enum stationIncidentStatus {
-  open
-  investigating
+  pending_confirmation
+  in_progress
   resolved
-  closed
+  rejected
+}
+
+enum stationSeverity {
+  low
+  medium
+  high
+  critical
 }
 
 model stations {
   id         String        @id @default(uuid()) @db.Char(36)
-  name       String
+  name       String        @db.VarChar(191)
   address    String?       @db.VarChar(500)
   city       String?       @db.VarChar(100)
   region     String?       @db.VarChar(100)
@@ -95,9 +106,9 @@ model station_incidents {
   station_id  String                @db.Char(36)
   point_id    String?               @db.Char(36)
   reported_by String?               @db.Char(36)
-  description String?
-  severity    String                @default("medium") @db.VarChar(20)
-  status      stationIncidentStatus @default(open)
+  description String?               @db.VarChar(191)
+  severity    stationSeverity       @default(medium)
+  status      stationIncidentStatus @default(pending_confirmation)
   created_at  DateTime              @default(now())
   resolved_at DateTime?
 
@@ -136,8 +147,8 @@ model station_maintenance {
   station_id   String
   start_time   DateTime
   end_time     DateTime
-  reason       String
-  scheduled_by String
+  reason       String   @db.VarChar(191)
+  scheduled_by String   @db.VarChar(191)
   created_at   DateTime @default(now())
 
   station stations @relation(fields: [station_id], references: [id])
