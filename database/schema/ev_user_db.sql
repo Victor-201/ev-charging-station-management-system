@@ -165,3 +165,91 @@ COMMENT ON TABLE user_fcm_tokens IS 'Firebase Cloud Messaging (FCM) tokens for p
 COMMENT ON COLUMN user_fcm_tokens.fcm_token IS 'Firebase Cloud Messaging token for push notifications';
 COMMENT ON COLUMN user_fcm_tokens.device_type IS 'Type of device: ios, android, or web';
 COMMENT ON COLUMN user_fcm_tokens.is_active IS 'Whether the token is still valid and active';
+
+
+-- Staff Information
+CREATE TABLE staff_info (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    station_id UUID, -- Reference to station (logical reference to station_db)
+    staff_level VARCHAR(50) NOT NULL DEFAULT 'STAFF' CHECK (staff_level IN ('STAFF', 'SUPERVISOR', 'MANAGER', 'SENIOR_MANAGER')),
+    position VARCHAR(100), -- e.g., 'Technician', 'Customer Service', 'Maintenance'
+    department VARCHAR(100), -- e.g., 'Operations', 'Maintenance', 'Customer Support'
+    employee_code VARCHAR(50) UNIQUE,
+    hire_date DATE,
+    employment_status VARCHAR(50) DEFAULT 'ACTIVE' CHECK (employment_status IN ('ACTIVE', 'ON_LEAVE', 'SUSPENDED', 'TERMINATED')),
+    salary_grade VARCHAR(20),
+    emergency_contact_name VARCHAR(100),
+    emergency_contact_phone VARCHAR(20),
+    certifications JSONB, -- Array of certifications: [{"name": "EV Technician", "issued_date": "2024-01-01", "expiry_date": "2025-01-01"}]
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, station_id)
+);
+
+CREATE INDEX idx_staff_info_user_id ON staff_info(user_id);
+CREATE INDEX idx_staff_info_station_id ON staff_info(station_id);
+CREATE INDEX idx_staff_info_level ON staff_info(staff_level);
+CREATE INDEX idx_staff_info_status ON staff_info(employment_status);
+CREATE INDEX idx_staff_info_employee_code ON staff_info(employee_code);
+
+COMMENT ON TABLE staff_info IS 'Staff information for users with staff role, includes station assignment and hierarchy level';
+COMMENT ON COLUMN staff_info.user_id IS 'Reference to users table (staff user)';
+COMMENT ON COLUMN staff_info.station_id IS 'Logical reference to station in station_db (UUID)';
+COMMENT ON COLUMN staff_info.staff_level IS 'Hierarchy level: STAFF < SUPERVISOR < MANAGER < SENIOR_MANAGER';
+COMMENT ON COLUMN staff_info.employee_code IS 'Unique employee identification code';
+COMMENT ON COLUMN staff_info.certifications IS 'JSON array of staff certifications and training records';
+
+
+-- Staff Work History (track station transfers and promotions)
+CREATE TABLE staff_work_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_info_id UUID NOT NULL REFERENCES staff_info(id) ON DELETE CASCADE,
+    action_type VARCHAR(50) NOT NULL CHECK (action_type IN ('HIRED', 'PROMOTED', 'DEMOTED', 'TRANSFERRED', 'POSITION_CHANGE', 'TERMINATED')),
+    old_station_id UUID,
+    new_station_id UUID,
+    old_level VARCHAR(50),
+    new_level VARCHAR(50),
+    old_position VARCHAR(100),
+    new_position VARCHAR(100),
+    reason TEXT,
+    effective_date DATE NOT NULL,
+    approved_by UUID REFERENCES users(id), -- Admin or manager who approved
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_staff_work_history_staff ON staff_work_history(staff_info_id);
+CREATE INDEX idx_staff_work_history_action ON staff_work_history(action_type);
+CREATE INDEX idx_staff_work_history_date ON staff_work_history(effective_date DESC);
+
+COMMENT ON TABLE staff_work_history IS 'Audit trail of all staff changes including transfers, promotions, and position changes';
+COMMENT ON COLUMN staff_work_history.action_type IS 'Type of change: HIRED, PROMOTED, DEMOTED, TRANSFERRED, POSITION_CHANGE, TERMINATED';
+
+
+-- Staff Shift Schedule
+CREATE TABLE staff_shifts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_info_id UUID NOT NULL REFERENCES staff_info(id) ON DELETE CASCADE,
+    station_id UUID NOT NULL,
+    shift_date DATE NOT NULL,
+    shift_type VARCHAR(20) NOT NULL CHECK (shift_type IN ('MORNING', 'AFTERNOON', 'EVENING', 'NIGHT', 'FULL_DAY')),
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    status VARCHAR(20) DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW')),
+    check_in_time TIMESTAMP WITH TIME ZONE,
+    check_out_time TIMESTAMP WITH TIME ZONE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_staff_shifts_staff ON staff_shifts(staff_info_id);
+CREATE INDEX idx_staff_shifts_station ON staff_shifts(station_id);
+CREATE INDEX idx_staff_shifts_date ON staff_shifts(shift_date);
+CREATE INDEX idx_staff_shifts_status ON staff_shifts(status);
+CREATE UNIQUE INDEX uq_staff_shift_date ON staff_shifts(staff_info_id, shift_date, shift_type);
+
+COMMENT ON TABLE staff_shifts IS 'Staff work shift scheduling and attendance tracking';
+COMMENT ON COLUMN staff_shifts.check_in_time IS 'Actual check-in timestamp';
+COMMENT ON COLUMN staff_shifts.check_out_time IS 'Actual check-out timestamp';
