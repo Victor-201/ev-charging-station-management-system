@@ -106,12 +106,12 @@ export class StaffController {
   /**
    * GET /api/v1/staff/:staff_id/shifts - Get staff shifts
    */
-  async getStaffShifts(req: Request, res: Response): Promise<void> {
+  async getStaffAttendance(req: Request, res: Response): Promise<void> {
     try {
       const { staff_id } = req.params;
       const { start_date, end_date, status } = req.query;
 
-      const shifts = await staffService.getStaffShifts(staff_id, {
+      const attendance = await staffService.getStaffAttendance(staff_id, {
         start_date: start_date as string,
         end_date: end_date as string,
         status: status as string,
@@ -119,12 +119,38 @@ export class StaffController {
 
       res.json({
         staff_id,
-        total: shifts.length,
-        shifts,
+        total: attendance.length,
+        attendance,
       });
     } catch (error) {
-      logger.error('Error in getStaffShifts:', error);
-      res.status(500).json({ error: 'Failed to get staff shifts' });
+      logger.error('Error in getStaffAttendance:', error);
+      res.status(500).json({ error: 'Failed to get staff attendance' });
+    }
+  }
+
+  /**
+   * GET /api/v1/staff/:staff_id/attendance/summary - Get attendance summary
+   */
+  async getAttendanceSummary(req: Request, res: Response): Promise<void> {
+    try {
+      const { staff_id } = req.params;
+      const { month, year } = req.query;
+
+      const summary = await staffService.getAttendanceSummary(
+        staff_id,
+        month as string,
+        year as string
+      );
+
+      res.json({
+        staff_id,
+        month: month || 'all',
+        year: year || 'all',
+        summary,
+      });
+    } catch (error) {
+      logger.error('Error in getAttendanceSummary:', error);
+      res.status(500).json({ error: 'Failed to get attendance summary' });
     }
   }
 }

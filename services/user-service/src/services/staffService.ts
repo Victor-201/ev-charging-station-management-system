@@ -5,37 +5,38 @@ interface StaffFilters {
   page?: number;
   size?: number;
   station_id?: string;
-  staff_level?: string;
-  employment_status?: string;
-  department?: string;
+  position?: string;
+  shift?: string;
+  is_active?: boolean;
   q?: string; // Search query
 }
 
 interface StaffInfo {
   id: string;
   user_id: string;
-  email: string;
+  station_id: string;
   full_name: string;
+  email: string;
   phone_number: string;
-  station_id: string | null;
-  staff_level: string;
-  position: string | null;
-  department: string | null;
-  employee_code: string | null;
-  hire_date: string | null;
-  employment_status: string;
-  salary_grade: string | null;
-  emergency_contact_name: string | null;
-  emergency_contact_phone: string | null;
-  certifications: any;
+  position: string;
+  shift: string;
+  hire_date: string;
+  is_active: boolean;
   notes: string | null;
   created_at: string;
   updated_at: string;
 }
 
-interface StaffDetails extends StaffInfo {
-  work_history?: any[];
-  upcoming_shifts?: any[];
+interface AttendanceRecord {
+  id: string;
+  staff_id: string;
+  work_date: string;
+  check_in: string | null;
+  check_out: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export class StaffService {
@@ -62,35 +63,34 @@ export class StaffService {
       let paramIndex = 1;
 
       if (filters.station_id) {
-        conditions.push(`si.station_id = $${paramIndex}`);
+        conditions.push(`station_id = $${paramIndex}`);
         params.push(filters.station_id);
         paramIndex++;
       }
 
-      if (filters.staff_level) {
-        conditions.push(`si.staff_level = $${paramIndex}`);
-        params.push(filters.staff_level);
+      if (filters.position) {
+        conditions.push(`position = $${paramIndex}`);
+        params.push(filters.position);
         paramIndex++;
       }
 
-      if (filters.employment_status) {
-        conditions.push(`si.employment_status = $${paramIndex}`);
-        params.push(filters.employment_status);
+      if (filters.shift) {
+        conditions.push(`shift = $${paramIndex}`);
+        params.push(filters.shift);
         paramIndex++;
       }
 
-      if (filters.department) {
-        conditions.push(`si.department = $${paramIndex}`);
-        params.push(filters.department);
+      if (filters.is_active !== undefined) {
+        conditions.push(`is_active = $${paramIndex}`);
+        params.push(filters.is_active);
         paramIndex++;
       }
 
       if (filters.q) {
         conditions.push(`(
-          u.full_name ILIKE $${paramIndex} OR 
-          u.email ILIKE $${paramIndex} OR 
-          si.employee_code ILIKE $${paramIndex} OR
-          si.position ILIKE $${paramIndex}
+          full_name ILIKE $${paramIndex} OR 
+          email ILIKE $${paramIndex} OR 
+          phone_number ILIKE $${paramIndex}
         )`);
         params.push(`%${filters.q}%`);
         paramIndex++;
@@ -101,8 +101,7 @@ export class StaffService {
       // Get total count
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM staff_info si
-        JOIN users u ON si.user_id = u.id
+        FROM staff
         ${whereClause}
       `;
       const countResult = await pool.query(countQuery, params);
@@ -111,29 +110,22 @@ export class StaffService {
       // Get staff data
       const dataQuery = `
         SELECT 
-          si.id,
-          si.user_id,
-          u.email,
-          u.full_name,
-          u.phone_number,
-          si.station_id,
-          si.staff_level,
-          si.position,
-          si.department,
-          si.employee_code,
-          si.hire_date,
-          si.employment_status,
-          si.salary_grade,
-          si.emergency_contact_name,
-          si.emergency_contact_phone,
-          si.certifications,
-          si.notes,
-          si.created_at,
-          si.updated_at
-        FROM staff_info si
-        JOIN users u ON si.user_id = u.id
+          id,
+          user_id,
+          station_id,
+          full_name,
+          email,
+          phone_number,
+          position,
+          shift,
+          hire_date,
+          is_active,
+          notes,
+          created_at,
+          updated_at
+        FROM staff
         ${whereClause}
-        ORDER BY si.created_at DESC
+        ORDER BY created_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
       params.push(size, offset);
@@ -158,90 +150,29 @@ export class StaffService {
   /**
    * Get staff details by ID
    */
-  async getStaffById(staffId: string): Promise<StaffDetails | null> {
+  async getStaffById(staffId: string): Promise<StaffInfo | null> {
     try {
       const query = `
         SELECT 
-          si.id,
-          si.user_id,
-          u.email,
-          u.full_name,
-          u.phone_number,
-          si.station_id,
-          si.staff_level,
-          si.position,
-          si.department,
-          si.employee_code,
-          si.hire_date,
-          si.employment_status,
-          si.salary_grade,
-          si.emergency_contact_name,
-          si.emergency_contact_phone,
-          si.certifications,
-          si.notes,
-          si.created_at,
-          si.updated_at
-        FROM staff_info si
-        JOIN users u ON si.user_id = u.id
-        WHERE si.id = $1
+          id,
+          user_id,
+          station_id,
+          full_name,
+          email,
+          phone_number,
+          position,
+          shift,
+          hire_date,
+          is_active,
+          notes,
+          created_at,
+          updated_at
+        FROM staff
+        WHERE id = $1
       `;
       const result = await pool.query(query, [staffId]);
 
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      const staff = result.rows[0];
-
-      // Get work history
-      const historyQuery = `
-        SELECT 
-          id,
-          action_type,
-          old_station_id,
-          new_station_id,
-          old_level,
-          new_level,
-          old_position,
-          new_position,
-          reason,
-          effective_date,
-          approved_by,
-          created_at
-        FROM staff_work_history
-        WHERE staff_info_id = $1
-        ORDER BY effective_date DESC
-        LIMIT 10
-      `;
-      const historyResult = await pool.query(historyQuery, [staffId]);
-
-      // Get upcoming shifts
-      const shiftsQuery = `
-        SELECT 
-          id,
-          station_id,
-          shift_date,
-          shift_type,
-          start_time,
-          end_time,
-          status,
-          check_in_time,
-          check_out_time,
-          notes
-        FROM staff_shifts
-        WHERE staff_info_id = $1 
-          AND shift_date >= CURRENT_DATE
-          AND status IN ('SCHEDULED', 'COMPLETED')
-        ORDER BY shift_date ASC, start_time ASC
-        LIMIT 10
-      `;
-      const shiftsResult = await pool.query(shiftsQuery, [staffId]);
-
-      return {
-        ...staff,
-        work_history: historyResult.rows,
-        upcoming_shifts: shiftsResult.rows,
-      };
+      return result.rows.length > 0 ? result.rows[0] : null;
     } catch (error) {
       logger.error('Error in getStaffById:', error);
       throw error;
@@ -255,28 +186,21 @@ export class StaffService {
     try {
       const query = `
         SELECT 
-          si.id,
-          si.user_id,
-          u.email,
-          u.full_name,
-          u.phone_number,
-          si.station_id,
-          si.staff_level,
-          si.position,
-          si.department,
-          si.employee_code,
-          si.hire_date,
-          si.employment_status,
-          si.salary_grade,
-          si.emergency_contact_name,
-          si.emergency_contact_phone,
-          si.certifications,
-          si.notes,
-          si.created_at,
-          si.updated_at
-        FROM staff_info si
-        JOIN users u ON si.user_id = u.id
-        WHERE si.user_id = $1
+          id,
+          user_id,
+          station_id,
+          full_name,
+          email,
+          phone_number,
+          position,
+          shift,
+          hire_date,
+          is_active,
+          notes,
+          created_at,
+          updated_at
+        FROM staff
+        WHERE user_id = $1
       `;
       const result = await pool.query(query, [userId]);
 
@@ -294,37 +218,28 @@ export class StaffService {
     try {
       const query = `
         SELECT 
-          si.id,
-          si.user_id,
-          u.email,
-          u.full_name,
-          u.phone_number,
-          si.station_id,
-          si.staff_level,
-          si.position,
-          si.department,
-          si.employee_code,
-          si.hire_date,
-          si.employment_status,
-          si.salary_grade,
-          si.emergency_contact_name,
-          si.emergency_contact_phone,
-          si.certifications,
-          si.notes,
-          si.created_at,
-          si.updated_at
-        FROM staff_info si
-        JOIN users u ON si.user_id = u.id
-        WHERE si.station_id = $1 
-          AND si.employment_status = 'ACTIVE'
+          id,
+          user_id,
+          station_id,
+          full_name,
+          email,
+          phone_number,
+          position,
+          shift,
+          hire_date,
+          is_active,
+          notes,
+          created_at,
+          updated_at
+        FROM staff
+        WHERE station_id = $1 AND is_active = true
         ORDER BY 
-          CASE si.staff_level
-            WHEN 'SENIOR_MANAGER' THEN 1
-            WHEN 'MANAGER' THEN 2
-            WHEN 'SUPERVISOR' THEN 3
-            WHEN 'STAFF' THEN 4
+          CASE position
+            WHEN 'manager' THEN 1
+            WHEN 'technician' THEN 2
+            WHEN 'operator' THEN 3
           END,
-          si.hire_date ASC
+          hire_date ASC
       `;
       const result = await pool.query(query, [stationId]);
 
@@ -343,16 +258,16 @@ export class StaffService {
       const query = `
         SELECT 
           COUNT(*) as total_staff,
-          COUNT(CASE WHEN employment_status = 'ACTIVE' THEN 1 END) as active_staff,
-          COUNT(CASE WHEN employment_status = 'ON_LEAVE' THEN 1 END) as on_leave,
-          COUNT(CASE WHEN employment_status = 'SUSPENDED' THEN 1 END) as suspended,
-          COUNT(CASE WHEN staff_level = 'SENIOR_MANAGER' THEN 1 END) as senior_managers,
-          COUNT(CASE WHEN staff_level = 'MANAGER' THEN 1 END) as managers,
-          COUNT(CASE WHEN staff_level = 'SUPERVISOR' THEN 1 END) as supervisors,
-          COUNT(CASE WHEN staff_level = 'STAFF' THEN 1 END) as staff_members,
-          COUNT(DISTINCT station_id) as stations_with_staff,
-          COUNT(DISTINCT department) as departments
-        FROM staff_info
+          COUNT(CASE WHEN is_active = true THEN 1 END) as active_staff,
+          COUNT(CASE WHEN is_active = false THEN 1 END) as inactive_staff,
+          COUNT(CASE WHEN position = 'manager' THEN 1 END) as managers,
+          COUNT(CASE WHEN position = 'technician' THEN 1 END) as technicians,
+          COUNT(CASE WHEN position = 'operator' THEN 1 END) as operators,
+          COUNT(CASE WHEN shift = 'morning' THEN 1 END) as morning_shift,
+          COUNT(CASE WHEN shift = 'afternoon' THEN 1 END) as afternoon_shift,
+          COUNT(CASE WHEN shift = 'night' THEN 1 END) as night_shift,
+          COUNT(DISTINCT station_id) as stations_with_staff
+        FROM staff
       `;
       const result = await pool.query(query);
 
@@ -364,26 +279,26 @@ export class StaffService {
   }
 
   /**
-   * Get staff shifts
+   * Get staff attendance records
    */
-  async getStaffShifts(staffId: string, filters: {
+  async getStaffAttendance(staffId: string, filters: {
     start_date?: string;
     end_date?: string;
     status?: string;
-  } = {}): Promise<any[]> {
+  } = {}): Promise<AttendanceRecord[]> {
     try {
-      const conditions: string[] = ['staff_info_id = $1'];
+      const conditions: string[] = ['staff_id = $1'];
       const params: any[] = [staffId];
       let paramIndex = 2;
 
       if (filters.start_date) {
-        conditions.push(`shift_date >= $${paramIndex}`);
+        conditions.push(`work_date >= $${paramIndex}`);
         params.push(filters.start_date);
         paramIndex++;
       }
 
       if (filters.end_date) {
-        conditions.push(`shift_date <= $${paramIndex}`);
+        conditions.push(`work_date <= $${paramIndex}`);
         params.push(filters.end_date);
         paramIndex++;
       }
@@ -397,26 +312,64 @@ export class StaffService {
       const query = `
         SELECT 
           id,
-          station_id,
-          shift_date,
-          shift_type,
-          start_time,
-          end_time,
+          staff_id,
+          work_date,
+          check_in,
+          check_out,
           status,
-          check_in_time,
-          check_out_time,
           notes,
           created_at,
           updated_at
-        FROM staff_shifts
+        FROM attendance
         WHERE ${conditions.join(' AND ')}
-        ORDER BY shift_date DESC, start_time ASC
+        ORDER BY work_date DESC
       `;
       const result = await pool.query(query, params);
 
       return result.rows;
     } catch (error) {
-      logger.error('Error in getStaffShifts:', error);
+      logger.error('Error in getStaffAttendance:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get attendance summary for a staff
+   */
+  async getAttendanceSummary(staffId: string, month?: string, year?: string): Promise<any> {
+    try {
+      const conditions: string[] = ['staff_id = $1'];
+      const params: any[] = [staffId];
+      let paramIndex = 2;
+
+      if (year) {
+        conditions.push(`EXTRACT(YEAR FROM work_date) = $${paramIndex}`);
+        params.push(year);
+        paramIndex++;
+      }
+
+      if (month) {
+        conditions.push(`EXTRACT(MONTH FROM work_date) = $${paramIndex}`);
+        params.push(month);
+        paramIndex++;
+      }
+
+      const query = `
+        SELECT 
+          COUNT(*) as total_days,
+          COUNT(CASE WHEN status = 'present' THEN 1 END) as present_days,
+          COUNT(CASE WHEN status = 'late' THEN 1 END) as late_days,
+          COUNT(CASE WHEN status = 'absent' THEN 1 END) as absent_days,
+          COUNT(CASE WHEN status = 'leave' THEN 1 END) as leave_days,
+          COUNT(CASE WHEN check_in IS NOT NULL AND check_out IS NOT NULL THEN 1 END) as completed_days
+        FROM attendance
+        WHERE ${conditions.join(' AND ')}
+      `;
+      const result = await pool.query(query, params);
+
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Error in getAttendanceSummary:', error);
       throw error;
     }
   }

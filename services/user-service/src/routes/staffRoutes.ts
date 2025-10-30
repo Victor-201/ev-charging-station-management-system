@@ -39,10 +39,18 @@ router.get(
 
 // GET /api/v1/staff/:staff_id/shifts - Get staff shifts
 router.get(
-  '/:staff_id/shifts',
+  '/:staff_id/attendance',
   authenticate,
   authorize('admin', 'station_owner', 'staff'),
-  staffController.getStaffShifts
+  staffController.getStaffAttendance
+);
+
+// GET /api/v1/staff/:staff_id/attendance/summary - Get attendance summary
+router.get(
+  '/:staff_id/attendance/summary',
+  authenticate,
+  authorize('admin', 'station_owner', 'staff'),
+  staffController.getAttendanceSummary
 );
 
 // GET /api/v1/staff/:staff_id - Get staff details by ID
