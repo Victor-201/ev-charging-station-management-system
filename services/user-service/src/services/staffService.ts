@@ -101,31 +101,33 @@ export class StaffService {
       // Get total count
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM staff
+        FROM staff s
+        JOIN users u ON s.user_id = u.id
         ${whereClause}
       `;
       const countResult = await pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get staff data
+      // Get staff data with user info
       const dataQuery = `
         SELECT 
-          id,
-          user_id,
-          station_id,
-          full_name,
-          email,
-          phone_number,
-          position,
-          shift,
-          hire_date,
-          is_active,
-          notes,
-          created_at,
-          updated_at
-        FROM staff
+          s.id,
+          s.user_id,
+          s.station_id,
+          u.full_name,
+          u.email,
+          u.phone_number,
+          s.position,
+          s.shift,
+          s.hire_date,
+          s.is_active,
+          s.notes,
+          s.created_at,
+          s.updated_at
+        FROM staff s
+        JOIN users u ON s.user_id = u.id
         ${whereClause}
-        ORDER BY created_at DESC
+        ORDER BY s.created_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
       params.push(size, offset);
@@ -154,21 +156,22 @@ export class StaffService {
     try {
       const query = `
         SELECT 
-          id,
-          user_id,
-          station_id,
-          full_name,
-          email,
-          phone_number,
-          position,
-          shift,
-          hire_date,
-          is_active,
-          notes,
-          created_at,
-          updated_at
-        FROM staff
-        WHERE id = $1
+          s.id,
+          s.user_id,
+          s.station_id,
+          u.full_name,
+          u.email,
+          u.phone_number,
+          s.position,
+          s.shift,
+          s.hire_date,
+          s.is_active,
+          s.notes,
+          s.created_at,
+          s.updated_at
+        FROM staff s
+        JOIN users u ON s.user_id = u.id
+        WHERE s.id = $1
       `;
       const result = await pool.query(query, [staffId]);
 
@@ -186,21 +189,22 @@ export class StaffService {
     try {
       const query = `
         SELECT 
-          id,
-          user_id,
-          station_id,
-          full_name,
-          email,
-          phone_number,
-          position,
-          shift,
-          hire_date,
-          is_active,
-          notes,
-          created_at,
-          updated_at
-        FROM staff
-        WHERE user_id = $1
+          s.id,
+          s.user_id,
+          s.station_id,
+          u.full_name,
+          u.email,
+          u.phone_number,
+          s.position,
+          s.shift,
+          s.hire_date,
+          s.is_active,
+          s.notes,
+          s.created_at,
+          s.updated_at
+        FROM staff s
+        JOIN users u ON s.user_id = u.id
+        WHERE s.user_id = $1
       `;
       const result = await pool.query(query, [userId]);
 
@@ -218,28 +222,29 @@ export class StaffService {
     try {
       const query = `
         SELECT 
-          id,
-          user_id,
-          station_id,
-          full_name,
-          email,
-          phone_number,
-          position,
-          shift,
-          hire_date,
-          is_active,
-          notes,
-          created_at,
-          updated_at
-        FROM staff
-        WHERE station_id = $1 AND is_active = true
+          s.id,
+          s.user_id,
+          s.station_id,
+          u.full_name,
+          u.email,
+          u.phone_number,
+          s.position,
+          s.shift,
+          s.hire_date,
+          s.is_active,
+          s.notes,
+          s.created_at,
+          s.updated_at
+        FROM staff s
+        JOIN users u ON s.user_id = u.id
+        WHERE s.station_id = $1 AND s.is_active = true
         ORDER BY 
-          CASE position
+          CASE s.position
             WHEN 'manager' THEN 1
             WHEN 'technician' THEN 2
             WHEN 'operator' THEN 3
           END,
-          hire_date ASC
+          s.hire_date ASC
       `;
       const result = await pool.query(query, [stationId]);
 

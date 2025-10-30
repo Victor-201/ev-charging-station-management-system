@@ -172,9 +172,6 @@ CREATE TABLE staff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     station_id UUID NOT NULL, -- Reference to station (logical reference to station_db)
-    full_name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL,
-    phone_number VARCHAR(20) NOT NULL,
     position VARCHAR(50) DEFAULT 'operator' CHECK (position IN ('operator', 'manager', 'technician')),
     shift VARCHAR(20) DEFAULT 'morning' CHECK (shift IN ('morning', 'afternoon', 'night')),
     hire_date DATE DEFAULT CURRENT_DATE,
@@ -188,9 +185,10 @@ CREATE INDEX idx_staff_user_id ON staff(user_id);
 CREATE INDEX idx_staff_station_id ON staff(station_id);
 CREATE INDEX idx_staff_position ON staff(position);
 CREATE INDEX idx_staff_is_active ON staff(is_active);
+CREATE INDEX idx_staff_shift ON staff(shift);
 
 COMMENT ON TABLE staff IS 'Staff information for users with staff role';
-COMMENT ON COLUMN staff.user_id IS 'Reference to users table (staff user) - one staff per user';
+COMMENT ON COLUMN staff.user_id IS 'Reference to users table (staff user) - one staff per user. Name, email, phone are in users table';
 COMMENT ON COLUMN staff.station_id IS 'Logical reference to station in station_db (UUID)';
 COMMENT ON COLUMN staff.position IS 'Position: operator, manager, technician';
 COMMENT ON COLUMN staff.shift IS 'Default shift: morning, afternoon, night';

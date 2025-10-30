@@ -12,11 +12,17 @@ CREATE TABLE users (
 );
 
 CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_status ON users(status);
+
+COMMENT ON TABLE users IS 'Primary user identity and authentication';
+COMMENT ON COLUMN users.role IS 'User role: driver, staff, admin, station_owner';
+COMMENT ON COLUMN users.status IS 'User status: active, inactive, suspended';
 
 -- third-party auth providers (oauth)
 CREATE TABLE user_auth_providers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     provider VARCHAR(50) NOT NULL,
     provider_uid VARCHAR(255),
     access_token TEXT,  -- Changed from VARCHAR(500) to TEXT for long JWT tokens
@@ -25,11 +31,15 @@ CREATE TABLE user_auth_providers (
 );
 
 CREATE INDEX idx_uap_userid ON user_auth_providers(user_id);
+CREATE INDEX idx_uap_provider ON user_auth_providers(provider);
+
+COMMENT ON TABLE user_auth_providers IS 'OAuth and third-party authentication providers (Google, Facebook, Apple)';
+COMMENT ON COLUMN user_auth_providers.provider IS 'Provider name: google, facebook, apple, github';
 
 -- sessions / tokens (short-living or refresh token)
 CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     refresh_token_hash VARCHAR(255),
     device_info TEXT,
     expires_at TIMESTAMPTZ,
@@ -37,6 +47,10 @@ CREATE TABLE sessions (
 );
 
 CREATE INDEX idx_sessions_userid ON sessions(user_id);
+CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+
+COMMENT ON TABLE sessions IS 'User sessions and refresh tokens for authentication';
+COMMENT ON COLUMN sessions.expires_at IS 'Expiration time for auto-cleanup of old sessions';
 
 -- optional: outbox for reliable event publishing
 CREATE TABLE outbox_events (
@@ -48,6 +62,12 @@ CREATE TABLE outbox_events (
     published BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_outbox_published ON outbox_events(published, created_at);
+CREATE INDEX idx_outbox_aggregate ON outbox_events(aggregate_id, aggregate_type);
+
+COMMENT ON TABLE outbox_events IS 'Outbox pattern for reliable event publishing to message broker';
+COMMENT ON COLUMN outbox_events.published IS 'Whether the event has been published to RabbitMQ';
 
 -- RBAC: Roles table
 CREATE TABLE roles (
