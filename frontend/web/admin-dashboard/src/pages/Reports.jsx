@@ -48,8 +48,8 @@ function Reports() {
   return (
     <section className="space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-ev-gunmetal">Reports</h2>
-        <p className="text-sm text-ev-deep/70">
+        <h2 className="text-xl font-semibold text-white">Reports</h2>
+        <p className="text-sm text-white/70">
           Tổng hợp KPI, doanh thu theo ngày, hiệu suất trạm và dữ liệu xuất khẩu.
         </p>
       </div>

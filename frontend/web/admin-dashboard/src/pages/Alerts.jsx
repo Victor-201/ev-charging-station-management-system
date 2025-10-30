@@ -22,7 +22,7 @@ function Alerts() {
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-ev-gunmetal">Alerts</h2>
+        <h2 className="text-xl font-semibold text-white">Alerts</h2>
         <select value={level} onChange={(e)=>setLevel(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
           <option value="">Tất cả mức</option>
           <option value="low">Low</option>

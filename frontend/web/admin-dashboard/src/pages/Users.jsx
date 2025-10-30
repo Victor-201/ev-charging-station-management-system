@@ -39,8 +39,8 @@ function Users() {
   return (
     <section className="space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-ev-gunmetal">Người dùng & Vai trò</h2>
-        <p className="text-sm text-ev-deep/70">Phân quyền, trạng thái hoạt động.</p>
+        <h2 className="text-xl font-semibold text-white">Người dùng & Vai trò</h2>
+        <p className="text-sm text-white/70">Phân quyền, trạng thái hoạt động.</p>
       </div>
 
       <div className="panel divide-y divide-white/40">

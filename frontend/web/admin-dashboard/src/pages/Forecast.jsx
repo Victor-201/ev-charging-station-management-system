@@ -23,7 +23,7 @@ function Forecast() {
 
   return (
     <section className="space-y-6">
-      <h2 className="text-xl font-semibold text-ev-gunmetal">Forecast (AI)</h2>
+      <h2 className="text-xl font-semibold text-white">Forecast (AI)</h2>
       <div className="panel p-6 h-96">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>

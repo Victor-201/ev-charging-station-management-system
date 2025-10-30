@@ -42,7 +42,7 @@ function Settings() {
 
   return (
     <section className="space-y-6">
-      <h2 className="text-xl font-semibold text-ev-gunmetal">Settings</h2>
+      <h2 className="text-xl font-semibold text-white">Settings</h2>
       <form onSubmit={save} className="panel p-6 space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
           <label className="space-y-1">

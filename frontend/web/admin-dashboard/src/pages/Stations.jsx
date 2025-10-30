@@ -56,8 +56,8 @@ function Stations() {
     <section className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-ev-gunmetal">Danh sách trạm</h2>
-          <p className="text-sm text-ev-deep/70">Quản lý trạng thái, công suất và bảo trì.</p>
+          <h2 className="text-xl font-semibold text-white">Danh sách trạm</h2>
+          <p className="text-sm text-white/70">Quản lý trạng thái, công suất và bảo trì.</p>
         </div>
         <button onClick={() => setOpen(true)} className="px-4 py-2 text-sm font-medium rounded-xl bg-ev-sky/80 text-ev-gunmetal hover:bg-ev-sky transition-colors">Thêm trạm</button>
       </div>

@@ -44,8 +44,8 @@ function Pricing() {
     <section className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-ev-gunmetal">Pricing & Plans</h2>
-          <p className="text-sm text-ev-deep/70">Quản lý biểu giá theo khung giờ và khu vực.</p>
+          <h2 className="text-xl font-semibold text-white">Pricing & Plans</h2>
+          <p className="text-sm text-white/70">Quản lý biểu giá theo khung giờ và khu vực.</p>
         </div>
         <button onClick={()=>setOpen(true)} className="px-4 py-2 text-sm font-medium rounded-xl bg-ev-teal text-white hover:bg-ev-deep transition-colors">Tạo biểu giá</button>
       </div>
