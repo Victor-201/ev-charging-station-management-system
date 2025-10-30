@@ -11,7 +11,6 @@ export default function Dashboard() {
     { key: 'stations', title: 'Stations', subtitle: 'Quản lý trạm sạc', icon: '⚡', route: '/stations' },
     { key: 'sessions', title: 'Sessions', subtitle: 'Phiên đang chạy', icon: '🔋', route: '/sessions' },
     { key: 'profile', title: 'Profile', subtitle: 'Người dùng & cấu hình', icon: '👤', route: '/profile' },
-    { key: 'history', title: 'History', subtitle: 'Lịch sử sạc', icon: '📜', route: '/history' },
   ];
 
   // Yêu cầu quyền camera ngay khi bấm vào ô, sau đó điều hướng

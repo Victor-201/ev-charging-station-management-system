@@ -1,1 +1,63 @@
-.profile-page .card{margin-top:8px}
+/* profile.scss – clean & elegant profile layout */
+.profile-page {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.profile-page h1 {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.profile-page .card {
+  margin-top: 8px;
+  background: var(--card-bg);
+}
+
+/* info layout */
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 4px;
+}
+
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed #e5e9f0;
+  padding-bottom: 8px;
+}
+
+.profile-row:last-child {
+  border-bottom: none;
+}
+
+.label {
+  font-weight: 600;
+  color: var(--muted);
+  min-width: 130px;
+}
+
+.value {
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+/* responsive */
+@media (max-width: 520px) {
+  .profile-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .value {
+    text-align: left;
+  }
+}

@@ -3,100 +3,152 @@ import Card from '../../components/Card.jsx';
 import Table from '../../components/Table.jsx';
 import './stations.scss';
 
+/*
+  Thiết kế mới:
+  - managedStationId: id trạm mà nhân viên hiện tại quản lý (thay giá trị nếu cần)
+  - stations: vẫn giữ danh sách tất cả trạm (dùng làm mẫu), nhưng UI chỉ hiển thị trạm được gán
+  - mỗi station có mảng chargers (mỗi charger = 1 trụ xạc)
+  - trái: grid các charger; phải: detail pane (bao gồm info trạm + detail trụ khi chọn)
+*/
+
 const initialStations = [
   {
     id: 'ST-001',
     name: 'Station A',
-    points: 4,
-    status: 'online',
     address: '123 Lê Lợi, HN',
-    lastUpdated: '2025-10-25 08:30',
     notes: 'Hoạt động ổn định',
-    history: [
-      { time: '2025-10-25 08:30', note: 'Kiểm tra định kỳ' },
-      { time: '2025-09-10 10:12', note: 'Sửa cổng sạc #2' },
+    lastUpdated: '2025-10-25 08:30',
+    // chargers: danh sách trụ xạc thuộc trạm này
+    chargers: [
+      {
+        id: 'C-001',
+        label: 'Trụ 1',
+        type: 'AC', // optional
+        status: 'available', // 'available'|'in_use'|'fault'|'charging'
+        lastUpdated: '2025-10-25 08:00',
+        powerPoint: 22, // kW ví dụ
+        notes: 'Hoạt động bình thường',
+        history: [
+          { time: '2025-10-25 08:00', note: 'Kiểm tra định kỳ' },
+          { time: '2025-09-20 11:10', note: 'Thay dây sạc' },
+        ],
+      },
+      {
+        id: 'C-002',
+        label: 'Trụ 2',
+        type: 'DC',
+        status: 'in_use',
+        lastUpdated: '2025-10-25 08:18',
+        powerPoint: 60,
+        notes: 'Đang sạc xe khách',
+        history: [{ time: '2025-10-25 08:18', note: 'Bắt đầu phiên sạc' }],
+      },
+      {
+        id: 'C-003',
+        label: 'Trụ 3',
+        type: 'AC',
+        status: 'fault',
+        lastUpdated: '2025-10-20 09:12',
+        powerPoint: 11,
+        notes: 'Lỗi cảm biến',
+        history: [{ time: '2025-10-20 09:12', note: 'Báo lỗi cảm biến' }],
+      },
     ],
+    // có thể thêm fields khác nếu cần
   },
+  // Các trạm khác (không hiển thị cho nhân viên này nhưng vẫn có trong "db mẫu")
   {
     id: 'ST-002',
     name: 'Station B',
-    points: 2,
-    status: 'offline',
     address: '45 Nguyễn Trãi, HCM',
-    lastUpdated: '2025-10-20 14:12',
     notes: 'Mất nguồn, đang chờ kỹ thuật',
-    history: [{ time: '2025-10-20 14:12', note: 'Báo lỗi mất nguồn' }],
+    lastUpdated: '2025-10-20 14:12',
+    chargers: [
+      { id: 'C-101', label: 'Trụ 1', status: 'offline', lastUpdated: '2025-10-20 14:12', powerPoint: 22, notes: '', history: [{ time: '2025-10-20 14:12', note: 'Mất nguồn' }] },
+    ],
   },
-  {
-    id: 'ST-003',
-    name: 'Station C',
-    points: 6,
-    status: 'maintenance',
-    address: '88 Trần Phú, ĐN',
-    lastUpdated: '2025-10-18 09:00',
-    notes: 'Thay module điều khiển',
-    history: [{ time: '2025-10-18 09:00', note: 'Bắt đầu bảo trì' }],
-  },
-  // thêm station mẫu nếu cần
 ];
 
 export default function Stations() {
+  // ID trạm mà nhân viên hiện tại quản lý — thay giá trị này theo auth thực tế
+  const managedStationId = 'ST-001';
+
   const [stations, setStations] = useState(initialStations);
-  const [selectedId, setSelectedId] = useState(null);
+  // selectedStationId giữ id trạm quản lý (thường = managedStationId)
+  const [selectedStationId] = useState(managedStationId);
+  // selectedChargerId: trụ xạc được chọn trong UI (null nghĩa chưa chọn)
+  const [selectedChargerId, setSelectedChargerId] = useState(null);
+
+  // filter & tìm kiếm trụ
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all'|'online'|'offline'|'maintenance'
+  const [statusFilter, setStatusFilter] = useState('all'); // all|available|in_use|fault|charging
 
+  // lấy trạm được quản lý
+  const managedStation = useMemo(() => stations.find(s => s.id === selectedStationId) || null, [stations, selectedStationId]);
+
+  // thống kê dựa trên chargers của trạm quản lý
   const stats = useMemo(() => {
-    const total = stations.length;
-    const online = stations.filter(s => s.status === 'online').length;
-    const offline = stations.filter(s => s.status === 'offline').length;
-    const maintenance = stations.filter(s => s.status === 'maintenance').length;
-    return { total, online, offline, maintenance };
-  }, [stations]);
+    if (!managedStation) return { totalChargers: 0, available: 0, in_use: 0, fault: 0, charging: 0 };
+    const totalChargers = managedStation.chargers.length;
+    const available = managedStation.chargers.filter(c => c.status === 'available').length;
+    const in_use = managedStation.chargers.filter(c => c.status === 'in_use').length;
+    const fault = managedStation.chargers.filter(c => c.status === 'fault').length;
+    const charging = managedStation.chargers.filter(c => c.status === 'charging').length;
+    return { totalChargers, available, in_use, fault, charging };
+  }, [managedStation]);
 
-  const filteredByQuery = useMemo(() => {
-    if (!query) return stations;
-    const q = query.trim().toLowerCase();
-    return stations.filter(
-      s =>
-        s.id.toLowerCase().includes(q) ||
-        s.name.toLowerCase().includes(q) ||
-        (s.address || '').toLowerCase().includes(q)
-    );
-  }, [stations, query]);
+  // danh sách trụ đã filter theo query + status
+  const filteredChargers = useMemo(() => {
+    if (!managedStation) return [];
+    let list = managedStation.chargers;
+    if (query) {
+      const q = query.trim().toLowerCase();
+      list = list.filter(c => (c.id || '').toLowerCase().includes(q) || (c.label || '').toLowerCase().includes(q) || (c.notes || '').toLowerCase().includes(q));
+    }
+    if (statusFilter !== 'all') list = list.filter(c => c.status === statusFilter);
+    return list;
+  }, [managedStation, query, statusFilter]);
 
-  // apply status filter on top of query
-  const filtered = useMemo(() => {
-    if (statusFilter === 'all') return filteredByQuery;
-    return filteredByQuery.filter(s => s.status === statusFilter);
-  }, [filteredByQuery, statusFilter]);
-
-  const selected = stations.find(s => s.id === selectedId) || null;
-
-  function setStatus(id, newStatus) {
-    setStations(prev => prev.map(s => (s.id === id ? { ...s, status: newStatus, lastUpdated: new Date().toISOString().slice(0,16).replace('T',' ') } : s)));
-  }
-
-  function addHistoryEntry(id, note) {
-    setStations(prev => prev.map(s => {
-      if (s.id !== id) return s;
-      const entry = { time: new Date().toISOString().slice(0,16).replace('T',' '), note };
-      return { ...s, history: [entry, ...(s.history || [])] };
+  // helper: cập nhật trạng thái charger trong stations state
+  function setChargerStatus(chargerId, newStatus) {
+    setStations(prev => prev.map(st => {
+      if (st.id !== selectedStationId) return st;
+      const chargers = st.chargers.map(ch => {
+        if (ch.id !== chargerId) return ch;
+        const now = new Date().toISOString().slice(0,16).replace('T',' ');
+        return { ...ch, status: newStatus, lastUpdated: now, history: [{ time: now, note: `Đặt trạng thái: ${newStatus}` }, ...(ch.history || [])] };
+      });
+      return { ...st, chargers, lastUpdated: new Date().toISOString().slice(0,16).replace('T',' ') };
     }));
   }
 
-  // click stat -> set filter. clicking same active stat toggles back to 'all'
+  // helper: thêm history cho charger
+  function addChargerHistory(chargerId, note) {
+    setStations(prev => prev.map(st => {
+      if (st.id !== selectedStationId) return st;
+      const chargers = st.chargers.map(ch => {
+        if (ch.id !== chargerId) return ch;
+        const now = new Date().toISOString().slice(0,16).replace('T',' ');
+        return { ...ch, history: [{ time: now, note }, ...(ch.history || [])], lastUpdated: now };
+      });
+      return { ...st, chargers, lastUpdated: new Date().toISOString().slice(0,16).replace('T',' ') };
+    }));
+  }
+
+  // click stat -> set filter. click same sẽ toggle 'all'
   function onClickStat(statKey) {
     setStatusFilter(prev => (prev === statKey ? 'all' : statKey));
-    setSelectedId(null); // close detail when changing filter
+    setSelectedChargerId(null);
   }
+
+  const selectedCharger = managedStation?.chargers.find(c => c.id === selectedChargerId) || null;
 
   return (
     <div className="page stations-page">
       <div className="page-inner">
-        <h1>Stations</h1>
+        <h1>Quản lý trạm — Nhân viên</h1>
 
-        {/* STATISTICS (clickable) */}
+        {/* STATISTICS (clickable) dựa trên chargers của trạm quản lý */}
         <div className="stations-stats">
           <div
             className={`stat-card total ${statusFilter === 'all' ? 'active' : ''}`}
@@ -105,127 +157,171 @@ export default function Stations() {
             tabIndex={0}
             onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClickStat('all')}
           >
-            <div className="label">Tổng trạm</div>
-            <div className="value">{stats.total}</div>
+            <div className="label">Trạm</div>
+            <div className="value">{managedStation ? managedStation.name : '—'}</div>
+            <div className="sub">{managedStation ? managedStation.id : ''}</div>
           </div>
 
           <div
-            className={`stat-card online ${statusFilter === 'online' ? 'active' : ''}`}
-            onClick={() => onClickStat('online')}
+            className={`stat-card available ${statusFilter === 'available' ? 'active' : ''}`}
+            onClick={() => onClickStat('available')}
             role="button"
             tabIndex={0}
-            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClickStat('online')}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClickStat('available')}
           >
-            <div className="label">Online</div>
-            <div className="value">{stats.online}</div>
+            <div className="label">Sẵn sàng</div>
+            <div className="value">{stats.available}</div>
+            <div className="sub">trụ</div>
           </div>
 
           <div
-            className={`stat-card offline ${statusFilter === 'offline' ? 'active' : ''}`}
-            onClick={() => onClickStat('offline')}
+            className={`stat-card in_use ${statusFilter === 'in_use' ? 'active' : ''}`}
+            onClick={() => onClickStat('in_use')}
             role="button"
             tabIndex={0}
-            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClickStat('offline')}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClickStat('in_use')}
           >
-            <div className="label">Offline</div>
-            <div className="value">{stats.offline}</div>
+            <div className="label">Đang dùng</div>
+            <div className="value">{stats.in_use}</div>
+            <div className="sub">trụ</div>
           </div>
 
           <div
-            className={`stat-card maintenance ${statusFilter === 'maintenance' ? 'active' : ''}`}
-            onClick={() => onClickStat('maintenance')}
+            className={`stat-card fault ${statusFilter === 'fault' ? 'active' : ''}`}
+            onClick={() => onClickStat('fault')}
             role="button"
             tabIndex={0}
-            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClickStat('maintenance')}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClickStat('fault')}
           >
-            <div className="label">Sửa chữa</div>
-            <div className="value">{stats.maintenance}</div>
+            <div className="label">Lỗi</div>
+            <div className="value">{stats.fault}</div>
+            <div className="sub">trụ</div>
           </div>
 
           <div className="stat-search">
             <input
-              placeholder="Tìm theo ID, tên, địa chỉ..."
+              placeholder="Tìm trụ theo ID, tên, ghi chú..."
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
           </div>
         </div>
 
-        {/* LAYOUT: grid of cards + detail pane */}
+        {/* LAYOUT: left = chargers grid, right = station detail + charger detail */}
         <div className="stations-layout">
-          {/* grid */}
-          <div className={`stations-grid ${selected ? 'with-detail' : ''}`}>
-            {filtered.map(st => (
-              <div key={st.id} className={`station-card ${st.status}`} onClick={() => setSelectedId(st.id)}>
-                <div className="card-top">
-                  <div className="station-id">{st.id}</div>
-                  <div className="station-status">{st.status}</div>
+          <div className={`stations-grid ${selectedCharger ? 'with-detail' : ''}`}>
+            {managedStation ? (
+              filteredChargers.map(ch => (
+                <div
+                  key={ch.id}
+                  className={`charger-card ${ch.status} ${selectedChargerId === ch.id ? 'selected' : ''}`}
+                  onClick={() => setSelectedChargerId(ch.id)}
+                >
+                  <div className="card-top">
+                    <div className="charger-id">{ch.id}</div>
+                    <div className="charger-status">{ch.status}</div>
+                  </div>
+                  <div className="charger-name">{ch.label}</div>
+                  <div className="charger-meta">
+                    <span>{ch.powerPoint} kW</span>
+                    <span className="dot">•</span>
+                    <span className="last-up">{ch.lastUpdated}</span>
+                  </div>
                 </div>
-                <div className="station-name">{st.name}</div>
-                <div className="station-meta">
-                  <span>{st.points} điểm</span>
-                  <span className="dot">•</span>
-                  <span className="address">{st.address}</span>
-                </div>
-              </div>
-            ))}
-            {filtered.length === 0 && <div className="empty">Không tìm thấy trạm nào.</div>}
+              ))
+            ) : (
+              <div className="empty">Không có trạm được gán cho nhân viên này.</div>
+            )}
+
+            {managedStation && filteredChargers.length === 0 && (
+              <div className="empty">Không tìm thấy trụ nào theo bộ lọc.</div>
+            )}
           </div>
 
-          {/* detail pane */}
-          <aside className={`stations-detail ${selected ? 'open' : ''}`} aria-hidden={!selected}>
-            {!selected && (
+          <aside className={`stations-detail ${managedStation ? 'open' : ''}`} aria-hidden={!managedStation}>
+            {!managedStation && (
               <Card title="Chi tiết trạm">
-                <div className="empty">Chọn một trạm để xem chi tiết</div>
+                <div className="empty">Không có trạm được chọn</div>
               </Card>
             )}
 
-            {selected && (
+            {managedStation && (
               <>
                 <div className="detail-header">
-                  <button className="back-btn" onClick={() => setSelectedId(null)}>← Quay lại</button>
-                  <h2>{selected.name} <span className={`status-badge ${selected.status}`}>{selected.status}</span></h2>
-                  <div className="small-meta">ID: {selected.id} — Cập nhật: {selected.lastUpdated}</div>
+                  <h2>{managedStation.name}</h2>
+                  <div className="small-meta">ID: {managedStation.id} — Cập nhật: {managedStation.lastUpdated}</div>
+                  <div className="station-summary">
+                    <span>{stats.totalChargers} trụ</span>
+                    <span className="dot">•</span>
+                    <span>{stats.available} sẵn sàng</span>
+                    <span className="dot">•</span>
+                    <span>{stats.in_use} đang dùng</span>
+                    <span className="dot">•</span>
+                    <span>{stats.fault} lỗi</span>
+                  </div>
                 </div>
 
-                <Card title="Thông tin">
-                  <div className="info-row"><strong>Địa chỉ:</strong> {selected.address}</div>
-                  <div className="info-row"><strong>Points:</strong> {selected.points}</div>
-                  <div className="info-row"><strong>Ghi chú:</strong> {selected.notes}</div>
-
+                <Card title="Thông tin trạm">
+                  <div className="info-row"><strong>Địa chỉ:</strong> {managedStation.address}</div>
+                  <div className="info-row"><strong>Ghi chú:</strong> {managedStation.notes}</div>
                   <div className="actions-row">
-                    <button className="btn btn-primary" onClick={() => { setStatus(selected.id, 'online'); addHistoryEntry(selected.id, 'Đặt trạng thái: online'); }}>
-                      Đặt Online
-                    </button>
-                    <button className="btn btn-warning" onClick={() => { setStatus(selected.id, 'maintenance'); addHistoryEntry(selected.id, 'Đặt trạng thái: maintenance'); }}>
-                      Đặt Sửa chữa
-                    </button>
-                    <button className="btn btn-danger" onClick={() => { setStatus(selected.id, 'offline'); addHistoryEntry(selected.id, 'Đặt trạng thái: offline'); }}>
-                      Đặt Offline
-                    </button>
+                    {/* Nút tác vụ cấp trạm (ví dụ refresh trạng thái, gọi kỹ thuật) */}
+                    <button className="btn" onClick={() => {
+                      // ví dụ: thêm entry lịch sử cấp trạm (không lưu riêng ở station vì chưa có field history trạm)
+                      setStations(prev => prev.map(st => st.id === managedStation.id ? { ...st, lastUpdated: new Date().toISOString().slice(0,16).replace('T',' ') } : st));
+                    }}>Cập nhật trạm</button>
+                    <button className="btn btn-danger" onClick={() => {
+                      // ví dụ: mark tất cả trụ là offline (chỉ demo)
+                      setStations(prev => prev.map(st => {
+                        if (st.id !== managedStation.id) return st;
+                        return { ...st, chargers: st.chargers.map(ch => ({ ...ch, status: 'offline', lastUpdated: new Date().toISOString().slice(0,16).replace('T',' ') })) };
+                      }));
+                    }}>Mark tất cả Offline</button>
                   </div>
                 </Card>
 
-                <Card title="Lịch sử">
-                  {selected.history && selected.history.length ? (
-                    <ul className="history-list">
-                      {selected.history.map((h, idx) => (
-                        <li key={idx}><span className="time">{h.time}</span> — <span className="note">{h.note}</span></li>
-                      ))}
-                    </ul>
-                  ) : <div className="empty">Không có lịch sử</div>}
-                </Card>
+                {/* CHARGER DETAIL (nếu có) */}
+                {selectedCharger ? (
+                  <>
+                    <Card title={`Chi tiết ${selectedCharger.label}`}>
+                      <div className="info-row"><strong>ID:</strong> {selectedCharger.id}</div>
+                      <div className="info-row"><strong>Loại:</strong> {selectedCharger.type || '—'}</div>
+                      <div className="info-row"><strong>Công suất:</strong> {selectedCharger.powerPoint} kW</div>
+                      <div className="info-row"><strong>Trạng thái:</strong> <span className={`status-badge ${selectedCharger.status}`}>{selectedCharger.status}</span></div>
+                      <div className="info-row"><strong>Ghi chú:</strong> {selectedCharger.notes}</div>
+
+                      <div className="actions-row">
+                        <button className="btn btn-primary" onClick={() => { setChargerStatus(selectedCharger.id, 'available'); }}>Đặt Sẵn sàng</button>
+                        <button className="btn btn-warning" onClick={() => { setChargerStatus(selectedCharger.id, 'charging'); }}>Đặt Đang sạc</button>
+                        <button className="btn btn-danger" onClick={() => { setChargerStatus(selectedCharger.id, 'fault'); }}>Đặt Lỗi</button>
+                        <button className="btn" onClick={() => { addChargerHistory(selectedCharger.id, 'Kiểm tra nhanh bởi kỹ thuật viên'); }}>Thêm lịch sử</button>
+                      </div>
+                    </Card>
+
+                    <Card title="Lịch sử trụ">
+                      {selectedCharger.history && selectedCharger.history.length ? (
+                        <ul className="history-list">
+                          {selectedCharger.history.map((h, idx) => <li key={idx}><span className="time">{h.time}</span> — <span className="note">{h.note}</span></li>)}
+                        </ul>
+                      ) : <div className="empty">Chưa có lịch sử</div>}
+                    </Card>
+                  </>
+                ) : (
+                  <Card title="Chi tiết trụ">
+                    <div className="empty">Chọn một trụ để xem chi tiết</div>
+                  </Card>
+                )}
               </>
             )}
           </aside>
         </div>
 
-        {/* legacy: small table view (optional) */}
+        {/* Optional: table showing raw stations (admin view) — vẫn giữ cho debug */}
         <div style={{ marginTop: 18 }}>
-          <Card title="Stations list (table)">
+          <Card title="Stations list (raw)">
             <Table
-              columns={["ID","Name","Points","Status"]}
-              rows={stations.map(s => [s.id, s.name, String(s.points), s.status])}
+              columns={["ID","Name","#Chargers","LastUpdated"]}
+              rows={stations.map(s => [s.id, s.name, String((s.chargers || []).length), s.lastUpdated || ''])}
             />
           </Card>
         </div>
