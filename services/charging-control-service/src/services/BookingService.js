@@ -161,6 +161,24 @@ async updateReservation(data) {
     return { message: 'Reservation cancelled successfully' };
   }
 
+  async getUserReservations(user_id) {
+    if (!user_id) throw new Error('Missing user_id');
+
+    // gọi repository để lấy dữ liệu
+    const reservations = await ReservationRepo.findByUser(user_id);
+
+    // xử lý thêm nếu cần, ví dụ: sort theo thời gian mới nhất
+    const sorted = reservations.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+
+    // format dữ liệu trả về
+    return sorted.map(r => ({
+      reservation_id: r.reservation_id,
+      station_id: r.station_id,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      status: r.status,
+    }));
+  }
   /**
    * Add user to waitlist (if slot unavailable)
    */
@@ -238,48 +256,53 @@ async updateReservation(data) {
   /**
    * Generate a QR code for an existing reservation
    */
-  async generateQr(data) {
-    const { reservation_id, user_id } = data;
-
-    if (!reservation_id || !user_id) {
-      throw new Error('Missing reservation_id or user_id');
+  async createQr({ reservation_id, expires_in = 600 }) {
+    if (!reservation_id || typeof reservation_id !== 'string') {
+      const e = new Error('reservation_id is required and must be a string');
+      e.status = 400;
+      throw e;
     }
 
-    const reservation = await ReservationRepo.findById(reservation_id);
-    if (!reservation) throw new Error('Reservation not found');
-
-    // Generate QR valid for 10 minutes (default)
-    const qr = await QrRepo.create({ reservation_id, user_id, expires_in: 600 });
-
-    if (publish) {
-      await publish('qr_events', {
-        type: 'QR_CREATED',
-        data: qr,
-      });
+    // Sanitize & bounds for expires_in
+    const expires = Number(expires_in) || 600;
+    if (!Number.isFinite(expires) || expires <= 0 || expires > 86400) { // <= 24h cap
+      const e = new Error('expires_in must be a positive number (max 86400)');
+      e.status = 400;
+      throw e;
     }
 
-    return qr;
+    // Tạo QR bằng repository
+    const created = await QrRepo.create({ reservation_id, expires_in: expires });
+
+    return {
+      qr_code: created.qr_id,
+      url: created.url,
+      expires_at: created.expires_at, // optional useful info
+    };
   }
 
   /**
-   * Validate QR code
+   * Validate QR (wrapper)
    */
   async validateQr(qr_id) {
-    const { valid, reservation_id } = await QrRepo.validate(qr_id);
-
-    if (!valid) throw new Error('QR invalid or expired');
-
-    // Mark as used after validation
-    await QrRepo.markUsed(qr_id);
-
-    if (publish) {
-      await publish('qr_events', {
-        type: 'QR_USED',
-        data: { qr_id, reservation_id },
-      });
+    if (!qr_id) {
+      const e = new Error('qr_id is required');
+      e.status = 400;
+      throw e;
     }
+    return QrRepo.validate(qr_id);
+  }
 
-    return { valid: true, reservation_id };
+  /**
+   * Mark a QR used
+   */
+  async markUsed(qr_id) {
+    if (!qr_id) {
+      const e = new Error('qr_id is required');
+      e.status = 400;
+      throw e;
+    }
+    await QrRepo.markUsed(qr_id);
   }
 
   /**

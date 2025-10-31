@@ -124,17 +124,62 @@ exports.removeFromWaitlist = async (req, res) => {
 
 
 
-exports.generateQr = async (req, res) => {
-  const qr = await BookingService.generateQr(req.body);
-  res.json(qr);
+exports.createQr = async (req, res) => {
+  try {
+    // Nếu bạn muốn dùng BookingService.generateQr thì gọi như bên dưới (giữ tương thích).
+    const result = await BookingService.createQr(req.body);
+    // trả về dạng ngắn gọn
+    return res.status(201).json({
+      qr_code: result.qr_id || result.qr_code || result.qrId,
+      url: result.url,
+      expires_at: result.expires_at || null,
+    });
+  } catch (err) {
+    console.error('[BookingController.createQr]', err && err.stack ? err.stack : err);
+    return res.status(400).json({ error: err.message });
+  }
 };
 
+/**
+ * Validate QR
+ * GET /api/qr/:qr_id/validate
+ * Trả về { valid: boolean, reservation_id?: string }
+ *
+ * Bạn đã có hàm tương tự `validateQr` phía dưới; mình giữ nguyên (no-op if duplicate).
+ */
 exports.validateQr = async (req, res) => {
   try {
     const qr = await BookingService.validateQr(req.params.qr_id);
     res.json(qr);
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+};
+
+/**
+ * Mark QR as used
+ * POST /api/qr/:qr_id/mark-used
+ * body: {}
+ *
+ * Khi trạm xác nhận đã bắt đầu sạc, gọi endpoint này để đánh dấu mã QR đã dùng.
+ */
+exports.markUsed = async (req, res) => {
+  try {
+    const qr_id = req.params.qr_id;
+    if (!qr_id) return res.status(400).json({ error: 'Missing qr_id' });
+
+    // Nếu BookingService có method markUsed -> gọi đó, ngược lại implement trong BookingService.
+    if (typeof BookingService.markUsed === 'function') {
+      await BookingService.markUsed(qr_id);
+    } else {
+      // nếu chưa có, trả lỗi rõ ràng để dev biết cần implement
+      throw new Error('BookingService.markUsed not implemented');
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[BookingController.markUsed]', err && err.stack ? err.stack : err);
+    return res.status(400).json({ error: err.message });
   }
 };
 

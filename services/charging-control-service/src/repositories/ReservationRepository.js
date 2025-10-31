@@ -118,6 +118,16 @@ class ReservationRepository {
     const [rows] = await pool.query(q, [station_id, point_id, start, end]);
     return rows[0].cnt === 0;
   }
+  async findByUser(user_id) {
+    const [rows] = await pool.query(
+      `SELECT reservation_id, station_id, start_time, end_time, status
+       FROM reservations
+       WHERE user_id = ?
+       ORDER BY start_time DESC`,
+      [user_id]
+    );
+    return rows;
+  }
 
   /**
    * Auto-cancel expired reservations (not started on time)

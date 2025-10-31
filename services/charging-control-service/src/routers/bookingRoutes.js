@@ -16,7 +16,7 @@ router.put('/:reservation_id', bookingCtrl.updateReservation);
 router.delete('/:reservation_id', bookingCtrl.cancelReservation);
 
 // --- QR Code APIs ---
-router.post('/qr/generate', bookingCtrl.generateQr);
+router.post('/qr/generate', bookingCtrl.createQr);
 router.get('/qr/:qr_id/validate', bookingCtrl.validateQr);
 
 module.exports = router;
