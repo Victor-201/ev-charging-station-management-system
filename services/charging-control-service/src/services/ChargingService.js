@@ -148,7 +148,8 @@ async startSession({ session_id, start_meter_wh = null }) {
     const RATE_PER_KWH = 200000; // unit e.g. VND per kWh (adjust to your pricing)
     const cost = kwh != null ? Math.round(kwh * RATE_PER_KWH) : null;
 
-    const ended_at = dayjs().toISOString();
+    const ended_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+
 
     await SessionRepo.updateStatus(session_id, 'finished', {
       end_meter_wh: endMeter,

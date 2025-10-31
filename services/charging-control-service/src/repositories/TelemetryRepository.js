@@ -29,7 +29,7 @@ class TelemetryRepository {
   /**
    * Lấy telemetry theo session_id, có filter theo from/to/limit
    */
-  async findBySession(session_id, { from, to, limit = 100 }) {
+  async getBySessionId(session_id, { from, to, limit = 100 }) {
     let q = 'SELECT timestamp, meter_wh, power_kw, soc FROM telemetry WHERE session_id = ?';
     const params = [session_id];
 

@@ -46,7 +46,7 @@ CREATE TABLE sessions (
   reservation_id VARCHAR(50) DEFAULT NULL,
   start_meter_wh INT DEFAULT NULL,
   end_meter_wh INT DEFAULT NULL,
-  status ENUM('initiated', 'charging', 'completed', 'failed', 'cancelled') DEFAULT 'initiated',
+  status ENUM('initiated', 'charging', 'paused', 'finished', 'failed', 'cancelled') DEFAULT 'initiated',
   started_at DATETIME(3) DEFAULT NULL,
   ended_at DATETIME(3) DEFAULT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
