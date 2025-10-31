@@ -50,6 +50,8 @@ CREATE TABLE sessions (
   started_at DATETIME(3) DEFAULT NULL,
   ended_at DATETIME(3) DEFAULT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+   auth_method ENUM('token','rfid','qr','app','kiosk','manual','other') NOT NULL DEFAULT 'other',
   kwh DECIMAL(10,3) GENERATED ALWAYS AS (
     CASE WHEN end_meter_wh IS NOT NULL AND start_meter_wh IS NOT NULL
          THEN (end_meter_wh - start_meter_wh)/1000
