@@ -2,6 +2,7 @@ const BookingService = require('../services/BookingService');
 
 exports.createReservation = async (req, res) => {
   try {
+     console.log('➡️ Received body:', req.body);
     const result = await BookingService.createReservation(req.body);
     res.json(result);
   } catch (e) {
@@ -22,12 +23,41 @@ exports.getUserReservations = async (req, res) => {
 
 exports.updateReservation = async (req, res) => {
   try {
-    const updated = await BookingService.updateReservation(req.body);
-    res.json(updated);
+    // debug logs để bạn thấy dữ liệu vào server
+    console.log('[updateReservation] method:', req.method);
+    console.log('[updateReservation] params:', req.params);
+    console.log('[updateReservation] query:', req.query);
+    console.log('[updateReservation] body keys:', Object.keys(req.body || {}));
+    console.log('[updateReservation] body:', req.body);
+
+    // tìm id theo thứ tự ưu tiên: route params (nhiều tên), body, query
+    const reservation_id =
+      req.params?.id ||
+      req.params?.reservationId ||
+      req.params?.reservation_id ||
+      req.body?.reservation_id ||
+      req.body?.reservationId ||
+      req.body?.id ||
+      req.query?.reservation_id ||
+      req.query?.id;
+
+    if (!reservation_id) {
+      // trả lỗi 400 nhưng kèm info để debug client
+      return res.status(400).json({
+        error: 'Missing reservation_id',
+        hint: 'send id either as URL param /reservations/:id or in JSON body property "reservation_id" or "id"',
+      });
+    }
+
+    const payload = { ...req.body, reservation_id };
+    const updated = await BookingService.updateReservation(payload);
+    return res.json(updated);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    console.error('[updateReservation] error:', e && e.stack ? e.stack : e);
+    return res.status(400).json({ error: e.message });
   }
 };
+
 
 exports.cancelReservation = async (req, res) => {
   try {
@@ -39,9 +69,60 @@ exports.cancelReservation = async (req, res) => {
 };
 
 exports.addToWaitlist = async (req, res) => {
-  const wait = await BookingService.addToWaitlist(req.body);
-  res.json(wait);
+  try {
+    const payload = req.body || {};
+    const entry = await BookingService.addToWaitlist(payload);
+    return res.status(201).json(entry);
+  } catch (err) {
+    console.error('[WaitlistController.addToWaitlist]', err && err.stack ? err.stack : err);
+    return res.status(400).json({ error: err.message });
+  }
 };
+
+exports.getByStation = async (req, res) => {
+  try {
+    const station_id = req.params.station_id || req.query.station_id || req.body.station_id;
+    const list = await BookingService.getWaitlistByStation(station_id);
+    return res.json(list);
+  } catch (err) {
+    console.error('[WaitlistController.getByStation]', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+exports.updateStatus = async (req, res) => {
+  try {
+    const waitlist_id = req.params.waitlist_id; // đúng tên param
+    const status = req.body.status;
+
+    if (!status) {
+      return res.status(400).json({ error: 'Missing status' });
+    }
+
+    const updated = await BookingService.updateStatus(waitlist_id, status);
+    return res.json(updated);
+  } catch (err) {
+    console.error('[WaitlistController.updateStatus]', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+exports.removeFromWaitlist = async (req, res) => {
+  try {
+    console.log('[removeFromWaitlist] params=', req.params);
+
+    const waitlist_id = req.params.waitlist_id;
+    if (!waitlist_id) return res.status(400).json({ error: 'Missing waitlist_id' });
+
+    const result = await BookingService.removeFromWaitlist(waitlist_id);
+    return res.json(result);
+  } catch (err) {
+    console.error('[WaitlistController.removeFromWaitlist]', err && err.stack ? err.stack : err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+
+
 
 exports.generateQr = async (req, res) => {
   const qr = await BookingService.generateQr(req.body);

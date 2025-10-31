@@ -27,7 +27,7 @@ class ReservationRepository {
 
     const sql = `
       INSERT INTO reservations (
-        reservation_id, user_id, charging_point_id, connector_type,
+        reservation_id, user_id, station_id, point_id, connector_type,
         start_time, end_time, status, expires_at, created_at, updated_at
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
@@ -36,7 +36,8 @@ class ReservationRepository {
     await pool.query(sql, [
       reservation.reservation_id,
       reservation.user_id,
-      reservation.charging_point_id,
+      reservation.station_id,
+      reservation.point_id,
       reservation.connector_type,
       this.toSqlDatetimeIsoZ(reservation.start_time),
       this.toSqlDatetimeIsoZ(reservation.end_time),
@@ -101,19 +102,20 @@ class ReservationRepository {
   /**
    * Check if a charging point is available in a given time range
    */
-  async checkAvailability(charging_point_id, start_time, end_time) {
+  async checkAvailability(station_id, point_id, start_time, end_time) {
     const start = this.toSqlDatetimeIsoZ(start_time);
     const end = this.toSqlDatetimeIsoZ(end_time);
 
     const q = `
       SELECT COUNT(*) AS cnt 
       FROM reservations 
-      WHERE charging_point_id = ? 
+      WHERE station_id = ? 
+        AND point_id = ? 
         AND status = 'confirmed'
         AND NOT (end_time <= ? OR start_time >= ?)
     `;
 
-    const [rows] = await pool.query(q, [station_id, charging_point_id, start, end]);
+    const [rows] = await pool.query(q, [station_id, point_id, start, end]);
     return rows[0].cnt === 0;
   }
 

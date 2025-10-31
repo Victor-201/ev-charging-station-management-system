@@ -4,7 +4,8 @@
 CREATE TABLE reservations (
   reservation_id VARCHAR(50) PRIMARY KEY,
   user_id VARCHAR(50) NOT NULL,         -- user_id từ user_service
-  charging_point_id VARCHAR(50) NOT NULL,  -- thay cho station_id và point_id
+  station_id VARCHAR(50) NOT NULL,      -- station_id từ station_service
+  point_id VARCHAR(50) NOT NULL,        -- point_id từ station_service
   connector_type ENUM('CCS', 'CHAdeMO', 'Type2', 'GB/T', 'Other') DEFAULT 'Type2',
   start_time DATETIME(3),
   end_time DATETIME(3),
@@ -14,23 +15,25 @@ CREATE TABLE reservations (
   updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   
   INDEX idx_user_id (user_id),
-  INDEX idx_charging_point (charging_point_id),
+  INDEX idx_station_point (station_id, point_id),
   INDEX idx_status (status)
 );
 
 -- ===============================
 -- WAITLIST
 -- ===============================
-CREATE TABLE waitlist (
+CREATE TABLE IF NOT EXISTS waitlist (
   waitlist_id VARCHAR(50) PRIMARY KEY,
   user_id VARCHAR(50) NOT NULL,
   station_id VARCHAR(50) NOT NULL,
-  connector_type ENUM('CCS', 'CHAdeMO', 'Type2', 'GB/T', 'Other') DEFAULT 'Type2',
+  connector_type ENUM('CCS','CHAdeMO','Type2','GB/T','Other') DEFAULT 'Type2',
   position INT CHECK (position > 0),
+  status ENUM('waiting','served','cancelled') DEFAULT 'waiting',
   created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
-
+  updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   UNIQUE KEY uniq_wait (user_id, station_id, connector_type)
 );
+
 
 -- ===============================
 -- SESSIONS
@@ -38,15 +41,14 @@ CREATE TABLE waitlist (
 CREATE TABLE sessions (
   session_id VARCHAR(50) PRIMARY KEY,
   user_id VARCHAR(50) NOT NULL,
-  charging_point_id VARCHAR(50) NOT NULL,  -- thay cho point_id
-  vehicle_id VARCHAR(50) NOT NULL,         -- từ user_service
+  point_id VARCHAR(50) NOT NULL,
+  vehicle_id VARCHAR(50) NOT NULL,      -- từ user_service
   reservation_id VARCHAR(50) DEFAULT NULL,
   start_meter_wh INT DEFAULT NULL,
   end_meter_wh INT DEFAULT NULL,
   status ENUM('initiated', 'charging', 'completed', 'failed', 'cancelled') DEFAULT 'initiated',
   started_at DATETIME(3) DEFAULT NULL,
   ended_at DATETIME(3) DEFAULT NULL,
-  base_total_price FLOAT,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   kwh DECIMAL(10,3) GENERATED ALWAYS AS (
     CASE WHEN end_meter_wh IS NOT NULL AND start_meter_wh IS NOT NULL
@@ -61,7 +63,7 @@ CREATE TABLE sessions (
       ON DELETE SET NULL ON UPDATE CASCADE,
 
   INDEX idx_user_id (user_id),
-  INDEX idx_charging_point (charging_point_id),
+  INDEX idx_point_id (point_id),
   INDEX idx_status (status)
 );
 

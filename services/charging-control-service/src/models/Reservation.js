@@ -2,7 +2,8 @@ class Reservation {
   constructor({
     reservation_id,
     user_id,
-    charging_point_id,
+    station_id,
+    point_id,
     connector_type = 'Type2',
     start_time,
     end_time,
@@ -13,7 +14,8 @@ class Reservation {
   }) {
     this.reservation_id = reservation_id;
     this.user_id = user_id;
-    this.charging_point_id = charging_point_id;
+    this.station_id = station_id;
+    this.point_id = point_id;
     this.connector_type = connector_type;
     this.start_time = start_time ? new Date(start_time) : null;
     this.end_time = end_time ? new Date(end_time) : null;

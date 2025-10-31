@@ -1,8 +1,21 @@
 const ReservationRepo = require('../repositories/ReservationRepository');
-// const WaitlistRepo = require('../repositories/WaitlistRepository');
+const WaitlistRepo = require('../repositories/WaitlistRepository');
 const QrRepo = require('../repositories/QrCodeRepository');
 const { publish } = require('../rabbit'); // RabbitMQ publisher (nếu có)
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+dayjs.extend(utc);
+
+const debug =
+  typeof require('debug') === 'function'
+    ? require('debug')('waitlist:service')
+    : (...args) => console.log('[WaitlistService]', ...args);
+
+// helper timeout cho publish
+function withTimeout(promise, ms = 2000) {
+  const t = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+  return Promise.race([promise, t]);
+}
 
 class BookingService {
   /**
@@ -67,31 +80,51 @@ class BookingService {
   /**
    * Get all reservations of a user
    */
-  async getUserReservations(user_id) {
-    return await ReservationRepo.findByUser(user_id);
-  }
+async updateReservation(data) {
+  try {
+    console.log('[updateReservation] input data:', JSON.stringify(data));
+    const rawId = data.reservation_id ?? data.id;
+    if (!rawId) throw new Error('Missing reservation_id');
+    const id = typeof rawId === 'string' ? rawId.trim() : rawId;
+    const idForQuery = Number.isNaN(Number(id)) ? id : Number(id);
 
-  /**
-   * Update reservation (time or status)
-   */
-  async updateReservation(data) {
-    const reservation = await ReservationRepo.findById(data.reservation_id);
-    if (!reservation) throw new Error('Reservation not found');
+    console.log('[updateReservation] normalized id:', idForQuery);
 
-    // Prevent update after start time
-    if (dayjs(reservation.start_time).isBefore(dayjs())) {
-      throw new Error('Cannot update reservation that has already started');
+    const reservation = await ReservationRepo.findById(idForQuery);
+    console.log('[updateReservation] findById result:', reservation);
+    if (!reservation) throw new Error(`Reservation not found (id=${JSON.stringify(idForQuery)})`);
+
+    // --- NEW: robust datetime parsing + logs
+    const now = dayjs.utc();
+    const dbStart = reservation.start_time ? dayjs.utc(reservation.start_time) : null;
+    const payloadStart = data.start_time ? dayjs.utc(data.start_time) : null;
+
+    console.log('[updateReservation] now:', now.toISOString());
+    console.log('[updateReservation] dbStart:', dbStart ? dbStart.toISOString() : null);
+    console.log('[updateReservation] payloadStart:', payloadStart ? payloadStart.toISOString() : null);
+
+    // Business rule: if reservation already started (dbStart < now)
+    if (dbStart && dbStart.isBefore(now)) {
+      // Allow reschedule IF client provided a new start_time in the future
+      if (payloadStart && payloadStart.isAfter(now)) {
+        console.log('[updateReservation] allowing reschedule because payloadStart > now');
+        // allow: continue
+      } else {
+        // if no payloadStart provided, or payloadStart is not in future, block update
+        throw new Error('Cannot update reservation that has already started (unless rescheduled to future start_time)');
+      }
     }
 
+    // apply updates
     Object.assign(reservation, {
-      start_time: data.start_time || reservation.start_time,
-      end_time: data.end_time || reservation.end_time,
-      status: data.status || reservation.status,
+      start_time: data.start_time ?? reservation.start_time,
+      end_time: data.end_time ?? reservation.end_time,
+      status: data.status ?? reservation.status,
     });
 
     const updated = await ReservationRepo.update(reservation);
 
-    if (publish) {
+    if (typeof publish !== 'undefined' && publish) {
       await publish('reservation_events', {
         type: 'RESERVATION_UPDATED',
         data: updated,
@@ -99,7 +132,11 @@ class BookingService {
     }
 
     return updated;
+  } catch (e) {
+    console.error('[updateReservation] error:', e && e.stack ? e.stack : e);
+    throw e;
   }
+}
 
   /**
    * Cancel reservation
@@ -127,30 +164,77 @@ class BookingService {
   /**
    * Add user to waitlist (if slot unavailable)
    */
-  async addToWaitlist(data) {
-    const { user_id, station_id, connector_type } = data;
+  /**
+   * Thêm người dùng vào hàng chờ
+   */
+ async addToWaitlist({ user_id, station_id, connector_type }) {
+    if (!user_id) throw new Error('Missing user_id');
+    if (!station_id) throw new Error('Missing station_id');
+    if (!connector_type) throw new Error('Missing connector_type');
 
-    if (!user_id || !station_id || !connector_type) {
-      throw new Error('Missing waitlist fields');
-    }
+    debug('adding to waitlist', { user_id, station_id, connector_type });
 
-    const entry = await WaitlistRepo.create({
-      user_id,
-      station_id,
-      connector_type,
-      status: 'waiting',
-    });
+    // Let repository handle transactional position assignment
+    const entry = await WaitlistRepo.create({ user_id, station_id, connector_type, status: 'waiting' });
 
-    if (publish) {
-      await publish('waitlist_events', {
-        type: 'WAITLIST_ADDED',
-        data: entry,
-      });
+    // publish non-blocking (fire-and-forget) with timeout + catch
+    if (typeof publish === 'function') {
+      withTimeout(publish('waitlist_events', { type: 'WAITLIST_ADDED', data: entry }), 2000)
+        .then(() => debug('published WAITLIST_ADDED', entry.waitlist_id))
+        .catch(err => debug('publish WAITLIST_ADDED failed/timeout', err.message));
     }
 
     return entry;
   }
 
+  async getWaitlistByStation(station_id) {
+    if (!station_id) throw new Error('Missing station_id');
+    return WaitlistRepo.findActiveByStation(station_id);
+  }
+
+  async updateStatus(waitlist_id, status) {
+    if (!waitlist_id) throw new Error('Missing waitlist_id');
+    if (!status) throw new Error('Missing status');
+
+    const waitlist = await WaitlistRepo.findById(waitlist_id);
+    if (!waitlist) throw new Error('Waitlist not found');
+
+    waitlist.status = status;
+    await WaitlistRepo.update(waitlist);
+
+    if (typeof publish === 'function') {
+      withTimeout(publish('waitlist_events', { type: 'WAITLIST_UPDATED', data: waitlist }), 2000)
+        .catch(err => debug('publish WAITLIST_UPDATED failed', err.message));
+    }
+
+    return waitlist;
+  }
+
+  async removeFromWaitlist(waitlist_id) {
+    if (!waitlist_id) throw new Error('Missing waitlist_id');
+
+    const waitlist = await WaitlistRepo.findById(waitlist_id);
+    if (!waitlist) throw new Error('Waitlist not found');
+
+    await WaitlistRepo.delete(waitlist_id);
+
+    // re-order remaining (simple approach)
+    const remainings = await WaitlistRepo.findActiveByStation(waitlist.station_id);
+    for (let i = 0; i < remainings.length; i++) {
+      const w = remainings[i];
+      if (w.position !== i + 1) {
+        w.position = i + 1;
+        await WaitlistRepo.update(w);
+      }
+    }
+
+    if (typeof publish === 'function') {
+      withTimeout(publish('waitlist_events', { type: 'WAITLIST_REMOVED', data: waitlist }), 2000)
+        .catch(err => debug('publish WAITLIST_REMOVED failed', err.message));
+    }
+
+    return { success: true };
+  }
   /**
    * Generate a QR code for an existing reservation
    */
