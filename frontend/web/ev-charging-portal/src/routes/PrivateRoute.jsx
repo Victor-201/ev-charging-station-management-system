@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from '@/hooks/useAuth';
-import Loader from '@/components/common/Loader';
+import { useAuth } from "@/hooks/useAuth";
+import { ROUTERS } from "@/utils/constants";
+import Loader from "@/components/common/Loader";
 
 const PrivateRoute = ({ children, roles = [] }) => {
   const { auth, isLoading } = useAuth();
@@ -9,10 +10,10 @@ const PrivateRoute = ({ children, roles = [] }) => {
   if (isLoading) return <Loader />;
 
   if (!auth?.token)
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to={ROUTERS.PUBLIC.LOGIN} state={{ from: location }} replace />;
 
   if (roles.length > 0 && !roles.includes(auth.role))
-    return <Navigate to="/403" replace />;
+    return <Navigate to={ROUTERS.PRIVATE.FORBIDDEN} replace />;
 
   return children;
 };

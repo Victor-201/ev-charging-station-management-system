@@ -1,24 +1,14 @@
 import { useState, useEffect } from "react";
-import jwtDecode from "jwt-decode";
 import { AuthContext } from "@/contexts/AuthContext";
 
 export const AuthProvider = ({ children }) => {
   const [auth, setAuth] = useState({ token: null, role: null, email: null });
   const [isLoading, setIsLoading] = useState(true);
 
-  const isTokenExpired = (token) => {
-    try {
-      const decoded = jwtDecode(token);
-      return decoded.exp * 1000 < Date.now();
-    } catch {
-      return true;
-    }
-  };
-
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token && !isTokenExpired(token)) {
-      const decoded = jwtDecode(token);
+    if (token) {
+      const decoded = JSON.parse(atob(token));
       setAuth({
         token,
         email: decoded.email,
@@ -28,14 +18,19 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  const login = (token) => {
-    if (!token) return;
-    const decoded = jwtDecode(token);
-    localStorage.setItem("token", token);
+  const login = (role = "staff") => {
+    const fakeToken = btoa(
+      JSON.stringify({
+        email: `${role}@example.com`,
+        role,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      })
+    );
+    localStorage.setItem("token", fakeToken);
     setAuth({
-      token,
-      email: decoded.email,
-      role: decoded.role,
+      token: fakeToken,
+      email: `${role}@example.com`,
+      role,
     });
   };
 

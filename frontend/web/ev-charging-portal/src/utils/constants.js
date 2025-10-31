@@ -1,13 +1,17 @@
 export const ROUTERS = {
   STAFF: {
-    HOME: '/',
+    HOME: "/",
   },
   ADMIN: {
-    DASHBOARD: '/admin',
+    DASHBOARD: "/admin",
   },
   PUBLIC: {
-    LOGIN: '/login',
-    REGISTER: '/register',
-    FORGOT_PASSWORD: '/forgot-password',
+    LOGIN: "/login",
+    REGISTER: "/register",
+    FORGOT_PASSWORD: "/forgot-password",
+    NOT_FOUND: "/404",
+  },
+  PRIVATE: {
+    FORBIDDEN: "/403",
   },
 };
