@@ -1,6 +1,13 @@
 export const ROUTERS = {
   STAFF: {
     HOME: "/staff",
+    DASHBOARD: "/staff/dashboard",
+    PAYMENTS: "/staff/payments",
+    STATIONS: "/staff/stations",
+    SESSIONS: "/staff/sessions",
+    SETTINGS: "/staff/settings",
+    SCAN: "/staff/scan",
+    INCIDENT_REPORT: "/staff/incidents",
   },
   ADMIN: {
     DASHBOARD: "/admin",
