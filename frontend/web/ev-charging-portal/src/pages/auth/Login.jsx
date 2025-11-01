@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import LangSwitcher from "@/components/common/LangSwitcher";
 import ThemeSwitcher from "@/components/common/ThemeSwitcher";
+import { ROUTERS } from "@/utils/constants";
+import { useNavigate } from "react-router-dom";
 
 // Yup validation schema
 const schema = yup.object({
@@ -19,6 +21,7 @@ const LoginPage = () => {
   const { t } = useTranslation();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const {
     register,
@@ -95,6 +98,7 @@ const LoginPage = () => {
 
             <button
               type="button"
+              onClick={() => navigate(ROUTERS.PUBLIC.FORGOT_PASSWORD)}
               className="text-sm underline hover:opacity-80"
             >
               {t("auth.forgot")}
