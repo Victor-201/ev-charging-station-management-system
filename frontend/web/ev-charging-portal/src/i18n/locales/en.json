@@ -1,0 +1,10 @@
+{
+  "login": {
+    "title": "EV Charging System Login",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Login",
+    "loading": "Logging in...",
+    "error": "Invalid email or password"
+  }
+}

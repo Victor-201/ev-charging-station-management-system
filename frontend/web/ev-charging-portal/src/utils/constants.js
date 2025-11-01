@@ -1,6 +1,6 @@
 export const ROUTERS = {
   STAFF: {
-    HOME: "/",
+    HOME: "/staff",
   },
   ADMIN: {
     DASHBOARD: "/admin",

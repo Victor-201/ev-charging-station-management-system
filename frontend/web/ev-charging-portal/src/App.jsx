@@ -1,14 +1,8 @@
-import { BrowserRouter } from "react-router-dom";
-// import { AuthProvider } from "@/providers/AuthProvider";
-import { AuthProvider } from "@/providers/AuthProvider.fake.jsx";
 import AppRouter from "@/routes/AppRouter";
+import "@/i18n";
 
-const App = () => (
-  <BrowserRouter>
-    <AuthProvider>
-      <AppRouter />
-    </AuthProvider>
-  </BrowserRouter>
-);
+const App = () => {
+  return <AppRouter />;
+};
 
 export default App;

@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/* =============================================
+   Palette màu cho App Trạm Sạc Xe
+   ============================================= */
+@theme {
+  --color-brand-50:  #00E6E6;
+  --color-brand-100: #00B3B3;
+  --color-brand-200: #008080;
+  --color-brand-300: #004D4D;
+  --color-brand-400: #001A1A;
+  --color-brand-500: #008080; /* primary chính */
+  --color-brand-600: #004D4D;
+  --color-brand-700: #001A1A;
+  --color-accent: #1AFFFF;    /* highlight, badge, icon */
+  --color-dark: #000000;      /* chữ/foreground dark mode */
+}
+
+/* =============================================
+   Biến root chung
+   ============================================= */
+:root {
+  --header-height: 60px;
+  --content-padding: 80px;
+}
+
+/* =============================================
+   Dark mode
+   ============================================= */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Body */
+body {
+  @apply bg-white text-gray-800 dark:bg-[var(--color-brand-700)] dark:text-[var(--color-brand-50)];
+  font-family: 'Inter', sans-serif;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+/* Links */
+a {
+  @apply text-[var(--color-brand-200)] hover:text-[var(--color-brand-100)] dark:text-[var(--color-accent)] dark:hover:text-[var(--color-brand-50)];
+  text-decoration: none;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-bold;
+}
+
+/* Buttons chung */
+button {
+  @apply px-4 py-2 rounded-lg bg-[var(--color-brand-500)] text-white hover:bg-[var(--color-brand-600)] transition-colors;
+}
+
+/* Inputs / select / textarea */
+input, select, textarea {
+  @apply border border-[var(--color-brand-200)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)] dark:border-[var(--color-brand-600)] dark:bg-[var(--color-brand-700)] dark:text-[var(--color-brand-50)];
+}
+
+/* Container max-width */
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Loader center */
+.loader-center {
+  @apply flex items-center justify-center h-screen;
+}
+
+/* Badge / highlight */
+.badge {
+  @apply bg-[var(--color-accent)] text-black px-2 py-1 rounded-full text-sm font-semibold;
+}
+
+/* Card / panel */
+.card {
+  @apply bg-white dark:bg-[var(--color-brand-600)] shadow rounded-lg p-4;
+}
