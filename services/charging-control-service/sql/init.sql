@@ -93,16 +93,17 @@ CREATE TABLE telemetry (
 -- ===============================
 CREATE TABLE notifications (
   notification_id VARCHAR(50) PRIMARY KEY,
-  to_user VARCHAR(50) NOT NULL, -- từ user_service
+  to_user VARCHAR(50) NOT NULL,
   channels JSON CHECK (JSON_VALID(channels)),
   title VARCHAR(255),
   message TEXT,
+  metadata JSON,
   status ENUM('unread', 'sent', 'read') DEFAULT 'unread',
   created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
-
   INDEX idx_to_user (to_user),
   INDEX idx_status (status)
 );
+
 
 -- ===============================
 -- QR CODES
