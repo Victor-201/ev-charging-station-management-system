@@ -11,6 +11,12 @@ export const ROUTERS = {
   },
   ADMIN: {
     DASHBOARD: "/admin",
+    ANALYTICS: "/admin/analytics",
+    REPORTS: "/admin/reports",
+    SETTINGS: "/admin/settings",
+    STATION_MANAGEMENT: "/admin/stations",
+    SUBSCRIPTION_PLANS: "/admin/subscriptions",
+    USER_MANAGEMENT: "/admin/users",
   },
   PUBLIC: {
     LOGIN: "/login",
