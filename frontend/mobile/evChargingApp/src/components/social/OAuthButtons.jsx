@@ -11,7 +11,7 @@ import { useDispatch } from 'react-redux';
 import { setAccessToken } from '../../store/slices/authSlice';
 import { STORAGE_KEYS } from '../../config/constants';
 
-export default function OAuthButtons({ onSuccess, onError }) {
+export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -57,10 +57,10 @@ export default function OAuthButtons({ onSuccess, onError }) {
   return (
     <View style={{ width: '100%', gap: 8 }}>
       <Button mode="outlined" onPress={signInWithGoogle} uppercase={false} style={{ marginVertical: 6 }}>
-        Sign in with Google
+        {mode === 'login' ? 'Sign in with Google' : 'Sign up with Google'}
       </Button>
       <Button mode="outlined" onPress={signInWithFacebook} uppercase={false} style={{ marginVertical: 6 }}>
-        Sign in with Facebook
+        {mode === 'login' ? 'Sign in with Facebook' : 'Sign up with Facebook'}
       </Button>
     </View>
   );
