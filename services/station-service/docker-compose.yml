@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   mysql:
     image: mysql:8
@@ -11,6 +13,9 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
+      - ./my.cnf:/etc/mysql/conf.d/my.cnf
+    networks:
+      - kong-net
 
   ev_station_service:
     build: .
@@ -23,6 +28,13 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: "mysql://root:root@db_mysql:3306/station_service"
+    networks:
+      - kong-net
 
 volumes:
   mysql_data:
+
+networks:
+  kong-net:
+    driver: bridge
+

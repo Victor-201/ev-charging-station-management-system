@@ -1,37 +1,48 @@
 @import "tailwindcss";
 
 /* =============================================
-   Palette màu cho App Trạm Sạc Xe
+   🎨 Bảng màu Blue Ocean - đồng bộ React Native
    ============================================= */
 @theme {
-  --color-brand-50:  #00E6E6;
-  --color-brand-100: #00B3B3;
-  --color-brand-200: #008080;
-  --color-brand-300: #004D4D;
-  --color-brand-400: #001A1A;
-  --color-brand-500: #008080; /* primary chính */
-  --color-brand-600: #004D4D;
-  --color-brand-700: #001A1A;
-  --color-accent: #1AFFFF;    /* highlight, badge, icon */
-  --color-dark: #000000;      /* chữ/foreground dark mode */
+  /* === Màu chủ đạo (Blue tone) === */
+  --color-primary:   #002682;  /* màu chính */
+  --color-on-primary: #FFFFFF; /* chữ trên nền primary */
+  --color-secondary: #1E45B5;  /* xanh nhạt hơn primary */
+  --color-accent:    #4A6CFF;  /* điểm nhấn */
+
+  /* === Màu nền & chữ === */
+  --color-background: #FFFFFF;
+  --color-surface:    #FFFFFF;
+  --color-on-background: #000000;
+  --color-on-surface:   #000000;
+
+  /* === Trạng thái === */
+  --color-error:   #f60d01;  /* lỗi */
+  --color-success: #86df20;  /* thành công */
+  --color-warning: #f2ae14;  /* cảnh báo */
+
+  /* === Thang màu thương hiệu (brand scale) === */
+  --color-brand-50:  #E5ECFF;
+  --color-brand-100: #B3C3FF;
+  --color-brand-200: #8099FF;
+  --color-brand-300: #4A6CFF;
+  --color-brand-400: #1E45B5;
+  --color-brand-500: #002682;
+  --color-brand-600: #001F6B;
+  --color-brand-700: #001653;
 }
 
 /* =============================================
-   Biến root chung
-   ============================================= */
-:root {
-  --header-height: 60px;
-  --content-padding: 80px;
-}
-
-/* =============================================
-   Dark mode
+   🌙 Dark mode (nếu có)
    ============================================= */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Body */
+/* =============================================
+   ✨ Cấu hình giao diện chung
+   ============================================= */
 body {
-  @apply bg-white text-gray-800 dark:bg-[var(--color-brand-700)] dark:text-[var(--color-brand-50)];
+  @apply bg-[var(--color-background)] text-[var(--color-on-background)]
+         dark:bg-[var(--color-brand-700)] dark:text-[var(--color-brand-50)];
   font-family: 'Inter', sans-serif;
   line-height: 1.5;
   margin: 0;
@@ -40,41 +51,45 @@ body {
 
 /* Links */
 a {
-  @apply text-[var(--color-brand-200)] hover:text-[var(--color-brand-100)] dark:text-[var(--color-accent)] dark:hover:text-[var(--color-brand-50)];
+  @apply text-[var(--color-secondary)] hover:text-[var(--color-accent)]
+         dark:text-[var(--color-accent)] dark:hover:text-[var(--color-brand-50)];
   text-decoration: none;
 }
 
-/* Headings */
-h1, h2, h3, h4, h5, h6 {
-  @apply font-bold;
-}
-
-/* Buttons chung */
+/* Buttons */
 button {
-  @apply px-4 py-2 rounded-lg bg-[var(--color-brand-500)] text-white hover:bg-[var(--color-brand-600)] transition-colors;
+  @apply px-4 py-2 rounded-lg 
+         bg-[var(--color-primary)] text-[var(--color-on-primary)]
+         hover:bg-[var(--color-secondary)]
+         transition-colors;
 }
 
-/* Inputs / select / textarea */
+/* Inputs */
 input, select, textarea {
-  @apply border border-[var(--color-brand-200)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)] dark:border-[var(--color-brand-600)] dark:bg-[var(--color-brand-700)] dark:text-[var(--color-brand-50)];
+  @apply border border-[var(--color-brand-200)] rounded-md px-3 py-2
+         focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]
+         dark:border-[var(--color-brand-600)]
+         dark:bg-[var(--color-brand-700)] dark:text-[var(--color-brand-50)];
 }
 
-/* Container max-width */
-.container {
-  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
-}
-
-/* Loader center */
-.loader-center {
-  @apply flex items-center justify-center h-screen;
-}
-
-/* Badge / highlight */
+/* Badge */
 .badge {
   @apply bg-[var(--color-accent)] text-black px-2 py-1 rounded-full text-sm font-semibold;
 }
 
-/* Card / panel */
+/* Card */
 .card {
-  @apply bg-white dark:bg-[var(--color-brand-600)] shadow rounded-lg p-4;
+  @apply bg-[var(--color-surface)] dark:bg-[var(--color-brand-600)] 
+         shadow rounded-lg p-4;
+}
+
+/* Alerts */
+.alert-error {
+  @apply bg-[var(--color-error)] text-white px-4 py-2 rounded-md;
+}
+.alert-success {
+  @apply bg-[var(--color-success)] text-black px-4 py-2 rounded-md;
+}
+.alert-warning {
+  @apply bg-[var(--color-warning)] text-black px-4 py-2 rounded-md;
 }
