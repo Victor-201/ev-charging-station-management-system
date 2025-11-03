@@ -1,0 +1,77 @@
+_format_version: "3.0"
+services:
+- connect_timeout: 60000
+  enabled: true
+  host: ev_station_service
+  name: ev_station_service
+  port: 3000
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - https_redirect_status_code: 426
+    name: ev_station_service_route
+    path_handling: v0
+    paths:
+    - /api/v1
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: payment-service
+  name: payment-service
+  path: /api/v1
+  port: 8080
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - hosts:
+    - payment-service
+    https_redirect_status_code: 426
+    name: payment-route
+    path_handling: v0
+    paths:
+    - /api/v1
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: reservation_service
+  name: reservation_service
+  path: /api/v1
+  port: 4002
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - hosts:
+    - reservation_service
+    https_redirect_status_code: 426
+    name: reservation_route
+    path_handling: v0
+    paths:
+    - /api/v1
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000
