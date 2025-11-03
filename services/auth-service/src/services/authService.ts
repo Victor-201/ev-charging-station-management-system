@@ -18,7 +18,7 @@ export class AuthService {
     };
     return jwt.sign(tokenPayload, process.env.JWT_SECRET || 'default-secret', {
       expiresIn: process.env.JWT_EXPIRES_IN || '1h',
-    });
+    } as jwt.SignOptions);
   }
 
   generateRefreshToken(payload: JWTPayload): string {
@@ -29,7 +29,7 @@ export class AuthService {
     };
     return jwt.sign(tokenPayload, process.env.JWT_REFRESH_SECRET || 'default-refresh-secret', {
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-    });
+    } as jwt.SignOptions);
   }
 
   // Register new user

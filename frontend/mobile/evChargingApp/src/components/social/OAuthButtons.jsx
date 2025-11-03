@@ -15,7 +15,14 @@ export default function OAuthButtons({ onSuccess, onError }) {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID, offlineAccess: true });
+    // Configure Google Sign-In only if clientId is available
+    if (GOOGLE_WEB_CLIENT_ID) {
+      GoogleSignin.configure({ 
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+        iosClientId: GOOGLE_WEB_CLIENT_ID, // Use same clientId or provide specific iOS client ID
+        offlineAccess: true 
+      });
+    }
   }, []);
 
   const signInWithGoogle = async () => {

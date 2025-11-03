@@ -1,5 +1,5 @@
 import amqp, { Channel, Connection, ConsumeMessage } from 'amqplib';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 export interface DomainEvent {
   eventId: string;
