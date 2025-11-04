@@ -33,18 +33,43 @@ docker network connect kong-net <container_name>
 ## Bước 6: Tạo service và route trong kong để có thể gọi tới api
 
 ```bash
+
 ## Tạo service trong kong
 curl -i -X POST http://localhost:8001/services \
   --data name=<service-name> \
-  --data url='http://<your-container-name>:<Port>/api/v1'
+  --data url='http://<your-container-name>:<Port>'
 
 ## Tạo route kết nối tới service
 curl -i -X POST http://localhost:8001/routes \
   --data name=<route-name> \
   --data service.name=<service-name> \
   --data hosts[]=<container-name> \
-  --data paths[]=/api/v1 \
+  --data paths[]=/api/v1/<your-router> \
   --data strip_path=false
 
+```
+## Các câu lệnh cần thiết để thao tác với kong va network
+
+```bash
+### Xem danh sách net-work
+docker network ls
+
+### Xem trạng thái của network cụ thể
+docker network inspect <name-network>
+
+### Xuất cấu hình của kong ra yml bằng deck
+deck gateway dump --kong-addr http://localhost:8001 -o kong.yaml
+
+### Nạp file cấu hình kong.yml vào kong container
+docker cp kong.yml kong:/kong/kong.yml
+
+docker exec -it kong kong reload
+
+docker exec -it kong bash
+export KONG_DATABASE=off
+export KONG_DECLARATIVE_CONFIG=/kong/kong.yml
+kong reload
+
+```
 
 > Lưu ý: File này chỉ mang tính chất hướng dẫn. Copy nội dung vào máy và thực hiện từng bước. Không cần chạy toàn bộ tự động.
