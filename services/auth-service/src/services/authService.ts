@@ -218,7 +218,7 @@ export class AuthService {
       throw new AppError('Unsupported provider', 400);
     }
 
-    const { email, provider_uid, name } = providerData;
+    const { email, provider_uid } = providerData;
 
     // Check if user exists
     let user = await query(
@@ -298,26 +298,80 @@ export class AuthService {
     };
   }
 
-  // Verify Google token
+    // Verify Google token
   private async verifyGoogleToken(token: string) {
     try {
+      logger.info('🔍 Verifying Google token...');
+      
       // Try to verify as ID token first (from Google Sign-In button)
-      let response = await axios.get(
-        `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`
-      );
-
-      // If ID token verification fails, try as access token
-      if (!response.data || !response.data.email) {
+      let response;
+      let userData = null;
+      
+      try {
+        logger.info('📋 Trying ID token verification...');
         response = await axios.get(
-          `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`
         );
+        
+        if (response.data && response.data.email) {
+          logger.info('✅ ID token verification successful');
+          userData = {
+            email: response.data.email,
+            provider_uid: response.data.sub,
+            name: response.data.name || response.data.email.split('@')[0],
+          };
+        }
+      } catch (idTokenError) {
+        logger.info('⚠️ ID token verification failed, trying access token...');
+        
+        // If ID token verification fails, try as access token
+        try {
+          response = await axios.get(
+            `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`
+          );
+          
+          if (response.data && response.data.email) {
+            logger.info('✅ Access token verification successful');
+            userData = {
+              email: response.data.email,
+              provider_uid: response.data.sub || response.data.user_id,
+              name: response.data.name || response.data.email.split('@')[0],
+            };
+          }
+        } catch (accessTokenError) {
+          logger.info('⚠️ Access token verification failed, trying user info API...');
+          
+          // Last resort: use the token to get user info
+          try {
+            response = await axios.get(
+              `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${token}`
+            );
+            
+            if (response.data && response.data.email) {
+              logger.info('✅ User info API verification successful');
+              userData = {
+                email: response.data.email,
+                provider_uid: response.data.id,
+                name: response.data.name || response.data.email.split('@')[0],
+              };
+            }
+          } catch (userInfoError) {
+            logger.error('❌ All Google token verification methods failed');
+            throw userInfoError;
+          }
+        }
       }
-
-      return {
-        email: response.data.email,
-        provider_uid: response.data.sub || response.data.user_id,
-        name: response.data.name || response.data.email.split('@')[0],
-      };
+      
+      if (!userData || !userData.email) {
+        throw new Error('Unable to get user data from Google token');
+      }
+      
+      logger.info('✅ Google token verified successfully:', { 
+        email: userData.email,
+        provider_uid: userData.provider_uid 
+      });
+      
+      return userData;
     } catch (error: any) {
       logger.error('Google token verification error:', { 
         error: error.response?.data || error.message 
@@ -442,7 +496,7 @@ export class AuthService {
 
   // Reset password - Feature removed (no password_reset_tokens table)
   // TODO: Implement password reset via JWT tokens instead
-  async resetPassword(token: string, newPassword: string) {
+  async resetPassword(_token: string, _newPassword: string) {
     throw new AppError('Password reset feature is currently unavailable. Please contact support.', 501);
   }
 

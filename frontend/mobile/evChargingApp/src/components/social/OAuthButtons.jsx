@@ -46,15 +46,19 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
       const userInfo = await GoogleSignin.signIn();
       console.log('✅ Google Sign-In successful:', { 
         email: userInfo.user?.email,
-        hasIdToken: !!userInfo.idToken 
+        hasIdToken: !!userInfo.idToken,
+        hasAccessToken: !!userInfo.accessToken,
+        tokenType: userInfo.idToken ? 'idToken' : 'accessToken'
       });
       
-      if (!userInfo.idToken) {
-        throw new Error('No ID token received from Google');
+      // Use idToken if available, otherwise fallback to accessToken
+      const token = userInfo.idToken || userInfo.accessToken;
+      if (!token) {
+        throw new Error('No token received from Google');
       }
       
       console.log('📡 Sending OAuth request to backend...');
-      const { data } = await authService.socialLogin('google', userInfo.idToken);
+      const { data } = await authService.socialLogin('google', token);
       console.log('✅ Backend OAuth response:', { 
         hasAccessToken: !!data?.accessToken,
         userId: data?.user_id 
