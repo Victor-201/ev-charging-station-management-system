@@ -33,9 +33,9 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
