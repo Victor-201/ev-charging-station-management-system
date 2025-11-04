@@ -1,5 +1,17 @@
-// Use Mac's local IP address so iPhone can connect to backend running in Docker
-// Change this to your Mac's IP address (run: ifconfig | grep "inet " | grep -v 127.0.0.1)
-export const API_BASE_URL = 'http://192.168.1.32:3001/api/v1'; // auth-service port
-export const GOOGLE_WEB_CLIENT_ID = '<GOOGLE_WEB_CLIENT_ID>'; // replace with web client id
-export const FACEBOOK_APP_ID = '<FB_APP_ID>'; // replace with facebook app id
+import {
+  API_BASE_URL as ENV_API_BASE_URL,
+  GOOGLE_WEB_CLIENT_ID as ENV_GOOGLE_WEB_CLIENT_ID,
+  GOOGLE_IOS_CLIENT_ID as ENV_GOOGLE_IOS_CLIENT_ID,
+  FACEBOOK_APP_ID as ENV_FACEBOOK_APP_ID,
+  FACEBOOK_APP_NAME as ENV_FACEBOOK_APP_NAME,
+  GOOGLE_MAPS_API_KEY as ENV_GOOGLE_MAPS_API_KEY,
+} from '@env';
+
+const FALLBACK_API_URL = 'http://192.168.1.32:3001/api/v1';
+
+export const API_BASE_URL = ENV_API_BASE_URL || FALLBACK_API_URL;
+export const GOOGLE_WEB_CLIENT_ID = ENV_GOOGLE_WEB_CLIENT_ID || '';
+export const GOOGLE_IOS_CLIENT_ID = ENV_GOOGLE_IOS_CLIENT_ID || '';
+export const FACEBOOK_APP_ID = ENV_FACEBOOK_APP_ID || '';
+export const FACEBOOK_APP_NAME = ENV_FACEBOOK_APP_NAME || 'evChargingApp';
+export const GOOGLE_MAPS_API_KEY = ENV_GOOGLE_MAPS_API_KEY || '';
