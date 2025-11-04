@@ -10,10 +10,23 @@ services:
   retries: 5
   routes:
   - https_redirect_status_code: 426
-    name: ev_station_service_route
+    name: station_chargers_route
     path_handling: v0
     paths:
-    - /api/v1
+    - /api/v1/chargers
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: station_route
+    path_handling: v0
+    paths:
+    - /api/v1/stations
     preserve_host: false
     protocols:
     - http
@@ -27,19 +40,55 @@ services:
   enabled: true
   host: payment-service
   name: payment-service
-  path: /api/v1
   port: 8080
   protocol: http
   read_timeout: 60000
   retries: 5
   routes:
-  - hosts:
-    - payment-service
-    https_redirect_status_code: 426
-    name: payment-route
+  - https_redirect_status_code: 426
+    name: payments_invoices_route
     path_handling: v0
     paths:
-    - /api/v1
+    - /api/v1/invoices
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: payments_plans_route
+    path_handling: v0
+    paths:
+    - /api/v1/plans
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: payments_route
+    path_handling: v0
+    paths:
+    - /api/v1/payments
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: payments_subscriptions_route
+    path_handling: v0
+    paths:
+    - /api/v1/subscriptions
     preserve_host: false
     protocols:
     - http
@@ -53,19 +102,42 @@ services:
   enabled: true
   host: reservation_service
   name: reservation_service
-  path: /api/v1
   port: 4002
   protocol: http
   read_timeout: 60000
   retries: 5
   routes:
-  - hosts:
-    - reservation_service
-    https_redirect_status_code: 426
-    name: reservation_route
+  - https_redirect_status_code: 426
+    name: reservation_booking_route
     path_handling: v0
     paths:
-    - /api/v1
+    - /api/v1/booking
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: reservation_charging_route
+    path_handling: v0
+    paths:
+    - /api/v1/charging
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: reservation_notification_route
+    path_handling: v0
+    paths:
+    - /api/v1/notifications
     preserve_host: false
     protocols:
     - http
