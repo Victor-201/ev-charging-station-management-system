@@ -71,5 +71,23 @@ export KONG_DECLARATIVE_CONFIG=/kong/kong.yml
 kong reload
 
 ```
+## Setup deck ##
+
+```bash
+
+curl -Lo deck.tar.gz https://github.com/Kong/deck/releases/download/v1.31.1/deck_1.31.1_linux_amd64.tar.gz
+
+tar -xzf deck.tar.gz
+sudo mv deck /usr/local/bin/
+
+deck version
+
+### Dùng deck để export cấu hình
+deck gateway dump --kong-addr http://localhost:8001 -o kong.yml
+
+### Dùng deck để import ghì đè cấu hình
+deck gateway sync --kong-addr http://localhost:8001 -s kong.yml
+
+```
 
 > Lưu ý: File này chỉ mang tính chất hướng dẫn. Copy nội dung vào máy và thực hiện từng bước. Không cần chạy toàn bộ tự động.
