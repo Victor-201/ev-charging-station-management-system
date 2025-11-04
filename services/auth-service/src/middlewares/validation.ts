@@ -35,7 +35,9 @@ export const loginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
-// verifyOTPSchema removed - feature not available with new schema
+export const verifyEmailSchema = Joi.object({
+  token: Joi.string().required(),
+});
 
 export const oauthLoginSchema = Joi.object({
   provider: Joi.string().valid('google', 'facebook').required(),

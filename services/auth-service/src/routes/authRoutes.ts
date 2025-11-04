@@ -3,6 +3,7 @@ import authController from '../controllers/authController';
 import { validate } from '../middlewares/validation';
 import {
   registerSchema,
+  verifyEmailSchema,
   loginSchema,
   oauthLoginSchema,
   refreshTokenSchema,
@@ -18,7 +19,7 @@ const router = Router();
 
 // Public routes
 router.post('/register', authRateLimiter, validate(registerSchema), authController.register);
-// router.post('/verify', ...) - REMOVED: OTP verification feature not available with new schema
+router.post('/verify', authRateLimiter, validate(verifyEmailSchema), authController.verifyEmail);
 router.post('/login', authRateLimiter, validate(loginSchema), authController.login);
 router.post('/login/oauth', authRateLimiter, validate(oauthLoginSchema), authController.oauthLogin);
 router.post('/refresh-token', validate(refreshTokenSchema), authController.refreshToken);

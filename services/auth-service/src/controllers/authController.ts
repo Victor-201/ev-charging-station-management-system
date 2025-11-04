@@ -9,13 +9,24 @@ export class AuthController {
     
     res.status(201).json({
       status: 'success',
-      message: 'User registered successfully',
+      message: 'User registered successfully. Please check your email for verification.',
       user_id: result.user_id,
+      verification_required: true,
     });
   });
 
-  // Verify OTP - Feature removed (no otp_verifications table)
-  // verifyOTP endpoint has been removed
+  // Verify Email
+  verifyEmail = asyncHandler(async (req: Request, res: Response) => {
+    const { token } = req.body;
+    
+    const result = await authService.verifyEmail(token);
+    
+    res.status(200).json({
+      status: 'verified',
+      message: 'Email verified successfully',
+      user_id: result.user_id,
+    });
+  });
 
   // Login
   login = asyncHandler(async (req: Request, res: Response) => {

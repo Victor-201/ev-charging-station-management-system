@@ -57,14 +57,24 @@ export class AuthService {
       // Hash password
       const password_hash = await bcrypt.hash(data.password, 12);
 
-      // Create user
+      // Create user (email_verified = false for new registrations)
       const userResult = await client.query(
-        `INSERT INTO users (email, phone, password_hash, role, status) 
-         VALUES ($1, $2, $3, $4, $5) RETURNING id, email, role, created_at`,
-        [data.email, data.phone || null, password_hash, data.role || 'driver', 'active']
+        `INSERT INTO users (email, phone, password_hash, role, status, email_verified) 
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, role, created_at`,
+        [data.email, data.phone || null, password_hash, data.role || 'driver', 'active', false]
       );
 
       const user = userResult.rows[0];
+
+      // Generate email verification token
+      const verificationToken = jwt.sign(
+        { user_id: user.id, type: 'email_verification' },
+        process.env.JWT_SECRET || 'default-secret',
+        { expiresIn: '24h' }
+      );
+
+      // Store verification token (if we had the table)
+      // For now, we'll use JWT-based verification without database storage
 
       // Insert event vào outbox (trong cùng transaction)
       await outboxService.insertEvent(
@@ -77,29 +87,66 @@ export class AuthService {
           email: user.email,
           role: user.role,
           phone: data.phone,
-          created_at: user.created_at
+          created_at: user.created_at,
+          verification_token: verificationToken
         }
       );
 
       await client.query('COMMIT');
 
-      // Send welcome email (async, don't wait)
+      // Send verification email (async, don't wait)
       sendEmail({
         to: data.email,
-        subject: 'Welcome to EV Charging System',
-        text: `Your account has been created successfully.`,
-      }).catch(err => logger.error('Failed to send welcome email:', err));
+        subject: 'Verify your email - EV Charging System',
+        text: `Please verify your email by clicking this link: ${process.env.FRONTEND_URL}/verify?token=${verificationToken}`,
+      }).catch(err => logger.error('Failed to send verification email:', err));
 
       return {
         user_id: user.id,
         email: user.email,
         role: user.role,
+        verification_token: verificationToken,
       };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  // Verify email with JWT token
+  async verifyEmail(token: string) {
+    try {
+      // Verify JWT token
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || 'default-secret'
+      ) as any;
+
+      if (decoded.type !== 'email_verification') {
+        throw new AppError('Invalid verification token', 400);
+      }
+
+      // Update user email_verified status
+      const result = await query(
+        'UPDATE users SET email_verified = true WHERE id = $1 RETURNING id, email',
+        [decoded.user_id]
+      );
+
+      if (result.rows.length === 0) {
+        throw new AppError('User not found', 404);
+      }
+
+      return {
+        user_id: result.rows[0].id,
+        email: result.rows[0].email,
+      };
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError) {
+        throw new AppError('Invalid or expired verification token', 400);
+      }
+      throw error;
     }
   }
 

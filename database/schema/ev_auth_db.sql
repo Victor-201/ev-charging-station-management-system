@@ -8,16 +8,19 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL, -- driver, staff, admin
     status VARCHAR(50) DEFAULT 'active',
+    email_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_email_verified ON users(email_verified);
 
 COMMENT ON TABLE users IS 'Primary user identity and authentication';
 COMMENT ON COLUMN users.role IS 'User role: driver, staff, admin, station_owner';
 COMMENT ON COLUMN users.status IS 'User status: active, inactive, suspended';
+COMMENT ON COLUMN users.email_verified IS 'Whether user has verified their email address';
 
 -- third-party auth providers (oauth)
 CREATE TABLE user_auth_providers (
@@ -51,6 +54,40 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 
 COMMENT ON TABLE sessions IS 'User sessions and refresh tokens for authentication';
 COMMENT ON COLUMN sessions.expires_at IS 'Expiration time for auto-cleanup of old sessions';
+
+-- email verification tokens (JWT-based verification)
+CREATE TABLE email_verification_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL, -- SHA256 hash of JWT token for security
+    expires_at TIMESTAMPTZ NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
+CREATE INDEX idx_email_verification_tokens_token_hash ON email_verification_tokens(token_hash);
+CREATE INDEX idx_email_verification_tokens_expires_at ON email_verification_tokens(expires_at);
+
+COMMENT ON TABLE email_verification_tokens IS 'Email verification tokens for new user registration';
+COMMENT ON COLUMN email_verification_tokens.token_hash IS 'SHA256 hash of JWT verification token';
+
+-- password reset tokens
+CREATE TABLE password_reset_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL, -- SHA256 hash of JWT token
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX idx_password_reset_tokens_token_hash ON password_reset_tokens(token_hash);
+CREATE INDEX idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
+
+COMMENT ON TABLE password_reset_tokens IS 'Password reset tokens for forgot password functionality';
+COMMENT ON COLUMN password_reset_tokens.token_hash IS 'SHA256 hash of JWT reset token';
 
 -- optional: outbox for reliable event publishing
 CREATE TABLE outbox_events (
