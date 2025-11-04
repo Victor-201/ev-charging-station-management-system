@@ -33,13 +33,13 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.497529490549-csp81kblkv3etilrrfcle2p6j0fqqq83</string>
+				<string>com.googleusercontent.apps.497529490549-tbfn8b4gv074jvl5km7t44vc391oq92v</string>
 				<string>fb2258654707972116</string>
 			</array>
 		</dict>
 	</array>
 	<key>GIDClientID</key>
-	<string>497529490549-csp81kblkv3etilrrfcle2p6j0fqqq83.apps.googleusercontent.com</string>
+	<string>497529490549-tbfn8b4gv074jvl5km7t44vc391oq92v.apps.googleusercontent.com</string>
 	<key>FacebookAppID</key>
 	<string>2258654707972116</string>
 	<key>FacebookDisplayName</key>

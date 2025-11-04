@@ -32,11 +32,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       return setupReactNative(application: application, launchOptions: launchOptions)
     }
     
-    guard let gidConfiguration = GIDConfiguration(clientID: clientId) else {
-      print("Error: Failed to create GIDConfiguration")
-      return setupReactNative(application: application, launchOptions: launchOptions)
-    }
-    
+    let gidConfiguration = GIDConfiguration(clientID: clientId)
     GIDSignIn.sharedInstance.configuration = gidConfiguration
     
     return setupReactNative(application: application, launchOptions: launchOptions)
