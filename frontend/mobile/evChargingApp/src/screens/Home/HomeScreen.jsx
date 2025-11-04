@@ -1,11 +1,46 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '../../config/constants';
+import { logout as logoutAction } from '../../store/slices/authSlice';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Đăng xuất',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear tokens
+              await AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+              await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+              
+              // Dispatch logout action
+              dispatch(logoutAction());
+              
+              // Navigate back to auth screen
+              // RootNavigator will handle this automatically
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const quickActions = [
     {
@@ -37,12 +72,22 @@ export default function HomeScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>
-          Xin chào, {user?.full_name || 'User'}!
-        </Text>
-        <Text style={styles.subtitle}>
-          Sẵn sàng sạc xe điện của bạn?
-        </Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.welcomeText}>
+              Xin chào, {user?.full_name || 'User'}!
+            </Text>
+            <Text style={styles.subtitle}>
+              Sẵn sàng sạc xe điện của bạn?
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Icon name="logout" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.actionsContainer}>
@@ -87,6 +132,19 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#2196F3',
     paddingTop: 60,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  logoutButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   welcomeText: {
     fontSize: 24,

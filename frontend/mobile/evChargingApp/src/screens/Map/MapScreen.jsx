@@ -7,9 +7,10 @@ import {
   TouchableOpacity, 
   Text,
   TextInput,
-  FlatList
+  FlatList,
+  Platform
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker } from "react-native-maps"; // Removed PROVIDER_GOOGLE - use default Apple Maps
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import Geolocation from '@react-native-community/geolocation';
@@ -175,11 +176,10 @@ export default function MapScreen({ navigation }) {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={region}
         showsUserLocation={true}
-        showsMyLocationButton={false}
+        showsMyLocationButton={true}
         onPress={() => setSelectedStation(null)}
       >
         {stations.map((station) => (
