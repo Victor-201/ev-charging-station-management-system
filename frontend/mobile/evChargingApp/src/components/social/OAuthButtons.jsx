@@ -19,11 +19,18 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
   useEffect(() => {
     // Configure Google Sign-In
     if (GOOGLE_WEB_CLIENT_ID) {
+      console.log('🔧 Configuring Google Sign-In with:', {
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+        iosClientId: GOOGLE_IOS_CLIENT_ID
+      });
+      
       GoogleSignin.configure({ 
         webClientId: GOOGLE_WEB_CLIENT_ID,
         iosClientId: GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID,
         offlineAccess: true,
         forceCodeForRefreshToken: true,
+        // Add these for better token retrieval
+        scopes: ['profile', 'email'],
       });
     } else {
       console.warn('Google OAuth not configured - missing GOOGLE_WEB_CLIENT_ID');
@@ -43,17 +50,43 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       
       console.log('🚀 Starting Google Sign-In...');
-      const userInfo = await GoogleSignin.signIn();
+      // For v16+, use signIn() which returns Promise<User>
+      const { type, data: userInfo } = await GoogleSignin.signIn();
+      
+      console.log('📦 Sign-In type:', type);
+      console.log('📦 Full userInfo object:', JSON.stringify(userInfo, null, 2));
+      
+      if (type === 'cancelled') {
+        console.log('User cancelled Google sign-in');
+        return;
+      }
+      
+      // Get tokens explicitly after sign in
+      let token = userInfo.idToken || userInfo.serverAuthCode;
+      
+      // If no token in userInfo, try to get tokens explicitly
+      if (!token) {
+        console.log('⚠️ No token in userInfo, trying getTokens()...');
+        try {
+          const tokens = await GoogleSignin.getTokens();
+          console.log('📦 Tokens from getTokens():', { 
+            hasIdToken: !!tokens.idToken,
+            hasAccessToken: !!tokens.accessToken 
+          });
+          token = tokens.idToken || tokens.accessToken;
+        } catch (tokenError) {
+          console.error('❌ Error getting tokens:', tokenError);
+        }
+      }
+      
       console.log('✅ Google Sign-In successful:', { 
-        email: userInfo.user?.email,
-        hasIdToken: !!userInfo.idToken,
-        hasAccessToken: !!userInfo.accessToken,
-        tokenType: userInfo.idToken ? 'idToken' : 'accessToken'
+        email: userInfo.user?.email || userInfo.email,
+        hasToken: !!token,
+        tokenType: token ? 'retrieved' : 'none'
       });
       
-      // Use idToken if available, otherwise fallback to accessToken
-      const token = userInfo.idToken || userInfo.accessToken;
       if (!token) {
+        console.error('❌ No token found after all attempts');
         throw new Error('No token received from Google');
       }
       
