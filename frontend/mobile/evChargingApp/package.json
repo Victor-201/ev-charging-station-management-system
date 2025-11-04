@@ -5,8 +5,11 @@
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
+    "ios:device": "react-native run-ios --device",
     "lint": "eslint .",
     "start": "react-native start",
+    "start:device": "./scripts/start-metro-device.sh",
+    "dev:device": "./scripts/dev-device.sh",
     "test": "jest"
   },
   "dependencies": {
