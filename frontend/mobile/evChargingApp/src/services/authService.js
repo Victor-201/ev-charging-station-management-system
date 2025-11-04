@@ -8,7 +8,7 @@ const authService = {
   forgotPassword: (email) => apiClient.post(ENDPOINTS.AUTH.FORGOT_PASSWORD, { email }),
   resetPassword: (token, password) => apiClient.post(ENDPOINTS.AUTH.RESET_PASSWORD, { token, password }),
   refreshToken: (refreshToken) => apiClient.post(ENDPOINTS.AUTH.REFRESH, { refreshToken }),
-  socialLogin: (provider, token) => apiClient.post(ENDPOINTS.AUTH.SOCIAL, { provider, token }),
+  socialLogin: (provider, provider_token) => apiClient.post(ENDPOINTS.AUTH.SOCIAL, { provider, provider_token }),
 };
 
 export default authService;

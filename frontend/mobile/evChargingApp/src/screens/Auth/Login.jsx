@@ -69,7 +69,15 @@ export default function Login() {
 
       {error && <Text style={{ color: theme.colors.error, marginTop: 8 }}>{error}</Text>}
 
-      <OAuthButtons mode='login' onSuccess={() => {}} onError={(e) => console.log(e)} />
+      <OAuthButtons 
+        mode='login' 
+        onSuccess={(data) => {
+          console.log('OAuth login successful:', data);
+        }} 
+        onError={(error) => {
+          console.error('OAuth login error:', error);
+        }} 
+      />
 
       <View style={{ flexDirection: 'row', marginTop: 20, justifyContent: 'center' }}>
         <Text style={{ color: theme.colors.onSurface }}>Bạn chưa có tài khoản?</Text>

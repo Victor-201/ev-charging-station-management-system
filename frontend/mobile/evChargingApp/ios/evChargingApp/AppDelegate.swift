@@ -2,6 +2,8 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import GoogleSignIn
+import FBSDKCoreKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -14,6 +16,33 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    
+    // Configure Facebook SDK
+    ApplicationDelegate.shared.application(
+      application,
+      didFinishLaunchingWithOptions: launchOptions
+    )
+    
+    // Configure Google Sign-In
+    guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+          let plist = NSDictionary(contentsOfFile: path),
+          let clientId = plist["CLIENT_ID"] as? String else {
+      print("Error: GoogleService-Info.plist not found or CLIENT_ID missing")
+      // Continue without Google Sign-In
+      return setupReactNative(application: application, launchOptions: launchOptions)
+    }
+    
+    guard let gidConfiguration = GIDConfiguration(clientID: clientId) else {
+      print("Error: Failed to create GIDConfiguration")
+      return setupReactNative(application: application, launchOptions: launchOptions)
+    }
+    
+    GIDSignIn.sharedInstance.configuration = gidConfiguration
+    
+    return setupReactNative(application: application, launchOptions: launchOptions)
+  }
+  
+  private func setupReactNative(application: UIApplication, launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -30,6 +59,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     )
 
     return true
+  }
+  
+  // Handle URL schemes for OAuth
+  func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
+  ) -> Bool {
+    
+    // Handle Facebook URL
+    if ApplicationDelegate.shared.application(app, open: url, options: options) {
+      return true
+    }
+    
+    // Handle Google Sign-In URL
+    if GIDSignIn.sharedInstance.handle(url) {
+      return true
+    }
+    
+    return false
   }
 }
 
