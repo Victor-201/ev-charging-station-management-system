@@ -8,8 +8,13 @@
     "ios:device": "react-native run-ios --device",
     "lint": "eslint .",
     "start": "react-native start",
+    "start:fast": "./scripts/start-fast.sh",
+    "start:cache": "react-native start --reset-cache",
     "start:device": "./scripts/start-metro-device.sh",
     "dev:device": "./scripts/dev-device.sh",
+    "build:ios": "./scripts/build-bundle.sh",
+    "build:ios:run": "./scripts/build-bundle.sh && npx react-native run-ios --device",
+    "clean:cache": "rm -rf .metro-cache && rm -rf ios/main.jsbundle && rm -rf ios/assets",
     "test": "jest"
   },
   "dependencies": {

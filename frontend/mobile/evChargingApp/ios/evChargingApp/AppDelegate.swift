@@ -85,8 +85,15 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
+    // Check if pre-built bundle exists (for faster startup)
+    if let bundleURL = Bundle.main.url(forResource: "main", withExtension: "jsbundle") {
+      print("⚡️ Using pre-built bundle for fast startup!")
+      return bundleURL
+    }
+    // Otherwise use Metro bundler
+    print("🔄 Connecting to Metro bundler...")
     // NOTE: IP will be auto-updated by dev:device script
-    return URL(string: "http://192.168.1.32:8081/index.bundle?platform=ios")
+    return URL(string: "http://172.23.11.78:8081/index.bundle?platform=ios")
 #else
     Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
