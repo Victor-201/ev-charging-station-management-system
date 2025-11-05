@@ -10,7 +10,7 @@ import {
   FlatList,
   Platform
 } from "react-native";
-import MapView, { Marker } from "react-native-maps"; // Removed PROVIDER_GOOGLE - use default Apple Maps
+import MapView, { Marker } from "react-native-maps";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import Geolocation from '@react-native-community/geolocation';
@@ -176,6 +176,7 @@ export default function MapScreen({ navigation }) {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
+        provider={null} // null = use default (Apple Maps on iOS, Google Maps on Android without API key)
         style={styles.map}
         initialRegion={region}
         showsUserLocation={true}
