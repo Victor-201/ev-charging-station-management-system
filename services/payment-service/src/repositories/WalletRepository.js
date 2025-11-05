@@ -9,7 +9,7 @@ export default class WalletRepository extends BaseRepository {
 
   async findByUserId(user_id) {
     const { rows } = await db.query(`SELECT * FROM ${this.tableName} WHERE user_id=$1`, [user_id]);
-    return rows[0] ? new this.model(rows[0]) : null;
+    return Wallet.fromRow(rows[0]);
   }
 
   async create(user_id) {
@@ -18,14 +18,69 @@ export default class WalletRepository extends BaseRepository {
        VALUES ($1,0,'active',NOW(),NOW()) RETURNING *`,
       [user_id]
     );
-    return new this.model(rows[0]);
+    return Wallet.fromRow(rows[0]);
   }
 
-  async updateBalance(id, balance) {
+  async updateBalance(id, newBalance) {
     const { rows } = await db.query(
-      `UPDATE ${this.tableName} SET balance=$2, updated_at=NOW() WHERE id=$1 RETURNING *`,
-      [id, balance]
+      `UPDATE ${this.tableName} 
+       SET balance=$2, updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id, newBalance]
     );
-    return new this.model(rows[0]);
+    return Wallet.fromRow(rows[0]);
+  }
+
+  /** === Cộng số dư (atomic) === */
+  async increaseBalance(id, amount) {
+    const { rows } = await db.query(
+      `UPDATE ${this.tableName}
+       SET balance = balance + $2, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [id, amount]
+    );
+    return Wallet.fromRow(rows[0]);
+  }
+
+  /** === Trừ số dư (atomic) === */
+  async decreaseBalance(id, amount) {
+    const query = `
+      UPDATE ${this.tableName}
+      SET balance = balance - $2, updated_at = NOW()
+      WHERE id = $1 AND balance >= $2
+      RETURNING *;
+    `;
+    const { rows } = await db.query(query, [id, amount]);
+    return rows[0] ? Wallet.fromRow(rows[0]) : null; // null = không đủ tiền
+  }
+
+  async suspend(id, reason = null) {
+    const { rows } = await db.query(
+      `UPDATE ${this.tableName}
+       SET status='suspended', suspend_reason=$2, updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id, reason]
+    );
+    return Wallet.fromRow(rows[0]);
+  }
+
+  async close(id) {
+    const { rows } = await db.query(
+      `UPDATE ${this.tableName}
+       SET status='closed', updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id]
+    );
+    return Wallet.fromRow(rows[0]);
+  }
+
+  async getBalance(user_id) {
+    const wallet = await this.getWalletByUser(user_id);
+    return {
+      user_id,
+      balance: wallet.balance,
+      status: wallet.status,
+      updated_at: wallet.updated_at
+    };
   }
 }
