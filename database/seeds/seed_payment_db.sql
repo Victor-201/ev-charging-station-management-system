@@ -1,112 +1,114 @@
--- =======================================================
--- SEED DATA FOR payment_db (clean & valid sample dataset)
--- =======================================================
+-- =====================================================
+-- EV_PAYMENT_DB — SEED DATA
+-- Version: v3.2
+-- Author: Victor
+-- Last Updated: 2025-11
+-- =====================================================
 
--- Clear existing data (for dev only)
-TRUNCATE TABLE 
-  invoice_items,
-  invoices,
-  transactions,
-  subscriptions,
-  plans,
-  wallet_transactions,
-  outbox_events
-RESTART IDENTITY CASCADE;
+-- Xóa dữ liệu cũ (nếu có)
+TRUNCATE TABLE event_outbox, wallet_transactions, wallets, invoices, transactions, subscriptions, plans RESTART IDENTITY CASCADE;
 
--- =======================================================
--- 1️⃣ PLANS
--- =======================================================
-INSERT INTO plans (name, description, type, price, duration)
+-- =====================================================
+-- PLANS
+-- =====================================================
+INSERT INTO plans (id, name, description, type, price, duration_days)
 VALUES
-  ('Basic Plan', '30-day prepaid plan for casual EV users', 'prepaid', 100000, INTERVAL '30 days'),
-  ('Pro Plan', 'Postpaid plan with 20% discount on sessions', 'postpaid', 250000, INTERVAL '30 days'),
-  ('VIP Plan', 'Annual membership with unlimited support', 'vip', 2000000, INTERVAL '365 days'),
-  ('Student Plan', 'Discounted plan for verified students', 'prepaid', 70000, INTERVAL '30 days'),
-  ('Family Plan', 'Multi-user shared plan for households', 'postpaid', 500000, INTERVAL '30 days'),
-  ('Enterprise Plan', 'Corporate subscription for fleets', 'vip', 5000000, INTERVAL '365 days');
+  (gen_random_uuid(), 'Basic Plan', 'Gói cơ bản cho người mới bắt đầu', 'basic', 99000, 30),
+  (gen_random_uuid(), 'Standard Plan', 'Gói tiêu chuẩn dành cho người dùng thường xuyên', 'standard', 199000, 30),
+  (gen_random_uuid(), 'Premium Plan', 'Gói cao cấp với nhiều ưu đãi hơn', 'premium', 299000, 30);
 
--- =======================================================
--- 2️⃣ SUBSCRIPTIONS
--- =======================================================
-INSERT INTO subscriptions (user_id, plan_id, start_date, end_date, status)
-VALUES
-  ('11111111-1111-1111-1111-111111111111', (SELECT id FROM plans WHERE name='Basic Plan'), CURRENT_DATE - INTERVAL '10 days', CURRENT_DATE + INTERVAL '20 days', 'active'),
-  ('22222222-2222-2222-2222-222222222222', (SELECT id FROM plans WHERE name='VIP Plan'), CURRENT_DATE - INTERVAL '200 days', CURRENT_DATE + INTERVAL '165 days', 'active'),
-  ('33333333-3333-3333-3333-333333333333', (SELECT id FROM plans WHERE name='Student Plan'), CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE + INTERVAL '25 days', 'active'),
-  ('44444444-4444-4444-4444-444444444444', (SELECT id FROM plans WHERE name='Pro Plan'), CURRENT_DATE - INTERVAL '35 days', CURRENT_DATE - INTERVAL '5 days', 'expired'),
-  ('55555555-5555-5555-5555-555555555555', (SELECT id FROM plans WHERE name='Family Plan'), CURRENT_DATE - INTERVAL '15 days', CURRENT_DATE + INTERVAL '15 days', 'active'),
-  ('66666666-6666-6666-6666-666666666666', (SELECT id FROM plans WHERE name='Enterprise Plan'), CURRENT_DATE - INTERVAL '400 days', CURRENT_DATE - INTERVAL '30 days', 'cancelled');
+-- =====================================================
+-- USERS (giả lập user_id để tham chiếu)
+-- =====================================================
+-- user_1: khách hàng thông thường
+-- user_2: nhân viên (dùng cho guest_charging)
+DO $$
+DECLARE
+  user1 UUID := gen_random_uuid();
+  user2 UUID := gen_random_uuid();
+BEGIN
+  -- =====================================================
+  -- WALLETS
+  -- =====================================================
+  INSERT INTO wallets (id, user_id, balance)
+  VALUES
+    (gen_random_uuid(), user1, 0),
+    (gen_random_uuid(), user2, 0);
 
--- =======================================================
--- 3️⃣ TRANSACTIONS
--- =======================================================
-INSERT INTO transactions (external_id, user_id, amount, currency, method, status, meta)
-VALUES
-  ('TXN001', '11111111-1111-1111-1111-111111111111', 100000, 'VND', 'ewallet', 'success', '{"provider":"Momo","fee":1500}'),
-  ('TXN002', '22222222-2222-2222-2222-222222222222', 2000000, 'VND', 'banking', 'success', '{"bank":"Vietcombank"}'),
-  ('TXN003', '33333333-3333-3333-3333-333333333333', 70000, 'VND', 'ewallet', 'pending', '{"provider":"ZaloPay"}'),
-  ('TXN004', '44444444-4444-4444-4444-444444444444', 250000, 'VND', 'banking', 'failed', '{"error":"Insufficient balance"}'),
-  ('TXN005', '55555555-5555-5555-5555-555555555555', 500000, 'VND', 'cash', 'success', '{"staff":"Nguyen Van A"}'),
-  ('TXN006', '66666666-6666-6666-6666-666666666666', 5000000, 'VND', 'banking', 'success', '{"bank":"Techcombank","note":"Annual corporate"}'),
-  ('TXN007', '11111111-1111-1111-1111-111111111111', 150000, 'VND', 'ewallet', 'success', '{"provider":"Momo","topup":true}'),
-  ('TXN008', '22222222-2222-2222-2222-222222222222', 250000, 'VND', 'banking', 'refunded', '{"reason":"Duplicate"}');
+  -- =====================================================
+  -- SUBSCRIPTIONS
+  -- =====================================================
+  INSERT INTO subscriptions (id, user_id, plan_id, start_date, end_date, status)
+  SELECT gen_random_uuid(), user1, id, NOW(), NOW() + INTERVAL '30 days', 'active'
+  FROM plans WHERE type = 'standard' LIMIT 1;
 
--- =======================================================
--- 4️⃣ INVOICES
--- =======================================================
-INSERT INTO invoices (invoice_no, transaction_id, amount, metadata)
-SELECT 
-  CONCAT('INV-', LPAD(ROW_NUMBER() OVER ()::TEXT, 3, '0')),
-  id,
-  amount,
-  jsonb_build_object('note', 'Generated invoice for transaction')
-FROM transactions
-LIMIT 10;
+  -- =====================================================
+  -- TRANSACTIONS
+  -- =====================================================
 
--- =======================================================
--- 5️⃣ INVOICE ITEMS
--- =======================================================
-INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, total)
-SELECT 
-  i.id,
-  COALESCE(p.name, 'Charging Session'),
-  1,
-  t.amount,
-  t.amount
-FROM invoices i
-JOIN transactions t ON t.id = i.transaction_id
-LEFT JOIN plans p ON t.amount = p.price
-LIMIT 8;
+  -- 1️⃣ Nạp tiền (topup)
+  INSERT INTO transactions (id, user_id, type, amount, method, status)
+  VALUES (
+    gen_random_uuid(), user1, 'topup', 500000, 'bank_transfer', 'completed'
+  );
 
--- =======================================================
--- 6️⃣ WALLET TRANSACTIONS
--- =======================================================
-INSERT INTO wallet_transactions (wallet_id, user_id, type, amount, balance_after)
-VALUES
-  (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'topup', 150000, 150000),
-  (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'topup', 3000000, 3000000),
-  (gen_random_uuid(), '33333333-3333-3333-3333-333333333333', 'charge', -70000, 2930000),
-  (gen_random_uuid(), '44444444-4444-4444-4444-444444444444', 'refund', 250000, 2750000),
-  (gen_random_uuid(), '55555555-5555-5555-5555-555555555555', 'topup', 1000000, 1000000),
-  (gen_random_uuid(), '66666666-6666-6666-6666-666666666666', 'charge', -5000000, 0);
+  -- 2️⃣ Thanh toán subscription (bằng ví)
+  INSERT INTO transactions (id, user_id, type, amount, method, related_type, related_id, status)
+  SELECT gen_random_uuid(), user1, 'payment', 199000, 'wallet', 'subscription', s.id, 'completed'
+  FROM subscriptions s WHERE s.user_id = user1;
 
--- =======================================================
--- 7️⃣ OUTBOX EVENTS
--- =======================================================
-INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload, published)
-SELECT 
-  'Transaction',
-  id,
-  CASE 
-    WHEN status = 'success' THEN 'PAYMENT_SUCCESS'
-    WHEN status = 'failed' THEN 'PAYMENT_FAILED'
-    WHEN status = 'refunded' THEN 'PAYMENT_REFUNDED'
-    ELSE 'PAYMENT_PENDING'
-  END,
-  jsonb_build_object('amount', amount, 'user_id', user_id, 'status', status),
-  FALSE
-FROM transactions;
+  -- 3️⃣ Thanh toán booking (bằng bank)
+  INSERT INTO transactions (id, user_id, type, amount, method, related_type, related_id, status)
+  VALUES (
+    gen_random_uuid(), user1, 'payment', 150000, 'bank_transfer', 'booking', gen_random_uuid(), 'completed'
+  );
 
--- =======================================================
--- END OF SEED DATA
--- =======================================================
+  -- 4️⃣ Thanh toán charging_session (bằng cash)
+  INSERT INTO transactions (id, user_id, type, amount, method, related_type, related_id, status)
+  VALUES (
+    gen_random_uuid(), user1, 'payment', 80000, 'cash', 'charging_session', gen_random_uuid(), 'completed'
+  );
+
+  -- 5️⃣ Thanh toán guest_charging (bằng bank) - user2 quản lý
+  INSERT INTO transactions (id, user_id, type, amount, method, related_type, related_id, status)
+  VALUES (
+    gen_random_uuid(), user2, 'payment', 100000, 'bank_transfer', 'guest_charging', gen_random_uuid(), 'completed'
+  );
+
+  -- 6️⃣ Hoàn tiền (refund)
+  INSERT INTO transactions (id, user_id, type, amount, method, status)
+  VALUES (
+    gen_random_uuid(), user1, 'refund', 50000, 'wallet', 'completed'
+  );
+
+  -- =====================================================
+  -- WALLET TRANSACTIONS
+  -- =====================================================
+  INSERT INTO wallet_transactions (wallet_id, amount, type, note)
+  SELECT w.id, 500000, 'topup', 'Nạp tiền qua ngân hàng'
+  FROM wallets w WHERE w.user_id = user1;
+
+  INSERT INTO wallet_transactions (wallet_id, amount, type, note)
+  SELECT w.id, 199000, 'payment', 'Thanh toán gói Standard'
+  FROM wallets w WHERE w.user_id = user1;
+
+  INSERT INTO wallet_transactions (wallet_id, amount, type, note)
+  SELECT w.id, 50000, 'refund', 'Hoàn tiền đơn đặt chỗ bị hủy'
+  FROM wallets w WHERE w.user_id = user1;
+
+  -- =====================================================
+  -- INVOICES
+  -- =====================================================
+  INSERT INTO invoices (transaction_id, user_id, total_amount, due_date, status)
+  SELECT id, user_id, amount, NOW() + INTERVAL '5 days', 'paid' FROM transactions WHERE status = 'completed';
+
+  -- =====================================================
+  -- EVENT_OUTBOX (mô phỏng publish event)
+  -- =====================================================
+  INSERT INTO event_outbox (aggregate_type, aggregate_id, type, payload, status)
+  SELECT
+    'transaction', id, 'TransactionCompleted',
+    jsonb_build_object('transaction_id', id, 'amount', amount, 'type', type, 'status', status),
+    'pending'
+  FROM transactions WHERE status = 'completed';
+END$$;
