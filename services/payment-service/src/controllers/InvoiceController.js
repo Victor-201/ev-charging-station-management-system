@@ -2,6 +2,7 @@ import InvoiceService from '../services/InvoiceService.js';
 
 const invoiceService = new InvoiceService();
 
+/** === Lấy hóa đơn theo ID (JSON / PDF) === */
 export const getInvoiceById = async (req, res, next) => {
   try {
     const invoice = await invoiceService.getInvoice(req.params.invoice_id);
@@ -19,6 +20,7 @@ export const getInvoiceById = async (req, res, next) => {
   }
 };
 
+/** === Tạo hóa đơn từ danh sách transaction_ids === */
 export const generateInvoice = async (req, res, next) => {
   try {
     const { transaction_ids } = req.body;
@@ -35,9 +37,30 @@ export const generateInvoice = async (req, res, next) => {
   }
 };
 
+/** === Lấy danh sách hóa đơn của user === */
 export const listInvoicesByUser = async (req, res, next) => {
   try {
     const invoices = await invoiceService.listInvoicesByUser(req.params.user_id);
+    res.json(invoices);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** === Đánh dấu hóa đơn là đã thanh toán === */
+export const markInvoiceAsPaid = async (req, res, next) => {
+  try {
+    const invoice = await invoiceService.markAsPaid(req.params.invoice_id);
+    res.json(invoice);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** === Lấy danh sách hóa đơn quá hạn === */
+export const listOverdueInvoices = async (req, res, next) => {
+  try {
+    const invoices = await invoiceService.listOverdueInvoices();
     res.json(invoices);
   } catch (err) {
     next(err);

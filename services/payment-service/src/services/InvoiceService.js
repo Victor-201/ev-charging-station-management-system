@@ -2,31 +2,18 @@ import PDFDocument from 'pdfkit';
 import InvoiceRepository from '../repositories/InvoiceRepository.js';
 import TransactionRepository from '../repositories/TransactionRepository.js';
 
-/**
- * InvoiceService
- * Chịu trách nhiệm tạo và quản lý hóa đơn:
- * - Tạo hóa đơn từ transaction
- * - Lấy hóa đơn theo ID
- * - Xuất file PDF từ hóa đơn
- * - Liệt kê hóa đơn theo user
- * - Cập nhật trạng thái hóa đơn
- */
 export default class InvoiceService {
   constructor() {
     this.invoiceRepo = new InvoiceRepository();
     this.transactionRepo = new TransactionRepository();
   }
 
-  /**
-   * Tạo hóa đơn từ transaction
-   * @param {string} transaction_id
-   * @returns {Promise<Invoice>}
-   */
+  /** === Tạo hóa đơn từ transaction === */
   async generateFromTransaction(transaction_id) {
     const transaction = await this.transactionRepo.findById(transaction_id);
     if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
 
-    const dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 ngày
     return this.invoiceRepo.create({
       transaction_id: transaction.id,
       user_id: transaction.user_id,
@@ -35,22 +22,14 @@ export default class InvoiceService {
     });
   }
 
-  /**
-   * Lấy hóa đơn theo ID
-   * @param {string} invoice_id
-   * @returns {Promise<Invoice>}
-   */
+  /** === Lấy hóa đơn theo ID === */
   async getInvoice(invoice_id) {
     const invoice = await this.invoiceRepo.findById(invoice_id);
     if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
     return invoice;
   }
 
-  /**
-   * Xuất file PDF từ hóa đơn
-   * @param {Invoice} invoice
-   * @returns {PDFDocument} - Stream PDF
-   */
+  /** === Xuất file PDF từ hóa đơn === */
   async generatePdfStream(invoice) {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     doc.info.Title = `Invoice #${invoice.id}`;
@@ -72,19 +51,25 @@ export default class InvoiceService {
     return doc;
   }
 
-  /** Lấy danh sách hóa đơn theo user */
+  /** === Lấy danh sách hóa đơn của user === */
   async listInvoicesByUser(user_id) {
     return this.invoiceRepo.listByUser(user_id);
   }
 
-  /**
-   * Cập nhật trạng thái hóa đơn thành "paid"
-   * @param {string} invoice_id
-   * @returns {Promise<Invoice>}
-   */
+  /** === Đánh dấu hóa đơn là đã thanh toán === */
   async markAsPaid(invoice_id) {
     const invoice = await this.invoiceRepo.updateStatus(invoice_id, 'paid');
     if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
     return invoice;
+  }
+
+  /** === Lấy hóa đơn quá hạn chưa thanh toán === */
+  async listOverdueInvoices() {
+    return this.invoiceRepo.findOverdue();
+  }
+
+  /** === Cập nhật tất cả hóa đơn quá hạn === */
+  async markOverdueInvoices() {
+    return this.invoiceRepo.markOverdueInvoices();
   }
 }

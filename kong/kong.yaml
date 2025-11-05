@@ -1,0 +1,359 @@
+_format_version: "3.0"
+services:
+- connect_timeout: 60000
+  enabled: true
+  host: analytics-service
+  name: analytics-service
+  port: 3000
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - hosts:
+    - analytics-service
+    https_redirect_status_code: 426
+    name: analytics-ai-route
+    path_handling: v0
+    paths:
+    - /api/v1/analytics/ai
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - analytics-service
+    https_redirect_status_code: 426
+    name: analytics-route
+    path_handling: v0
+    paths:
+    - /api/v1/analytics
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - analytics-service
+    https_redirect_status_code: 426
+    name: dashboards-route
+    path_handling: v0
+    paths:
+    - /api/v1/dashboards
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - analytics-service
+    https_redirect_status_code: 426
+    name: monitoring-route
+    path_handling: v0
+    paths:
+    - /api/v1/monitoring
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - analytics-service
+    https_redirect_status_code: 426
+    name: telemetry-route
+    path_handling: v0
+    paths:
+    - /api/v1/telemetry
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: ev-auth-service
+  name: auth-service
+  port: 3001
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - hosts:
+    - ev-auth-service
+    https_redirect_status_code: 426
+    name: auth-service
+    path_handling: v0
+    paths:
+    - /api/v1/auth
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: payment-service
+  name: payment-service
+  port: 8080
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - https_redirect_status_code: 426
+    name: payments_invoices_route
+    path_handling: v0
+    paths:
+    - /api/v1/invoices
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: payments_plans_route
+    path_handling: v0
+    paths:
+    - /api/v1/plans
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: payments_route
+    path_handling: v0
+    paths:
+    - /api/v1/payments
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: payments_subscriptions_route
+    path_handling: v0
+    paths:
+    - /api/v1/subscriptions
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: reservation-service
+  name: reservation-service
+  port: 4002
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - https_redirect_status_code: 426
+    name: reservation_booking_route
+    path_handling: v0
+    paths:
+    - /api/v1/booking
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: reservation_charging_route
+    path_handling: v0
+    paths:
+    - /api/v1/charging
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: reservation_notification_route
+    path_handling: v0
+    paths:
+    - /api/v1/notifications
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: station-service
+  name: station-service
+  port: 3000
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - https_redirect_status_code: 426
+    name: station_chargers_route
+    path_handling: v0
+    paths:
+    - /api/v1/chargers
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: station_route
+    path_handling: v0
+    paths:
+    - /api/v1/stations
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: ev-user-service
+  name: user-service
+  port: 3002
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - hosts:
+    - ev-user-service
+    https_redirect_status_code: 426
+    name: user-auth-route
+    path_handling: v0
+    paths:
+    - /api/v1/auth
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - ev-user-service
+    https_redirect_status_code: 426
+    name: user-bookings-route
+    path_handling: v0
+    paths:
+    - /api/v1/webhooks/bookings
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - ev-user-service
+    https_redirect_status_code: 426
+    name: user-notifications-route
+    path_handling: v0
+    paths:
+    - /api/v1/notifications
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - ev-user-service
+    https_redirect_status_code: 426
+    name: user-users-route
+    path_handling: v0
+    paths:
+    - /api/v1/users
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - ev-user-service
+    https_redirect_status_code: 426
+    name: user-vehicles-route
+    path_handling: v0
+    paths:
+    - /api/v1/vehicles
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - hosts:
+    - ev-user-service
+    https_redirect_status_code: 426
+    name: user-wallets-route
+    path_handling: v0
+    paths:
+    - /api/v1/wallets
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  write_timeout: 60000

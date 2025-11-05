@@ -1,29 +1,119 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # RabbitMQ Message Broker
-  rabbitmq:
-    image: rabbitmq:3.12-management-alpine
-    container_name: ev-rabbitmq
+### Station-service
+  station-database:
+    image: mysql:8.0
+    container_name: station-database
+    restart: always
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin123
-      RABBITMQ_DEFAULT_VHOST: /
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: station_service
     ports:
-      - "5672:5672"   # AMQP protocol
-      - "15672:15672" # Management UI
+      - "3306:3306"
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - station-data:/var/lib/mysql
+      - ../../services/station-service/seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
+      - ./my.cnf:/etc/mysql/conf.d/my.cnf
     networks:
-      - ev-network
-    restart: unless-stopped
+      - kong-net
 
-  # PostgreSQL for Auth Service
+  station-service:
+    build:
+      context: ../../services/station-service
+      dockerfile: Dockerfile
+    image: station-service:v1.0.0
+    container_name: station-service
+    restart: always
+    depends_on:
+      - station-database
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "mysql://root:root@station-database:3306/station_service"
+    networks:
+      - kong-net
+
+## Charging-service
+
+  reservation-database:
+    image: mysql:8.0
+    container_name: reservation-database
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: ev_charging
+    ports:
+      - "3307:3306"
+    volumes:
+      - reservation-data:/var/lib/mysql
+      - ../../services/charging-control-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - kong-net
+
+  reservation-service:
+    build:
+      context: ../../services/charging-control-service
+      dockerfile: Dockerfile
+    image: reservation-service:v1.0.0
+    container_name: reservation-service
+    depends_on:
+      reservation-database:
+        condition: service_healthy
+      rabbitmq-service:
+        condition: service_started
+    environment:
+      DB_HOST: reservation-database
+      DB_USER: root
+      DB_PASSWORD: 123456
+      DB_NAME: ev_charging
+      DB_PORT: 3306
+      RATE_PER_KWH: 20000
+      PORT: 4002
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq-service:5672
+    ports:
+      - "4002:4002"
+    restart: on-failure
+    networks:
+      - kong-net
+
+## Payment service
+  payment-service:
+    build:
+      context: ../../services/payment-service
+      dockerfile: Dockerfile
+    image: payment-service:v1.0.0
+    container_name: payment-service
+    ports:
+      - "8080:8080"
+    env_file: ../../services/payment-service/.env
+    depends_on:
+      - postgres
+    restart: always
+    networks:
+      - kong-net
+
+  postgres:
+    image: postgres:15
+    container_name: payment-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1111
+      POSTGRES_DB: ev_payment_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ../../services/payment-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
+    networks:
+      - kong-net
+
   postgres-auth:
     image: postgres:15-alpine
     container_name: ev-postgres-auth
@@ -32,7 +122,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres-auth-data:/var/lib/postgresql/data
       - ../../database/schema/ev_auth_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
@@ -43,7 +133,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - ev-network
+      - kong-net
 
   # pgAdmin for database management
   pgadmin:
@@ -60,7 +150,7 @@ services:
     depends_on:
       - postgres-auth
     networks:
-      - ev-network
+      - kong-net
 
   # PostgreSQL for User Service
   postgres-user:
@@ -82,13 +172,14 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - ev-network
+      - kong-net
 
-  # Auth Service
+# Auth Service
   auth-service:
     build:
       context: ../../services/auth-service
       dockerfile: Dockerfile
+    image: auth-service:v1.0.0
     container_name: ev-auth-service
     env_file:
       - ../../services/auth-service/.env
@@ -100,7 +191,7 @@ services:
       DB_NAME: ev_auth_db
       DB_USER: postgres
       DB_PASSWORD: postgres
-      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     ports:
       - "3001:3001"
     depends_on:
@@ -109,7 +200,7 @@ services:
       rabbitmq:
         condition: service_healthy
     networks:
-      - ev-network
+      - kong-net
     restart: unless-stopped
 
   # User Service
@@ -117,6 +208,7 @@ services:
     build:
       context: ../../services/user-service
       dockerfile: Dockerfile
+    image: user-service:v1.0.0
     container_name: ev-user-service
     env_file:
       - ../../services/user-service/.env
@@ -129,7 +221,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       AUTH_SERVICE_URL: http://auth-service:3001
-      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     ports:
       - "3002:3002"
     volumes:
@@ -142,16 +234,137 @@ services:
       auth-service:
         condition: service_started
     networks:
-      - ev-network
+      - kong-net
     restart: unless-stopped
 
+## Analytics-service
+  analytics-service:
+    build:
+      context: ../../services/analytics-service
+      dockerfile: Dockerfile
+    image: analytics-service:v1.0.0
+    container_name: analytics-service
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../../services/analytics-service/.env
+    depends_on:
+      - analytics-database
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./package.json:/usr/src/app/package.json
+    command: npm run dev
+    networks:
+      - kong-net
+
+  analytics-database:
+    image: mysql:8.0
+    container_name: mysql-evcs
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: ev_charging
+    ports:
+      - "3308:3306"
+    volumes:
+      - ../../services/analytics-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql_data:/var/lib/mysql
+    networks:
+      - kong-net
+
+## RabbitMQ service
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - kong-net
+
+  rabbitmq-service:
+    build:
+      context: ../rabbitmq
+      dockerfile: Dockerfile
+    image: rabbitmq-service:v1.0.0
+    container_name: rabbitmq-service
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - EXCHANGE_NAME=ev_charging_exchange
+    networks:
+      - kong-net
+
+## Kong gateway
+  kong-database:
+    image: postgres:9.6
+    container_name: kong-database
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kong
+    volumes:
+      - kong-data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+
+  kong-migrations:
+    image: kong:3.7
+    container_name: kong-migrations
+    command: kong migrations bootstrap
+    depends_on:
+      - kong-database
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+    networks:
+      - kong-net
+
+  kong:
+    image: kong:3.7
+    container_name: kong
+    restart: always
+    depends_on:
+      - kong-database
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+    ports:
+      - "8000:8000" # proxy
+      - "8443:8443" # proxy SSL
+      - "8001:8001" # admin API
+      - "8444:8444" # admin SSL
+    networks:
+      - kong-net
+
+##
+
 volumes:
-  rabbitmq-data:
+  user-service-export:
+  station-data:
+  charging-data:
+  kong-data:
   postgres-auth-data:
   postgres-user-data:
   pgadmin-data:
-  user-service-exports:
 
 networks:
-  ev-network:
+  kong-net:
     driver: bridge
+

@@ -1,8 +1,8 @@
 -- =====================================================
--- EV_PAYMENT_DB — Database Schema (v3.1)
+-- EV_PAYMENT_DB — Database Schema (v3.2)
 -- Service: Payment Service
 -- Author: Victor
--- Last Updated: 2025-10
+-- Last Updated: 2025-11
 -- =====================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -13,50 +13,84 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- =====================================================
 DO $$
 BEGIN
+  -- Giao dịch: loại
   PERFORM 1 FROM pg_type WHERE typname = 'tx_type';
   IF NOT FOUND THEN
-    CREATE TYPE tx_type AS ENUM ('TOPUP', 'SUBSCRIPTION', 'CHARGING', 'REFUND');
+    CREATE TYPE tx_type AS ENUM (
+      'topup',         -- Nạp tiền
+      'payment',       -- Thanh toán
+      'refund'         -- Hoàn tiền
+    );
   END IF;
 
+  -- Giao dịch: phương thức
   PERFORM 1 FROM pg_type WHERE typname = 'tx_method';
   IF NOT FOUND THEN
-    CREATE TYPE tx_method AS ENUM ('wallet', 'bank', 'cash');
+    CREATE TYPE tx_method AS ENUM (
+      'wallet',          -- Ví nội bộ
+      'bank_transfer',   -- Chuyển khoản ngân hàng
+      'cash'             -- Tiền mặt
+    );
   END IF;
 
+  -- Giao dịch: trạng thái
   PERFORM 1 FROM pg_type WHERE typname = 'tx_status';
   IF NOT FOUND THEN
-    CREATE TYPE tx_status AS ENUM ('pending', 'success', 'failed', 'refunded');
+    CREATE TYPE tx_status AS ENUM (
+      'pending',      -- Đã tạo, chờ xử lý/thanh toán
+      'completed',    -- Thành công
+      'failed',       -- Thất bại
+      'cancelled'     -- Hủy
+    );
   END IF;
 
+  -- Giao dịch: đối tượng liên quan (thống nhất prefix)
+  PERFORM 1 FROM pg_type WHERE typname = 'tx_related_type';
+  IF NOT FOUND THEN
+    CREATE TYPE tx_related_type AS ENUM (
+      'subscription',      -- Đăng ký gói
+      'booking',           -- Đặt chỗ
+      'charging_session',  -- Phiên sạc
+      'guest_charging'     -- Sạc cho khách vãng lai
+    );
+  END IF;
+
+  -- Ví: trạng thái
   PERFORM 1 FROM pg_type WHERE typname = 'wallet_status';
   IF NOT FOUND THEN
     CREATE TYPE wallet_status AS ENUM ('active', 'suspended', 'closed');
   END IF;
 
+  -- Loại giao dịch trong ví
+  PERFORM 1 FROM pg_type WHERE typname = 'wallet_tx_type';
+  IF NOT FOUND THEN
+    CREATE TYPE wallet_tx_type AS ENUM ('topup', 'payment', 'refund');
+  END IF;
+
+  -- Hóa đơn: trạng thái
   PERFORM 1 FROM pg_type WHERE typname = 'invoice_status';
   IF NOT FOUND THEN
     CREATE TYPE invoice_status AS ENUM ('unpaid', 'paid', 'overdue', 'cancelled');
   END IF;
 
-  PERFORM 1 FROM pg_type WHERE typname = 'subscription_status';
-  IF NOT FOUND THEN
-    CREATE TYPE subscription_status AS ENUM ('active', 'cancelled', 'expired');
-  END IF;
-
+  -- Gói: loại
   PERFORM 1 FROM pg_type WHERE typname = 'plan_type';
   IF NOT FOUND THEN
     CREATE TYPE plan_type AS ENUM ('basic', 'standard', 'premium');
   END IF;
 
-  PERFORM 1 FROM pg_type WHERE typname = 'wallet_tx_type';
+  -- Gói đăng ký: trạng thái
+  PERFORM 1 FROM pg_type WHERE typname = 'subscription_status';
   IF NOT FOUND THEN
-    CREATE TYPE wallet_tx_type AS ENUM ('TOPUP', 'PAYMENT', 'REFUND');
+    CREATE TYPE subscription_status AS ENUM ('active', 'cancelled', 'expired');
   END IF;
 
+  -- Outbox: trạng thái
   PERFORM 1 FROM pg_type WHERE typname = 'outbox_status';
   IF NOT FOUND THEN
     CREATE TYPE outbox_status AS ENUM ('pending', 'processed', 'failed');
   END IF;
+
 END$$;
 
 
@@ -96,7 +130,7 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- =====================================================
 CREATE TABLE IF NOT EXISTS subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,                -- External reference
+  user_id UUID NOT NULL,
   plan_id UUID REFERENCES plans(id) ON DELETE CASCADE,
   start_date TIMESTAMPTZ DEFAULT NOW(),
   end_date TIMESTAMPTZ,
@@ -111,16 +145,17 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 
 -- =====================================================
--- Table: transactions (revised)
+-- Table: transactions
 -- =====================================================
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,                -- External reference
+  user_id UUID NOT NULL,                   -- Bắt buộc có user_id
   type tx_type NOT NULL,
   amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
   currency VARCHAR(10) DEFAULT 'VND',
   method tx_method NOT NULL,
-  related_id UUID,                 
+  related_id UUID,
+  related_type tx_related_type,
   external_id VARCHAR(100),
   reference_code VARCHAR(100) UNIQUE,
   status tx_status DEFAULT 'pending',
@@ -128,13 +163,20 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
 
-  CHECK (NOT (method = 'bank' AND reference_code IS NULL)),
-  CHECK (NOT (method = 'bank' AND status = 'success' AND external_id IS NULL)),
-  CHECK (NOT (type = 'REFUND' AND method <> 'wallet')),
-  CHECK (NOT (type IN ('TOPUP', 'SUBSCRIPTION') AND method <> 'bank')),
-  CHECK (NOT (type IN ('SUBSCRIPTION', 'CHARGING') AND related_id IS NULL))
-
-
+  -- =====================
+  -- Logic constraints
+  -- =====================
+  CHECK (
+    (type = 'topup' AND method = 'bank_transfer' AND related_id IS NULL AND related_type IS NULL)
+    OR
+    (type = 'payment' AND related_type IN ('subscription','booking') AND method IN ('wallet','bank_transfer'))
+    OR
+    (type = 'payment' AND related_type = 'charging_session' AND method IN ('wallet','cash','bank_transfer'))
+    OR
+    (type = 'payment' AND related_type = 'guest_charging' AND method IN ('cash','bank_transfer'))
+    OR
+    (type = 'refund' AND method = 'wallet')
+  )
 );
 CREATE TRIGGER trg_tx_updated
 BEFORE UPDATE ON transactions
@@ -147,7 +189,7 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TABLE IF NOT EXISTS invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL,                -- External reference
+  user_id UUID NOT NULL,
   total_amount NUMERIC(12,2) NOT NULL CHECK (total_amount >= 0),
   due_date TIMESTAMPTZ,
   status invoice_status DEFAULT 'unpaid',
@@ -164,7 +206,7 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- =====================================================
 CREATE TABLE IF NOT EXISTS wallets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID UNIQUE NOT NULL,         -- External reference
+  user_id UUID UNIQUE NOT NULL,
   balance NUMERIC(14,2) DEFAULT 0 CHECK (balance >= 0),
   status wallet_status DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -203,12 +245,11 @@ DECLARE
 BEGIN
   IF TG_OP = 'INSERT' THEN
     CASE NEW.type
-      WHEN 'TOPUP', 'REFUND' THEN
+      WHEN 'topup', 'refund' THEN
         UPDATE wallets
         SET balance = balance + NEW.amount, updated_at = NOW()
         WHERE id = NEW.wallet_id;
-
-      WHEN 'PAYMENT' THEN
+      WHEN 'payment' THEN
         UPDATE wallets
         SET balance = balance - NEW.amount, updated_at = NOW()
         WHERE id = NEW.wallet_id AND balance >= NEW.amount;
@@ -269,4 +310,3 @@ CREATE INDEX IF NOT EXISTS idx_wallet_tx_wallet_created_at
 
 CREATE INDEX IF NOT EXISTS idx_invoice_user_status
   ON invoices (user_id, status);
-

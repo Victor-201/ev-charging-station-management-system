@@ -48,7 +48,7 @@ curl -i -X POST http://localhost:8001/routes \
   --data strip_path=false
 
 ```
-## Các câu lệnh cần thiết để thao tác với kong va network
+## Các câu lệnh cần thiết để thao tác với kong và network
 
 ```bash
 ### Xem danh sách net-work
