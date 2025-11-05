@@ -1,32 +1,46 @@
-import { useState, useEffect } from "react";
-import { ThemeContext } from "@/contexts/ThemeContext";
+import { useEffect, useState } from "react";
+import { AuthContext } from "@/contexts/AuthContext";
+import { tokenService } from "@/api/tokenService";
+import { jwtDecode } from "jwt-decode";
+import authService from "@/services/authService";
 
-export const ThemeProvider = ({ children }) => {
-  const getInitialTheme = () => {
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved;
-
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  };
-
-  const [theme, setTheme] = useState(getInitialTheme);
+export const AuthProvider = ({ children }) => {
+  const [auth, setAuth] = useState({ token: null, role: null, email: null });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    try {
+      const access = tokenService.getAccess();
+      if (access) {
+        const decoded = jwtDecode(access);
+        setAuth({ token: access, role: decoded?.role ?? null, email: decoded?.email ?? null });
+      }
+    } catch (_) {
+      tokenService.clear();
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  const login = async (email, password, remember = true) => {
+    // Gọi API thật; nếu backend chưa sẵn sàng có thể switch lại AuthProvider.fake trong main.jsx
+    const res = await authService.login({ email, password, remember });
+    // Kỳ vọng API trả { accessToken, refreshToken, role, email }
+    const { accessToken, refreshToken } = res;
+    tokenService.setTokens({ accessToken, refreshToken });
+    const decoded = jwtDecode(accessToken);
+    setAuth({ token: accessToken, role: decoded?.role ?? res.role, email: decoded?.email ?? res.email });
+  };
+
+  const logout = async () => {
+    try { await authService.logout(); } catch (_) { /* ignore */ }
+    tokenService.clear();
+    setAuth({ token: null, role: null, email: null });
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <AuthContext.Provider value={{ auth, login, logout, isLoading }}>
       {children}
-    </ThemeContext.Provider>
+    </AuthContext.Provider>
   );
 };
