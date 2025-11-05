@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS ev_charging;
-USE ev_charging;
+CREATE DATABASE IF NOT EXISTS ev_analytics_db;
+USE ev_analytics_db;
 
 CREATE TABLE IF NOT EXISTS monitoring_services (
   service_id INT AUTO_INCREMENT PRIMARY KEY,
