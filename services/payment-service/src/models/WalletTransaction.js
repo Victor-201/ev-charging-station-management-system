@@ -24,36 +24,24 @@ export default class WalletTransaction {
     this.updated_at = updated_at ? new Date(updated_at) : new Date();
   }
 
-  /** === Kiểm tra loại giao dịch === */
   isTopup() {
     return this.type === 'topup';
   }
-
   isPayment() {
     return this.type === 'payment';
   }
-
   isRefund() {
     return this.type === 'refund';
   }
 
-  /** === Gợi ý xử lý logic (client-side simulation) === */
   applyTo(wallet) {
-    if (!wallet || wallet.id !== this.wallet_id) {
-      throw new Error('Invalid wallet reference');
-    }
-
-    if (this.isTopup() || this.isRefund()) {
-      wallet.increase(this.amount);
-    } else if (this.isPayment()) {
-      wallet.decrease(this.amount);
-    }
-
+    if (!wallet || wallet.id !== this.wallet_id) throw new Error('Invalid wallet reference');
+    if (this.isTopup() || this.isRefund()) wallet.increase(this.amount);
+    else if (this.isPayment()) wallet.decrease(this.amount);
     wallet.updated_at = new Date();
     this.updated_at = new Date();
   }
 
-  /** === JSON format === */
   toJSON() {
     return {
       id: this.id,
@@ -67,7 +55,6 @@ export default class WalletTransaction {
     };
   }
 
-  /** Tạo instance từ PostgreSQL row */
   static fromRow(row) {
     if (!row) return null;
     return new WalletTransaction({

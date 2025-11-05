@@ -1,3 +1,4 @@
+// src/models/Transaction.js
 export default class Transaction {
   constructor({
     id,
@@ -5,12 +6,12 @@ export default class Transaction {
     type,                  // ENUM: 'topup' | 'payment' | 'refund'
     amount,
     currency = 'VND',
-    method,                // ENUM: 'wallet' | 'bank' | 'cash'
+    method,                // ENUM: 'wallet' | 'bank_transfer' | 'cash'
     related_id = null,
     related_type = null,   // ENUM: 'subscription' | 'booking' | 'charging_session' | 'guest_charging'
     external_id = null,
     reference_code = null,
-    status = 'pending',    // ENUM: 'pending' | 'completed' | 'failed' | 'cancelled'
+    status = 'pending',    // ENUM: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded'
     meta = {},
     created_at,
     updated_at,
@@ -18,7 +19,7 @@ export default class Transaction {
     this.id = id;
     this.user_id = user_id;
     this.type = type;
-    this.amount = parseFloat(amount);
+    this.amount = typeof amount === 'number' ? amount : parseFloat(amount);
     this.currency = currency;
     this.method = method;
     this.related_id = related_id;
@@ -44,8 +45,16 @@ export default class Transaction {
     return this.status === 'failed';
   }
 
+  isCancelled() {
+    return this.status === 'cancelled';
+  }
+
+  isRefunded() {
+    return this.status === 'refunded';
+  }
+
   /** Cập nhật trạng thái */
-  markCompleted(extraMeta = {}) {
+  markSuccess(extraMeta = {}) {
     this.status = 'completed';
     this.meta = { ...this.meta, ...extraMeta };
     this.updated_at = new Date();
@@ -60,6 +69,13 @@ export default class Transaction {
   markCancelled(reason = null) {
     this.status = 'cancelled';
     if (reason) this.meta = { ...this.meta, cancelled_reason: reason };
+    this.updated_at = new Date();
+  }
+
+  // Hoàn tiền
+  markRefunded(extraMeta = {}) {
+    this.status = 'refunded';
+    this.meta = { ...this.meta, ...extraMeta };
     this.updated_at = new Date();
   }
 
