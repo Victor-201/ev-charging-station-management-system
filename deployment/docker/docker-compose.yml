@@ -57,10 +57,10 @@ services:
       - kong-net
 
   reservation-service:
-    image: reservation-service:v1.0.0
     build:
       context: ../../services/charging-control-service
       dockerfile: Dockerfile
+    image: reservation-service:v1.0.0
     container_name: reservation-service
     depends_on:
       reservation-database:
@@ -87,6 +87,7 @@ services:
     build:
       context: ../../services/payment-service
       dockerfile: Dockerfile
+    image: payment-service:v1.0.0
     container_name: payment-service
     ports:
       - "8080:8080"
@@ -178,6 +179,7 @@ services:
     build:
       context: ../../services/auth-service
       dockerfile: Dockerfile
+    image: auth-service:v1.0.0
     container_name: ev-auth-service
     env_file:
       - ../../services/auth-service/.env
@@ -206,6 +208,7 @@ services:
     build:
       context: ../../services/user-service
       dockerfile: Dockerfile
+    image: user-service:v1.0.0
     container_name: ev-user-service
     env_file:
       - ../../services/user-service/.env
