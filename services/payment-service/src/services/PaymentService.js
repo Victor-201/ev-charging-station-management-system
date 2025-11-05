@@ -2,18 +2,9 @@ import TransactionRepository from '../repositories/TransactionRepository.js';
 import WalletRepository from '../repositories/WalletRepository.js';
 import WalletTransactionRepository from '../repositories/WalletTransactionRepository.js';
 import PlanRepository from '../repositories/PlanRepository.js';
-import eventBus from '../core/EventBus.js';
+import localBus from '../core/LocalEventBus.js';
 import { randomUUID } from 'crypto';
 
-/**
- * PaymentService
- * ------------------------------
- * Chịu trách nhiệm xử lý toàn bộ logic liên quan đến thanh toán:
- *  - Tạo giao dịch (ví hoặc ngân hàng)
- *  - Nạp/rút ví
- *  - Hoàn tiền (refund)
- *  - Xử lý webhook từ ngân hàng
- */
 export default class PaymentService {
   constructor() {
     this.txRepo = new TransactionRepository();
@@ -22,10 +13,6 @@ export default class PaymentService {
     this.planRepo = new PlanRepository();
   }
 
-  /**
-   * Tạo giao dịch mới
-   * ------------------------------
-   */
   async createTransaction({
     user_id,
     type,
@@ -33,160 +20,149 @@ export default class PaymentService {
     currency = 'VND',
     method,
     related_id = null,
+    related_type = null,
     description = '',
   }) {
-
     amount = Number(amount);
-    if (Number.isNaN(amount) || amount <= 0)
-      throw new Error('Invalid amount value');
+    if (Number.isNaN(amount) || amount <= 0) throw new Error('Invalid amount value');
 
-    // Validate loại giao dịch cần có liên kết đối tượng
-    if (['SUBSCRIPTION', 'CHARGING'].includes(type) && !related_id) {
-      throw new Error(`${type} transaction requires related_id`);
-    }
+    if (related_id && !related_type)
+      throw new Error('related_type is required when related_id is provided');
 
-    // Kiểm tra gói (nếu là SUBSCRIPTION)
-    if (type === 'SUBSCRIPTION' && related_id) {
+    if (related_type === 'subscription' && related_id) {
       const plan = await this.planRepo.findById(related_id);
       if (!plan) throw new Error(`Plan not found: ${related_id}`);
     }
 
-    // Đảm bảo ví tồn tại
     let wallet = await this.walletRepo.findByUserId(user_id);
     if (!wallet) wallet = await this.walletRepo.create(user_id);
 
-    // Kiểm tra số dư nếu thanh toán bằng ví
-    if (method === 'wallet' && !wallet.canSpend(amount)) {
+    if (method === 'wallet' && !wallet.canSpend(amount))
       throw new Error('Insufficient wallet balance');
-    }
 
-    // --- Sinh mã tham chiếu ---
     let referenceCode = null;
-    if (method === 'bank') {
-      const prefixMap = {
-        TOPUP: 'TOP',
-        SUBSCRIPTION: 'SUB',
-        CHARGING: 'CHG',
-      };
-      const prefix = prefixMap[type];
+    if (method === 'bank_transfer') {
+      const prefixMap = { topup: 'TOP', payment: 'PAY', subscription: 'SUB' };
+      const prefix = prefixMap[related_type] || prefixMap[type] || 'TXN';
       const shortId = randomUUID().replace(/-/g, '').substring(0, 22).toUpperCase();
       referenceCode = `${prefix}${shortId}`;
     }
 
-    // --- Tạo bản ghi giao dịch ---
-    let transaction = await this.txRepo.create({
+    const transaction = await this.txRepo.create({
       user_id,
       type,
       amount,
       currency,
       method,
       related_id,
+      related_type,
       reference_code: referenceCode,
       meta: { description },
     });
 
-    // --- Nếu thanh toán bằng ví ---
     if (method === 'wallet') {
       await this.walletTxRepo.addTransaction({
         wallet_id: wallet.id,
         transaction_id: transaction.id,
-        type: 'PAYMENT',
+        type: 'payment',
         amount,
         note: description,
       });
 
-      transaction.markSuccess({ paid_at: new Date() });
+      transaction.markSuccess({ paid_at: new Date().toISOString() });
       await this.txRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
+
+      if (transaction.related_type === 'subscription') {
+        localBus.publish('payment.subscription.succeeded', {
+          user_id: transaction.user_id,
+          type: 'payment',
+          related_id: transaction.related_id,
+          related_type: transaction.related_type,
+          amount,
+          method: transaction.method,
+          reference_code: transaction.reference_code,
+        });
+      }
     }
 
     return transaction;
   }
 
-  /**
-   * Xác nhận giao dịch tiền mặt (manual confirm)
-   * ------------------------------
-   */
   async confirmCashPayment(transaction_id) {
     const transaction = await this.txRepo.findById(transaction_id);
     if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
 
-    transaction.markSuccess({ confirmed_at: new Date() });
+    transaction.markSuccess({ confirmed_at: new Date().toISOString() });
     await this.txRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
     return transaction;
   }
 
   /**
-   * Xử lý webhook thanh toán từ ngân hàng
-   * ------------------------------
+   * Process webhook payload from bank/gateway
+   * payload: object containing reference_code or content and transferAmount and other fields
    */
-  async processBankWebhook({ payload }) {
-    const refCode =
-      payload.reference_code ||
-      payload.content?.split(' ')[0];
-
-    if (!refCode)
-      throw Object.assign(new Error('Missing referenceCode in payload'), {
-        status: 400,
-      });
+  async processBankWebhook(payload) {
+    console.log('📩 Incoming Webhook Payload:', payload);
+    const refCode = payload.code|| payload.content?.split(' ')[0];
+    if (!refCode) throw Object.assign(new Error('Missing referenceCode in payload'), { status: 400 });
 
     const prefix = refCode.substring(0, 3).toUpperCase();
-
-    // --- Tìm giao dịch ---
     const transaction = await this.txRepo.findByReferenceCode(refCode);
     if (!transaction) return { ok: false, reason: 'transaction not found' };
 
-    // --- Xác thực số tiền ---
     const incoming = Number(String(payload.transferAmount).replace(/[,\s]/g, ''));
     if (Number.isNaN(incoming)) return { ok: false, reason: 'invalid amount' };
-    if (incoming < transaction.amount)
-      return { ok: false, reason: 'underpaid' };
+    if (incoming < Number(transaction.amount)) return { ok: false, reason: 'underpaid' };
 
-    // --- Lưu external ID ---
-    if (payload.id) {
-      await this.txRepo.updateExternalId(transaction.id, payload.id);
-    }
-
-    // --- Đánh dấu thành công ---
-    transaction.markSuccess({ webhook: payload });
+    transaction.markSuccess({ webhook: payload, paid_amount: incoming });
     await this.txRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
-    // --- Hành động theo prefix ---
     switch (prefix) {
-      case 'TOP': {
-        let wallet = await this.walletRepo.findByUserId(transaction.user_id);
-        if (!wallet) wallet = await this.walletRepo.create(transaction.user_id);
-
-        await this.walletTxRepo.addTransaction({
-          wallet_id: wallet.id,
-          transaction_id: transaction.id,
-          type: 'TOPUP',
-          amount: incoming,
-          note: `Bank: ${payload.gateway || 'unknown'}`,
-        });
-        break;
-      }
-
-      case 'SUB': {
-        // Thanh toán gói thành công → phát sự kiện
-        eventBus.emit('payment.succeeded', {
+      case 'SUB':
+        localBus.publish('payment.subscription.succeeded', {
           user_id: transaction.user_id,
-          type: transaction.type,
+          type: 'payment',
           related_id: transaction.related_id,
+          related_type: transaction.related_type || 'subscription',
           amount: incoming,
           method: transaction.method,
-          reference_code: transaction.reference_code,
+          reference_code: refCode,
+        });
+        break;
+      case 'TOP':
+        localBus.publish('payment.topup.succeeded', {
+          user_id: transaction.user_id,
+          amount: incoming,
+          reference_code: refCode,
+        });
+        break;
+      case 'BKG': {
+        await eventBus.publish('payment.booking.succeeded', {
+          user_id: transaction.user_id,
+          booking_id: transaction.related_id,
+          amount: incoming,
+          method: transaction.method,
+          reference_code: refCode,
+          transaction_id: transaction.id,
         });
         break;
       }
 
       case 'CHG': {
-        // (dự phòng cho charging)
+        await eventBus.publish('payment.charging.succeeded', {
+          user_id: transaction.user_id,
+          session_id: transaction.related_id,
+          amount: incoming,
+          method: transaction.method,
+          reference_code: refCode,
+          transaction_id: transaction.id,
+        });
         break;
       }
 
       default: {
-        console.warn(`Unknown payment prefix: ${prefix}`);
+        console.warn(`[PaymentService] Unknown payment prefix: ${prefix}`);
         break;
       }
     }
@@ -203,10 +179,6 @@ export default class PaymentService {
     };
   }
 
-  /**
-   * Hoàn tiền
-   * ------------------------------
-   */
   async refundPayment(transaction_id, { amount = null, reason }) {
     const transaction = await this.txRepo.findById(transaction_id);
     if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
@@ -222,7 +194,7 @@ export default class PaymentService {
     await this.walletTxRepo.addTransaction({
       wallet_id: wallet.id,
       transaction_id: transaction.id,
-      type: 'REFUND',
+      type: 'refund',
       amount: refundAmount,
       note: reason,
     });
@@ -233,20 +205,12 @@ export default class PaymentService {
     return transaction;
   }
 
-  /**
-   * Lấy thông tin ví người dùng
-   * ------------------------------
-   */
   async getWalletInfo(user_id) {
     const wallet = await this.walletRepo.findByUserId(user_id);
     if (!wallet) throw Object.assign(new Error('Wallet not found'), { status: 404 });
     return wallet;
   }
 
-  /**
-   * Nạp tiền vào ví thủ công
-   * ------------------------------
-   */
   async topupWallet({ user_id, amount }) {
     let wallet = await this.walletRepo.findByUserId(user_id);
     if (!wallet) wallet = await this.walletRepo.create(user_id);
@@ -256,7 +220,7 @@ export default class PaymentService {
 
     const walletTx = await this.walletTxRepo.addTransaction({
       wallet_id: wallet.id,
-      type: 'TOPUP',
+      type: 'topup',
       amount,
       note: 'Manual top-up',
     });
@@ -264,19 +228,11 @@ export default class PaymentService {
     return { message: 'Wallet topped up successfully', transaction: walletTx };
   }
 
-  /**
-   * Liệt kê tất cả giao dịch của user
-   * ------------------------------
-   */
   async listUserPayments(user_id) {
     const list = await this.txRepo.listByUser(user_id);
-    return list.map(tx => tx.toJSON());
+    return list.map((tx) => tx.toJSON());
   }
 
-  /**
-   * Lấy chi tiết giao dịch
-   * ------------------------------
-   */
   async getPaymentById(transaction_id) {
     const transaction = await this.txRepo.findById(transaction_id);
     if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
