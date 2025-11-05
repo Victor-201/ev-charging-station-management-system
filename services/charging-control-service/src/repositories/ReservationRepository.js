@@ -10,27 +10,30 @@ class ReservationRepository {
    * Convert to UTC datetime format for SQL
    */
   toSqlDatetimeIsoZ(input) {
-    return dayjs(input).utc().format('YYYY-MM-DD HH:mm:ss');
+    return input ? dayjs(input).utc().format('YYYY-MM-DD HH:mm:ss') : null;
   }
 
   /**
    * Create a new reservation
-   * @param {Object} data - Reservation info
-   * @returns {Reservation}
    */
   async create(data) {
     const reservation = new Reservation({
       reservation_id: data.reservation_id || uuidv4(),
       status: data.status || 'confirmed',
+      price_per_min: data.price_per_min || 1000,
+      reserved_minutes: data.reserved_minutes || null,
+      total_cost: data.total_cost || 0,
       ...data,
     });
 
     const sql = `
       INSERT INTO reservations (
         reservation_id, user_id, station_id, point_id, connector_type,
-        start_time, end_time, status, expires_at, created_at, updated_at
+        start_time, end_time, status, expires_at,
+        price_per_min, reserved_minutes, total_cost,
+        created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     await pool.query(sql, [
@@ -43,6 +46,9 @@ class ReservationRepository {
       this.toSqlDatetimeIsoZ(reservation.end_time),
       reservation.status,
       this.toSqlDatetimeIsoZ(reservation.expires_at),
+      reservation.price_per_min,
+      reservation.reserved_minutes,
+      reservation.total_cost,
     ]);
 
     return reservation;
@@ -73,23 +79,41 @@ class ReservationRepository {
   async update(reservation) {
     const sql = `
       UPDATE reservations
-      SET start_time=?, end_time=?, status=?, updated_at=NOW()
+      SET start_time=?, end_time=?, status=?, price_per_min=?, reserved_minutes=?, total_cost=?, updated_at=NOW()
       WHERE reservation_id=?
     `;
     await pool.query(sql, [
       this.toSqlDatetimeIsoZ(reservation.start_time),
       this.toSqlDatetimeIsoZ(reservation.end_time),
       reservation.status,
+      reservation.price_per_min,
+      reservation.reserved_minutes,
+      reservation.total_cost,
       reservation.reservation_id,
     ]);
     return reservation;
   }
 
   /**
+   * Update only cost fields (để service gọi sau khi tính tiền)
+   */
+  async updateCost(reservation_id, reserved_minutes, total_cost) {
+    await pool.query(
+      `UPDATE reservations 
+       SET reserved_minutes=?, total_cost=?, updated_at=NOW()
+       WHERE reservation_id=?`,
+      [reserved_minutes, total_cost, reservation_id]
+    );
+  }
+
+  /**
    * Mark reservation as cancelled
    */
   async markCancelled(reservation_id) {
-    await pool.query('UPDATE reservations SET status="cancelled", updated_at=NOW() WHERE reservation_id=?', [reservation_id]);
+    await pool.query(
+      'UPDATE reservations SET status="cancelled", updated_at=NOW() WHERE reservation_id=?',
+      [reservation_id]
+    );
   }
 
   /**
@@ -118,19 +142,9 @@ class ReservationRepository {
     const [rows] = await pool.query(q, [station_id, point_id, start, end]);
     return rows[0].cnt === 0;
   }
-  async findByUser(user_id) {
-    const [rows] = await pool.query(
-      `SELECT reservation_id, station_id, start_time, end_time, status
-       FROM reservations
-       WHERE user_id = ?
-       ORDER BY start_time DESC`,
-      [user_id]
-    );
-    return rows;
-  }
 
   /**
-   * Auto-cancel expired reservations (not started on time)
+   * Auto-cancel expired reservations
    */
   async autoCancelExpired(minutes = 20) {
     const threshold = dayjs().utc().subtract(minutes, 'minute').format('YYYY-MM-DD HH:mm:ss');

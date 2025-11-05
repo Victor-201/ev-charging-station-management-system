@@ -10,7 +10,11 @@ class Reservation {
     status = 'pending',
     expires_at,
     created_at,
-    updated_at
+    updated_at,
+    price_per_min = 1000,     // 🆕 Giá mỗi phút
+    reserved_minutes = null,  // 🆕 Số phút đã tính
+    total_cost = 0            // 🆕 Tổng tiền
+    
   }) {
     this.reservation_id = reservation_id;
     this.user_id = user_id;
@@ -23,6 +27,9 @@ class Reservation {
     this.expires_at = expires_at ? new Date(expires_at) : null;
     this.created_at = created_at ? new Date(created_at) : new Date();
     this.updated_at = updated_at ? new Date(updated_at) : new Date();
+    this.price_per_min = price_per_min;
+    this.reserved_minutes = reserved_minutes;
+    this.total_cost = total_cost;
   }
 
   isExpired() {
@@ -42,7 +49,22 @@ class Reservation {
   }
 
   toJSON() {
-    return { ...this };
+    return {
+      reservation_id: this.reservation_id,
+      user_id: this.user_id,
+      station_id: this.station_id,
+      point_id: this.point_id,
+      connector_type: this.connector_type,
+      start_time: this.start_time,
+      end_time: this.end_time,
+      status: this.status,
+      expires_at: this.expires_at,
+      created_at: this.created_at,
+      updated_at: this.updated_at,
+      price_per_min: this.price_per_min,
+      reserved_minutes: this.reserved_minutes,
+      total_cost: this.total_cost
+    };
   }
 }
 
