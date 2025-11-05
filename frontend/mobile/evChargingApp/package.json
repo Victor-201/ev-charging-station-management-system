@@ -14,7 +14,9 @@
     "dev:device": "./scripts/dev-device.sh",
     "build:ios": "./scripts/build-bundle.sh",
     "build:ios:run": "./scripts/build-bundle.sh && npx react-native run-ios --device",
-    "clean:cache": "rm -rf .metro-cache && rm -rf ios/main.jsbundle && rm -rf ios/assets",
+    "build:android": "./scripts/build-bundle-android.sh",
+    "build:android:run": "./scripts/build-bundle-android.sh && npx react-native run-android",
+    "clean:cache": "rm -rf .metro-cache && rm -rf ios/main.jsbundle && rm -rf ios/assets && rm -rf android/app/src/main/assets/index.android.bundle",
     "test": "jest"
   },
   "dependencies": {
