@@ -140,6 +140,10 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
       // Logout first to ensure clean state
       LoginManager.logOut();
       
+      // Set login behavior to prefer native app over web
+      // 'native_with_fallback' will try to use Facebook app first, then web if app not installed
+      LoginManager.setLoginBehavior('native_with_fallback');
+      
       const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
       console.log('Facebook login result:', result);
       
