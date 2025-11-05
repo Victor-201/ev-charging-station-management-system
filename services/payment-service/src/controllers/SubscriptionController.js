@@ -2,42 +2,44 @@ import SubscriptionService from '../services/SubscriptionService.js';
 const service = new SubscriptionService();
 
 /**
- * Controller cho Subscription
+ * SubscriptionController
  * ------------------------------
- * Gọi sang service tương ứng, xử lý API response
+ * Gọi sang SubscriptionService để xử lý các hành động liên quan đến gói dịch vụ
  */
-export const create = async (req, res, next) => {
-  try {
-    const result = await service.create(req.body);
-    res.status(201).json(result);
-  } catch (err) {
-    next(err);
+export class SubscriptionController {
+  static async activate(req, res, next) {
+    try {
+      const result = await service.activateSubscription(req.body);
+      res.status(201).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
   }
-};
 
-export const cancel = async (req, res, next) => {
-  try {
-    const sub = await service.cancel(req.params.id);
-    res.json(sub);
-  } catch (err) {
-    next(err);
+  static async cancel(req, res, next) {
+    try {
+      const result = await service.cancelSubscription(req.params.id);
+      res.json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
   }
-};
 
-export const getActiveByUser = async (req, res, next) => {
-  try {
-    const subs = await service.getActiveByUser(req.params.user_id);
-    res.json(subs);
-  } catch (err) {
-    next(err);
+  static async getActiveByUser(req, res, next) {
+    try {
+      const result = await service.getUserSubscription(req.params.user_id);
+      res.json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
   }
-};
 
-export const listByUser = async (req, res, next) => {
-  try {
-    const subs = await service.listByUser(req.params.user_id);
-    res.json(subs);
-  } catch (err) {
-    next(err);
+  static async listByUser(req, res, next) {
+    try {
+      const result = await service.listUserSubscriptions(req.params.user_id);
+      res.json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
   }
-};
+}
