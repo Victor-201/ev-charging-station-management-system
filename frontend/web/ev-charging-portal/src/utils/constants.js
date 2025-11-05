@@ -10,7 +10,7 @@ export const ROUTERS = {
     INCIDENT_REPORT: "/staff/incidents",
   },
   ADMIN: {
-    DASHBOARD: "/admin",
+    DASHBOARD: "/admin/dashboard",
     ANALYTICS: "/admin/analytics",
     REPORTS: "/admin/reports",
     SETTINGS: "/admin/settings",

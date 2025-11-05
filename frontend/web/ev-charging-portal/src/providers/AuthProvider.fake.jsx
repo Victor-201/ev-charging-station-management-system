@@ -18,28 +18,24 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  // Giữ API tương thích với Login.jsx: login(email, password, remember)
-  const login = (email = "staff@example.com", _password, _remember = true) => {
-    // Suy luận vai trò từ email: chứa 'admin' -> admin, còn lại staff
-    const role = /admin/i.test(email) ? "admin" : "staff";
-
-    const payload = {
-      email,
-      role,
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    };
-    const fakeToken = btoa(JSON.stringify(payload));
-
-    // Lưu cả 'token' (giữ tương thích) và 'access_token' (để axios client nếu cần)
+  const login = (role = "staff") => {
+    const fakeToken = btoa(
+      JSON.stringify({
+        email: `${role}@example.com`,
+        role,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      })
+    );
     localStorage.setItem("token", fakeToken);
-    localStorage.setItem("access_token", fakeToken);
-
-    setAuth({ token: fakeToken, email, role });
+    setAuth({
+      token: fakeToken,
+      email: `${role}@example.com`,
+      role,
+    });
   };
 
   const logout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("access_token");
     setAuth({ token: null, role: null, email: null });
   };
 
