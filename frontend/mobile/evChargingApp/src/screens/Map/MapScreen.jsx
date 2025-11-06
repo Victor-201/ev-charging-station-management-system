@@ -8,12 +8,14 @@ import {
   Text,
   TextInput,
   FlatList,
-  Platform
+  Platform,
+  Linking
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import Geolocation from '@react-native-community/geolocation';
+import stationService from '../../services/stationService';
 
 export default function MapScreen({ navigation }) {
   const mapRef = useRef(null);
@@ -130,11 +132,38 @@ export default function MapScreen({ navigation }) {
 
   const loadStations = async () => {
     try {
-      // TODO: Call station service API
-      setStations(sampleStations);
+      // Try to fetch from API
+      const response = await stationService.getAll();
+      const apiStations = response?.data || response;
+      
+      if (apiStations && Array.isArray(apiStations) && apiStations.length > 0) {
+        // Map API response to expected format
+        const mappedStations = apiStations.map(station => ({
+          id: station.id || station.station_id,
+          name: station.name,
+          address: station.address,
+          latitude: parseFloat(station.latitude),
+          longitude: parseFloat(station.longitude),
+          available_ports: station.available_ports || 0,
+          total_ports: station.total_ports || 0,
+          price_per_kwh: station.price_per_kwh || 2000,
+          connector_types: station.connector_types || ['Type 2'],
+          status: station.status || 'active',
+          rating: station.rating || 4.5,
+          distance: station.distance || 0,
+        }));
+        
+        console.log('✅ Loaded stations from API:', mappedStations.length);
+        setStations(mappedStations);
+      } else {
+        // Fallback to sample data if API returns empty
+        console.log('⚠️ API returned empty, using sample data');
+        setStations(sampleStations);
+      }
     } catch (error) {
-      console.error('Error loading stations:', error);
-      Alert.alert('Lỗi', 'Không thể tải danh sách trạm sạc');
+      console.error('❌ Error loading stations from API:', error);
+      // Fallback to sample data on error
+      setStations(sampleStations);
     }
   };
 
@@ -164,6 +193,44 @@ export default function MapScreen({ navigation }) {
         stationId: selectedStation.id,
         station: selectedStation 
       });
+    }
+  };
+
+  const openDirections = () => {
+    if (!selectedStation) return;
+    
+    const { latitude, longitude, name, address } = selectedStation;
+    
+    // iOS - Open Apple Maps
+    if (Platform.OS === 'ios') {
+      const url = `maps://app?daddr=${latitude},${longitude}&q=${encodeURIComponent(name)}`;
+      Linking.canOpenURL(url)
+        .then((supported) => {
+          if (supported) {
+            return Linking.openURL(url);
+          } else {
+            // Fallback to Google Maps web
+            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+            return Linking.openURL(webUrl);
+          }
+        })
+        .catch((err) => {
+          console.error('Error opening maps:', err);
+          Alert.alert('Lỗi', 'Không thể mở ứng dụng bản đồ');
+        });
+    } else {
+      // Android - Try Google Maps app, fallback to web
+      const url = `google.navigation:q=${latitude},${longitude}`;
+      const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+      
+      Linking.canOpenURL(url)
+        .then((supported) => {
+          return Linking.openURL(supported ? url : webUrl);
+        })
+        .catch((err) => {
+          console.error('Error opening maps:', err);
+          Alert.alert('Lỗi', 'Không thể mở ứng dụng bản đồ');
+        });
     }
   };
 
@@ -261,18 +328,28 @@ export default function MapScreen({ navigation }) {
             ))}
           </View>
 
-          <TouchableOpacity 
-            style={[
-              styles.bookButton,
-              selectedStation.available_ports === 0 && styles.disabledButton
-            ]}
-            onPress={handleBookStation}
-            disabled={selectedStation.available_ports === 0}
-          >
-            <Text style={styles.bookButtonText}>
-              {selectedStation.available_ports === 0 ? 'Hết chỗ' : 'Đặt chỗ sạc'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              style={styles.directionsButton}
+              onPress={openDirections}
+            >
+              <Icon name="directions" size={20} color="#2196F3" />
+              <Text style={styles.directionsButtonText}>Chỉ đường</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.bookButton,
+                selectedStation.available_ports === 0 && styles.disabledButton
+              ]}
+              onPress={handleBookStation}
+              disabled={selectedStation.available_ports === 0}
+            >
+              <Text style={styles.bookButtonText}>
+                {selectedStation.available_ports === 0 ? 'Hết chỗ' : 'Đặt chỗ sạc'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -426,7 +503,29 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontWeight: '500',
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  directionsButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  directionsButtonText: {
+    color: '#2196F3',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   bookButton: {
+    flex: 1,
     backgroundColor: '#2196F3',
     borderRadius: 8,
     paddingVertical: 14,
