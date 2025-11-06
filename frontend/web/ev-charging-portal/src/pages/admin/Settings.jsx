@@ -1,8 +1,10 @@
 import Section from "@/components/admin/Section";
+import PageHeader from "@/components/admin/PageHeader";
 
 export default function Settings() {
 	return (
 		<div className="space-y-6">
+			<PageHeader title="Cài đặt" subtitle="Cấu hình chung cho hệ thống" />
 			<Section title="Cấu hình chung">
 				<form className="space-y-4 max-w-xl">
 					<div>

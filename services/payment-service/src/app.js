@@ -8,6 +8,7 @@ import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(logger);
 
 app.use('/api/v1/payments', paymentRoutes);

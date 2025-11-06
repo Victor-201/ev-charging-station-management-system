@@ -1,8 +1,10 @@
 import Section from "@/components/admin/Section";
+import PageHeader from "@/components/admin/PageHeader";
 
 export default function Reports() {
 	return (
 		<div className="space-y-6">
+			<PageHeader title="Báo cáo" subtitle="Xuất và theo dõi các loại báo cáo hệ thống" />
 			<Section
 				title="Báo cáo doanh thu"
 				actions={<button className="rounded-md bg-emerald-600 px-3 py-1.5 text-white">Xuất CSV</button>}
