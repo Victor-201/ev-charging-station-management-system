@@ -1,4 +1,4 @@
-import { Users, CreditCard, PlugZap, Settings } from "lucide-react";
+import { Users, CreditCard, PlugZap, Settings, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import StatCard from "@/components/admin/StatCard";
 import Section from "@/components/admin/Section";
@@ -19,6 +19,7 @@ export default function Dashboard() {
 		{ key: "users", title: "Users", subtitle: "Quản lý người dùng", icon: Users, route: ROUTERS.ADMIN.USER_MANAGEMENT },
 		{ key: "stations", title: "Stations", subtitle: "Quản lý trạm sạc", icon: PlugZap, route: ROUTERS.ADMIN.STATION_MANAGEMENT },
 		{ key: "reports", title: "Reports", subtitle: "Báo cáo & số liệu", icon: CreditCard, route: ROUTERS.ADMIN.REPORTS },
+		{ key: "subscriptions", title: "Subscriptions", subtitle: "Gói & quyền lợi", icon: Coins, route: ROUTERS.ADMIN.SUBSCRIPTION_PLANS },
 		{ key: "settings", title: "Settings", subtitle: "Cấu hình hệ thống", icon: Settings, route: ROUTERS.ADMIN.SETTINGS },
 	];
 
