@@ -40,7 +40,7 @@ async function isEventProcessedInDb(eventId: string): Promise<boolean> {
       'SELECT 1 FROM processed_events WHERE event_id = $1',
       [eventId]
     );
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   } finally {
     client.release();
   }
@@ -97,7 +97,7 @@ export async function handleUserCreated(event: DomainEvent): Promise<void> {
       [aggregateId]
     );
 
-    if (existingUser.rowCount > 0) {
+    if ((existingUser.rowCount ?? 0) > 0) {
       logger.info(`User profile ${aggregateId} already exists, skipping creation`);
       await markEventProcessedInDb(client, eventId, event.eventType);
       await client.query('COMMIT');
@@ -174,7 +174,7 @@ export async function handleUserUpdated(event: DomainEvent): Promise<void> {
       [aggregateId, email, fullName, phoneNumber]
     );
 
-    if (result.rowCount === 0) {
+    if ((result.rowCount ?? 0) === 0) {
       logger.warn(`User profile ${aggregateId} not found for update`);
     } else {
       logger.info(`Updated user profile for user: ${aggregateId}`);
@@ -234,7 +234,7 @@ export async function handleUserDeactivated(event: DomainEvent): Promise<void> {
       [aggregateId]
     );
 
-    if (result.rowCount === 0) {
+    if ((result.rowCount ?? 0) === 0) {
       logger.warn(`User profile ${aggregateId} not found for deactivation`);
     } else {
       logger.info(`Deactivated user profile for user: ${aggregateId}`);
@@ -296,7 +296,7 @@ export async function handleUserRoleUpdated(event: DomainEvent): Promise<void> {
       [aggregateId, newRole]
     );
 
-    if (result.rowCount === 0) {
+    if ((result.rowCount ?? 0) === 0) {
       logger.warn(`User profile ${aggregateId} not found for role update`);
     } else {
       logger.info(`Updated role for user ${aggregateId} to: ${newRole}`);

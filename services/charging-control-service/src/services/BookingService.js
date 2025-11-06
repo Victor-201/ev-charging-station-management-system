@@ -353,7 +353,7 @@ class BookingService {
    * Calculate cost for a reservation (does NOT persist) — returns { minutes, total, price_per_min }
    * roundUp defaults to true (CEIL)
    */
-  async previewReservationCost(reservation_id, { roundUp = true } = {}) {
+  async previewReserrvationCost(reservation_id, { roundUp = true } = {}) {
     const reservation = await ReservationRepo.findById(reservation_id);
     if (!reservation) throw new Error('Reservation not found');
 

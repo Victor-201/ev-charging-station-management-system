@@ -44,7 +44,7 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.4",
+    "@types/amqplib": "0.8.0",
     "@types/archiver": "^6.0.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",

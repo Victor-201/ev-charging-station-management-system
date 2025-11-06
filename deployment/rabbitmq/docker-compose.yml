@@ -10,7 +10,7 @@ services:
   rabbitmq-service:
     build:
       context: .
-      dockerfile: dockerfile
+      dockerfile: Dockerfile
     image: rabbitmq-service:v1.0.0
     container_name: rabbitmq-service
     restart: always

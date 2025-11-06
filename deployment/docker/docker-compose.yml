@@ -28,8 +28,9 @@ services:
     depends_on:
       - station-database
     ports:
-      - "3000:3000"
+      - "8386:3000"
     environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       DATABASE_URL: "mysql://root:root@station-database:3306/station_service"
     networks:
       - kong-net
@@ -65,8 +66,6 @@ services:
     depends_on:
       reservation-database:
         condition: service_healthy
-      rabbitmq-service:
-        condition: service_started
     environment:
       DB_HOST: reservation-database
       DB_USER: root
@@ -75,7 +74,7 @@ services:
       DB_PORT: 3306
       RATE_PER_KWH: 20000
       PORT: 4002
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq-service:5672
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     ports:
       - "4002:4002"
     restart: on-failure
@@ -92,6 +91,8 @@ services:
     ports:
       - "8080:8080"
     env_file: ../../services/payment-service/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
       - postgres
     restart: always
@@ -108,7 +109,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./pgdata:/var/lib/postgresql/data
+      - payment-db-data:/var/lib/postgresql/data
       - ../../services/payment-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: always
     networks:
@@ -248,11 +249,12 @@ services:
       - "3000:3000"
     env_file:
       - ../../services/analytics-service/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
       - analytics-database
     volumes:
       - ./src:/usr/src/app/src
-      - ./package.json:/usr/src/app/package.json
     command: npm run dev
     networks:
       - kong-net
@@ -282,6 +284,8 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - kong-net
 
@@ -295,8 +299,8 @@ services:
     depends_on:
       - rabbitmq
     environment:
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - EXCHANGE_NAME=ev_charging_exchange
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - kong-net
 
@@ -356,13 +360,17 @@ services:
 ##
 
 volumes:
-  user-service-export:
   station-data:
   charging-data:
   kong-data:
   postgres-auth-data:
   postgres-user-data:
   pgadmin-data:
+  mysql_data:
+  user-service-exports:
+  reservation-data:
+  rabbitmq-data:
+  payment-db-data:
 
 networks:
   kong-net:
