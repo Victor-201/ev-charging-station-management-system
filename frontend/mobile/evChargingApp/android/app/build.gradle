@@ -5,8 +5,10 @@ apply plugin: "com.google.gms.google-services"
 
 
 project.ext.react = [
-    enableHermes: true 
+    enableHermes: true,
+    newArchEnabled: false
 ]
+
 
 
 /**
@@ -80,11 +82,11 @@ def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
+    namespace "com.evchargingapp"
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.evchargingapp.android"
     defaultConfig {
         applicationId "com.evchargingapp.android"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -111,6 +113,10 @@ android {
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 }
 
