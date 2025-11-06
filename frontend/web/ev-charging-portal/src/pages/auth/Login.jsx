@@ -19,8 +19,9 @@ const schema = yup.object({
 
 const LoginPage = () => {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, auth } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
 
   const {
@@ -34,8 +35,31 @@ const LoginPage = () => {
 
   const onSubmit = async (data) => {
     setLoading(true);
-    await login(data.email, data.password, data.remember);
-    setLoading(false);
+    setErrorMessage("");
+    try {
+      // login returns the new auth object (see provider)
+      await login(data.email, data.password, data.remember);
+
+      // read role from auth (context was updated)
+      const role = (auth && auth.role) || JSON.parse(atob((localStorage.getItem("token") || sessionStorage.getItem("token")) || "")).role;
+
+      // determine navigation routes (use ROUTERS if available, otherwise fallback)
+      const staffRoute = ROUTERS?.STAFF?.DASHBOARD ?? "/staff/dashboard";
+      const adminRoute = ROUTERS?.ADMIN?.DASHBOARD ?? "/admin/dashboard";
+      const userRoute = ROUTERS?.DASHBOARD ?? "/dashboard";
+
+      if (role === "staff") {
+        navigate(staffRoute);
+      } else if (role === "admin") {
+        navigate(adminRoute);
+      } else {
+        navigate(userRoute);
+      }
+    } catch (err) {
+      setErrorMessage(err?.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -104,6 +128,9 @@ const LoginPage = () => {
               {t("auth.forgot")}
             </button>
           </div>
+
+          {/* Error message */}
+          {errorMessage && <p className="text-red-500 text-sm">{errorMessage}</p>}
 
           {/* Submit */}
           <button
