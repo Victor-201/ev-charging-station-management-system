@@ -30,6 +30,11 @@
         android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="${usesCleartextTraffic}">
 
+        <!-- 🗺️ Google Maps API Key (Optional - only needed for Android) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyDummy_Key_For_Development_Only" />
+
         <!-- 🌐 Facebook SDK -->
         <meta-data
             android:name="com.facebook.sdk.ApplicationId"
