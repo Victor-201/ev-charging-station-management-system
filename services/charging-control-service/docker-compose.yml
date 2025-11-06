@@ -6,6 +6,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: 123456
       MYSQL_DATABASE: ev_charging
+      TZ: Asia/Ho_Chi_Minh  
     ports:
       - "3307:3306"
     volumes:
@@ -15,7 +16,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
+    command: --default-time-zone='+07:00'
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq_container
