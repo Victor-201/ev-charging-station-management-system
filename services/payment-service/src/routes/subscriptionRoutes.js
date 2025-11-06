@@ -1,18 +1,14 @@
 import express from 'express';
 import { SubscriptionController } from '../controllers/SubscriptionController.js';
+import { authenticate, authorize } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Kích hoạt (hoặc gia hạn) gói dịch vụ – dùng khi test thủ công
-router.post('/activate', SubscriptionController.activate);
+router.use(authenticate);
 
-// Hủy gói hiện tại
-router.post('/:id/cancel', SubscriptionController.cancel);
-
-// Lấy gói đang hoạt động của user
-router.get('/user/:user_id/active', SubscriptionController.getActiveByUser);
-
-// Liệt kê tất cả gói của user
-router.get('/user/:user_id', SubscriptionController.listByUser);
+router.post('/activate', authorize('admin', 'user'), SubscriptionController.activate);
+router.post('/:id/cancel', authorize('admin', 'user'), SubscriptionController.cancel);
+router.get('/user/:user_id/active', authorize('admin', 'user'), SubscriptionController.getActiveByUser);
+router.get('/user/:user_id', authorize('admin', 'user'), SubscriptionController.listByUser);
 
 export default router;
