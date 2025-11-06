@@ -43,10 +43,17 @@ app.use('/exports', express.static(path.join(__dirname, '../exports')));
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
+  const rabbitmqMetrics = rabbitmqConsumer.getMetrics();
+  const rabbitmqConnected = rabbitmqConsumer.isConnectionActive();
+  
   res.json({
     status: 'healthy',
     service: 'user-service',
     timestamp: new Date().toISOString(),
+    rabbitmq: {
+      connected: rabbitmqConnected,
+      metrics: rabbitmqMetrics,
+    },
   });
 });
 
