@@ -203,7 +203,7 @@ export class StationService {
             select: {
                 id: true,
                 price_per_kwh: true,
-                overstay_fee_per_minute: true,
+                price_per_hour: true,
             },
         });
 
@@ -222,11 +222,11 @@ export class StationService {
                     currency: 'USD',
                 });
             }
-            if (point.overstay_fee_per_minute !== null) {
+            if (point.price_per_hour !== null) {
                 pricing.push({
                     point_id: point.id,
-                    model: 'per_min',
-                    price: point.overstay_fee_per_minute.toNumber(),
+                    model: 'per_hour',
+                    price: point.price_per_hour.toNumber(),
                     currency: 'USD',
                 });
             }

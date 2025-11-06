@@ -134,7 +134,7 @@ export class ScheduleMaintenanceDto {
 
 export class PricingItemDto {
     point_id: string;
-    model: 'per_kwh' | 'per_min' | 'flat';
+    model: 'per_kwh' | 'per_hour';
     price: number;
     currency: string;
 }

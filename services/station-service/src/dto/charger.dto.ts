@@ -14,7 +14,7 @@ export class RegisterChargerDto {
   price_per_kwh: string;
 
   @IsNumberString()
-  overstay_fee_per_minute: string;
+  price_per_hour: string;
 
   @IsNumberString()
   max_power_kw: string;
@@ -46,7 +46,7 @@ export class ControlChargerDto {
 }
 
 export class ChargerPricingItemDto {
-  model: 'per_kwh' | 'per_min' | 'flat';
+  model: 'per_kwh' | 'per_hour';
   price: number;
   currency: string;
 }
