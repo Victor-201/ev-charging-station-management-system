@@ -9,9 +9,7 @@ services:
   read_timeout: 60000
   retries: 5
   routes:
-  - hosts:
-    - analytics-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: analytics-ai-route
     path_handling: v0
     paths:
@@ -24,9 +22,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - analytics-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: analytics-route
     path_handling: v0
     paths:
@@ -39,9 +35,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - analytics-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: dashboards-route
     path_handling: v0
     paths:
@@ -54,9 +48,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - analytics-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: monitoring-route
     path_handling: v0
     paths:
@@ -69,9 +61,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - analytics-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: telemetry-route
     path_handling: v0
     paths:
@@ -94,9 +84,7 @@ services:
   read_timeout: 60000
   retries: 5
   routes:
-  - hosts:
-    - ev-auth-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: auth-service
     path_handling: v0
     paths:
@@ -266,9 +254,7 @@ services:
   read_timeout: 60000
   retries: 5
   routes:
-  - hosts:
-    - ev-user-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: user-auth-route
     path_handling: v0
     paths:
@@ -281,9 +267,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - ev-user-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: user-bookings-route
     path_handling: v0
     paths:
@@ -296,9 +280,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - ev-user-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: user-notifications-route
     path_handling: v0
     paths:
@@ -311,9 +293,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - ev-user-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: user-users-route
     path_handling: v0
     paths:
@@ -326,9 +306,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - ev-user-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: user-vehicles-route
     path_handling: v0
     paths:
@@ -341,9 +319,7 @@ services:
     request_buffering: true
     response_buffering: true
     strip_path: false
-  - hosts:
-    - ev-user-service
-    https_redirect_status_code: 426
+  - https_redirect_status_code: 426
     name: user-wallets-route
     path_handling: v0
     paths:
