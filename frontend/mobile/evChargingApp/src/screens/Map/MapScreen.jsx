@@ -243,12 +243,16 @@ export default function MapScreen({ navigation }) {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        provider={null} // null = use default (Apple Maps on iOS, Google Maps on Android without API key)
+        // Use GOOGLE provider on both platforms
+        // iOS will use Apple Maps if provider is null, Android needs explicit 'google'
         style={styles.map}
         initialRegion={region}
         showsUserLocation={true}
-        showsMyLocationButton={true}
+        showsMyLocationButton={false}
+        loadingEnabled={true}
+        loadingIndicatorColor="#2196F3"
         onPress={() => setSelectedStation(null)}
+        mapType="standard"
       >
         {stations.map((station) => (
           <Marker
