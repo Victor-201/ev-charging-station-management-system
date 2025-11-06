@@ -1,9 +1,14 @@
 // src/components/social/OAuthButtons.jsx
 import React, { useEffect, useState } from 'react';
-import { View, Alert } from 'react-native';
+import { View, Alert, Platform } from 'react-native';
 import { Button } from 'react-native-paper';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { AccessToken, LoginManager } from 'react-native-fbsdk-next';
+import { 
+  AccessToken, 
+  LoginManager, 
+  Settings,
+  AuthenticationToken // Import thêm để check login type
+} from 'react-native-fbsdk-next';
 import { GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID } from '../../config/env';
 import authService from '../../services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +22,15 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
   const [loading, setLoading] = useState({ google: false, facebook: false });
 
   useEffect(() => {
+    // Configure Facebook SDK to use CLASSIC login (opens native app)
+    // NOT Limited Login (which uses web)
+    if (Platform.OS === 'ios') {
+      // Enable tracking for better native app experience
+      Settings.setAdvertiserTrackingEnabled(true);
+      // IMPORTANT: Auto log app events OFF for classic login
+      Settings.setAutoLogAppEventsEnabled(false);
+    }
+    
     // Configure Google Sign-In
     if (GOOGLE_WEB_CLIENT_ID) {
       console.log('🔧 Configuring Google Sign-In with:', {
@@ -136,40 +150,54 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
     
     try {
       console.log('🚀 Starting Facebook Login...');
+      console.log('Platform:', Platform.OS);
       
-      // Logout first to ensure clean state
-      LoginManager.logOut();
-      
-      // Set login behavior to prefer native app over web
-      // 'native_with_fallback' will try to use Facebook app first, then web if app not installed
-      LoginManager.setLoginBehavior('native_with_fallback');
-      
-      const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
-      console.log('Facebook login result:', result);
-      
-      if (result.isCancelled) {
-        console.log('User cancelled Facebook login');
-        return; // Don't show error for user cancellation
+      // Test if Facebook SDK is available
+      if (!LoginManager || !AccessToken) {
+        throw new Error('Facebook SDK not properly initialized');
       }
       
-      if (result.grantedPermissions?.length === 0) {
+      // CRITICAL: Logout first to reset state
+      console.log('Logging out previous session...');
+      LoginManager.logOut();
+      
+      console.log('Requesting Facebook permissions...');
+      const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+      
+      console.log('✅ Facebook login result:', {
+        isCancelled: result.isCancelled,
+        declinedPermissions: result.declinedPermissions,
+        grantedPermissions: result.grantedPermissions
+      });
+      
+      if (result.isCancelled) {
+        console.log('ℹ️ User cancelled Facebook login');
+        return;
+      }
+      
+      if (!result.grantedPermissions || result.grantedPermissions.length === 0) {
         throw new Error('No permissions granted by Facebook');
       }
       
-      const dataToken = await AccessToken.getCurrentAccessToken();
-      console.log('Facebook access token:', { hasToken: !!dataToken });
+      console.log('✅ Permissions granted:', result.grantedPermissions);
       
-      if (!dataToken) {
+      // Get access token
+      console.log('Getting access token...');
+      const dataToken = await AccessToken.getCurrentAccessToken();
+      
+      if (!dataToken || !dataToken.accessToken) {
         throw new Error('No access token from Facebook');
       }
       
+      console.log('✅ Access token received, length:', dataToken.accessToken.length);
+      
       const accessToken = dataToken.accessToken.toString();
-      console.log('📡 Sending Facebook OAuth request to backend...');
+      console.log('📡 Sending OAuth request to backend...');
       
       const { data } = await authService.socialLogin('facebook', accessToken);
-      console.log('✅ Backend Facebook OAuth response:', { 
+      console.log('✅ Backend response:', { 
         hasAccessToken: !!data?.accessToken,
-        userId: data?.user_id 
+        userId: data?.user_id
       });
       
       if (data?.accessToken) {
@@ -184,13 +212,23 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
         throw new Error('No access token received from backend');
       }
     } catch (error) {
-      console.error('❌ Facebook OAuth Error:', error);
+      console.error('❌ Facebook OAuth Error:');
+      console.error('Error type:', error.constructor.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
       
       let errorMessage = 'Facebook đăng nhập thất bại';
-      if (error.message?.includes('network')) {
-        errorMessage = 'Lỗi kết nối mạng. Vui lòng thử lại.';
+      
+      if (error.message?.includes('SDK not properly initialized')) {
+        errorMessage = 'Lỗi khởi tạo Facebook SDK. Vui lòng khởi động lại ứng dụng.';
+      } else if (error.message?.includes('network') || error.message?.includes('timeout')) {
+        errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.';
       } else if (error.message?.includes('permissions')) {
         errorMessage = 'Cần cấp quyền để tiếp tục đăng nhập.';
+      } else if (error.message?.includes('access token')) {
+        errorMessage = 'Không thể lấy thông tin đăng nhập. Vui lòng thử lại.';
+      } else if (error.code) {
+        errorMessage = `Lỗi Facebook: ${error.code} - ${error.message}`;
       }
       
       Alert.alert('Lỗi Facebook Login', errorMessage);

@@ -34,6 +34,11 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.497529490549-csp81kblkv3etilrrfcle2p6j0fqqq83</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
 				<string>fb2258654707972116</string>
 			</array>
 		</dict>
@@ -42,14 +47,21 @@
 	<string>497529490549-csp81kblkv3etilrrfcle2p6j0fqqq83.apps.googleusercontent.com</string>
 	<key>FacebookAppID</key>
 	<string>2258654707972116</string>
+	<key>FacebookClientToken</key>
+	<string>d8f0e77587fb90e3fb62a570adec7291</string>
 	<key>FacebookDisplayName</key>
 	<string>evChargingApp</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<false/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>fbapi</string>
 		<string>fb-messenger-share-api</string>
 		<string>fbauth2</string>
 		<string>fbshareextension</string>
+		<string>fb</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
@@ -62,6 +74,19 @@
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Ứng dụng cần quyền này để cung cấp trải nghiệm đăng nhập Facebook tốt hơn.</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>v9wttpbfk9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>n38lu8286q.skadnetwork</string>
+		</dict>
+	</array>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

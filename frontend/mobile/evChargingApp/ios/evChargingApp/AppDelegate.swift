@@ -93,7 +93,7 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
     // Otherwise use Metro bundler
     print("🔄 Connecting to Metro bundler...")
     // NOTE: IP will be auto-updated by dev:device script
-    return URL(string: "http://172.23.11.78:8081/index.bundle?platform=ios")
+    return URL(string: "http://172.20.10.6:8081/index.bundle?platform=ios")
 #else
     Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif

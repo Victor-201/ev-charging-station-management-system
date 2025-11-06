@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">evChargingApp</string>
-    <string name="facebook_app_id">YOUR_FACEBOOK_APP_ID</string>
-    <string name="fb_login_protocol_scheme">fbYOUR_FACEBOOK_APP_ID</string>
+    <string name="facebook_app_id">2258654707972116</string>
+    <string name="fb_login_protocol_scheme">fb2258654707972116</string>
 </resources>
