@@ -253,8 +253,6 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
       - analytics-database
-    volumes:
-      - ./src:/usr/src/app/src
     command: npm run dev
     networks:
       - kong-net
