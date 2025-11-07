@@ -3,7 +3,7 @@ import { View, Alert, Platform, StyleSheet } from 'react-native';
 import { Button } from 'react-native-paper';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { AccessToken, LoginManager, Settings } from 'react-native-fbsdk-next';
-import { GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID } from '../../config/env';
+import { GOOGLE_WEB_CLIENT_ID } from '../../config/env';
 import useAuth from '../../hooks/useAuth';
 import { logger } from '../../utils/logger';
 
@@ -19,11 +19,12 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
 
     // Configure Google Sign-In
     if (GOOGLE_WEB_CLIENT_ID) {
-      GoogleSignin.configure({
+      const config = {
         webClientId: GOOGLE_WEB_CLIENT_ID,
-        iosClientId: GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID,
-        offlineAccess: true, // Required for refresh token
-      });
+        offlineAccess: true,
+      };
+      logger.info('🔧 Configuring Google Sign-In. The `iosClientId` will be read automatically from Info.plist.');
+      GoogleSignin.configure(config);
     } else {
       logger.warn('Google OAuth not configured - missing GOOGLE_WEB_CLIENT_ID');
     }
