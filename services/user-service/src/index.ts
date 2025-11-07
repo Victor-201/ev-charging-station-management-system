@@ -23,6 +23,7 @@ import {
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', true);
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 3002;
 
@@ -37,7 +38,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Rate limiting
 app.use('/api/', apiLimiter);
-
 // Static files for exports
 app.use('/exports', express.static(path.join(__dirname, '../exports')));
 
