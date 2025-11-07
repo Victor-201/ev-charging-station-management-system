@@ -176,7 +176,7 @@ services:
       - kong-net
 
 # Auth Service
-  auth-service:
+  ev-auth-service:
     build:
       context: ../../services/auth-service
       dockerfile: Dockerfile
@@ -187,7 +187,7 @@ services:
     environment:
       PORT: 3001
       NODE_ENV: development
-      DB_HOST: postgres-auth
+      DB_HOST: ev-postgres-auth
       DB_PORT: 5432
       DB_NAME: ev_auth_db
       DB_USER: postgres
@@ -205,7 +205,7 @@ services:
     restart: unless-stopped
 
   # User Service
-  user-service:
+  ev-user-service:
     build:
       context: ../../services/user-service
       dockerfile: Dockerfile
@@ -216,7 +216,7 @@ services:
     environment:
       PORT: 3002
       NODE_ENV: development
-      DB_HOST: postgres-user
+      DB_HOST: ev-postgres-user
       DB_PORT: 5432
       DB_NAME: ev_user_db
       DB_USER: postgres
@@ -232,7 +232,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      auth-service:
+      ev-auth-service:
         condition: service_started
     networks:
       - kong-net
