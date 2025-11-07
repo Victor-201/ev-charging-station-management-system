@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Apply rate limiting
 app.use(rateLimiter);
-
+app.set('trust proxy', true);
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.status(200).json({
