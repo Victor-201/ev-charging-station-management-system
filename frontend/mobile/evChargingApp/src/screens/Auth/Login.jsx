@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
+import { Checkbox } from 'react-native-paper';
 import { loginSchema } from '../../utils/validators';
 import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
@@ -15,76 +16,221 @@ import { theme } from '../../config/theme';
 
 export default function Login() {
   const navigation = useNavigation();
-  const { doLogin, loading, error } = useAuth();
+  const { doLogin, loading, error, isAuthenticated } = useAuth();
   const [rememberChecked, setRememberChecked] = useState(true);
 
-  const { control, handleSubmit, formState: { errors, isValid }, setValue } = useForm({
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid, isDirty },
+    setValue
+  } = useForm({
     resolver: yupResolver(loginSchema),
     mode: 'onChange',
     defaultValues: { email: '', password: '' }
   });
 
+  // Load remembered email on component mount
   useEffect(() => {
-    (async () => {
-      const remembered = await AsyncStorage.getItem(STORAGE_KEYS.REMEMBER_EMAIL);
-      if (remembered) setValue('email', remembered);
-    })();
+    const loadRememberedEmail = async () => {
+      const rememberedEmail = await AsyncStorage.getItem(STORAGE_KEYS.REMEMBER_EMAIL);
+      if (rememberedEmail) {
+        setValue('email', rememberedEmail);
+      }
+    };
+    loadRememberedEmail();
   }, [setValue]);
 
+  // Navigate to Home if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    }
+  }, [isAuthenticated, navigation]);
+
   const onSubmit = async (data) => {
-    await doLogin({ email: data.email, password: data.password, remember: rememberChecked });
+    await doLogin({
+      email: data.email,
+      password: data.password,
+      remember: rememberChecked
+    });
   };
 
   return (
-    <AuthWrapper>
+    <AuthWrapper title="Đăng Nhập">
+      {/* Email Input */}
       <Controller
         control={control}
         name="email"
-        render={({ field: { onChange, value } }) => (
-          <AppInput label="Email" value={value} onChangeText={onChange} keyboardType="email-address" error={errors.email?.message} />
+        render={({ field: { onChange, value, onBlur } }) => (
+          <AppInput
+            label="Email"
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            keyboardType="email-address"
+            error={errors.email?.message}
+            placeholder="example@email.com"
+            autoCapitalize="none"
+            style={styles.input}
+          />
         )}
       />
 
+      {/* Password Input */}
       <Controller
         control={control}
         name="password"
-        render={({ field: { onChange, value } }) => (
-          <AppInput label="Mật khẩu" value={value} onChangeText={onChange} secureTextEntry error={errors.password?.message} />
+        render={({ field: { onChange, value, onBlur } }) => (
+          <AppInput
+            label="Mật khẩu"
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            secureTextEntry
+            error={errors.password?.message}
+            placeholder="Nhập mật khẩu của bạn"
+            style={styles.input}
+          />
         )}
       />
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-        <TouchableOpacity onPress={() => setRememberChecked(p => !p)}>
-          <Text style={{ color: theme.colors.onSurface }}>{rememberChecked ? '☑' : '☐'} Ghi nhớ</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-          <Text style={{ color: theme.colors.primary }}>Quên mật khẩu?</Text>
-        </TouchableOpacity>
+      {/* Options: Remember me & Forgot Password */}
+      <View style={styles.optionsContainer}>
+        <Checkbox.Item
+          label="Ghi nhớ"
+          status={rememberChecked ? 'checked' : 'unchecked'}
+          onPress={() => setRememberChecked(!rememberChecked)}
+          position="leading"
+          style={styles.checkboxContainer}
+          labelStyle={styles.checkboxLabel}
+        />
+        <Text
+          style={styles.forgotPasswordLink}
+          onPress={() => navigation.navigate('ForgotPassword')}
+        >
+          Quên mật khẩu?
+        </Text>
       </View>
 
-      <AppButton onPress={handleSubmit(onSubmit)} loading={loading} disabled={!isValid} style={{ marginTop: 16 }}>
+      {/* Login Button */}
+      <AppButton
+        onPress={handleSubmit(onSubmit)}
+        loading={loading}
+        disabled={!isValid || !isDirty || loading}
+        style={styles.loginButton}
+      >
         Đăng nhập
       </AppButton>
 
-      {error && <Text style={{ color: theme.colors.error, marginTop: 8 }}>{error}</Text>}
+      {/* Error Message */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
-      <OAuthButtons 
-        mode='login' 
-        onSuccess={(data) => {
-          console.log('OAuth login successful:', data);
-        }} 
-        onError={(error) => {
-          console.error('OAuth login error:', error);
-        }} 
+      {/* Divider */}
+      <View style={styles.dividerContainer}>
+        <View style={styles.divider} />
+        <Text style={styles.dividerText}>Hoặc đăng nhập với</Text>
+        <View style={styles.divider} />
+      </View>
+
+      {/* Social Login */}
+      <OAuthButtons
+        mode='login'
+        onSuccess={() => {
+          navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+        }}
+        onError={(err) => {
+          Alert.alert('Lỗi', err.message || 'Đăng nhập thất bại');
+        }}
       />
 
-      <View style={{ flexDirection: 'row', marginTop: 20, justifyContent: 'center' }}>
-        <Text style={{ color: theme.colors.onSurface }}>Bạn chưa có tài khoản?</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Register')} style={{ marginLeft: 8 }}>
-          <Text style={{ color: theme.colors.primary }}>Đăng ký</Text>
-        </TouchableOpacity>
+      {/* Link to Register */}
+      <View style={styles.registerLinkContainer}>
+        <Text style={styles.registerLinkText}>Bạn chưa có tài khoản? </Text>
+        <Text
+          style={styles.registerLink}
+          onPress={() => navigation.navigate('Register')}
+        >
+          Đăng ký
+        </Text>
       </View>
     </AuthWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  input: {
+    marginBottom: 16,
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: -8, // Adjust for checkbox padding
+    marginBottom: 8,
+  },
+  checkboxContainer: {
+    paddingHorizontal: 0,
+    marginLeft: -10, // Adjust for checkbox padding
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: theme.colors.onSurface,
+  },
+  forgotPasswordLink: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  loginButton: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  errorContainer: {
+    backgroundColor: theme.colors.error + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.error,
+  },
+  errorText: {
+    color: theme.colors.error,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: theme.colors.onSurface + '20',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: theme.colors.onSurface + '60',
+    fontSize: 14,
+  },
+  registerLinkContainer: {
+    flexDirection: 'row',
+    marginTop: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  registerLinkText: {
+    color: theme.colors.onSurface,
+    fontSize: 14,
+  },
+  registerLink: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
