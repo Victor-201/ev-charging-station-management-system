@@ -8,9 +8,9 @@ import {
   GOOGLE_MAPS_API_KEY as ENV_GOOGLE_MAPS_API_KEY,
 } from '@env';
 
-// Fallback to localhost for USB development
-// React Native auto-forwards localhost via USB to Mac
-const FALLBACK_API_URL = 'https://37b6d7b81f22.ngrok-free.app/api/v1';
+// Fallback to ngrok tunnel URL
+// Updated: November 7, 2025
+const FALLBACK_API_URL = 'https://liane-precritical-felix.ngrok-free.dev/api/v1';
 
 export const API_BASE_URL = ENV_API_BASE_URL || FALLBACK_API_URL;
 export const GOOGLE_WEB_CLIENT_ID = ENV_GOOGLE_WEB_CLIENT_ID || '';
