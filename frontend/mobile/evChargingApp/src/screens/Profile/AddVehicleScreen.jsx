@@ -5,14 +5,17 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useDispatch, useSelector } from 'react-redux';
 import { vehicleSchema } from '../../utils/validators';
-import { addVehicle } from '../../store/slices/vehicleSlice';
+import { addVehicle, updateVehicle } from '../../store/slices/vehicleSlice';
 import AppInput from '../../components/common/AppInput';
 import { theme } from '../../config/theme';
 
-export default function AddVehicleScreen({ navigation }) {
+export default function AddVehicleScreen({ navigation, route }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { loading, error } = useSelector((state) => state.vehicles);
+  const { vehicles, loading, error } = useSelector((state) => state.vehicles);
+  const { vehicleId } = route.params || {};
+  const isEditMode = !!vehicleId;
+  const vehicleToEdit = isEditMode ? vehicles.find(v => v.id === vehicleId) : null;
   const [successMessage, setSuccessMessage] = useState('');
 
   const { 
@@ -23,26 +26,36 @@ export default function AddVehicleScreen({ navigation }) {
     resolver: yupResolver(vehicleSchema),
     mode: 'onChange',
     defaultValues: {
-      make: '',
-      model: '',
-      year: '',
-      license_plate: '',
-      battery_capacity: '',
-      connector_type: '',
+      make: vehicleToEdit?.make || '',
+      model: vehicleToEdit?.model || '',
+      year: vehicleToEdit?.year?.toString() || '',
+      license_plate: vehicleToEdit?.license_plate || '',
+      battery_capacity: vehicleToEdit?.battery_capacity?.toString() || '',
+      connector_type: vehicleToEdit?.connector_type || '',
     }
   });
 
   const onSubmit = async (data) => {
     if (!user?.id) return;
 
-    const result = await dispatch(addVehicle({ 
-      userId: user.id, 
-      vehicleData: data 
-    }));
-
-    if (result.type === 'vehicles/addVehicle/fulfilled') {
-      setSuccessMessage('Thêm phương tiện thành công!');
-      setTimeout(() => navigation.goBack(), 1500);
+    if (isEditMode) {
+      const result = await dispatch(updateVehicle({
+        vehicleId: vehicleId,
+        vehicleData: data
+      }));
+      if (result.type === 'vehicles/updateVehicle/fulfilled') {
+        setSuccessMessage('Cập nhật phương tiện thành công!');
+        setTimeout(() => navigation.goBack(), 1500);
+      }
+    } else {
+      const result = await dispatch(addVehicle({
+        userId: user.id,
+        vehicleData: data
+      }));
+      if (result.type === 'vehicles/addVehicle/fulfilled') {
+        setSuccessMessage('Thêm phương tiện thành công!');
+        setTimeout(() => navigation.goBack(), 1500);
+      }
     }
   };
 
@@ -100,7 +113,7 @@ export default function AddVehicleScreen({ navigation }) {
           style={styles.saveButton}
           labelStyle={styles.saveButtonLabel}
         >
-          Thêm phương tiện
+          {isEditMode ? 'Lưu thay đổi' : 'Thêm phương tiện'}
         </Button>
       </View>
 

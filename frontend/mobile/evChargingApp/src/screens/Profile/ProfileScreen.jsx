@@ -109,6 +109,13 @@ export default function ProfileScreen({ navigation }) {
           right={(props) => <List.Icon {...props} icon="chevron-right" />}
           onPress={() => navigation.navigate('NotificationSettings')}
         />
+        <List.Item
+          title="Tài khoản và Bảo mật"
+          description="Quản lý dữ liệu và xóa tài khoản"
+          left={(props) => <List.Icon {...props} icon="shield-account-outline" />}
+          right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          onPress={() => navigation.navigate('AccountSettings')}
+        />
       </List.Section>
 
       <Divider />
