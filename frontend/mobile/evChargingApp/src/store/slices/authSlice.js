@@ -55,7 +55,7 @@ export const refreshToken = createAsyncThunk('auth/refreshToken', async (_, { ge
 
 export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provider, token }, { rejectWithValue }) => {
   try {
-    const { data } = await authService.socialLogin({ provider, token });
+    const { data } = await authService.socialLogin({ provider, provider_token: token });
     if (data?.accessToken) {
       await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
       if (data.refreshToken) {

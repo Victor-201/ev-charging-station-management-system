@@ -16,25 +16,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    
+
     // Configure Facebook SDK
     ApplicationDelegate.shared.application(
       application,
       didFinishLaunchingWithOptions: launchOptions
     )
-    
-    // Configure Google Sign-In
-    guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
-          let plist = NSDictionary(contentsOfFile: path),
-          let clientId = plist["CLIENT_ID"] as? String else {
-      print("Error: GoogleService-Info.plist not found or CLIENT_ID missing")
-      // Continue without Google Sign-In
-      return setupReactNative(application: application, launchOptions: launchOptions)
-    }
-    
-    let gidConfiguration = GIDConfiguration(clientID: clientId)
-    GIDSignIn.sharedInstance.configuration = gidConfiguration
-    
+
+    // Google Sign-In is now configured in the JavaScript code (OAuthButtons.jsx).
+    // No native configuration is needed here.
+
     return setupReactNative(application: application, launchOptions: launchOptions)
   }
   
@@ -93,7 +84,7 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
     // Otherwise use Metro bundler
     print("🔄 Connecting to Metro bundler...")
     // NOTE: IP will be auto-updated by dev:device script
-    return URL(string: "http://172.20.10.6:8081/index.bundle?platform=ios")
+    return URL(string: "http://192.168.1.32:8081/index.bundle?platform=ios")
 #else
     Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif

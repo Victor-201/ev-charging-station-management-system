@@ -3,7 +3,7 @@ import { View, Alert, Platform, StyleSheet } from 'react-native';
 import { Button } from 'react-native-paper';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { AccessToken, LoginManager, Settings } from 'react-native-fbsdk-next';
-import { GOOGLE_WEB_CLIENT_ID } from '../../config/env';
+import { GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID } from '../../config/env';
 import useAuth from '../../hooks/useAuth';
 import { logger } from '../../utils/logger';
 
@@ -22,8 +22,12 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
       const config = {
         webClientId: GOOGLE_WEB_CLIENT_ID,
         offlineAccess: true,
+        scopes: ['profile', 'email'],
+        iosClientId: GOOGLE_IOS_CLIENT_ID, // Thêm dòng này để chỉ định iOS Client ID
       };
-      logger.info('🔧 Configuring Google Sign-In. The `iosClientId` will be read automatically from Info.plist.');
+
+
+
       GoogleSignin.configure(config);
     } else {
       logger.warn('Google OAuth not configured - missing GOOGLE_WEB_CLIENT_ID');
@@ -51,11 +55,13 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
 
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const { idToken } = await GoogleSignin.signIn();
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken;
 
       if (idToken) {
         await handleSocialLogin('google', idToken);
       } else {
+        logger.error('Google Sign-In Error: idToken is missing in the response.', userInfo);
         throw new Error('Không nhận được idToken từ Google.');
       }
     } catch (error) {
