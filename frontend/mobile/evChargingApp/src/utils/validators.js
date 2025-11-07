@@ -75,3 +75,32 @@ export const updateProfileSchema = yup.object().shape({
     .required('Họ tên là bắt buộc'),
   phone_number: phoneSchema,
 });
+
+// Change password schema
+export const changePasswordSchema = yup.object().shape({
+  current_password: yup.string().required('Mật khẩu hiện tại là bắt buộc'),
+  password: passwordSchema, // Re-uses the strong password validation
+  confirmPassword: yup
+    .string()
+    .oneOf([yup.ref('password'), null], 'Mật khẩu mới không khớp')
+    .required('Xác nhận mật khẩu mới là bắt buộc'),
+});
+
+// Vehicle schema
+export const vehicleSchema = yup.object().shape({
+  make: yup.string().required('Hãng xe là bắt buộc'),
+  model: yup.string().required('Mẫu xe là bắt buộc'),
+  year: yup
+    .number()
+    .typeError('Năm sản xuất phải là số')
+    .required('Năm sản xuất là bắt buộc')
+    .min(1990, 'Năm sản xuất phải sau 1990')
+    .max(new Date().getFullYear() + 1, `Năm sản xuất không được lớn hơn ${new Date().getFullYear() + 1}`),
+  license_plate: yup.string().required('Biển số xe là bắt buộc'),
+  battery_capacity: yup
+    .number()
+    .typeError('Dung lượng pin phải là số')
+    .positive('Dung lượng pin phải là số dương')
+    .required('Dung lượng pin là bắt buộc'),
+  connector_type: yup.string().required('Loại cổng sạc là bắt buộc'),
+});
