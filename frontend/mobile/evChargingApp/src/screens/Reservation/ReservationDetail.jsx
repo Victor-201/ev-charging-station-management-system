@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statusBadge: {
-    align-self: 'flex-start',
+        alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
