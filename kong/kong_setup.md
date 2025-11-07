@@ -61,14 +61,7 @@ docker network inspect <name-network>
 deck gateway dump --kong-addr http://localhost:8001 -o kong.yaml
 
 ### Nạp file cấu hình kong.yml vào kong container
-docker cp kong.yml kong:/kong/kong.yml
-
-docker exec -it kong kong reload
-
-docker exec -it kong bash
-export KONG_DATABASE=off
-export KONG_DECLARATIVE_CONFIG=/kong/kong.yml
-kong reload
+deck sync --state kong.yaml --kong-addr http://localhost:8001
 
 ```
 ## Setup deck ##

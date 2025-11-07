@@ -283,7 +283,13 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     environment:
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - kong-net
 
@@ -354,8 +360,6 @@ services:
       - "8444:8444" # admin SSL
     networks:
       - kong-net
-
-##
 
 volumes:
   station-data:
