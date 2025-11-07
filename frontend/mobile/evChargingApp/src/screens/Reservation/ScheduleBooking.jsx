@@ -11,6 +11,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useSelector } from 'react-redux';
+import reservationService from '../../services/reservationService';
 
 export default function ScheduleBooking() {
   const navigation = useNavigation();
@@ -44,21 +45,7 @@ export default function ScheduleBooking() {
 
   const [availableDates] = useState(generateDates());
 
-  // Sample time slots - sẽ được thay thế bằng API call
-  const timeSlots = [
-    { id: '1', time: '08:00', duration: 60, available: true },
-    { id: '2', time: '09:00', duration: 60, available: true },
-    { id: '3', time: '10:00', duration: 60, available: false },
-    { id: '4', time: '11:00', duration: 60, available: true },
-    { id: '5', time: '12:00', duration: 60, available: true },
-    { id: '6', time: '13:00', duration: 60, available: false },
-    { id: '7', time: '14:00', duration: 60, available: true },
-    { id: '8', time: '15:00', duration: 60, available: true },
-    { id: '9', time: '16:00', duration: 60, available: true },
-    { id: '10', time: '17:00', duration: 60, available: false },
-    { id: '11', time: '18:00', duration: 60, available: true },
-    { id: '12', time: '19:00', duration: 60, available: true },
-  ];
+
 
   useEffect(() => {
     if (selectedDate) {
@@ -67,13 +54,17 @@ export default function ScheduleBooking() {
   }, [selectedDate]);
 
   const loadAvailableSlots = async () => {
+    if (!selectedDate) return;
     try {
       setLoading(true);
-      // TODO: Call station service API to get available slots
-      setAvailableSlots(timeSlots);
+      const dateString = selectedDate.date.toISOString().split('T')[0];
+      const response = await reservationService.getAvailableSlots(stationId, dateString);
+      const slots = response?.data || response;
+      setAvailableSlots(Array.isArray(slots) ? slots : []);
     } catch (error) {
       console.error('Error loading available slots:', error);
-      Alert.alert('Lỗi', 'Không thể tải lịch trống');
+      Alert.alert('Lỗi', 'Không thể tải lịch trống cho ngày đã chọn.');
+      setAvailableSlots([]); // Clear slots on error
     } finally {
       setLoading(false);
     }
@@ -125,29 +116,30 @@ export default function ScheduleBooking() {
       `Đặt chỗ tại ${station.name}\nNgày: ${selectedDate.date.toLocaleDateString('vi-VN')}\nGiờ: ${selectedTimeSlot.time}\nLoại cổng: ${selectedConnector}\nUớc tính: ${calculateTotalCost().toLocaleString()} VND`,
       [
         { text: 'Hủy', style: 'cancel' },
-        { text: 'Xác nhận', onPress: confirmBooking }
+        { text: 'Xác nhận', onPress: () => confirmBooking(bookingData) }
       ]
     );
   };
 
-  const confirmBooking = async () => {
+  const confirmBooking = async (bookingData) => {
     try {
       setLoading(true);
-      // TODO: Call booking API
-      
+      const response = await reservationService.create(bookingData);
+
       Alert.alert(
-        'Đặt chỗ thành công',
-        'Bạn đã đặt chỗ thành công. Vui lòng đến đúng giờ để sạc xe.',
+        'Đặt chỗ thành công!',
+        `Mã đặt chỗ của bạn là: ${response.data.id}. Vui lòng kiểm tra trong mục Đặt chỗ.`,
         [
-          { 
-            text: 'OK', 
-            onPress: () => navigation.navigate('Reservation')
+          {
+            text: 'Xem đặt chỗ',
+            onPress: () => navigation.navigate('Reservation', { screen: 'ReservationList' })
           }
         ]
       );
     } catch (error) {
       console.error('Error creating booking:', error);
-      Alert.alert('Lỗi', 'Không thể đặt chỗ. Vui lòng thử lại.');
+      const errorMessage = error.response?.data?.message || 'Không thể đặt chỗ. Vui lòng thử lại.';
+      Alert.alert('Lỗi đặt chỗ', errorMessage);
     } finally {
       setLoading(false);
     }

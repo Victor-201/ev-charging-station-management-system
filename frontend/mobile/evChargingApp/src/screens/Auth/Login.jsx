@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -13,10 +13,11 @@ import { STORAGE_KEYS } from '../../config/constants';
 import { useNavigation } from '@react-navigation/native';
 import AuthWrapper from './AuthWrapper';
 import { theme } from '../../config/theme';
+import logger from '../../utils/logger';
 
 export default function Login() {
   const navigation = useNavigation();
-  const { doLogin, loading, error, isAuthenticated } = useAuth();
+  const { doLogin, loading, error } = useAuth();
   const [rememberChecked, setRememberChecked] = useState(true);
 
   const {
@@ -41,12 +42,8 @@ export default function Login() {
     loadRememberedEmail();
   }, [setValue]);
 
-  // Navigate to Home if authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
-    }
-  }, [isAuthenticated, navigation]);
+  // RootNavigator handles navigation based on the authentication state.
+  // The useEffect that was here caused a race condition.
 
   const onSubmit = async (data) => {
     await doLogin({
@@ -141,7 +138,8 @@ export default function Login() {
       <OAuthButtons
         mode='login'
         onSuccess={() => {
-          navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+          // Navigation is now handled by RootNavigator based on auth state.
+          logger.info('Social login successful, RootNavigator will handle the redirect.');
         }}
         onError={(err) => {
           Alert.alert('Lỗi', err.message || 'Đăng nhập thất bại');

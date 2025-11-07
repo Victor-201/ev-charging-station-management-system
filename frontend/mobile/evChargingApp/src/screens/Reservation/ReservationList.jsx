@@ -7,7 +7,9 @@ import {
   TouchableOpacity, 
   RefreshControl 
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import reservationService from '../../services/reservationService';
+import { Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 export default function ReservationList() {
@@ -15,40 +17,25 @@ export default function ReservationList() {
   const [reservations, setReservations] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Sample data - sẽ được thay thế bằng API call
-  const sampleReservations = [
-    {
-      id: '1',
-      station_name: 'Trạm sạc Central Park',
-      address: '123 Nguyễn Huệ, Q1, TP.HCM',
-      date: '2024-11-05',
-      time: '14:00 - 15:00',
-      status: 'confirmed',
-      port_type: 'Type 2',
-      created_at: '2024-11-04T10:30:00Z'
-    },
-    {
-      id: '2',
-      station_name: 'Trạm sạc Landmark 81',
-      address: '456 Vinhomes, Bình Thạnh, TP.HCM',
-      date: '2024-11-06',
-      time: '10:00 - 11:00',
-      status: 'pending',
-      port_type: 'CCS',
-      created_at: '2024-11-04T15:20:00Z'
-    }
-  ];
 
-  useEffect(() => {
-    loadReservations();
-  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadReservations();
+    }, [])
+  );
 
   const loadReservations = async () => {
     try {
-      // TODO: Call reservation API
-      setReservations(sampleReservations);
+      setRefreshing(true);
+      const response = await reservationService.getUserReservations();
+      const userReservations = response?.data || response;
+      setReservations(Array.isArray(userReservations) ? userReservations : []);
     } catch (error) {
       console.error('Error loading reservations:', error);
+      Alert.alert('Lỗi', 'Không thể tải danh sách đặt chỗ.');
+    } finally {
+      setRefreshing(false);
     }
   };
 

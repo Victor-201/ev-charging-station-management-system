@@ -11,7 +11,7 @@ import {
   Platform,
   Linking
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_OSMDROID } from "react-native-maps";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import Geolocation from '@react-native-community/geolocation';
@@ -85,7 +85,11 @@ export default function MapScreen({ navigation }) {
 
   const requestLocationPermission = async () => {
     try {
-      const result = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+      const permission = Platform.OS === 'ios'
+        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+        : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+
+      const result = await request(permission);
       if (result === RESULTS.GRANTED) {
         getCurrentLocation();
       } else {
@@ -198,9 +202,9 @@ export default function MapScreen({ navigation }) {
 
   const openDirections = () => {
     if (!selectedStation) return;
-    
+
     const { latitude, longitude, name, address } = selectedStation;
-    
+
     // iOS - Open Apple Maps
     if (Platform.OS === 'ios') {
       const url = `maps://app?daddr=${latitude},${longitude}&q=${encodeURIComponent(name)}`;
@@ -209,8 +213,8 @@ export default function MapScreen({ navigation }) {
           if (supported) {
             return Linking.openURL(url);
           } else {
-            // Fallback to Google Maps web
-            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+            // Fallback to OpenStreetMap web
+            const webUrl = `https://www.openstreetmap.org/directions?to=${latitude},${longitude}`;
             return Linking.openURL(webUrl);
           }
         })
@@ -219,14 +223,10 @@ export default function MapScreen({ navigation }) {
           Alert.alert('Lỗi', 'Không thể mở ứng dụng bản đồ');
         });
     } else {
-      // Android - Try Google Maps app, fallback to web
-      const url = `google.navigation:q=${latitude},${longitude}`;
-      const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
-      
-      Linking.canOpenURL(url)
-        .then((supported) => {
-          return Linking.openURL(supported ? url : webUrl);
-        })
+      // Android - Open OpenStreetMap in browser
+      const webUrl = `https://www.openstreetmap.org/directions?to=${latitude},${longitude}`;
+
+      Linking.openURL(webUrl)
         .catch((err) => {
           console.error('Error opening maps:', err);
           Alert.alert('Lỗi', 'Không thể mở ứng dụng bản đồ');
@@ -243,8 +243,7 @@ export default function MapScreen({ navigation }) {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        // Use GOOGLE provider on both platforms
-        // iOS will use Apple Maps if provider is null, Android needs explicit 'google'
+        provider={Platform.OS === 'android' ? PROVIDER_OSMDROID : PROVIDER_DEFAULT}
         style={styles.map}
         initialRegion={region}
         showsUserLocation={true}
@@ -298,9 +297,18 @@ export default function MapScreen({ navigation }) {
               <Text style={styles.stationName}>{selectedStation.name}</Text>
               <Text style={styles.stationAddress}>{selectedStation.address}</Text>
             </View>
-            <TouchableOpacity onPress={() => setSelectedStation(null)}>
-              <Icon name="close" size={24} color="#666" />
-            </TouchableOpacity>
+            <View style={styles.stationHeaderActions}>
+              <TouchableOpacity
+                style={styles.detailsButton}
+                onPress={() => navigation.navigate('StationDetail', { id: selectedStation.id })}
+              >
+                <Text style={styles.detailsButtonText}>Details</Text>
+                <Icon name="arrow-forward" size={16} color="#2196F3" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSelectedStation(null)}>
+                <Icon name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
           </View>
           
           <View style={styles.stationDetails}>
@@ -464,6 +472,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  stationHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#E3F2FD',
+  },
+  detailsButtonText: {
+    color: '#2196F3',
+    fontWeight: '600',
+    fontSize: 14,
   },
   stationInfo: {
     flex: 1,
