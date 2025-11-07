@@ -258,7 +258,7 @@ services:
     name: user-auth-route
     path_handling: v0
     paths:
-    - /api/v1/auth
+    - /api/v1/auth/me
     preserve_host: false
     protocols:
     - http
