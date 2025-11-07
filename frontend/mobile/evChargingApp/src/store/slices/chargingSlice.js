@@ -11,6 +11,24 @@ export const getChargingHistory = createAsyncThunk('charging/getHistory', async 
   }
 });
 
+export const initiateCharging = createAsyncThunk('charging/initiate', async (bookingId, { rejectWithValue }) => {
+  try {
+    const { data } = await chargingService.initiate(bookingId);
+    return data.session;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const handleChargingAction = createAsyncThunk('charging/handleAction', async ({ action, sessionId }, { rejectWithValue }) => {
+  try {
+    const { data } = await chargingService[action](sessionId);
+    return data; // Assuming API returns the updated session
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
 const initialState = {
   sessions: [],
   activeSession: null,
@@ -30,6 +48,13 @@ const chargingSlice = createSlice({
       state.loading = false;
       state.error = null;
     },
+    updateTelemetry(state, action) {
+      if (state.activeSession && state.activeSession.id === action.payload.sessionId) {
+        state.telemetry = action.payload.telemetry;
+        // Also update the active session with the latest data
+        state.activeSession = { ...state.activeSession, ...action.payload.telemetry };
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -45,9 +70,36 @@ const chargingSlice = createSlice({
       .addCase(getChargingHistory.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || 'Failed to fetch charging history';
+      })
+
+      // Initiate Charging
+      .addCase(initiateCharging.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(initiateCharging.fulfilled, (state, action) => {
+        state.loading = false;
+        state.activeSession = action.payload;
+      })
+      .addCase(initiateCharging.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || 'Failed to initiate session';
+      })
+
+      // Handle other actions (start, pause, resume, stop)
+      .addCase(handleChargingAction.pending, () => {
+        // Optionally handle loading state for specific actions
+      })
+      .addCase(handleChargingAction.fulfilled, (state, action) => {
+        if (state.activeSession && state.activeSession.id === action.payload.session.id) {
+          state.activeSession = action.payload.session;
+        }
+      })
+      .addCase(handleChargingAction.rejected, (state, action) => {
+        state.error = action.payload?.message || 'Charging action failed';
       });
   },
 });
 
-export const { clearChargingState } = chargingSlice.actions;
+export const { clearChargingState, updateTelemetry } = chargingSlice.actions;
 export default chargingSlice.reducer;

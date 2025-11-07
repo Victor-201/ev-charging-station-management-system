@@ -1,67 +1,36 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { Text, Card, Title, Paragraph, Button, ActivityIndicator, Divider } from 'react-native-paper';
+import { Text, Card, Button, ActivityIndicator, Divider } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
-import io from 'socket.io-client';
+import { useDispatch, useSelector } from 'react-redux';
+import useSocket from '../../hooks/useSocket';
+import { updateTelemetry } from '../../store/slices/chargingSlice';
 import chargingService from '../../services/chargingService';
 import { theme } from '../../config/theme';
-import { API_BASE_URL } from '../../config/env';
 
 const ActiveChargingScreen = () => {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
   const route = useRoute();
   const { sessionId } = route.params;
-  const { accessToken } = useSelector((state) => state.auth);
-
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { activeSession, loading, error } = useSelector((state) => state.charging);
   const [actionLoading, setActionLoading] = useState(null); // 'pause', 'resume', 'stop'
 
-  useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        setLoading(true);
-        const { data } = await chargingService.getSession(sessionId);
-        setSession(data);
-      } catch (err) {
-        setError('Không thể tải thông tin phiên sạc.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSession();
-
-    const socket = io(API_BASE_URL, {
-      transports: ['websocket'],
-      auth: { token: accessToken },
-      query: { sessionId },
-    });
-
-    socket.on('connect', () => {
-      console.log('Connected to charging session socket');
-    });
-
-    socket.on('charging_update', (data) => {
-      setSession((prev) => ({ ...prev, ...data }));
-    });
-
-    socket.on('session_terminated', (data) => {
+  const eventHandlers = useCallback({
+    charging_update: (data) => {
+      dispatch(updateTelemetry({ sessionId, telemetry: data }));
+    },
+    session_terminated: (data) => {
       Alert.alert('Phiên sạc đã kết thúc', data.message || 'Phiên sạc của bạn đã hoàn tất.', [
-        { text: 'OK', onPress: () => navigation.navigate('ChargingSummary', { sessionId }) },
+        { text: 'OK', onPress: () => navigation.navigate('ChargingComplete', { sessionId }) },
       ]);
-    });
+    },
+    error: (err) => {
+      console.error('Socket error:', err);
+    }
+  }, [dispatch, navigation, sessionId]);
 
-    socket.on('error', (err) => {
-      setError(err.message || 'Lỗi kết nối WebSocket.');
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [sessionId, accessToken, navigation]);
+  useSocket(eventHandlers);
 
   const handleAction = async (action) => {
     setActionLoading(action);
@@ -86,7 +55,7 @@ const ActiveChargingScreen = () => {
     }
   };
 
-  if (loading) {
+  if (loading && !activeSession) {
     return <View style={styles.centered}><ActivityIndicator size="large" /></View>;
   }
 
@@ -94,7 +63,7 @@ const ActiveChargingScreen = () => {
     return <View style={styles.centered}><Text style={styles.errorText}>{error}</Text></View>;
   }
 
-  if (!session) {
+  if (!activeSession) {
     return <View style={styles.centered}><Text>Không tìm thấy thông tin phiên sạc.</Text></View>;
   }
 
@@ -102,9 +71,9 @@ const ActiveChargingScreen = () => {
     <View style={styles.container}>
       <Card style={styles.card}>
         <Card.Content>
-          <Title style={styles.title}>Đang sạc...</Title>
-          <Paragraph>{session.station_name}</Paragraph>
-          <Text>Cổng sạc: {session.connector_id}</Text>
+          <Text style={styles.title}>Đang sạc...</Text>
+          <Text>{activeSession.station_name}</Text>
+          <Text>Cổng sạc: {activeSession.connector_id}</Text>
         </Card.Content>
       </Card>
 
@@ -112,23 +81,23 @@ const ActiveChargingScreen = () => {
         <Card.Content style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Năng lượng</Text>
-            <Text style={styles.statValue}>{session.energy_consumed?.toFixed(2) || 0} kWh</Text>
+            <Text style={styles.statValue}>{activeSession.energy_consumed?.toFixed(2) || 0} kWh</Text>
           </View>
           <Divider style={styles.divider} />
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Thời gian</Text>
-            <Text style={styles.statValue}>{new Date(session.duration * 1000).toISOString().substr(11, 8)}</Text>
+            <Text style={styles.statValue}>{new Date(activeSession.duration * 1000).toISOString().substr(11, 8)}</Text>
           </View>
           <Divider style={styles.divider} />
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Chi phí</Text>
-            <Text style={styles.statValue}>{session.cost?.toLocaleString('vi-VN') || 0} ₫</Text>
+            <Text style={styles.statValue}>{activeSession.cost?.toLocaleString('vi-VN') || 0} ₫</Text>
           </View>
         </Card.Content>
       </Card>
 
       <View style={styles.controlsContainer}>
-        {session.status === 'CHARGING' ? (
+        {activeSession.status === 'CHARGING' ? (
           <Button 
             mode="contained" 
             onPress={() => handleAction('pause')}
