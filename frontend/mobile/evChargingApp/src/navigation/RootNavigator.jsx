@@ -2,11 +2,26 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import AuthStack from './stacks/AuthStack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MainTabs from './stacks/MainTabs';
+import ChargingStack from './stacks/ChargingStack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { restoreSession } from '../store/slices/authSlice';
 import { STORAGE_KEYS } from '../config/constants';
 import Loading from '../components/common/Loading';
+
+const RootStack = createNativeStackNavigator();
+
+const AppStack = () => (
+  <RootStack.Navigator screenOptions={{ headerShown: false }}>
+    <RootStack.Screen name="Main" component={MainTabs} />
+    <RootStack.Screen
+      name="Charging"
+      component={ChargingStack}
+      options={{ presentation: 'modal' }}
+    />
+  </RootStack.Navigator>
+);
 
 export default function RootNavigator() {
   const dispatch = useDispatch();
@@ -30,5 +45,6 @@ export default function RootNavigator() {
   }, [dispatch]);
 
   if (!ready) return <Loading />;
-  return auth?.accessToken ? <MainTabs /> : <AuthStack />;
+
+  return auth?.accessToken ? <AppStack /> : <AuthStack />;
 }

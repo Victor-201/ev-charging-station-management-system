@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Avatar, Title, Caption, List, Divider, Button, ActivityIndicator, Text } from 'react-native-paper';
+import { Avatar, List, Divider, Button, ActivityIndicator, Text } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMe } from '../../store/slices/userSlice';
@@ -104,6 +104,13 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+          <List.Item
+            title="Lịch sử đặt chỗ"
+            left={(props) => <List.Icon {...props} icon="calendar-clock" />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => navigation.navigate('ReservationStack')}
+          />
+
   const user = profile || authUser;
 
   return (
@@ -115,8 +122,8 @@ export default function ProfileScreen({ navigation }) {
           source={{ uri: user?.avatar_url || `https://ui-avatars.com/api/?name=${user?.full_name || 'User'}` }}
           style={styles.avatar}
         />
-        <Title style={styles.userName}>{user?.full_name || 'User Name'}</Title>
-        <Caption style={styles.userEmail}>{user?.email}</Caption>
+        <Text style={styles.userName}>{user?.full_name || 'User Name'}</Text>
+        <Text style={styles.userEmail}>{user?.email}</Text>
       </View>
 
       <Divider />
@@ -151,7 +158,7 @@ export default function ProfileScreen({ navigation }) {
           right={(props) => <List.Icon {...props} icon="chevron-right" />}
           onPress={() => navigation.navigate('ChargingHistoryScreen')}
         />
-        
+
         <List.Item
           title="Tài khoản và Bảo mật"
           description="Quản lý dữ liệu và xóa tài khoản"
@@ -167,8 +174,6 @@ export default function ProfileScreen({ navigation }) {
       <View style={styles.logoutContainer}>
         <Button
           mode="contained"
-          onPress={handleLogout}
-          icon="logout"
           onPress={handleLogout}
           icon="logout"
           style={[styles.logoutButton, { backgroundColor: colors.error }]}
