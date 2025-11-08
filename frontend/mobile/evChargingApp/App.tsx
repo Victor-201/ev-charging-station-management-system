@@ -2,12 +2,12 @@ import React, { useEffect } from 'react';
 import { Provider as ReduxProvider, useSelector } from 'react-redux';
 import { Provider as PaperProvider } from 'react-native-paper';
 import AppNavigation from './src/navigation';
-import store, { RootState } from './src/store/store';
+import store from './src/store/store';
 import { theme } from './src/config/theme';
 import notificationService from './src/services/notificationService';
 
 const Root = () => {
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated } = useSelector(state => state.auth);
 
   useEffect(() => {
     const setupNotifications = async () => {
