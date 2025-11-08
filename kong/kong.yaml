@@ -1,4 +1,29 @@
 _format_version: "3.0"
+plugins:
+- config:
+    credentials: true
+    exposed_headers:
+    - X-Auth-Token
+    headers:
+    - Accept,Authorization,Content-Type
+    max_age: 3600
+    methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+    origins:
+    - '*'
+    preflight_continue: false
+    private_network: false
+  enabled: true
+  name: cors
+  protocols:
+  - grpc
+  - grpcs
+  - http
+  - https
 services:
 - connect_timeout: 60000
   enabled: true
