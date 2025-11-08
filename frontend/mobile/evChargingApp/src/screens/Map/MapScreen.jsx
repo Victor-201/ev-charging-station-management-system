@@ -15,9 +15,232 @@ import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_OSMDROID } from "react-nati
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import Geolocation from '@react-native-community/geolocation';
+import { useTheme } from 'react-native-paper';
 import stationService from '../../services/stationService';
 
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  map: {
+    width: "100%",
+    height: "100%"
+  },
+  searchContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    elevation: 4,
+    shadowColor: colors.onBackground,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  searchPlaceholder: {
+    marginLeft: 8,
+    color: colors.onSurface,
+    opacity: 0.6,
+    flex: 1,
+  },
+  locationButton: {
+    position: 'absolute',
+    bottom: 200,
+    right: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 25,
+    padding: 12,
+    elevation: 4,
+    shadowColor: colors.onBackground,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  stationCard: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    elevation: 8,
+    shadowColor: colors.onBackground,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  stationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  stationHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: colors.brand50,
+  },
+  detailsButtonText: {
+    color: colors.accent,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  stationInfo: {
+    flex: 1,
+  },
+  stationName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+    marginBottom: 4,
+  },
+  stationAddress: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+  },
+  stationDetails: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+  },
+  connectorTypes: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  connectorBadge: {
+    backgroundColor: colors.brand50,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  connectorText: {
+    fontSize: 12,
+    color: colors.accent,
+    fontWeight: '500',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  directionsButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.brand50,
+    borderRadius: 8,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  directionsButtonText: {
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bookButton: {
+    flex: 1,
+    backgroundColor: colors.accent,
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc', // Should be from theme, e.g., colors.disabled
+  },
+  bookButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  searchModal: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    maxHeight: 400,
+    elevation: 8,
+    shadowColor: colors.onBackground,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee', // Should be from theme
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+    color: colors.onSurface,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0', // Should be from theme
+  },
+  resultName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.onSurface,
+    marginBottom: 4,
+  },
+  resultAddress: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+  },
+  resultDistance: {
+    fontSize: 14,
+    color: colors.accent,
+    fontWeight: '500',
+  },
+});
+
 export default function MapScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const mapRef = useRef(null);
   const [region, setRegion] = useState({
     latitude: 10.762622,
@@ -186,9 +409,9 @@ export default function MapScreen({ navigation }) {
   };
 
   const getMarkerColor = (station) => {
-    if (station.status === 'maintenance') return '#F44336';
-    if (station.available_ports === 0) return '#FF9800';
-    return '#4CAF50';
+    if (station.status === 'maintenance') return colors.error;
+    if (station.available_ports === 0) return colors.warning;
+    return colors.success;
   };
 
   const handleBookStation = () => {
@@ -249,7 +472,7 @@ export default function MapScreen({ navigation }) {
         showsUserLocation={true}
         showsMyLocationButton={false}
         loadingEnabled={true}
-        loadingIndicatorColor="#2196F3"
+        loadingIndicatorColor={colors.accent}
         onPress={() => setSelectedStation(null)}
         mapType="standard"
       >
@@ -274,7 +497,7 @@ export default function MapScreen({ navigation }) {
           style={styles.searchBox}
           onPress={() => setShowSearch(true)}
         >
-          <Icon name="search" size={20} color="#666" />
+          <Icon name="search" size={20} color={colors.onSurface} style={{ opacity: 0.7 }} />
           <Text style={styles.searchPlaceholder}>
             {searchQuery || 'Tìm trạm sạc...'}
           </Text>
@@ -286,7 +509,7 @@ export default function MapScreen({ navigation }) {
         style={styles.locationButton}
         onPress={getCurrentLocation}
       >
-        <Icon name="my-location" size={24} color="#2196F3" />
+        <Icon name="my-location" size={24} color={colors.accent} />
       </TouchableOpacity>
 
       {/* Station Info Card */}
@@ -303,29 +526,29 @@ export default function MapScreen({ navigation }) {
                 onPress={() => navigation.navigate('StationDetail', { id: selectedStation.id })}
               >
                 <Text style={styles.detailsButtonText}>Details</Text>
-                <Icon name="arrow-forward" size={16} color="#2196F3" />
+                <Icon name="arrow-forward" size={16} color={colors.accent} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setSelectedStation(null)}>
-                <Icon name="close" size={24} color="#666" />
+                <Icon name="close" size={24} color={colors.onSurface} style={{ opacity: 0.7 }} />
               </TouchableOpacity>
             </View>
           </View>
           
           <View style={styles.stationDetails}>
             <View style={styles.detailRow}>
-              <Icon name="power" size={16} color="#666" />
+              <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
               <Text style={styles.detailText}>
                 {selectedStation.available_ports}/{selectedStation.total_ports} cổng sạc
               </Text>
             </View>
             <View style={styles.detailRow}>
-              <Icon name="attach-money" size={16} color="#666" />
+              <Icon name="attach-money" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
               <Text style={styles.detailText}>
                 {selectedStation.price_per_kwh.toLocaleString()} VND/kWh
               </Text>
             </View>
             <View style={styles.detailRow}>
-              <Icon name="star" size={16} color="#FF9800" />
+              <Icon name="star" size={16} color={colors.warning} />
               <Text style={styles.detailText}>
                 {selectedStation.rating} • {selectedStation.distance} km
               </Text>
@@ -345,7 +568,7 @@ export default function MapScreen({ navigation }) {
               style={styles.directionsButton}
               onPress={openDirections}
             >
-              <Icon name="directions" size={20} color="#2196F3" />
+              <Icon name="directions" size={20} color={colors.accent} />
               <Text style={styles.directionsButtonText}>Chỉ đường</Text>
             </TouchableOpacity>
             
@@ -369,7 +592,7 @@ export default function MapScreen({ navigation }) {
       {showSearch && (
         <View style={styles.searchModal}>
           <View style={styles.searchInputContainer}>
-            <Icon name="search" size={20} color="#666" />
+            <Icon name="search" size={20} color={colors.onSurface} style={{ opacity: 0.7 }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Tìm trạm sạc..."
@@ -378,7 +601,7 @@ export default function MapScreen({ navigation }) {
               autoFocus
             />
             <TouchableOpacity onPress={() => setShowSearch(false)}>
-              <Icon name="close" size={20} color="#666" />
+              <Icon name="close" size={20} color={colors.onSurface} style={{ opacity: 0.7 }} />
             </TouchableOpacity>
           </View>
           
@@ -407,216 +630,4 @@ export default function MapScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1 
-  },
-  map: { 
-    width: "100%", 
-    height: "100%" 
-  },
-  searchContainer: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    right: 20,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  searchPlaceholder: {
-    marginLeft: 8,
-    color: '#666',
-    flex: 1,
-  },
-  locationButton: {
-    position: 'absolute',
-    bottom: 200,
-    right: 20,
-    backgroundColor: 'white',
-    borderRadius: 25,
-    padding: 12,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  stationCard: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  stationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  stationHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  detailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#E3F2FD',
-  },
-  detailsButtonText: {
-    color: '#2196F3',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  stationInfo: {
-    flex: 1,
-  },
-  stationName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  stationAddress: {
-    fontSize: 14,
-    color: '#666',
-  },
-  stationDetails: {
-    gap: 8,
-    marginBottom: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  connectorTypes: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  connectorBadge: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  connectorText: {
-    fontSize: 12,
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  directionsButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#2196F3',
-  },
-  directionsButtonText: {
-    color: '#2196F3',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bookButton: {
-    flex: 1,
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  bookButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  searchModal: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    right: 20,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    maxHeight: 400,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-  },
-  searchResultItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  resultName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 4,
-  },
-  resultAddress: {
-    fontSize: 14,
-    color: '#666',
-  },
-  resultDistance: {
-    fontSize: 14,
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-});
+

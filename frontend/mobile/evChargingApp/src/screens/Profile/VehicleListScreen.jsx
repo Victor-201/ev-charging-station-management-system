@@ -5,9 +5,44 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getVehicles } from '../../store/slices/vehicleSlice';
 import VehicleCard from '../../components/profile/VehicleCard'; // This component will be created next
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: colors.error,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    marginBottom: 24,
+    color: colors.onSurface + '80',
+  },
+  listContainer: {
+    padding: 16,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.primary,
+  },
+});
 
 export default function VehicleListScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const dispatch = useDispatch();
   const { vehicles, loading, error } = useSelector((state) => state.vehicles);
   const { user } = useSelector((state) => state.auth);
@@ -30,7 +65,7 @@ export default function VehicleListScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.centeredContainer}>
-        <ActivityIndicator animating={true} size="large" />
+        <ActivityIndicator animating={true} size="large" color={colors.primary} />
       </View>
     );
   }
@@ -73,35 +108,4 @@ export default function VehicleListScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: theme.colors.error,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    marginBottom: 24,
-    color: theme.colors.onSurface + '80',
-  },
-  listContainer: {
-    padding: 16,
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    backgroundColor: theme.colors.primary,
-  },
-});
+

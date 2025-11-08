@@ -9,9 +9,70 @@ import AppButton from '../../components/common/AppButton';
 import useAuth from '../../hooks/useAuth';
 import AuthWrapper from './AuthWrapper';
 import OAuthButtons from '../../components/social/OAuthButtons';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  scrollContent: {
+    paddingBottom: 24,
+  },
+  input: {
+    marginBottom: 16,
+  },
+  registerButton: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.onSurface + '20',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: colors.onSurface + '60',
+    fontSize: 14,
+  },
+  loginLinkContainer: {
+    flexDirection: 'row',
+    marginTop: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loginLinkText: {
+    color: colors.onSurface,
+    fontSize: 14,
+  },
+  loginLink: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  snackbar: {
+    backgroundColor: colors.success,
+  },
+});
 
 export default function Register({ navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { doRegister, loading, error } = useAuth();
   const [successMessage, setSuccessMessage] = useState('');
 

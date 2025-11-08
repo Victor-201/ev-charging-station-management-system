@@ -56,6 +56,7 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const userInfo = await GoogleSignin.signIn();
+      logger.debug('Google User Info:', JSON.stringify(userInfo, null, 2));
       const idToken = userInfo.data?.idToken;
 
       if (idToken) {

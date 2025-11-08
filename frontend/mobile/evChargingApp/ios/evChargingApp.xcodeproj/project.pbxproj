@@ -12,18 +12,18 @@
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		B8DCFAE96DE62219D1CA3253 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
-		CA00C8E8A103074D3EF9E1C6 /* libPods-evChargingApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D4824F63ED07EAD1FBEE611 /* libPods-evChargingApp.a */; };
+		BAF6F691AE965314CA4FD1D6 /* Pods_evChargingApp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E9E2449933D96B349C8A74B /* Pods_evChargingApp.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		02C1A3512EBE1749005D121C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-		0D4824F63ED07EAD1FBEE611 /* libPods-evChargingApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-evChargingApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* evChargingApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = evChargingApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = evChargingApp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = evChargingApp/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = evChargingApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		2367390086EDD8A57EEA0AC4 /* Pods-evChargingApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-evChargingApp.release.xcconfig"; path = "Target Support Files/Pods-evChargingApp/Pods-evChargingApp.release.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = evChargingApp/AppDelegate.swift; sourceTree = "<group>"; };
+		7E9E2449933D96B349C8A74B /* Pods_evChargingApp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_evChargingApp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = evChargingApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FED574D8AEE125F5F587D8C6 /* Pods-evChargingApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-evChargingApp.debug.xcconfig"; path = "Target Support Files/Pods-evChargingApp/Pods-evChargingApp.debug.xcconfig"; sourceTree = "<group>"; };
@@ -34,7 +34,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CA00C8E8A103074D3EF9E1C6 /* libPods-evChargingApp.a in Frameworks */,
+				BAF6F691AE965314CA4FD1D6 /* Pods_evChargingApp.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,7 +58,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				0D4824F63ED07EAD1FBEE611 /* libPods-evChargingApp.a */,
+				7E9E2449933D96B349C8A74B /* Pods_evChargingApp.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

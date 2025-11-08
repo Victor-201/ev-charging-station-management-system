@@ -8,9 +8,56 @@ import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import useAuth from '../../hooks/useAuth';
 import AuthWrapper from './AuthWrapper';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.onSurface + '90',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  input: {
+    marginBottom: 16,
+  },
+  submitButton: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  loginLinkContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  loginLink: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  snackbar: {
+    backgroundColor: colors.success,
+  },
+});
 
 export default function ForgotPassword({ navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { doForgot, loading, error } = useAuth();
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -27,7 +74,12 @@ export default function ForgotPassword({ navigation }) {
   const onSubmit = async (data) => {
     const result = await doForgot(data.email);
     if (result.type === 'auth/forgotPassword/fulfilled') {
-      setSuccessMessage('Yêu cầu đã được gửi! Vui lòng kiểm tra email của bạn.');
+      setSuccessMessage('Yêu cầu đã được gửi! Đang chuyển hướng...');
+      // In a real app, the user would get a link via email.
+      // For development, we'll navigate directly to the reset screen.
+      setTimeout(() => {
+        navigation.navigate('ResetPassword', { token: 'mock-reset-token-123' });
+      }, 1500);
     }
   };
 
@@ -98,47 +150,4 @@ export default function ForgotPassword({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  infoText: {
-    fontSize: 14,
-    color: theme.colors.onSurface + '90',
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  submitButton: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  errorContainer: {
-    backgroundColor: theme.colors.error + '15',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.error,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  loginLinkContainer: {
-    marginTop: 32,
-    alignItems: 'center',
-  },
-  loginLink: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  snackbar: {
-    backgroundColor: theme.colors.success,
-  },
-});
+

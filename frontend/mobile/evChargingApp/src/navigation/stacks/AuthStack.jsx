@@ -4,6 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Login from '../../screens/Auth/Login';
 import Register from '../../screens/Auth/Register';
 import ForgotPassword from '../../screens/Auth/ForgotPassword';
+import ResetPassword from '../../screens/Auth/ResetPassword';
+import VerifyEmail from '../../screens/Auth/VerifyEmail';
 
 const Stack = createNativeStackNavigator();
 
@@ -13,6 +15,8 @@ export default function AuthStack() {
       <Stack.Screen name="Login" component={Login} />
       <Stack.Screen name="Register" component={Register} />
       <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+      <Stack.Screen name="ResetPassword" component={ResetPassword} />
+      <Stack.Screen name="VerifyEmail" component={VerifyEmail} />
     </Stack.Navigator>
   );
 }

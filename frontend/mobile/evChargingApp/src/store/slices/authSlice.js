@@ -112,7 +112,7 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
-        try { s.user = a.payload?.accessToken ? jwtDecode(a.payload.accessToken) : null; } catch { s.user = null; }
+        s.user = a.payload?.user ?? null;
       })
       .addCase(login.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Login failed'; })
 
@@ -140,7 +140,7 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
-        try { s.user = a.payload?.accessToken ? jwtDecode(a.payload.accessToken) : null; } catch { s.user = null; }
+        s.user = a.payload?.user ?? null;
       })
       .addCase(socialLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Social login failed'; });
   },

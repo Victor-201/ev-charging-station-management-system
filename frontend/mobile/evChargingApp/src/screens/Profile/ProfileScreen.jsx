@@ -5,9 +5,58 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMe } from '../../store/slices/userSlice';
 import { logout } from '../../store/slices/authSlice';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: colors.background,
+  },
+  errorText: {
+    color: colors.error,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  headerContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    backgroundColor: colors.surface,
+  },
+  avatar: {
+    marginBottom: 12,
+  },
+  userName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+  },
+  userEmail: {
+    fontSize: 16,
+    color: colors.onSurface + '80',
+  },
+  logoutContainer: {
+    padding: 24,
+    backgroundColor: colors.surface,
+  },
+  logoutButton: {
+    borderRadius: 8,
+  },
+  logoutLabel: {
+    fontWeight: 'bold',
+    color: colors.onPrimary,
+  },
+});
 
 export default function ProfileScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const dispatch = useDispatch();
   const { profile, loading, error } = useSelector((state) => state.user);
   const authUser = useSelector((state) => state.auth.user);
@@ -41,7 +90,7 @@ export default function ProfileScreen({ navigation }) {
   if (loading && !profile) {
     return (
       <View style={styles.centeredContainer}>
-        <ActivityIndicator animating={true} size="large" />
+        <ActivityIndicator animating={true} size="large" color={colors.primary} />
       </View>
     );
   }
@@ -86,35 +135,29 @@ export default function ProfileScreen({ navigation }) {
           description="Thêm hoặc xóa các phương tiện của bạn"
           left={(props) => <List.Icon {...props} icon="car-multiple" />}
           right={(props) => <List.Icon {...props} icon="chevron-right" />}
-          onPress={() => navigation.navigate('VehicleManagement')}
+          onPress={() => navigation.navigate('VehicleListScreen')}
         />
         <List.Item
           title="Đổi mật khẩu"
           description="Thay đổi mật khẩu đăng nhập"
           left={(props) => <List.Icon {...props} icon="lock-reset" />}
           right={(props) => <List.Icon {...props} icon="chevron-right" />}
-          onPress={() => navigation.navigate('ChangePassword')}
+          onPress={() => navigation.navigate('ChangePasswordScreen')}
         />
         <List.Item
           title="Lịch sử sạc"
           description="Xem lại các phiên sạc của bạn"
           left={(props) => <List.Icon {...props} icon="history" />}
           right={(props) => <List.Icon {...props} icon="chevron-right" />}
-          onPress={() => navigation.navigate('ChargingHistory')}
+          onPress={() => navigation.navigate('ChargingHistoryScreen')}
         />
-        <List.Item
-          title="Cài đặt thông báo"
-          description="Quản lý các loại thông báo bạn nhận được"
-          left={(props) => <List.Icon {...props} icon="bell-outline" />}
-          right={(props) => <List.Icon {...props} icon="chevron-right" />}
-          onPress={() => navigation.navigate('NotificationSettings')}
-        />
+        
         <List.Item
           title="Tài khoản và Bảo mật"
           description="Quản lý dữ liệu và xóa tài khoản"
           left={(props) => <List.Icon {...props} icon="shield-account-outline" />}
           right={(props) => <List.Icon {...props} icon="chevron-right" />}
-          onPress={() => navigation.navigate('AccountSettings')}
+          onPress={() => navigation.navigate('AccountSettingsScreen')}
         />
       </List.Section>
 
@@ -126,8 +169,9 @@ export default function ProfileScreen({ navigation }) {
           mode="contained"
           onPress={handleLogout}
           icon="logout"
-          color={theme.colors.error}
-          style={styles.logoutButton}
+          onPress={handleLogout}
+          icon="logout"
+          style={[styles.logoutButton, { backgroundColor: colors.error }]}
           labelStyle={styles.logoutLabel}
         >
           Đăng xuất
@@ -137,45 +181,3 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: theme.colors.error,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  headerContainer: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    backgroundColor: theme.colors.surface,
-  },
-  avatar: {
-    marginBottom: 12,
-  },
-  userName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-  userEmail: {
-    fontSize: 16,
-    color: theme.colors.onSurface + '80',
-  },
-  logoutContainer: {
-    padding: 24,
-  },
-  logoutButton: {
-    borderRadius: 8,
-  },
-  logoutLabel: {
-    fontWeight: 'bold',
-  },
-});

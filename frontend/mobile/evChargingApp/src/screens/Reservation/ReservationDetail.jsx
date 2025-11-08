@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useTheme } from 'react-native-paper';
 import reservationService from '../../services/reservationService';
-import { theme } from '../../config/theme';
 
 export default function ReservationDetail() {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const route = useRoute();
   const navigation = useNavigation();
   const { id } = route.params;
@@ -76,7 +78,7 @@ export default function ReservationDetail() {
   if (loading && !refreshing) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -95,11 +97,11 @@ export default function ReservationDetail() {
 
   const getStatusInfo = (status) => {
     switch (status) {
-      case 'confirmed': return { text: 'Đã xác nhận', color: theme.colors.success };
-      case 'pending': return { text: 'Chờ xác nhận', color: theme.colors.warning };
-      case 'cancelled': return { text: 'Đã hủy', color: theme.colors.error };
-      case 'completed': return { text: 'Hoàn thành', color: theme.colors.primary };
-      default: return { text: status, color: theme.colors.onSurfaceVariant };
+      case 'confirmed': return { text: 'Đã xác nhận', color: colors.success };
+      case 'pending': return { text: 'Chờ xác nhận', color: colors.warning };
+      case 'cancelled': return { text: 'Đã hủy', color: colors.error };
+      case 'completed': return { text: 'Hoàn thành', color: colors.primary };
+      default: return { text: status, color: colors.onSurface };
     }
   };
 
@@ -123,15 +125,15 @@ export default function ReservationDetail() {
       </View>
 
       <View style={styles.section}>
-        <DetailRow icon="event" label="Ngày" value={new Date(reservation.date).toLocaleDateString('vi-VN')} />
-        <DetailRow icon="schedule" label="Thời gian" value={`${reservation.start_time} - ${reservation.end_time}`} />
-        <DetailRow icon="power" label="Loại cổng sạc" value={reservation.connector_type} />
+        <DetailRow icon="event" label="Ngày" value={new Date(reservation.date).toLocaleDateString('vi-VN')} colors={colors} />
+        <DetailRow icon="schedule" label="Thời gian" value={`${reservation.start_time} - ${reservation.end_time}`} colors={colors} />
+        <DetailRow icon="power" label="Loại cổng sạc" value={reservation.connector_type} colors={colors} />
       </View>
 
       <View style={styles.section}>
-        <DetailRow icon="receipt" label="Mã đặt chỗ" value={reservation.id} />
-        <DetailRow icon="attach-money" label="Chi phí ước tính" value={`${reservation.estimated_cost.toLocaleString()} VND`} />
-        <DetailRow icon="info" label="Trạng thái" value={statusInfo.text} />
+        <DetailRow icon="receipt" label="Mã đặt chỗ" value={reservation.id} colors={colors} />
+        <DetailRow icon="attach-money" label="Chi phí ước tính" value={`${reservation.estimated_cost.toLocaleString()} VND`} colors={colors} />
+        <DetailRow icon="info" label="Trạng thái" value={statusInfo.text} colors={colors} />
       </View>
 
       {reservation.status === 'confirmed' && (
@@ -140,7 +142,7 @@ export default function ReservationDetail() {
             style={styles.cancelButton}
             onPress={handleCancelReservation}
           >
-            <Icon name="cancel" size={20} color="white" />
+            <Icon name="cancel" size={20} color={colors.onPrimary} />
             <Text style={styles.cancelButtonText}>Hủy đặt chỗ</Text>
           </TouchableOpacity>
         </View>
@@ -149,66 +151,71 @@ export default function ReservationDetail() {
   );
 }
 
-const DetailRow = ({ icon, label, value }) => (
-  <View style={styles.detailRow}>
-    <Icon name={icon} size={20} color={theme.colors.primary} style={styles.icon} />
-    <View>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
+const DetailRow = ({ icon, label, value, colors }) => {
+  const styles = getStyles(colors);
+  return (
+    <View style={styles.detailRow}>
+      <Icon name={icon} size={20} color={colors.primary} style={styles.icon} />
+      <View>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.value}>{value}</Text>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.brand50,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.background,
   },
   errorText: {
-    color: theme.colors.error,
+    color: colors.error,
     fontSize: 16,
   },
   header: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e0e0e0', // Should be from theme
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: theme.colors.onSurface,
+    color: colors.onSurface,
     marginBottom: 8,
   },
   statusBadge: {
-        alignSelf: 'flex-start',
+    alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   statusText: {
-    color: 'white',
+    color: colors.onPrimary,
     fontWeight: 'bold',
   },
   section: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     marginTop: 12,
     padding: 20,
   },
   stationName: {
     fontSize: 20,
     fontWeight: '600',
-    color: theme.colors.onSurface,
+    color: colors.onSurface,
     marginBottom: 4,
   },
   address: {
     fontSize: 16,
-    color: theme.colors.onSurfaceVariant,
+    color: colors.onSurface,
+    opacity: 0.7,
   },
   detailRow: {
     flexDirection: 'row',
@@ -220,30 +227,31 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: theme.colors.onSurfaceVariant,
+    color: colors.onSurface,
+    opacity: 0.7,
     marginBottom: 2,
   },
   value: {
     fontSize: 16,
     fontWeight: '500',
-    color: theme.colors.onSurface,
+    color: colors.onSurface,
   },
   actionContainer: {
     padding: 20,
     marginTop: 12,
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
   },
   cancelButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: theme.colors.error,
+    backgroundColor: colors.error,
     borderRadius: 8,
     paddingVertical: 14,
   },
   cancelButtonText: {
-    color: 'white',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -1,107 +1,77 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, Text, IconButton } from 'react-native-paper';
-import { theme } from '../../config/theme';
+import { Text, useTheme } from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const VehicleCard = ({ vehicle, onPress }) => {
-  if (!vehicle) return null;
-
-  return (
-    <Card style={styles.card} onPress={onPress}>
-      <View style={styles.cardContent}>
-        <View style={styles.iconContainer}>
-          <IconButton
-            icon="car-electric"
-            size={36}
-            color={theme.colors.primary}
-            style={styles.icon}
-          />
-        </View>
-        <View style={styles.detailsContainer}>
-          <Title style={styles.title}>{`${vehicle.make} ${vehicle.model}`}</Title>
-          <Paragraph style={styles.licensePlate}>{vehicle.license_plate}</Paragraph>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <IconButton icon="calendar" size={16} color={theme.colors.onSurface + '80'} style={styles.infoIcon} />
-              <Text style={styles.infoText}>{vehicle.year}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <IconButton icon="battery-charging" size={16} color={theme.colors.onSurface + '80'} style={styles.infoIcon} />
-              <Text style={styles.infoText}>{`${vehicle.battery_capacity} kWh`}</Text>
-            </View>
-          </View>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <IconButton icon="ev-plug-type2" size={16} color={theme.colors.onSurface + '80'} style={styles.infoIcon} />
-              <Text style={styles.infoText}>{vehicle.connector_type}</Text>
-            </View>
-          </View>
-        </View>
-        <View style={styles.chevronContainer}>
-          <IconButton
-            icon="chevron-right"
-            size={28}
-            color={theme.colors.onSurface + '40'}
-          />
-        </View>
-      </View>
-    </Card>
-  );
-};
-
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   card: {
-    marginBottom: 16,
-    backgroundColor: theme.colors.surface,
-    elevation: 2,
-  },
-  cardContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    elevation: 2,
+    shadowColor: colors.onBackground,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   iconContainer: {
-    marginRight: 12,
-  },
-  icon: {
-    backgroundColor: theme.colors.brand50,
-  },
-  detailsContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    lineHeight: 24,
-  },
-  licensePlate: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.primary,
-    marginBottom: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginRight: 16,
   },
-  infoIcon: {
-    margin: 0,
-    marginRight: 4,
+  cardContent: {
+    flex: 1,
   },
-  infoText: {
+  vehicleName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+  },
+  vehicleInfo: {
     fontSize: 14,
-    color: theme.colors.onSurface + '90',
+    color: colors.onSurface,
+    opacity: 0.7,
   },
-  chevronContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  defaultBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  defaultText: {
+    color: colors.onPrimary,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 
+const VehicleCard = ({ vehicle, onPress }) => {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+
+  if (!vehicle) return null;
+
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress}>
+      <View style={styles.iconContainer}>
+        <Icon name="car-electric" size={40} color={colors.primary} />
+      </View>
+      <View style={styles.cardContent}>
+        <Text style={styles.vehicleName}>{vehicle.nickname || `${vehicle.make} ${vehicle.model}`}</Text>
+        <Text style={styles.vehicleInfo}>{vehicle.license_plate}</Text>
+        {vehicle.is_default && (
+          <View style={styles.defaultBadge}>
+            <Text style={styles.defaultText}>Mặc định</Text>
+          </View>
+        )}
+      </View>
+      <Icon name="chevron-right" size={24} color={colors.onSurface} style={{ opacity: 0.5 }} />
+    </TouchableOpacity>
+  );
+};
+
 export default VehicleCard;
+

@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
-import { Text, Button, Card, Title, TextInput } from 'react-native-paper';
+import React from 'react';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
+import { Text, Button, useTheme } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useDispatch, useSelector } from 'react-redux';
 import { withdrawFromWallet } from '../../store/slices/walletSlice'; // To be added
-import { theme } from '../../config/theme';
+import AppInput from '../../components/common/AppInput';
 
 const withdrawSchema = yup.object().shape({
   amount: yup.number().required('Vui lòng nhập số tiền').positive('Số tiền phải lớn hơn 0'),
@@ -15,14 +15,26 @@ const withdrawSchema = yup.object().shape({
   account_holder: yup.string().required('Vui lòng nhập tên chủ tài khoản'),
 });
 
+const getStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  contentContainer: { padding: 24 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: colors.onSurface },
+  input: { marginBottom: 16 },
+  apiErrorText: { color: colors.error, textAlign: 'center', marginBottom: 16 },
+  button: { paddingVertical: 8, marginTop: 16 },
+});
+
 const WithdrawScreen = ({ navigation }) => {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { loading, error } = useSelector((state) => state.wallet);
+  const { loading, error } = useSelector((state) => state.wallet || {});
 
   const { control, handleSubmit, formState: { errors, isValid } } = useForm({
     resolver: yupResolver(withdrawSchema),
     mode: 'onChange',
+    defaultValues: { amount: '', bank_name: '', account_number: '', account_holder: '' },
   });
 
   const handleWithdraw = async (data) => {
@@ -36,73 +48,54 @@ const WithdrawScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Title style={styles.title}>Rút tiền</Title>
+    <ScrollView style={styles.container}>
+      <View style={styles.contentContainer}>
+        <Text style={styles.title}>Rút tiền</Text>
 
-      <Card style={styles.card}>
-        <Card.Content>
-          <Controller
-            control={control}
-            name="amount"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput label="Số tiền cần rút" mode="outlined" keyboardType="numeric" {...{ onChange, onBlur, value }} error={!!errors.amount} />
-            )}
-          />
-          {errors.amount && <Text style={styles.errorText}>{errors.amount.message}</Text>}
+        <Controller
+          control={control}
+          name="amount"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <AppInput label="Số tiền cần rút" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.amount?.message} keyboardType="numeric" style={styles.input} />
+          )}
+        />
+        <Controller
+          control={control}
+          name="bank_name"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <AppInput label="Tên ngân hàng" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.bank_name?.message} style={styles.input} />
+          )}
+        />
+        <Controller
+          control={control}
+          name="account_number"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <AppInput label="Số tài khoản" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.account_number?.message} keyboardType="numeric" style={styles.input} />
+          )}
+        />
+        <Controller
+          control={control}
+          name="account_holder"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <AppInput label="Tên chủ tài khoản" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.account_holder?.message} style={styles.input} />
+          )}
+        />
 
-          <Controller
-            control={control}
-            name="bank_name"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput label="Tên ngân hàng" mode="outlined" {...{ onChange, onBlur, value }} error={!!errors.bank_name} />
-            )}
-          />
-          {errors.bank_name && <Text style={styles.errorText}>{errors.bank_name.message}</Text>}
+        {error && <Text style={styles.apiErrorText}>{error}</Text>}
 
-          <Controller
-            control={control}
-            name="account_number"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput label="Số tài khoản" mode="outlined" keyboardType="numeric" {...{ onChange, onBlur, value }} error={!!errors.account_number} />
-            )}
-          />
-          {errors.account_number && <Text style={styles.errorText}>{errors.account_number.message}</Text>}
-
-          <Controller
-            control={control}
-            name="account_holder"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput label="Tên chủ tài khoản" mode="outlined" {...{ onChange, onBlur, value }} error={!!errors.account_holder} />
-            )}
-          />
-          {errors.account_holder && <Text style={styles.errorText}>{errors.account_holder.message}</Text>}
-
-        </Card.Content>
-      </Card>
-
-      {error && <Text style={styles.apiErrorText}>{error}</Text>}
-
-      <Button 
-        mode="contained" 
-        onPress={handleSubmit(handleWithdraw)}
-        loading={loading}
-        disabled={!isValid || loading}
-        style={styles.button}
-      >
-        Gửi yêu cầu
-      </Button>
-    </View>
+        <Button
+          mode="contained"
+          onPress={handleSubmit(handleWithdraw)}
+          loading={loading}
+          disabled={!isValid || loading}
+          style={styles.button}
+        >
+          Gửi yêu cầu
+        </Button>
+      </View>
+    </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: theme.colors.background },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center' },
-  card: { marginBottom: 24 },
-  errorText: { color: theme.colors.error, marginTop: 4 },
-  apiErrorText: { color: theme.colors.error, textAlign: 'center', marginBottom: 16 },
-  button: { paddingVertical: 8 },
-});
 
 export default WithdrawScreen;
 

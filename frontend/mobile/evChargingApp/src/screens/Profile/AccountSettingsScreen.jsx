@@ -4,9 +4,39 @@ import { Button, List, Divider, Text, Dialog, Portal } from 'react-native-paper'
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
 import profileService from '../../services/profileService';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  dangerZone: {
+    marginTop: 32,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.error + '30',
+    paddingTop: 16,
+    backgroundColor: colors.error + '10',
+  },
+  dangerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.error,
+  },
+  dangerText: {
+    marginVertical: 8,
+    color: colors.onSurface + '90',
+  },
+  deleteButton: {
+    marginTop: 16,
+    borderColor: colors.error,
+  },
+});
 
 export default function AccountSettingsScreen() {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const [loading, setLoading] = useState(null); // 'export' | 'delete' | null
@@ -63,7 +93,7 @@ export default function AccountSettingsScreen() {
         </Text>
         <Button
           mode="outlined"
-          color={theme.colors.error}
+          color={colors.error}
           icon="delete-forever"
           loading={loading === 'delete'}
           disabled={loading}
@@ -82,7 +112,7 @@ export default function AccountSettingsScreen() {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setDialogVisible(false)}>Hủy</Button>
-            <Button color={theme.colors.error} onPress={handleDeleteAccount}>Xóa</Button>
+            <Button color={colors.error} onPress={handleDeleteAccount}>Xóa</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -90,31 +120,5 @@ export default function AccountSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  dangerZone: {
-    marginTop: 32,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.error + '30',
-    paddingTop: 16,
-    backgroundColor: theme.colors.error + '10',
-  },
-  dangerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.error,
-  },
-  dangerText: {
-    marginVertical: 8,
-    color: theme.colors.onSurface + '90',
-  },
-  deleteButton: {
-    marginTop: 16,
-    borderColor: theme.colors.error,
-  },
-});
+
 

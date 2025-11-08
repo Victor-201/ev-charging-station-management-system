@@ -7,10 +7,66 @@ import { useDispatch, useSelector } from 'react-redux';
 import { updateProfileSchema } from '../../utils/validators';
 import { updateProfile } from '../../store/slices/userSlice';
 import AppInput from '../../components/common/AppInput';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
 // import { launchImageLibrary } from 'react-native-image-picker'; // To be added later
 
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  contentContainer: {
+    padding: 24,
+  },
+  avatarContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  avatarEditIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.surface,
+    borderRadius: 15,
+  },
+  emailText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: colors.onSurface + '80',
+  },
+  input: {
+    marginBottom: 16,
+  },
+  saveButton: {
+    marginTop: 16,
+    paddingVertical: 4,
+    backgroundColor: colors.primary,
+  },
+  saveButtonLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  snackbar: {
+    backgroundColor: colors.success,
+  },
+});
+
 export default function EditProfile({ navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const dispatch = useDispatch();
   const { profile, loading, error } = useSelector((state) => state.user);
   const [successMessage, setSuccessMessage] = useState('');
@@ -67,7 +123,7 @@ export default function EditProfile({ navigation }) {
               source={{ uri: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || 'U'}` }}
             />
             <View style={styles.avatarEditIcon}>
-              <Avatar.Icon size={30} icon="camera" />
+              <Avatar.Icon size={30} icon="camera" color={colors.primary} />
             </View>
           </TouchableOpacity>
           <Title style={styles.emailText}>{profile?.email}</Title>
@@ -139,55 +195,3 @@ export default function EditProfile({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  contentContainer: {
-    padding: 24,
-  },
-  avatarContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  avatarEditIcon: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 15,
-  },
-  emailText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: theme.colors.onSurface + '80',
-  },
-  input: {
-    marginBottom: 16,
-  },
-  saveButton: {
-    marginTop: 16,
-    paddingVertical: 4,
-  },
-  saveButtonLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  errorContainer: {
-    backgroundColor: theme.colors.error + '15',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.error,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  snackbar: {
-    backgroundColor: theme.colors.success,
-  },
-});

@@ -7,9 +7,49 @@ import { useSelector } from 'react-redux';
 import { changePasswordSchema } from '../../utils/validators';
 import profileService from '../../services/profileService';
 import AppInput from '../../components/common/AppInput';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  contentContainer: {
+    padding: 24,
+  },
+  input: {
+    marginBottom: 16,
+  },
+  saveButton: {
+    marginTop: 16,
+    paddingVertical: 4,
+    backgroundColor: colors.primary,
+  },
+  saveButtonLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  snackbar: {
+    backgroundColor: colors.success,
+  },
+});
 
 export default function ChangePasswordScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { profile } = useSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -135,39 +175,4 @@ export default function ChangePasswordScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  contentContainer: {
-    padding: 24,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  saveButton: {
-    marginTop: 16,
-    paddingVertical: 4,
-  },
-  saveButtonLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  errorContainer: {
-    backgroundColor: theme.colors.error + '15',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.error,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  snackbar: {
-    backgroundColor: theme.colors.success,
-  },
-});
+

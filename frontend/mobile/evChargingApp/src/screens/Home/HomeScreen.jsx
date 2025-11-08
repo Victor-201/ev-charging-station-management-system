@@ -15,7 +15,22 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const user = useSelector((state) => state.auth.user);
+  const realUser = useSelector((state) => state.auth.user);
+
+  // Mock data for frontend development without backend
+  const mockUser = {
+    info: {
+      name: 'John Doe',
+      avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
+    },
+  };
+
+  const user = realUser || mockUser;
+
+  const stats = {
+    totalCharges: 15,
+    totalEnergy: 350,
+  };
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
@@ -59,8 +74,8 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.brand600 }]}>Thống kê cá nhân</Text>
         <View style={styles.statsGrid}>
-          <StatCard number="0" label="Lần sạc" />
-          <StatCard number="0 kWh" label="Năng lượng" />
+          <StatCard number={stats.totalCharges.toString()} label="Lần sạc" />
+          <StatCard number={`${stats.totalEnergy} kWh`} label="Năng lượng" />
         </View>
       </View>
     </ScrollView>

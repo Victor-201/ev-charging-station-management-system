@@ -7,9 +7,58 @@ import { useDispatch, useSelector } from 'react-redux';
 import { vehicleSchema } from '../../utils/validators';
 import { updateVehicle, deleteVehicle } from '../../store/slices/vehicleSlice';
 import AppInput from '../../components/common/AppInput';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contentContainer: {
+    padding: 24,
+  },
+  input: {
+    marginBottom: 16,
+  },
+  saveButton: {
+    marginTop: 16,
+    paddingVertical: 4,
+    backgroundColor: colors.primary,
+  },
+  saveButtonLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  deleteButton: {
+    marginTop: 12,
+    borderColor: colors.error,
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  snackbar: {
+    backgroundColor: colors.success,
+  },
+});
 
 export default function EditVehicleScreen({ navigation, route }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { vehicleId } = route.params;
   const dispatch = useDispatch();
   const { vehicles, loading, error } = useSelector((state) => state.vehicles);
@@ -142,7 +191,7 @@ export default function EditVehicleScreen({ navigation, route }) {
           onPress={onDelete}
           loading={loading}
           disabled={loading}
-          color={theme.colors.error}
+          color={colors.error}
           style={styles.deleteButton}
         >
           Xóa phương tiện
@@ -161,48 +210,4 @@ export default function EditVehicleScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  contentContainer: {
-    padding: 24,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  saveButton: {
-    marginTop: 16,
-    paddingVertical: 4,
-  },
-  saveButtonLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    marginTop: 12,
-    borderColor: theme.colors.error,
-  },
-  errorContainer: {
-    backgroundColor: theme.colors.error + '15',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.error,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  snackbar: {
-    backgroundColor: theme.colors.success,
-  },
-});
+

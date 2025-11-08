@@ -7,10 +7,57 @@ import { resetPasswordSchema } from '../../utils/validators';
 import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import AuthWrapper from './AuthWrapper';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
 import authService from '../../services/authService';
 
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.onSurface + '90',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  input: {
+    marginBottom: 16,
+  },
+  submitButton: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  loginLinkContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  loginLink: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  snackbar: {
+    backgroundColor: colors.success,
+  },
+});
+
 export default function ResetPassword({ navigation, route }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   // The reset token would typically come from a deep link
   const { token } = route.params || {}; 
   const [loading, setLoading] = useState(false);
@@ -144,47 +191,4 @@ export default function ResetPassword({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  infoText: {
-    fontSize: 14,
-    color: theme.colors.onSurface + '90',
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  submitButton: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  errorContainer: {
-    backgroundColor: theme.colors.error + '15',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.error,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  loginLinkContainer: {
-    marginTop: 32,
-    alignItems: 'center',
-  },
-  loginLink: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  snackbar: {
-    backgroundColor: theme.colors.success,
-  },
-});
+

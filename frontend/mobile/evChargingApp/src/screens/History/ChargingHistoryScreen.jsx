@@ -5,9 +5,36 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getChargingHistory } from '../../store/slices/chargingSlice'; // This will be created later
 import SessionCard from '../../components/charging/SessionCard'; // This will be created next
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: colors.error,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  listContainer: {
+    padding: 16,
+  },
+  emptyText: {
+    color: colors.onSurface,
+    opacity: 0.7,
+  }
+});
 
 const ChargingHistoryScreen = ({ navigation }) => {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { sessions, loading, error } = useSelector((state) => state.charging);
@@ -21,14 +48,14 @@ const ChargingHistoryScreen = ({ navigation }) => {
   useFocusEffect(loadHistory);
 
   const renderItem = ({ item }) => (
-    <SessionCard 
-      session={item} 
+    <SessionCard
+      session={item}
       onPress={() => navigation.navigate('SessionDetail', { sessionId: item.id })}
     />
   );
 
   if (loading) {
-    return <View style={styles.centered}><ActivityIndicator size="large" /></View>;
+    return <View style={styles.centered}><ActivityIndicator size="large" color={colors.primary} /></View>;
   }
 
   if (error) {
@@ -44,7 +71,7 @@ const ChargingHistoryScreen = ({ navigation }) => {
     <View style={styles.container}>
       {sessions.length === 0 ? (
         <View style={styles.centered}>
-          <Text>Bạn chưa có lịch sử sạc nào.</Text>
+          <Text style={styles.emptyText}>Bạn chưa có lịch sử sạc nào.</Text>
         </View>
       ) : (
         <FlatList
@@ -59,27 +86,6 @@ const ChargingHistoryScreen = ({ navigation }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: theme.colors.error,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  listContainer: {
-    padding: 16,
-  },
-});
 
 export default ChargingHistoryScreen;
 
