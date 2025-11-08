@@ -3,9 +3,96 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Title, Button, ActivityIndicator, Divider, Avatar } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import chargingService from '../../services/chargingService';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: colors.error,
+  },
+  header: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: colors.primary,
+  },
+  icon: {
+    backgroundColor: 'transparent',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.onPrimary,
+    marginTop: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.onPrimary + 'B3',
+    marginTop: 4,
+  },
+  card: {
+    margin: 16,
+    backgroundColor: colors.surface,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.onSurface
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  label: {
+    fontSize: 16,
+    color: colors.onSurface + '80',
+  },
+  value: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+  },
+  divider: {
+    marginVertical: 8,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+  },
+  totalValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  actionsContainer: {
+    padding: 16,
+  },
+  button: {
+    marginBottom: 12,
+  },
+  homeButton: {
+    marginTop: 8,
+  },
+});
 
 const ChargingCompleteScreen = () => {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const navigation = useNavigation();
   const route = useRoute();
   const { sessionId } = route.params;
@@ -33,7 +120,7 @@ const ChargingCompleteScreen = () => {
   }, [sessionId]);
 
   if (loading) {
-    return <View style={styles.centered}><ActivityIndicator size="large" /></View>;
+    return <View style={styles.centered}><ActivityIndicator size="large" color={colors.primary} /></View>;
   }
 
   if (error) {
@@ -47,14 +134,14 @@ const ChargingCompleteScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Avatar.Icon size={64} icon="check-circle" style={styles.icon} />
-        <Title style={styles.title}>Sạc Hoàn Tất</Title>
+        <Avatar.Icon size={64} icon="check-circle" style={styles.icon} color={colors.onPrimary} />
+        <Text style={styles.title}>Sạc Hoàn Tất</Text>
         <Text style={styles.subtitle}>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</Text>
       </View>
 
       <Card style={styles.card}>
         <Card.Content>
-          <Title>Tóm tắt phiên sạc</Title>
+          <Text style={styles.cardTitle}>Tóm tắt phiên sạc</Text>
           <Divider style={styles.divider} />
           <View style={styles.infoRow}>
             <Text style={styles.label}>Trạm sạc:</Text>
@@ -77,109 +164,32 @@ const ChargingCompleteScreen = () => {
       </Card>
 
       <View style={styles.actionsContainer}>
-        <Button 
-          mode="contained" 
+        <Button
+          mode="contained"
           icon="receipt"
           style={styles.button}
-          onPress={() => navigation.navigate('Invoice', { invoiceId: session.invoice_id })}
+          onPress={() => navigation.navigate('InvoiceDetail', { id: session.invoice_id })}
         >
           Xem hóa đơn
         </Button>
-        <Button 
-          mode="outlined" 
+        <Button
+          mode="outlined"
           icon="star-outline"
           style={styles.button}
           onPress={() => { /* TODO: Navigate to Rating screen */ }}
         >
           Đánh giá trải nghiệm
         </Button>
-        <Button 
-          onPress={() => navigation.navigate('Home')}
+        <Button
+          onPress={() => navigation.popToTop()}
           style={styles.homeButton}
         >
-          Về trang chủ
+          Về màn hình chính
         </Button>
       </View>
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: theme.colors.error,
-  },
-  header: {
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: theme.colors.primary,
-  },
-  icon: {
-    backgroundColor: 'transparent',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.onPrimary,
-    marginTop: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: theme.colors.onPrimary + 'B3',
-    marginTop: 4,
-  },
-  card: {
-    margin: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  label: {
-    fontSize: 16,
-    color: theme.colors.onSurface + '80',
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  divider: {
-    marginVertical: 8,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  totalValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  actionsContainer: {
-    padding: 16,
-  },
-  button: {
-    marginBottom: 12,
-  },
-  homeButton: {
-    marginTop: 8,
-  },
-});
 
 export default ChargingCompleteScreen;
 

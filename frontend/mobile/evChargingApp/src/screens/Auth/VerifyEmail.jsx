@@ -7,10 +7,91 @@ import { verifyEmailSchema } from '../../utils/validators';
 import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import AuthWrapper from './AuthWrapper';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
 import authService from '../../services/authService';
 
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  infoContainer: {
+    backgroundColor: colors.brand50,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.onSurface,
+    marginBottom: 8,
+  },
+  emailText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  subInfoText: {
+    fontSize: 13,
+    color: colors.onSurface + '80',
+  },
+  input: {
+    marginBottom: 16,
+  },
+  verifyButton: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  resendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  resendText: {
+    color: colors.onSurface,
+    fontSize: 14,
+  },
+  resendLink: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resendLinkDisabled: {
+    color: colors.onSurface + '40',
+  },
+  loginLinkContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  loginLink: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  snackbar: {
+    backgroundColor: colors.success,
+  },
+});
+
 export default function VerifyEmail({ navigation, route }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { email } = route.params || {};
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -200,82 +281,5 @@ export default function VerifyEmail({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  infoContainer: {
-    backgroundColor: theme.colors.brand50,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primary,
-  },
-  infoText: {
-    fontSize: 14,
-    color: theme.colors.onSurface,
-    marginBottom: 8,
-  },
-  emailText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.primary,
-    marginBottom: 8,
-  },
-  subInfoText: {
-    fontSize: 13,
-    color: theme.colors.onSurface + '80',
-  },
-  input: {
-    marginBottom: 16,
-  },
-  verifyButton: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  errorContainer: {
-    backgroundColor: theme.colors.error + '15',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.error,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  resendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  resendText: {
-    color: theme.colors.onSurface,
-    fontSize: 14,
-  },
-  resendLink: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  resendLinkDisabled: {
-    color: theme.colors.onSurface + '40',
-  },
-  loginLinkContainer: {
-    marginTop: 32,
-    alignItems: 'center',
-  },
-  loginLink: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  snackbar: {
-    backgroundColor: theme.colors.success,
-  },
-});
+
 

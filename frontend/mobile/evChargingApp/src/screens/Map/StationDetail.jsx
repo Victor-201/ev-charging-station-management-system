@@ -12,9 +12,152 @@ import {
 } from 'react-native';
 import stationService from '../../services/stationService';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.surface,
+  },
+  contentContainer: {
+    padding: 20,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  stationName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    color: colors.onPrimary,
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  address: {
+    fontSize: 16,
+    color: colors.onSurfaceVariant,
+    marginBottom: 24,
+  },
+  infoSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 24,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+  },
+  infoBox: {
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  infoBoxLabel: {
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+  },
+  infoBoxValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: colors.onSurface,
+  },
+  connectorContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  connectorBadge: {
+    backgroundColor: colors.primaryContainer,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  connectorText: {
+    color: colors.onPrimaryContainer,
+    fontWeight: '500',
+  },
+  amenitiesContainer: {
+    gap: 10,
+  },
+  amenityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  amenityText: {
+    fontSize: 16,
+    color: colors.onSurface,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  directionsButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.secondaryContainer,
+    borderRadius: 8,
+    paddingVertical: 14,
+  },
+  directionsButtonText: {
+    color: colors.onSecondaryContainer,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bookButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: colors.onSurface + '30',
+  },
+  bookButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
 
 export default function StationDetail({ route, navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { id } = route.params;
   const [station, setStation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -83,10 +226,18 @@ export default function StationDetail({ route, navigation }) {
     }
   };
 
+  const InfoBox = ({ icon, label, value }) => (
+    <View style={styles.infoBox}>
+      <Icon name={icon} size={24} color={colors.primary} />
+      <Text style={styles.infoBoxLabel}>{label}</Text>
+      <Text style={styles.infoBoxValue}>{value}</Text>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -109,7 +260,7 @@ export default function StationDetail({ route, navigation }) {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <Text style={styles.stationName}>{station.name}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: station.status === 'active' ? theme.colors.success : theme.colors.error }]}>
+        <View style={[styles.statusBadge, { backgroundColor: station.status === 'active' ? colors.success : colors.error }]}>
           <Text style={styles.statusText}>{station.status === 'active' ? 'Hoạt động' : 'Bảo trì'}</Text>
         </View>
       </View>
@@ -139,7 +290,7 @@ export default function StationDetail({ route, navigation }) {
           <View style={styles.amenitiesContainer}>
             {station.amenities.map((amenity, index) => (
               <View key={index} style={styles.amenityItem}>
-                <Icon name="check-circle" size={16} color={theme.colors.primary} />
+                <Icon name="check-circle" size={16} color={colors.primary} />
                 <Text style={styles.amenityText}>{amenity}</Text>
               </View>
             ))}
@@ -152,7 +303,7 @@ export default function StationDetail({ route, navigation }) {
           style={styles.directionsButton}
           onPress={openDirections}
         >
-          <Icon name="directions" size={20} color={theme.colors.primary} />
+          <Icon name="directions" size={20} color={colors.onSecondaryContainer} />
           <Text style={styles.directionsButtonText}>Chỉ đường</Text>
         </TouchableOpacity>
 
@@ -169,149 +320,3 @@ export default function StationDetail({ route, navigation }) {
     </ScrollView>
   );
 }
-
-const InfoBox = ({ icon, label, value }) => (
-  <View style={styles.infoBox}>
-    <Icon name={icon} size={24} color={theme.colors.primary} />
-    <Text style={styles.infoBoxLabel}>{label}</Text>
-    <Text style={styles.infoBoxValue}>{value}</Text>
-  </View>
-);
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  contentContainer: {
-    padding: 20,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  stationName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.onSurface,
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  address: {
-    fontSize: 16,
-    color: theme.colors.onSurfaceVariant,
-    marginBottom: 24,
-  },
-  infoSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 24,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 16,
-  },
-  infoBox: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  infoBoxLabel: {
-    fontSize: 14,
-    color: theme.colors.onSurfaceVariant,
-  },
-  infoBoxValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.onSurface,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: theme.colors.onSurface,
-  },
-  connectorContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  connectorBadge: {
-    backgroundColor: theme.colors.primaryContainer,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  connectorText: {
-    color: theme.colors.onPrimaryContainer,
-    fontWeight: '500',
-  },
-  amenitiesContainer: {
-    gap: 10,
-  },
-  amenityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  amenityText: {
-    fontSize: 16,
-    color: theme.colors.onSurface,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  directionsButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: theme.colors.secondaryContainer,
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  directionsButtonText: {
-    color: theme.colors.onSecondaryContainer,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bookButton: {
-    flex: 1,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: theme.colors.onSurface + '30',
-  },
-  bookButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

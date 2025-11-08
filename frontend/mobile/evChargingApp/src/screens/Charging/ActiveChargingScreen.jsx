@@ -6,9 +6,69 @@ import { useDispatch, useSelector } from 'react-redux';
 import useSocket from '../../hooks/useSocket';
 import { updateTelemetry } from '../../store/slices/chargingSlice';
 import chargingService from '../../services/chargingService';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: colors.error,
+  },
+  card: {
+    marginBottom: 16,
+    backgroundColor: colors.surface,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+    color: colors.onSurface,
+  },
+  statsContainer: {
+    paddingVertical: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  statLabel: {
+    fontSize: 16,
+    color: colors.onSurface + '80',
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginTop: 4,
+    color: colors.onSurface,
+  },
+  divider: {
+    marginVertical: 8,
+  },
+  controlsContainer: {
+    marginTop: 'auto',
+    paddingBottom: 16,
+  },
+  controlButton: {
+    marginBottom: 12,
+    paddingVertical: 8,
+  },
+  stopButton: {
+    paddingVertical: 8,
+  },
+});
 
 const ActiveChargingScreen = () => {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const route = useRoute();
@@ -56,7 +116,7 @@ const ActiveChargingScreen = () => {
   };
 
   if (loading && !activeSession) {
-    return <View style={styles.centered}><ActivityIndicator size="large" /></View>;
+    return <View style={styles.centered}><ActivityIndicator size="large" color={colors.primary} /></View>;
   }
 
   if (error) {
@@ -122,7 +182,7 @@ const ActiveChargingScreen = () => {
         )}
         <Button 
           mode="contained" 
-          color={theme.colors.error}
+          color={colors.error}
           onPress={() => handleAction('stop')}
           loading={actionLoading === 'stop'}
           disabled={actionLoading}
@@ -136,60 +196,7 @@ const ActiveChargingScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: theme.colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: theme.colors.error,
-  },
-  card: {
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  statsContainer: {
-    paddingVertical: 16,
-  },
-  statItem: {
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  statLabel: {
-    fontSize: 16,
-    color: theme.colors.onSurface + '80',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  divider: {
-    marginVertical: 8,
-  },
-  controlsContainer: {
-    marginTop: 'auto',
-    paddingBottom: 16,
-  },
-  controlButton: {
-    marginBottom: 12,
-    paddingVertical: 8,
-  },
-  stopButton: {
-    paddingVertical: 8,
-  },
-});
+
 
 export default ActiveChargingScreen;
 

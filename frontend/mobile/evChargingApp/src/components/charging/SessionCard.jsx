@@ -1,57 +1,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, Title, IconButton } from 'react-native-paper';
-import { theme } from '../../config/theme';
+import { Card, Text, IconButton, useTheme } from 'react-native-paper';
 
-const SessionCard = ({ session, onPress }) => {
-  if (!session) return null;
-
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString('vi-VN', options);
-  };
-
-  return (
-    <Card style={styles.card} onPress={onPress}>
-      <View style={styles.cardContent}>
-        <View style={styles.iconContainer}>
-          <IconButton
-            icon="history"
-            size={32}
-            color={theme.colors.primary}
-            style={styles.icon}
-          />
-        </View>
-        <View style={styles.detailsContainer}>
-          <Title style={styles.title}>{session.station_name}</Title>
-          <Text style={styles.date}>{formatDate(session.start_time)}</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <IconButton icon="flash" size={16} color={theme.colors.onSurface + '80'} style={styles.statIcon} />
-              <Text style={styles.statText}>{session.energy_consumed?.toFixed(2)} kWh</Text>
-            </View>
-            <View style={styles.statItem}>
-              <IconButton icon="cash" size={16} color={theme.colors.onSurface + '80'} style={styles.statIcon} />
-              <Text style={styles.statText}>{session.cost?.toLocaleString('vi-VN')} ₫</Text>
-            </View>
-          </View>
-        </View>
-        <View style={styles.chevronContainer}>
-          <IconButton
-            icon="chevron-right"
-            size={28}
-            color={theme.colors.onSurface + '40'}
-          />
-        </View>
-      </View>
-    </Card>
-  );
-};
-
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   card: {
     marginBottom: 16,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
   },
   cardContent: {
     flexDirection: 'row',
@@ -62,7 +16,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   icon: {
-    backgroundColor: theme.colors.primary + '20',
+    backgroundColor: colors.primary + '20',
   },
   detailsContainer: {
     flex: 1,
@@ -70,10 +24,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: colors.onSurface,
   },
   date: {
     fontSize: 14,
-    color: theme.colors.onSurface + '90',
+    color: colors.onSurface + '90',
     marginBottom: 8,
   },
   statsRow: {
@@ -92,11 +47,59 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 14,
     fontWeight: '500',
+    color: colors.onSurface,
   },
   chevronContainer: {
     justifyContent: 'center',
   },
 });
+
+const SessionCard = ({ session, onPress }) => {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  if (!session) return null;
+
+  const formatDate = (dateString) => {
+    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(dateString).toLocaleDateString('vi-VN', options);
+  };
+
+  return (
+    <Card style={styles.card} onPress={onPress}>
+      <View style={styles.cardContent}>
+        <View style={styles.iconContainer}>
+          <IconButton
+            icon="history"
+            size={32}
+            color={colors.primary}
+            style={styles.icon}
+          />
+        </View>
+        <View style={styles.detailsContainer}>
+          <Text style={styles.title}>{session.station_name}</Text>
+          <Text style={styles.date}>{formatDate(session.start_time)}</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <IconButton icon="flash" size={16} color={colors.onSurface + '80'} style={styles.statIcon} />
+              <Text style={styles.statText}>{session.energy_consumed?.toFixed(2)} kWh</Text>
+            </View>
+            <View style={styles.statItem}>
+              <IconButton icon="cash" size={16} color={colors.onSurface + '80'} style={styles.statIcon} />
+              <Text style={styles.statText}>{session.cost?.toLocaleString('vi-VN')} ₫</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.chevronContainer}>
+          <IconButton
+            icon="chevron-right"
+            size={28}
+            color={colors.onSurface + '40'}
+          />
+        </View>
+      </View>
+    </Card>
+  );
+};
 
 export default SessionCard;
 

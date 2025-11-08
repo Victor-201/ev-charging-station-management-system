@@ -9,8 +9,132 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: colors.primary,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.onPrimary,
+  },
+  filterButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  listContainer: {
+    padding: 20,
+  },
+  transactionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: colors.onBackground,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  stationName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.onSurface,
+    marginLeft: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    color: colors.onPrimary,
+    fontWeight: '500',
+  },
+  amountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  amount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  transactionId: {
+    fontSize: 12,
+    color: colors.onSurface + '80',
+    fontFamily: 'monospace',
+  },
+  transactionDetails: {
+    gap: 6,
+    marginBottom: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: {
+    fontSize: 14,
+    color: colors.onSurface + '80',
+  },
+  dateText: {
+    fontSize: 12,
+    color: colors.onSurface + '60',
+    textAlign: 'right',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.onSurface,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.onSurface + '80',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+});
 
 export default function PaymentHistory() {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const navigation = useNavigation();
   const [transactions, setTransactions] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -76,11 +200,11 @@ export default function PaymentHistory() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return '#4CAF50';
-      case 'pending': return '#FF9800';
-      case 'failed': return '#F44336';
-      case 'refunded': return '#2196F3';
-      default: return '#666';
+      case 'completed': return colors.success;
+      case 'pending': return colors.warning;
+      case 'failed': return colors.error;
+      case 'refunded': return colors.accent;
+      default: return colors.onSurface + '80';
     }
   };
 
@@ -140,7 +264,7 @@ export default function PaymentHistory() {
           <Icon 
             name={getPaymentMethodIcon(item.payment_method)} 
             size={20} 
-            color="#2196F3" 
+            color={colors.primary}
           />
           <Text style={styles.stationName}>{item.station_name}</Text>
         </View>
@@ -156,15 +280,15 @@ export default function PaymentHistory() {
       
       <View style={styles.transactionDetails}>
         <View style={styles.detailRow}>
-          <Icon name="flash-on" size={16} color="#666" />
+          <Icon name="flash-on" size={16} color={colors.onSurface + '80'} />
           <Text style={styles.detailText}>{item.energy_consumed} kWh</Text>
         </View>
         <View style={styles.detailRow}>
-          <Icon name="access-time" size={16} color="#666" />
+          <Icon name="access-time" size={16} color={colors.onSurface + '80'} />
           <Text style={styles.detailText}>{item.duration}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Icon name="payment" size={16} color="#666" />
+          <Icon name="payment" size={16} color={colors.onSurface + '80'} />
           <Text style={styles.detailText}>{getPaymentMethodText(item.payment_method)}</Text>
         </View>
       </View>
@@ -181,13 +305,13 @@ export default function PaymentHistory() {
           style={styles.filterButton}
           onPress={() => {/* TODO: Open filter modal */}}
         >
-          <Icon name="filter-list" size={24} color="white" />
+          <Icon name="filter-list" size={24} color={colors.onPrimary} />
         </TouchableOpacity>
       </View>
 
       {transactions.length === 0 ? (
         <View style={styles.emptyState}>
-          <Icon name="receipt" size={64} color="#ccc" />
+          <Icon name="receipt" size={64} color={colors.onSurface + '30'} />
           <Text style={styles.emptyTitle}>Chưa có giao dịch nào</Text>
           <Text style={styles.emptySubtitle}>
             Các giao dịch thanh toán sẽ hiển thị ở đây
@@ -208,123 +332,4 @@ export default function PaymentHistory() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: '#2196F3',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  filterButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    padding: 8,
-  },
-  listContainer: {
-    padding: 20,
-  },
-  transactionCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 10,
-  },
-  stationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginLeft: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    color: 'white',
-    fontWeight: '500',
-  },
-  amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  amount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2196F3',
-  },
-  transactionId: {
-    fontSize: 12,
-    color: '#666',
-    fontFamily: 'monospace',
-  },
-  transactionDetails: {
-    gap: 6,
-    marginBottom: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  dateText: {
-    fontSize: 12,
-    color: '#999',
-    textAlign: 'right',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
+

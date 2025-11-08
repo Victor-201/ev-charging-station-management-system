@@ -7,7 +7,7 @@ import { useTheme } from 'react-native-paper';
 // Import screens and stacks
 import HomeScreen from '../../screens/Home/HomeScreen';
 import MapStack from './MapStack';
-import ReservationStack from './ReservationStack';
+import HistoryStack from './HistoryStack';
 import WalletStack from './WalletStack';
 import ProfileStack from './ProfileStack';
 
@@ -26,8 +26,8 @@ export default function MainTabs() {
             iconName = 'home';
           } else if (route.name === 'Map') {
             iconName = 'map';
-          } else if (route.name === 'Reservation') {
-            iconName = 'event';
+          } else if (route.name === 'History') {
+            iconName = 'history';
           } else if (route.name === 'Wallet') {
             iconName = 'account-balance-wallet';
           } else if (route.name === 'Profile') {
@@ -57,9 +57,9 @@ export default function MainTabs() {
         options={{ title: 'Bản đồ' }}
       />
       <Tab.Screen
-        name="Reservation"
-        component={ReservationStack}
-        options={{ title: 'Đặt chỗ' }}
+        name="History"
+        component={HistoryStack}
+        options={{ title: 'Lịch sử' }}
       />
       <Tab.Screen
         name="Wallet"
