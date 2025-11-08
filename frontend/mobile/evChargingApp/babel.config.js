@@ -1,7 +1,6 @@
 module.exports = {
   presets: ['module:@react-native/babel-preset'],
   plugins: [
-    '@babel/plugin-transform-flow-strip-types',
     [
       'module-resolver',
       {
@@ -12,11 +11,14 @@ module.exports = {
         },
       },
     ],
-    ['module:react-native-dotenv', {
-      moduleName: '@env',
-      path: '.env',
-      safe: false,
-      allowUndefined: true,
-    }],
+    [
+      'module:react-native-dotenv',
+      {
+        moduleName: '@env',
+        path: '.env',
+        safe: false,
+        allowUndefined: true,
+      },
+    ],
   ],
 };

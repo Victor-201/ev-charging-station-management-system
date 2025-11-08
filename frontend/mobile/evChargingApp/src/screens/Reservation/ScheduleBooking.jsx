@@ -11,8 +11,225 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useSelector } from 'react-redux';
+import { useTheme } from 'react-native-paper';
+import reservationService from '../../services/reservationService';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.brand50, // Light background
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: colors.primary,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.onPrimary,
+  },
+  content: {
+    flex: 1,
+  },
+  stationInfo: {
+    backgroundColor: colors.surface,
+    padding: 20,
+    marginBottom: 12,
+  },
+  stationName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+    marginBottom: 4,
+  },
+  stationAddress: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+    marginBottom: 12,
+  },
+  stationMeta: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+  },
+  section: {
+    backgroundColor: colors.surface,
+    padding: 20,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.onSurface,
+    marginBottom: 16,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dateCard: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0', // Should be from theme
+    minWidth: 70,
+  },
+  selectedDateCard: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  dayName: {
+    fontSize: 12,
+    color: colors.onSurface,
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  dayNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+  },
+  selectedDateText: {
+    color: colors.onPrimary,
+  },
+  todayIndicator: {
+    marginTop: 4,
+  },
+  todayText: {
+    fontSize: 10,
+    color: colors.accent,
+    fontWeight: '500',
+  },
+  timeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  timeSlot: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0', // Should be from theme
+    minWidth: 80,
+    backgroundColor: colors.surface,
+  },
+  selectedTimeSlot: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  unavailableSlot: {
+    backgroundColor: colors.brand50,
+    borderColor: '#e0e0e0', // Should be from theme
+  },
+  timeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  durationText: {
+    fontSize: 12,
+    color: colors.onSurface,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  selectedTimeText: {
+    color: colors.onPrimary,
+  },
+  unavailableText: {
+    color: '#ccc', // Should be from theme
+  },
+  connectorContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  connectorCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    backgroundColor: colors.surface,
+  },
+  selectedConnector: {
+    backgroundColor: colors.accent,
+  },
+  connectorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.accent,
+    marginTop: 8,
+  },
+  selectedConnectorText: {
+    color: colors.onPrimary,
+  },
+  summaryCard: {
+    backgroundColor: colors.brand50,
+    borderRadius: 12,
+    padding: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.onSurface,
+  },
+  costText: {
+    color: colors.accent,
+    fontWeight: 'bold',
+  },
+  bottomContainer: {
+    padding: 20,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0', // Should be from theme
+  },
+  bookButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc', // Should be from theme
+  },
+  bookButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
 
 export default function ScheduleBooking() {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const navigation = useNavigation();
   const route = useRoute();
   const { stationId, station } = route.params;
@@ -44,21 +261,7 @@ export default function ScheduleBooking() {
 
   const [availableDates] = useState(generateDates());
 
-  // Sample time slots - sẽ được thay thế bằng API call
-  const timeSlots = [
-    { id: '1', time: '08:00', duration: 60, available: true },
-    { id: '2', time: '09:00', duration: 60, available: true },
-    { id: '3', time: '10:00', duration: 60, available: false },
-    { id: '4', time: '11:00', duration: 60, available: true },
-    { id: '5', time: '12:00', duration: 60, available: true },
-    { id: '6', time: '13:00', duration: 60, available: false },
-    { id: '7', time: '14:00', duration: 60, available: true },
-    { id: '8', time: '15:00', duration: 60, available: true },
-    { id: '9', time: '16:00', duration: 60, available: true },
-    { id: '10', time: '17:00', duration: 60, available: false },
-    { id: '11', time: '18:00', duration: 60, available: true },
-    { id: '12', time: '19:00', duration: 60, available: true },
-  ];
+
 
   useEffect(() => {
     if (selectedDate) {
@@ -67,13 +270,17 @@ export default function ScheduleBooking() {
   }, [selectedDate]);
 
   const loadAvailableSlots = async () => {
+    if (!selectedDate) return;
     try {
       setLoading(true);
-      // TODO: Call station service API to get available slots
-      setAvailableSlots(timeSlots);
+      const dateString = selectedDate.date.toISOString().split('T')[0];
+      const response = await reservationService.getAvailableSlots(stationId, dateString);
+      const slots = response?.data || response;
+      setAvailableSlots(Array.isArray(slots) ? slots : []);
     } catch (error) {
       console.error('Error loading available slots:', error);
-      Alert.alert('Lỗi', 'Không thể tải lịch trống');
+      Alert.alert('Lỗi', 'Không thể tải lịch trống cho ngày đã chọn.');
+      setAvailableSlots([]); // Clear slots on error
     } finally {
       setLoading(false);
     }
@@ -125,29 +332,30 @@ export default function ScheduleBooking() {
       `Đặt chỗ tại ${station.name}\nNgày: ${selectedDate.date.toLocaleDateString('vi-VN')}\nGiờ: ${selectedTimeSlot.time}\nLoại cổng: ${selectedConnector}\nUớc tính: ${calculateTotalCost().toLocaleString()} VND`,
       [
         { text: 'Hủy', style: 'cancel' },
-        { text: 'Xác nhận', onPress: confirmBooking }
+        { text: 'Xác nhận', onPress: () => confirmBooking(bookingData) }
       ]
     );
   };
 
-  const confirmBooking = async () => {
+  const confirmBooking = async (bookingData) => {
     try {
       setLoading(true);
-      // TODO: Call booking API
-      
+      const response = await reservationService.create(bookingData);
+
       Alert.alert(
-        'Đặt chỗ thành công',
-        'Bạn đã đặt chỗ thành công. Vui lòng đến đúng giờ để sạc xe.',
+        'Đặt chỗ thành công!',
+        `Mã đặt chỗ của bạn là: ${response.data.id}. Vui lòng kiểm tra trong mục Đặt chỗ.`,
         [
-          { 
-            text: 'OK', 
-            onPress: () => navigation.navigate('Reservation')
+          {
+            text: 'Xem đặt chỗ',
+            onPress: () => navigation.navigate('Reservation', { screen: 'ReservationList' })
           }
         ]
       );
     } catch (error) {
       console.error('Error creating booking:', error);
-      Alert.alert('Lỗi', 'Không thể đặt chỗ. Vui lòng thử lại.');
+      const errorMessage = error.response?.data?.message || 'Không thể đặt chỗ. Vui lòng thử lại.';
+      Alert.alert('Lỗi đặt chỗ', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -167,7 +375,7 @@ export default function ScheduleBooking() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="white" />
+          <Icon name="arrow-back" size={24} color={colors.onPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Đặt chỗ sạc</Text>
         <View style={{ width: 24 }} />
@@ -180,13 +388,13 @@ export default function ScheduleBooking() {
           <Text style={styles.stationAddress}>{station.address}</Text>
           <View style={styles.stationMeta}>
             <View style={styles.metaItem}>
-              <Icon name="power" size={16} color="#666" />
+              <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
               <Text style={styles.metaText}>
                 {station.available_ports}/{station.total_ports} cổng
               </Text>
             </View>
             <View style={styles.metaItem}>
-              <Icon name="attach-money" size={16} color="#666" />
+              <Icon name="attach-money" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
               <Text style={styles.metaText}>
                 {station.price_per_kwh.toLocaleString()} VND/kWh
               </Text>
@@ -286,7 +494,7 @@ export default function ScheduleBooking() {
                   <Icon 
                     name="power" 
                     size={24} 
-                    color={selectedConnector === connector ? 'white' : '#2196F3'} 
+                    color={selectedConnector === connector ? colors.onPrimary : colors.accent}
                   />
                   <Text style={[
                     styles.connectorText,
@@ -348,210 +556,4 @@ export default function ScheduleBooking() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: '#2196F3',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  content: {
-    flex: 1,
-  },
-  stationInfo: {
-    backgroundColor: 'white',
-    padding: 20,
-    marginBottom: 12,
-  },
-  stationName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  stationAddress: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-  },
-  stationMeta: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  section: {
-    backgroundColor: 'white',
-    padding: 20,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  dateCard: {
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    minWidth: 70,
-  },
-  selectedDateCard: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  dayName: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  dayNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  selectedDateText: {
-    color: 'white',
-  },
-  todayIndicator: {
-    marginTop: 4,
-  },
-  todayText: {
-    fontSize: 10,
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-  timeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  timeSlot: {
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    minWidth: 80,
-    backgroundColor: 'white',
-  },
-  selectedTimeSlot: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  unavailableSlot: {
-    backgroundColor: '#f5f5f5',
-    borderColor: '#e0e0e0',
-  },
-  timeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  durationText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  selectedTimeText: {
-    color: 'white',
-  },
-  unavailableText: {
-    color: '#ccc',
-  },
-  connectorContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  connectorCard: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#2196F3',
-    backgroundColor: 'white',
-  },
-  selectedConnector: {
-    backgroundColor: '#2196F3',
-  },
-  connectorText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2196F3',
-    marginTop: 8,
-  },
-  selectedConnectorText: {
-    color: 'white',
-  },
-  summaryCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-  },
-  costText: {
-    color: '#2196F3',
-    fontWeight: 'bold',
-  },
-  bottomContainer: {
-    padding: 20,
-    backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  bookButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  bookButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+

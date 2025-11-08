@@ -7,48 +7,155 @@ import {
   TouchableOpacity, 
   RefreshControl 
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
+import reservationService from '../../services/reservationService';
+import { Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useTheme } from 'react-native-paper';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: colors.primary,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.onPrimary,
+  },
+  addButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  listContainer: {
+    padding: 20,
+  },
+  reservationCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: colors.onBackground,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  stationName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.onSurface,
+    flex: 1,
+    marginRight: 10,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    color: colors.onPrimary,
+    fontWeight: '500',
+  },
+  address: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+    marginBottom: 12,
+  },
+  reservationDetails: {
+    gap: 6,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.onSurface,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.onSurface,
+    opacity: 0.7,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  primaryButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  primaryButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
 
 export default function ReservationList() {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const navigation = useNavigation();
+  const { user } = useSelector((state) => state.auth);
   const [reservations, setReservations] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Sample data - sẽ được thay thế bằng API call
-  const sampleReservations = [
-    {
-      id: '1',
-      station_name: 'Trạm sạc Central Park',
-      address: '123 Nguyễn Huệ, Q1, TP.HCM',
-      date: '2024-11-05',
-      time: '14:00 - 15:00',
-      status: 'confirmed',
-      port_type: 'Type 2',
-      created_at: '2024-11-04T10:30:00Z'
-    },
-    {
-      id: '2',
-      station_name: 'Trạm sạc Landmark 81',
-      address: '456 Vinhomes, Bình Thạnh, TP.HCM',
-      date: '2024-11-06',
-      time: '10:00 - 11:00',
-      status: 'pending',
-      port_type: 'CCS',
-      created_at: '2024-11-04T15:20:00Z'
-    }
-  ];
 
-  useEffect(() => {
-    loadReservations();
-  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadReservations();
+    }, [])
+  );
 
   const loadReservations = async () => {
     try {
-      // TODO: Call reservation API
-      setReservations(sampleReservations);
+      setRefreshing(true);
+      if (!user?.id) return;
+      const response = await reservationService.getUserReservations(user.id);
+      const userReservations = response?.data || response;
+      setReservations(Array.isArray(userReservations) ? userReservations : []);
     } catch (error) {
       console.error('Error loading reservations:', error);
+      Alert.alert('Lỗi', 'Không thể tải danh sách đặt chỗ.');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -60,11 +167,11 @@ export default function ReservationList() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed': return '#4CAF50';
-      case 'pending': return '#FF9800';
-      case 'cancelled': return '#F44336';
-      case 'completed': return '#2196F3';
-      default: return '#666';
+      case 'confirmed': return colors.success;
+      case 'pending': return colors.warning;
+      case 'cancelled': return colors.error;
+      case 'completed': return colors.accent;
+      default: return colors.onSurface;
     }
   };
 
@@ -94,11 +201,11 @@ export default function ReservationList() {
       
       <View style={styles.reservationDetails}>
         <View style={styles.detailRow}>
-          <Icon name="event" size={16} color="#666" />
+          <Icon name="event" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
           <Text style={styles.detailText}>{item.date} • {item.time}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Icon name="power" size={16} color="#666" />
+          <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
           <Text style={styles.detailText}>Cổng {item.port_type}</Text>
         </View>
       </View>
@@ -113,13 +220,13 @@ export default function ReservationList() {
           style={styles.addButton}
           onPress={() => navigation.navigate('Map')}
         >
-          <Icon name="add" size={24} color="white" />
+          <Icon name="add" size={24} color={colors.onPrimary} />
         </TouchableOpacity>
       </View>
 
       {reservations.length === 0 ? (
         <View style={styles.emptyState}>
-          <Icon name="event-note" size={64} color="#ccc" />
+          <Icon name="event-note" size={64} color={colors.onSurface} style={{ opacity: 0.3 }} />
           <Text style={styles.emptyTitle}>Chưa có đặt chỗ nào</Text>
           <Text style={styles.emptySubtitle}>
             Hãy tìm trạm sạc và đặt chỗ cho lần sạc tiếp theo
@@ -146,113 +253,4 @@ export default function ReservationList() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: '#2196F3',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  addButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    padding: 8,
-  },
-  listContainer: {
-    padding: 20,
-  },
-  reservationCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  stationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-    marginRight: 10,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    color: 'white',
-    fontWeight: '500',
-  },
-  address: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-  },
-  reservationDetails: {
-    gap: 6,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  primaryButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+

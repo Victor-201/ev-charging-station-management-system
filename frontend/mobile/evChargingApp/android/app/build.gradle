@@ -129,4 +129,11 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-analytics")
 }
+
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"

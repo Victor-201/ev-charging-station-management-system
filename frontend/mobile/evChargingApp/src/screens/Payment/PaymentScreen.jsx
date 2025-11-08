@@ -1,25 +1,35 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from 'react-native-paper';
 
-export default function PaymentScreen({ navigation, route }) {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Payment Screen</Text>
-      <Text>Payment for: {route.params?.type}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
+    color: colors.onSurface,
   },
+  subtitle: {
+    fontSize: 16,
+    color: colors.onSurface,
+    opacity: 0.7,
+  }
 });
+
+export default function PaymentScreen({ navigation, route }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Payment Screen</Text>
+      <Text style={styles.subtitle}>Payment for: {route.params?.type}</Text>
+    </View>
+  );
+}

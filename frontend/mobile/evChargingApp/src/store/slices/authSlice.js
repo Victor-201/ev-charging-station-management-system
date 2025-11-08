@@ -53,6 +53,21 @@ export const refreshToken = createAsyncThunk('auth/refreshToken', async (_, { ge
   }
 });
 
+export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provider, token }, { rejectWithValue }) => {
+  try {
+    const { data } = await authService.socialLogin({ provider, provider_token: token });
+    if (data?.accessToken) {
+      await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
+      if (data.refreshToken) {
+        await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
+      }
+    }
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
 const initialState = {
   user: null,
   accessToken: null,
@@ -97,7 +112,7 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
-        try { s.user = a.payload?.accessToken ? jwtDecode(a.payload.accessToken) : null; } catch { s.user = null; }
+        s.user = a.payload?.user ?? null;
       })
       .addCase(login.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Login failed'; })
 
@@ -118,7 +133,16 @@ const authSlice = createSlice({
           try { s.user = jwtDecode(a.payload.accessToken); } catch { s.user = null; }
         }
       })
-      .addCase(refreshToken.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Refresh failed'; });
+      .addCase(refreshToken.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Refresh failed'; })
+
+      .addCase(socialLogin.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(socialLogin.fulfilled, (s, a) => {
+        s.loading = false;
+        s.accessToken = a.payload?.accessToken ?? null;
+        s.refreshToken = a.payload?.refreshToken ?? null;
+        s.user = a.payload?.user ?? null;
+      })
+      .addCase(socialLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Social login failed'; });
   },
 });
 
