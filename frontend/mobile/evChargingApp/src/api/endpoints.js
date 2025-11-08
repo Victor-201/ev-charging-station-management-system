@@ -70,5 +70,6 @@ export const ENDPOINTS = {
     LIST: '/notifications/:user_id',
     MARK_READ: '/notifications/:notification_id/read',
     MARK_ALL_READ: '/notifications/:user_id/read-all',
+    FCM_REGISTER: '/notifications/fcm/register',
   },
 };
