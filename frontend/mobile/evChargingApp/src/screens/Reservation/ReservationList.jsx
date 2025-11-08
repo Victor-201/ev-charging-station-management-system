@@ -8,12 +8,14 @@ import {
   RefreshControl 
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import reservationService from '../../services/reservationService';
 import { Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 export default function ReservationList() {
   const navigation = useNavigation();
+  const { user } = useSelector((state) => state.auth);
   const [reservations, setReservations] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -28,7 +30,8 @@ export default function ReservationList() {
   const loadReservations = async () => {
     try {
       setRefreshing(true);
-      const response = await reservationService.getUserReservations();
+      if (!user?.id) return;
+      const response = await reservationService.getUserReservations(user.id);
       const userReservations = response?.data || response;
       setReservations(Array.isArray(userReservations) ? userReservations : []);
     } catch (error) {
