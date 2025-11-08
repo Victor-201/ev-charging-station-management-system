@@ -1,8 +1,10 @@
 // src/navigation/stacks/MainTabs.jsx
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
+
+// Import components
+import CustomTabBar from '../../components/layout/CustomTabBar';
 
 // Import screens and stacks
 import HomeScreen from '../../screens/Home/HomeScreen';
@@ -18,33 +20,10 @@ export default function MainTabs() {
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-
-          if (route.name === 'Home') {
-            iconName = 'home';
-          } else if (route.name === 'Map') {
-            iconName = 'map';
-          } else if (route.name === 'History') {
-            iconName = 'history';
-          } else if (route.name === 'Wallet') {
-            iconName = 'account-balance-wallet';
-          } else if (route.name === 'Profile') {
-            iconName = 'person';
-          }
-
-          return <Icon name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: 'gray',
+      tabBar={props => <CustomTabBar {...props} />}
+      screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
-        },
-      })}
+      }}
     >
       <Tab.Screen
         name="Home"
