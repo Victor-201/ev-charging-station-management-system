@@ -1,22 +1,21 @@
-import apiClient from '../api/apiClient';
-import { ENDPOINTS } from '../api/endpoints';
+import mockService from './mockService';
 
 const reservationService = {
   // Get available time slots for a station on a specific date
   getAvailableSlots: (stationId, date) =>
-    apiClient.get(`/stations/${stationId}/slots`, { params: { date } }),
+    mockService.getAvailableSlots(stationId, date),
 
   // Create a new reservation
-  create: (data) => apiClient.post('/reservations', data),
+  create: (data) => mockService.createReservation(data),
 
   // Get all reservations for the current user
-  getUserReservations: (userId) => apiClient.get(ENDPOINTS.BOOKING.LIST.replace(':user_id', userId)),
+  getUserReservations: (userId) => mockService.getUserReservations(userId),
 
   // Get a specific reservation by its ID
-  getById: (reservationId) => apiClient.get(`/reservations/${reservationId}`),
+  getById: (reservationId) => mockService.getReservationById(reservationId),
 
   // Cancel a reservation
-  cancel: (reservationId) => apiClient.post(`/reservations/${reservationId}/cancel`),
+  cancel: (reservationId) => mockService.cancelReservation(reservationId),
 };
 
 export default reservationService;

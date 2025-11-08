@@ -1,38 +1,37 @@
-import apiClient from '../api/apiClient';
-import { ENDPOINTS } from '../api/endpoints';
+import mockService from './mockService';
 
 const chargingService = {
   // Initiate a charging session from a booking
   initiate: (bookingId) =>
-    apiClient.post(ENDPOINTS.CHARGING.INITIATE, { booking_id: bookingId }),
+    mockService.mockApi({ sessionId: `session-${Date.now()}`, status: 'initiated' }),
 
   // Start a charging session
   start: (sessionId) =>
-    apiClient.post(ENDPOINTS.CHARGING.START.replace(':session_id', sessionId)),
+    mockService.mockApi({ status: 'charging' }),
 
   // Stop a charging session
   stop: (sessionId) =>
-    apiClient.post(ENDPOINTS.CHARGING.STOP.replace(':session_id', sessionId)),
+    mockService.mockApi({ status: 'completed' }),
 
   // Pause a charging session
   pause: (sessionId) =>
-    apiClient.post(ENDPOINTS.CHARGING.PAUSE.replace(':session_id', sessionId)),
+    mockService.mockApi({ status: 'paused' }),
 
   // Resume a charging session
   resume: (sessionId) =>
-    apiClient.post(ENDPOINTS.CHARGING.RESUME.replace(':session_id', sessionId)),
+    mockService.mockApi({ status: 'charging' }),
 
   // Get session details
   getSession: (sessionId) =>
-    apiClient.get(ENDPOINTS.CHARGING.SESSION.replace(':session_id', sessionId)),
+    mockService.getSession(sessionId),
 
   // Get session events
   getSessionEvents: (sessionId) =>
-    apiClient.get(ENDPOINTS.CHARGING.EVENTS.replace(':session_id', sessionId)),
+    mockService.getSessionEvents(sessionId),
 
   // Get user's charging history
   getHistory: (userId) =>
-    apiClient.get(ENDPOINTS.CHARGING.HISTORY.replace(':user_id', userId)),
+    mockService.getChargingHistory(userId),
 };
 
 export default chargingService;

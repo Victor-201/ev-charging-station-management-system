@@ -1,28 +1,27 @@
 // src/services/authService.js
-import apiClient from '../api/apiClient';
-import { ENDPOINTS } from '../api/endpoints';
+import mockService from './mockService';
 
 const authService = {
   // Authentication
-  login: (payload) => apiClient.post(ENDPOINTS.AUTH.LOGIN, payload),
-  register: (payload) => apiClient.post(ENDPOINTS.AUTH.REGISTER, payload),
-  logout: (refreshToken) => apiClient.post(ENDPOINTS.AUTH.LOGOUT, { refreshToken }),
+  login: ({ email, password }) => mockService.login(email, password),
+  register: (payload) => mockService.register(payload),
+  logout: () => mockService.logout(),
 
-  // Email verification
-  verifyEmail: (payload) => apiClient.post(ENDPOINTS.AUTH.VERIFY, payload),
-  resendVerificationCode: (payload) => apiClient.post(ENDPOINTS.AUTH.RESEND_CODE, payload),
+  // Email verification - Mocking success
+  verifyEmail: (payload) => mockService.mockApi({ message: 'Email verified successfully' }),
+  resendVerificationCode: (payload) => mockService.mockApi({ message: 'Verification code sent' }),
 
-  // Password management
-  forgotPassword: (email) => apiClient.post(ENDPOINTS.AUTH.FORGOT_PASSWORD, { email }),
-  resetPassword: (payload) => apiClient.post(ENDPOINTS.AUTH.RESET_PASSWORD, payload),
+  // Password management - Mocking success
+  forgotPassword: (email) => mockService.mockApi({ message: 'Password reset link sent' }),
+  resetPassword: (payload) => mockService.mockApi({ message: 'Password has been reset' }),
 
   // Token management
-  refreshToken: (refreshToken) => apiClient.post(ENDPOINTS.AUTH.REFRESH, { refreshToken }),
+  refreshToken: (refreshToken) => mockService.mockApi({ accessToken: 'new-mock-access-token' }),
 
-  // OAuth
-  socialLogin: (payload) => apiClient.post(ENDPOINTS.AUTH.SOCIAL, payload),
-  linkProvider: (payload) => apiClient.post(ENDPOINTS.AUTH.LINK_PROVIDER, payload),
-  unlinkProvider: (payload) => apiClient.post(ENDPOINTS.AUTH.UNLINK_PROVIDER, payload),
+  // OAuth - Mocking success
+  socialLogin: (payload) => mockService.login('test@example.com', 'password'), // Reuse mock login for simplicity
+  linkProvider: (payload) => mockService.mockApi({ message: 'Provider linked' }),
+  unlinkProvider: (payload) => mockService.mockApi({ message: 'Provider unlinked' }),
 };
 
 export default authService;
