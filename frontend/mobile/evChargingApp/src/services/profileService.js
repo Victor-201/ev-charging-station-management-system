@@ -1,32 +1,26 @@
-import apiClient from '../api/apiClient';
-import { ENDPOINTS } from '../api/endpoints';
+import mockService from './mockService';
 
 const profileService = {
-  getMe: () => apiClient.get(ENDPOINTS.USER.ME),
+  getMe: () => mockService.getMe(),
 
-  getProfile: (userId) => {
-    const url = ENDPOINTS.USER.PROFILE.replace(':user_id', userId);
-    return apiClient.get(url);
-  },
+  getProfile: (userId) => mockService.getMe(), // Reuse getMe for simplicity
 
   updateProfile: (userId, profileData) => {
-    const url = ENDPOINTS.USER.UPDATE_PROFILE.replace(':user_id', userId);
-    return apiClient.put(url, profileData);
+    // In a real app, you'd update the user and return it.
+    // Here, we'll just return the updated data.
+    return mockService.mockApi({ user: { ...mockService.getMe().data, ...profileData } });
   },
 
   changePassword: (userId, passwordData) => {
-    const url = ENDPOINTS.USER.CHANGE_PASSWORD.replace(':user_id', userId);
-    return apiClient.put(url, passwordData);
+    return mockService.mockApi({ message: 'Password changed successfully' });
   },
 
   exportData: (userId) => {
-    const url = ENDPOINTS.USER.EXPORT_DATA.replace(':user_id', userId);
-    return apiClient.get(url);
+    return mockService.mockApi({ message: 'Data export started' });
   },
 
   deleteAccount: (userId) => {
-    const url = ENDPOINTS.USER.DELETE_ACCOUNT.replace(':user_id', userId);
-    return apiClient.delete(url);
+    return mockService.mockApi({ message: 'Account deleted successfully' });
   },
 };
 

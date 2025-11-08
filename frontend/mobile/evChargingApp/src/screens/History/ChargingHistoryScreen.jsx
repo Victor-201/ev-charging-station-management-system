@@ -1,5 +1,6 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, ActivityIndicator, Button } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -68,7 +69,7 @@ const ChargingHistoryScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {sessions.length === 0 ? (
         <View style={styles.centered}>
           <Text style={styles.emptyText}>Bạn chưa có lịch sử sạc nào.</Text>
@@ -83,7 +84,7 @@ const ChargingHistoryScreen = ({ navigation }) => {
           refreshing={loading}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 

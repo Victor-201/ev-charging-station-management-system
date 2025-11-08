@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, Card, ActivityIndicator, useTheme } from 'react-native-paper';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -58,8 +59,9 @@ const WalletScreen = () => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+      
       refreshControl={<RefreshControl refreshing={loading} onRefresh={loadWalletData} colors={[colors.primary]} tintColor={colors.primary} />}
     >
       {/* Balance Card */}
@@ -102,7 +104,8 @@ const WalletScreen = () => {
           Xem tất cả
         </Button>
       </View>
-    </ScrollView>
+          </ScrollView>
+    </SafeAreaView>
   );
 
 };

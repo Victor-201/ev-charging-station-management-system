@@ -1,5 +1,6 @@
-import React from 'react';
+
 import { ScrollView, View, Text, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
@@ -59,7 +60,8 @@ export default function HomeScreen() {
   ];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView>
       <Header user={user} onLogout={handleLogout} />
 
       {/* Thao tác nhanh */}
@@ -78,7 +80,8 @@ export default function HomeScreen() {
           <StatCard number={`${stats.totalEnergy} kWh`} label="Năng lượng" />
         </View>
       </View>
-    </ScrollView>
+          </ScrollView>
+    </SafeAreaView>
   );
 }
 

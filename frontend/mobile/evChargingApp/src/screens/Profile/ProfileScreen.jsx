@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, List, Divider, Button, ActivityIndicator, Text } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -114,7 +115,8 @@ export default function ProfileScreen({ navigation }) {
   const user = profile || authUser;
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView>
       {/* Profile Header */}
       <View style={styles.headerContainer}>
         <Avatar.Image
@@ -182,7 +184,8 @@ export default function ProfileScreen({ navigation }) {
           Đăng xuất
         </Button>
       </View>
-    </ScrollView>
+          </ScrollView>
+    </SafeAreaView>
   );
 }
 
