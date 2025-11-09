@@ -1,32 +1,52 @@
 import { useState, useEffect } from "react";
-import { ThemeContext } from "@/contexts/ThemeContext";
+import jwtDecode from "jwt-decode";
+import { AuthContext } from "@/contexts/AuthContext";
 
-export const ThemeProvider = ({ children }) => {
-  const getInitialTheme = () => {
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved;
+export const AuthProvider = ({ children }) => {
+  const [auth, setAuth] = useState({ token: null, role: null, email: null });
+  const [isLoading, setIsLoading] = useState(true);
 
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+  const isTokenExpired = (token) => {
+    try {
+      const decoded = jwtDecode(token);
+      return decoded.exp * 1000 < Date.now();
+    } catch {
+      return true;
+    }
   };
 
-  const [theme, setTheme] = useState(getInitialTheme);
-
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    const token = localStorage.getItem("token");
+    if (token && !isTokenExpired(token)) {
+      const decoded = jwtDecode(token);
+      setAuth({
+        token,
+        email: decoded.email,
+        role: decoded.role,
+      });
+    }
+    setIsLoading(false);
+  }, []);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  const login = (token) => {
+    if (!token) return;
+    const decoded = jwtDecode(token);
+    localStorage.setItem("token", token);
+    setAuth({
+      token,
+      email: decoded.email,
+      role: decoded.role,
+    });
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setAuth({ token: null, role: null, email: null });
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <AuthContext.Provider value={{ auth, login, logout, isLoading }}>
       {children}
-    </ThemeContext.Provider>
+    </AuthContext.Provider>
   );
 };

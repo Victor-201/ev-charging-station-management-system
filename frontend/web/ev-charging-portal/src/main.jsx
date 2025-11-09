@@ -7,6 +7,7 @@ import "@/index.css";
 
 import { AuthProvider } from "@/providers/AuthProvider.fake.jsx";
 import { ThemeProvider } from "@/providers/ThemeProvider";
+import { StationProvider } from "@/providers/StationProvider";
 
 console.log("🚀 Rendering App...");
 
@@ -15,11 +16,13 @@ const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-        <ThemeProvider>
-          <AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <StationProvider>
             <App />
-          </AuthProvider>
-        </ThemeProvider>
+          </StationProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

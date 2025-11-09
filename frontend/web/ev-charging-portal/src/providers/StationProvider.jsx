@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { StationContext } from "@/context/StationContext";
+import { StationContext } from "@/contexts/StationContext";
 import stationService from "@/services/stationService"; // or "@/api/stationService"
 
 export const StationProvider = ({ children }) => {
