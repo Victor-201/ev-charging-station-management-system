@@ -56,8 +56,8 @@ export const ENDPOINTS = {
     TELEMETRY: '/charging/:session_id/telemetry',
   },
   WALLET: {
-    BALANCE: '/payments/wallet/:user_id',
-    TOPUP: '/payments/wallet/topup',
+    BALANCE: '/payment/wallet/:user_id',
+    TOPUP: '/payment/wallet/topup',
     TRANSACTIONS: '/wallets/:user_id/transactions',
     WITHDRAW: '/wallets/:user_id/withdraw',
   },

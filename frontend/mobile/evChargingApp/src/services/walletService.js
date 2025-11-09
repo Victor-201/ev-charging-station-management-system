@@ -1,11 +1,28 @@
 // src/services/walletService.js
-import mockService from './mockService';
+import paymentService from './paymentService';
 
 const walletService = {
-  getWallet: (userId) => mockService.getWallet(userId),
-  getTransactions: (params) => mockService.getWalletTransactions(params.userId, { limit: params.limit }),
-  topup: (payload) => mockService.topupWallet(payload),
-  withdraw: (payload) => mockService.withdrawFromWallet(payload),
+  // Call real backend via paymentService which uses apiClient and API_BASE_URL
+  getWallet: async (userId) => {
+    const response = await paymentService.getWallet(userId);
+    // paymentService returns axios response; return response.data for callers
+    return response.data;
+  },
+
+  getTransactions: async (userId, params) => {
+    const response = await paymentService.getTransactions(userId, params);
+    return response.data;
+  },
+
+  topup: async (payload) => {
+    const response = await paymentService.topup(payload);
+    return response.data;
+  },
+
+  withdraw: async (payload) => {
+    const response = await paymentService.withdraw(payload);
+    return response.data;
+  },
 };
 
 export default walletService;

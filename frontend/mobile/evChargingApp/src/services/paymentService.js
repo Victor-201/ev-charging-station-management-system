@@ -4,16 +4,16 @@ import { ENDPOINTS } from '../api/endpoints';
 const paymentService = {
   // Wallet Management
   getWallet: (userId) =>
-    apiClient.get(ENDPOINTS.PAYMENT.WALLET.replace(':user_id', userId)),
+    apiClient.get(ENDPOINTS.WALLET.BALANCE.replace(':user_id', userId)),
 
   getTransactions: (userId, params) =>
-    apiClient.get(ENDPOINTS.PAYMENT.TRANSACTIONS.replace(':user_id', userId), { params }),
+    apiClient.get(ENDPOINTS.WALLET.TRANSACTIONS.replace(':user_id', userId), { params }),
 
   topup: (payload) =>
-    apiClient.post(ENDPOINTS.PAYMENT.TOPUP, payload),
+    apiClient.post(ENDPOINTS.WALLET.TOPUP, payload),
 
   withdraw: (payload) =>
-    apiClient.post(ENDPOINTS.PAYMENT.WITHDRAW, payload),
+    apiClient.post(ENDPOINTS.WALLET.WITHDRAW.replace(':user_id', payload.user_id || payload.userId || ''), payload),
 
   // Payment Processing
   createPayment: (payload) =>

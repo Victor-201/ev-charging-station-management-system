@@ -49,7 +49,14 @@ const initialState = {
 const walletSlice = createSlice({
   name: 'wallet',
   initialState,
-  reducers: {},
+  reducers: {
+    // simple setter used by mock/front-end hooks
+    fetchWalletSuccess: (state, action) => {
+      state.wallet = action.payload;
+      state.loading = false;
+      state.error = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       // Get Wallet
@@ -112,6 +119,8 @@ const walletSlice = createSlice({
       });
   },
 });
+
+export const { fetchWalletSuccess } = walletSlice.actions;
 
 export default walletSlice.reducer;
 
