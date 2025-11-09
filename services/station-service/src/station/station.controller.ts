@@ -3,7 +3,7 @@ import { StationService } from './station.service';
 
 import type { Request } from 'express';
 
-import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto } from 'src/dto/station.dto';
+import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto, GetListOfStation } from 'src/dto/station.dto';
 
 import { JwtAuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
@@ -13,10 +13,15 @@ import { RolesGuard } from 'src/auth/roles.guard';
 @Controller('stations')
 export class StationController {
     constructor(private stationService: StationService) {}
-
-    @Get()
+    
+    @Get('/search')
     async searchStations(@Query() query: SearchStationDto) {
         return this.stationService.searchStations(query);
+    }
+    
+    @Get()
+    async getListOfStation(): Promise<GetListOfStation[]> {
+        return this.stationService.getListOfStation();
     }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
@@ -75,4 +80,5 @@ export class StationController {
     async getPricingByStation(@Param('id') id: string) : Promise<StationPricingDto> {
         return this.stationService.getPricingByStation(id);
     }
+
 }

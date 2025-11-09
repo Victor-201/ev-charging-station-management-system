@@ -6,6 +6,8 @@ import { AppService } from './app.service';
 
 import { StationModule } from './station/station.module';
 import { ChargerModule } from './charger/charger.module';
+// import { RmqConfigModule } from './rmq-config/rmq-config.module';
+// import { RmqClientModule } from './rmq-client/rmq-client.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { ChargerModule } from './charger/charger.module';
 
     StationModule,
     ChargerModule,
+    // RmqConfigModule,
+    // RmqClientModule,
   ],
   // controllers: [AppController],
   // providers: [AppService],

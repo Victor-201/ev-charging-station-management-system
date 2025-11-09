@@ -4,7 +4,8 @@ import { PrismaService } from 'src/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { Prisma } from '@prisma/client';
 
-import { SearchStationDto, CreateStationDto, UpdateStationDto, ConnectorDto, ReportIssueDto, ScheduleMaintenanceDto, PricingItemDto } from 'src/dto/station.dto';
+import { SearchStationDto, CreateStationDto, UpdateStationDto, ConnectorDto, ReportIssueDto, ScheduleMaintenanceDto, PricingItemDto, GetListOfStation } from 'src/dto/station.dto';
+import { stat } from 'fs';
 
 @Injectable()
 export class StationService {
@@ -158,7 +159,7 @@ export class StationService {
     }
 
     reportIssue = async (data: ReportIssueDto, reported_by: string, station_id: string): Promise<any> => {
-        
+
         const report = await this.prisma.station_incidents.create({
             data: {
                 station_id: station_id,
@@ -234,6 +235,25 @@ export class StationService {
 
         return { pricing }
     }
+
+    getListOfStation = async (): Promise<GetListOfStation[]> => {
+        const stations = await this.prisma.stations.findMany();
+
+        if (!stations || stations.length === 0) {
+            throw new NotFoundException('Station not found');
+        }
+
+        return stations.map((station) => ({
+            id: station.id,
+            name: station.name,
+            address: station.address,
+            city: station.city,
+            region: station.region,
+            lat: station.latitude?.toNumber(),
+            lng: station.longitude?.toNumber(),
+            status: station.status,
+        }));
+    };
 }
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
