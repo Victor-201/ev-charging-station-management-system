@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { StationContext } from "@/context/StationContext";
+import { StationContext } from "@/contexts/StationContext";
 
 export const useStation = () => {
   const ctx = useContext(StationContext);

@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_GATEWAY_URL, // http://localhost:8000
+  baseURL: import.meta.env.VITE_GATEWAY_URL|| "http://localhost:8000",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
