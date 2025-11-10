@@ -1,6 +1,6 @@
 // contexts/PaymentProvider.jsx
 import React, { useState, useCallback, useMemo } from "react";
-import { PaymentContext } from "@/context/PaymentContext";
+import { PaymentContext } from "@/contexts/PaymentContext";
 import paymentService from "@/services/paymentService"; // hoặc "@/api/paymentService"
 
 export const PaymentProvider = ({ children }) => {
