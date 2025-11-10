@@ -42,10 +42,22 @@ export class AuthController {
   oauthLogin = asyncHandler(async (req: Request, res: Response) => {
     const { provider, provider_token } = req.body;
     const deviceInfo = req.headers['user-agent'] || 'oauth';
-    
+
     const result = await authService.oauthLogin(provider, provider_token, deviceInfo);
-    
+
     res.status(200).json(result);
+  });
+
+  // Get current user info from JWT token
+  getMe = asyncHandler(async (req: Request, res: Response) => {
+    // User info is already in req.user from authenticate middleware
+    const { user_id, email, role } = req.user!;
+
+    res.status(200).json({
+      user_id,
+      email,
+      role,
+    });
   });
 
   // Refresh Token
