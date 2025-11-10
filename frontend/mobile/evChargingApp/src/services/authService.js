@@ -20,6 +20,7 @@ const authService = {
       return response.data;
     } catch (error) {
       // Even if API call fails, we still want to logout locally
+      console.warn('Logout API call failed, logging out locally:', error.message);
       return { message: 'Logged out locally' };
     }
   },

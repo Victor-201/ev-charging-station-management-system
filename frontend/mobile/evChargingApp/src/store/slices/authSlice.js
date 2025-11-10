@@ -2,12 +2,12 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '../../services/authService';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import { STORAGE_KEYS } from '../../config/constants';
 
 export const login = createAsyncThunk('auth/login', async ({ email, password, remember }, { rejectWithValue }) => {
   try {
-    const { data } = await authService.login({ email, password });
+    const data = await authService.login({ email, password });
     if (data?.accessToken) {
       await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
       if (data.refreshToken) await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
@@ -21,7 +21,7 @@ export const login = createAsyncThunk('auth/login', async ({ email, password, re
 
 export const register = createAsyncThunk('auth/register', async (payload, { rejectWithValue }) => {
   try {
-    const { data } = await authService.register(payload);
+    const data = await authService.register(payload);
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
@@ -30,7 +30,7 @@ export const register = createAsyncThunk('auth/register', async (payload, { reje
 
 export const forgotPassword = createAsyncThunk('auth/forgotPassword', async (email, { rejectWithValue }) => {
   try {
-    const { data } = await authService.forgotPassword(email);
+    const data = await authService.forgotPassword(email);
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
@@ -42,7 +42,7 @@ export const refreshToken = createAsyncThunk('auth/refreshToken', async (_, { ge
     const state = getState();
     const refresh = state.auth?.refreshToken || (await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN));
     if (!refresh) throw new Error('No refresh token');
-    const { data } = await authService.refreshToken(refresh);
+    const data = await authService.refreshToken(refresh);
     if (data?.accessToken) {
       await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
       if (data.refreshToken) await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
@@ -55,7 +55,7 @@ export const refreshToken = createAsyncThunk('auth/refreshToken', async (_, { ge
 
 export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provider, token }, { rejectWithValue }) => {
   try {
-    const { data } = await authService.socialLogin({ provider, provider_token: token });
+    const data = await authService.socialLogin({ provider, provider_token: token });
     if (data?.accessToken) {
       await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
       if (data.refreshToken) {
@@ -112,7 +112,17 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
-        s.user = a.payload?.user ?? null;
+        // Decode JWT to get user info
+        if (a.payload?.accessToken) {
+          try {
+            s.user = jwtDecode(a.payload.accessToken);
+          } catch (err) {
+            console.error('Failed to decode JWT:', err);
+            s.user = null;
+          }
+        } else {
+          s.user = null;
+        }
       })
       .addCase(login.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Login failed'; })
 
@@ -140,7 +150,17 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
-        s.user = a.payload?.user ?? null;
+        // Decode JWT to get user info
+        if (a.payload?.accessToken) {
+          try {
+            s.user = jwtDecode(a.payload.accessToken);
+          } catch (err) {
+            console.error('Failed to decode JWT:', err);
+            s.user = null;
+          }
+        } else {
+          s.user = null;
+        }
       })
       .addCase(socialLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Social login failed'; });
   },
