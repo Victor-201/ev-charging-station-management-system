@@ -1,5 +1,6 @@
 import { IsOptional, IsNumberString, IsString, IsNumber, ValidateNested, IsISO8601, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { $Enums } from '@prisma/client';
 
 enum StationStatus {
     active = 'active',
@@ -151,5 +152,5 @@ export class GetListOfStation {
   region: string | null;
   lat: number | undefined;
   lng: number | undefined;
-  status: StationStatus;
+  status: $Enums.stationStatus;
 }
