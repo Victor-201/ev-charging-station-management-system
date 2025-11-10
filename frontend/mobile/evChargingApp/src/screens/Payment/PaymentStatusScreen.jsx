@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, Card, useTheme } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -52,7 +53,7 @@ const PaymentStatusScreen = () => {
   const { success, transactionId, error } = route.params;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Card style={styles.card}>
         <Card.Content style={styles.cardContent}>
           <Icon
@@ -90,7 +91,7 @@ const PaymentStatusScreen = () => {
           )}
         </Card.Content>
       </Card>
-    </View>
+    </SafeAreaView>
   );
 };
 

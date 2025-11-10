@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, Card, ActivityIndicator, useTheme } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -51,7 +52,7 @@ const PaymentConfirmScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Xác nhận thanh toán</Text>
 
       <Card style={styles.card}>
@@ -82,7 +83,7 @@ const PaymentConfirmScreen = () => {
       >
         {loading ? 'Đang xử lý...' : 'Thanh toán ngay'}
       </Button>
-    </View>
+    </SafeAreaView>
   );
 };
 

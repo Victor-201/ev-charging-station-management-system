@@ -1,17 +1,24 @@
 import React from 'react';
 import { View, StyleSheet, Image, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../config/theme';
 
 export default function AuthWrapper({ children }) {
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Image source={require('../../../assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
-      <View style={styles.form}>{children}</View>
-    </ScrollView>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Image source={require('../../../assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
+        <View style={styles.form}>{children}</View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flexGrow: 1,
     backgroundColor: theme.colors.background,

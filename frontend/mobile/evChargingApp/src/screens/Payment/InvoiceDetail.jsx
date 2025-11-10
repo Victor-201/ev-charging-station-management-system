@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, useTheme, Divider, Button } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -65,7 +66,8 @@ export default function InvoiceDetail({ navigation, route }) {
   const subtotal = invoice.amount - invoice.tax;
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Tổng thanh toán</Text>
         <Text style={styles.headerAmount}>{invoice.amount.toLocaleString('vi-VN')} {invoice.currency}</Text>
@@ -103,5 +105,6 @@ export default function InvoiceDetail({ navigation, route }) {
         <Button style={{ marginTop: 12 }} onPress={() => navigation.goBack()}>Quay lại</Button>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
