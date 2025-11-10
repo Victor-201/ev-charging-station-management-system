@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS reservations (
   end_time DATETIME(3),
   status ENUM('pending', 'confirmed', 'cancelled', 'completed', 'expired') DEFAULT 'pending',
   expires_at DATETIME(3),
+  payment_id VARCHAR(100) ,
+  payment_method ENUM('wallet','bank_transfer') DEFAULT 'wallet',
   created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
@@ -48,12 +50,13 @@ CREATE TABLE IF NOT EXISTS waitlist (
 CREATE TABLE IF NOT EXISTS sessions (
   session_id VARCHAR(50) PRIMARY KEY,
   user_id VARCHAR(50) NOT NULL,
+  station_id VARCHAR(50) NOT NULL,  
   point_id VARCHAR(50) NOT NULL,
   vehicle_id VARCHAR(50) NOT NULL,      -- từ user_service
   reservation_id VARCHAR(50) DEFAULT NULL,
   start_meter_wh INT DEFAULT NULL,
   end_meter_wh INT DEFAULT NULL,
-  status ENUM('initiated', 'charging', 'paused', 'finished', 'failed', 'cancelled') DEFAULT 'initiated',
+  status ENUM('initiated','charging','paused','failed','cancelled','pending','confirmed') DEFAULT 'initiated',
   started_at DATETIME(3) DEFAULT NULL,
   ended_at DATETIME(3) DEFAULT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
