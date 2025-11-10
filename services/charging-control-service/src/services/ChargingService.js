@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const dayjs = require('dayjs');
 const { publish } = require('../rabbit');
-
+const pool = require('../config/db');
 const SessionRepo = require('../repositories/SessionRepository');
 const TelemetryRepo = require('../repositories/TelemetryRepository'); // giả sử tồn tại
 
@@ -67,6 +67,139 @@ async startSession({ session_id, start_meter_wh = null }) {
   return { session_id: updated.session_id || session_id, status: updated.status || 'charging', started_at };
 }
 
+async reconcileSessionWithReservation(session_id, { autoSettle = false, threshold = 1000, operator = null } = {}) {
+  if (!session_id) throw new Error('session_id is required');
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // lock session
+    const [sessRows] = await conn.query('SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE', [session_id]);
+    if (!sessRows || !sessRows.length) throw new Error('Session not found');
+    const s = sessRows[0];
+
+    if (!s.reservation_id) throw new Error('Session has no reservation linked');
+
+    // lock reservation
+    const [resRows] = await conn.query('SELECT * FROM reservations WHERE reservation_id = ? LIMIT 1 FOR UPDATE', [s.reservation_id]);
+    if (!resRows || !resRows.length) throw new Error('Reservation not found');
+    const reservation = resRows[0];
+
+    // ensure reservation.total_cost exists; if not compute (same logic)
+    let reservedTotal = Number(reservation.total_cost || 0);
+    if (!reservedTotal || reservedTotal === 0) {
+      if (!reservation.start_time) {
+        reservedTotal = 0;
+      } else {
+        const end = reservation.end_time ? dayjs.utc(reservation.end_time) : dayjs.utc();
+        const start = dayjs.utc(reservation.start_time);
+        const diffMs = end.diff(start);
+        const minutes = diffMs <= 0 ? 0 : Math.ceil(diffMs / 60000);
+        const pricePerMin = Number(reservation.price_per_min || 1000);
+        reservedTotal = minutes * pricePerMin;
+        // update reservation
+        await conn.query('UPDATE reservations SET reserved_minutes = ?, total_cost = ?, updated_at = ? WHERE reservation_id = ?',
+          [minutes, reservedTotal, dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'), reservation.reservation_id]);
+      }
+    }
+
+    const actual = Number(s.cost != null ? s.cost : 0);
+    const reserved = Number(reservedTotal || 0);
+    const diff = actual - reserved; // positive => user owes; negative => refund due
+
+    const now = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+
+    // load metadata
+    let meta = {};
+    try { meta = s.metadata ? (typeof s.metadata === 'object' ? s.metadata : JSON.parse(s.metadata)) : {}; } catch(e) { meta = {}; }
+
+    const result = { session_id, reservation_id: reservation.reservation_id, reserved, actual, diff };
+
+    if (Math.abs(diff) <= Number(threshold || 0)) {
+      // within threshold -> finalize without action
+      await conn.query('UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
+        [actual, 'completed', now, reservation.reservation_id]);
+
+      meta.reconciliation = { action: 'settled', note: `diff ${diff} within threshold ${threshold}`, at: now, operator };
+      await conn.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [JSON.stringify(meta), now, session_id]);
+
+      await conn.commit();
+      result.action = 'settled';
+      return result;
+    }
+
+    if (diff < -threshold) {
+      // refund to user (actual < reserved)
+      const refundAmount = Math.round(-diff);
+      await conn.query('UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
+        [actual, 'completed', now, reservation.reservation_id]);
+
+      meta.reconciliation = meta.reconciliation || {};
+      meta.reconciliation.action = 'refund';
+      meta.reconciliation.refund = {
+        amount: refundAmount,
+        currency: 'VND',
+        issued: !!autoSettle,
+        issued_at: autoSettle ? now : null,
+        operator,
+        note: `actual ${actual} < reserved ${reserved}`
+      };
+
+      // mark session payment_status in metadata (since no dedicated column)
+      meta.payment = meta.payment || {};
+      meta.payment.refund = { amount: refundAmount, method: reservation.payment_method || 'bank_transfer', at: autoSettle ? now : null };
+
+      await conn.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [JSON.stringify(meta), now, session_id]);
+
+      await conn.commit();
+      result.action = 'refund';
+      result.refundAmount = refundAmount;
+      result.autoSettled = !!autoSettle;
+      return result;
+    }
+
+    if (diff > threshold) {
+      // user owes money
+      const dueAmount = Math.round(diff);
+      await conn.query('UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
+        [actual, 'completed', now, reservation.reservation_id]);
+
+      meta.reconciliation = meta.reconciliation || {};
+      meta.reconciliation.action = 'charge_due';
+      meta.reconciliation.due = {
+        amount: dueAmount,
+        currency: 'VND',
+        charged: !!autoSettle,
+        charged_at: autoSettle ? now : null,
+        operator,
+        note: `actual ${actual} > reserved ${reserved}`
+      };
+
+      meta.payment = meta.payment || {};
+      meta.payment.charge = { amount: dueAmount, method: reservation.payment_method || 'bank_transfer', at: autoSettle ? now : null };
+
+      await conn.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [JSON.stringify(meta), now, session_id]);
+
+      await conn.commit();
+      result.action = 'charge_due';
+      result.dueAmount = dueAmount;
+      result.autoSettled = !!autoSettle;
+      return result;
+    }
+
+    // fallback
+    await conn.commit();
+    result.action = 'no_action';
+    return result;
+
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
   /**
    * /api/v1/sessions/{session_id}/meter  (push meter)
    * body: { timestamp, meter_wh, power_kw, soc }

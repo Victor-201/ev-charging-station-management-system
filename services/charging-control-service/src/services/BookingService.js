@@ -4,6 +4,7 @@ const WaitlistRepo = require('../repositories/WaitlistRepository');
 const QrRepo = require('../repositories/QrCodeRepository');
 const { publish } = require('../rabbit'); // RabbitMQ publisher (nếu có)
 const dayjs = require('dayjs');
+const pool = require('../config/db');
 const utc = require('dayjs/plugin/utc');
 dayjs.extend(utc);
 
@@ -535,30 +536,69 @@ class BookingService {
     return { minutes, total, price_per_min: pricePerMin };
   }
 
-  async calculateReservationCost(reservation_id, { roundUp = true, payment_method = 'wallet' } = {}) {
-  const reservation = await ReservationRepo.findById(reservation_id);
-  if (!reservation) throw new Error('Reservation not found');
-  if (!reservation.start_time) throw new Error('Reservation has no start_time');
+  async calculateReservationCost(reservation_id, { roundUp = true, payment_method = null } = {}) {
+  if (!reservation_id) throw new Error('reservation_id is required');
 
-  const end = reservation.end_time ? dayjs.utc(reservation.end_time) : dayjs.utc();
-  const start = dayjs.utc(reservation.start_time);
-  const diffMs = end.diff(start);
-  const minutes = diffMs <= 0 ? 0 : (roundUp ? Math.ceil(diffMs / 60000) : Math.floor(diffMs / 60000));
-  const pricePerMin = reservation.price_per_min;
-  const total = minutes * pricePerMin;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
 
-  // ✅ Cập nhật luôn phương thức thanh toán nếu hợp lệ
-  reservation.total_cost = total;
-  reservation.reserved_minutes = minutes;
-  if (['wallet','bank_transfer'].includes(payment_method)) {
-    reservation.payment_method = payment_method;
+    // lock reservation
+    const [resRows] = await conn.query('SELECT * FROM reservations WHERE reservation_id = ? LIMIT 1 FOR UPDATE', [reservation_id]);
+    if (!resRows || !resRows.length) throw new Error('Reservation not found');
+    const reservation = resRows[0];
+
+    if (!reservation.start_time) throw new Error('Reservation has no start_time');
+
+    // compute minutes & total (UTC)
+    const end = reservation.end_time ? dayjs.utc(reservation.end_time) : dayjs.utc();
+    const start = dayjs.utc(reservation.start_time);
+    const diffMs = end.diff(start);
+    const minutes = diffMs <= 0 ? 0 : (roundUp ? Math.ceil(diffMs / 60000) : Math.floor(diffMs / 60000));
+    const pricePerMin = Number(reservation.price_per_min || 1000);
+    const total = minutes * pricePerMin;
+
+    // update reservation reserved_minutes & total_cost & maybe payment_method
+    const now = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+    const newPaymentMethod = (payment_method && ['wallet','bank_transfer'].includes(payment_method)) ? payment_method : reservation.payment_method;
+
+    await conn.query(
+      `UPDATE reservations SET reserved_minutes = ?, total_cost = ?, payment_method = ?, updated_at = ? WHERE reservation_id = ?`,
+      [minutes, total, newPaymentMethod, now, reservation_id]
+    );
+
+    // If there's a session linked, update its metadata with reservation snapshot (merge)
+    const [sessRows] = await conn.query('SELECT * FROM sessions WHERE reservation_id = ? LIMIT 1 FOR UPDATE', [reservation_id]);
+    if (sessRows && sessRows.length) {
+      const s = sessRows[0];
+      let meta = {};
+      try { meta = s.metadata ? (typeof s.metadata === 'object' ? s.metadata : JSON.parse(s.metadata)) : {}; } catch(e) { meta = {}; }
+
+      meta.reservation_snapshot = {
+        reservation_id,
+        reserved_minutes: minutes,
+        reserved_total: total,
+        price_per_min: pricePerMin,
+        computed_at: now,
+        payment_method: newPaymentMethod
+      };
+
+      await conn.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [
+        JSON.stringify(meta),
+        now,
+        s.session_id
+      ]);
+    }
+
+    await conn.commit();
+    return { reservation_id, minutes, total, payment_method: newPaymentMethod };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
   }
-
-  await ReservationRepo.update(reservation);
-
-  return { reservation_id, minutes, total, payment_method: reservation.payment_method };
-}
-
+  }
 
 
 
