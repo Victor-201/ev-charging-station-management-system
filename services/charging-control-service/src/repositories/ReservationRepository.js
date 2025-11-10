@@ -17,42 +17,49 @@ class ReservationRepository {
    * Create a new reservation
    */
   async create(data) {
-    const reservation = new Reservation({
-      reservation_id: data.reservation_id || uuidv4(),
-      status: data.status || 'confirmed',
-      price_per_min: data.price_per_min || 1000,
-      reserved_minutes: data.reserved_minutes || null,
-      total_cost: data.total_cost || 0,
-      ...data,
-    });
+  const reservation = new Reservation({
+  reservation_id: data.reservation_id || uuidv4(),
+  status: data.status || 'confirmed',
+  price_per_min: data.price_per_min || 1000,
+  reserved_minutes: data.reserved_minutes || null,
+  total_cost: data.total_cost || 0,
+  payment_id: data.payment_id || null,
+  payment_method: data.payment_method , // 👈 thêm dòng này
+  ...data,
+});
 
-    const sql = `
-      INSERT INTO reservations (
-        reservation_id, user_id, station_id, point_id, connector_type,
-        start_time, end_time, status, expires_at,
-        price_per_min, reserved_minutes, total_cost,
-        created_at, updated_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-    `;
+const sql = `
+INSERT INTO reservations (
+  reservation_id, user_id, station_id, point_id, connector_type,
+  start_time, end_time, status, payment_id, payment_method, expires_at,
+  price_per_min, reserved_minutes, total_cost, final_cost,
+  created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+`;
 
-    await pool.query(sql, [
-      reservation.reservation_id,
-      reservation.user_id,
-      reservation.station_id,
-      reservation.point_id,
-      reservation.connector_type,
-      this.toSqlDatetimeIsoZ(reservation.start_time),
-      this.toSqlDatetimeIsoZ(reservation.end_time),
-      reservation.status,
-      this.toSqlDatetimeIsoZ(reservation.expires_at),
-      reservation.price_per_min,
-      reservation.reserved_minutes,
-      reservation.total_cost,
-    ]);
+await pool.query(sql, [
+  reservation.reservation_id,
+  reservation.user_id,
+  reservation.station_id,
+  reservation.point_id,
+  reservation.connector_type,
+  this.toSqlDatetimeIsoZ(reservation.start_time),
+  this.toSqlDatetimeIsoZ(reservation.end_time),
+  reservation.status,
+  reservation.payment_id,
+   reservation.payment_method, 
+  this.toSqlDatetimeIsoZ(reservation.expires_at),
+  reservation.price_per_min,
+  reservation.reserved_minutes,
+  reservation.total_cost,
+  reservation.final_cost || null,
+]);
 
-    return reservation;
-  }
+
+  return reservation;
+}
+
 
   /**
    * Find reservation by ID
@@ -77,34 +84,50 @@ class ReservationRepository {
    * Update reservation info
    */
   async update(reservation) {
-    const sql = `
-      UPDATE reservations
-      SET start_time=?, end_time=?, status=?, price_per_min=?, reserved_minutes=?, total_cost=?, updated_at=NOW()
-      WHERE reservation_id=?
-    `;
-    await pool.query(sql, [
-      this.toSqlDatetimeIsoZ(reservation.start_time),
-      this.toSqlDatetimeIsoZ(reservation.end_time),
-      reservation.status,
-      reservation.price_per_min,
-      reservation.reserved_minutes,
-      reservation.total_cost,
-      reservation.reservation_id,
-    ]);
-    return reservation;
-  }
+  const sql = `
+  UPDATE reservations
+  SET start_time=?, end_time=?, status=?, payment_id=?, payment_method=?, expires_at=?,
+      price_per_min=?, reserved_minutes=?, total_cost=?, updated_at=NOW()
+  WHERE reservation_id=?
+`;
+
+await pool.query(sql, [
+  this.toSqlDatetimeIsoZ(reservation.start_time),
+  this.toSqlDatetimeIsoZ(reservation.end_time),
+  reservation.status,
+  reservation.payment_id || null,
+  reservation.payment_method || null, // 👈 thêm dòng này
+  this.toSqlDatetimeIsoZ(reservation.expires_at),
+  reservation.price_per_min,
+  reservation.reserved_minutes,
+  reservation.total_cost,
+  reservation.reservation_id,
+]);
+
+  return reservation;
+}
+
 
   /**
    * Update only cost fields (để service gọi sau khi tính tiền)
    */
-  async updateCost(reservation_id, reserved_minutes, total_cost) {
-    await pool.query(
-      `UPDATE reservations 
-       SET reserved_minutes=?, total_cost=?, updated_at=NOW()
-       WHERE reservation_id=?`,
-      [reserved_minutes, total_cost, reservation_id]
-    );
+async updateCost(reservation_id, reserved_minutes, total_cost, payment_method = null) {
+  const fields = ['reserved_minutes=?, total_cost=?'];
+  const params = [reserved_minutes, total_cost];
+
+  if (['wallet','bank_transfer','momo'].includes(payment_method)) {
+    fields.push('payment_method=?');
+    params.push(payment_method);
   }
+
+  params.push(reservation_id);
+
+  await pool.query(
+    `UPDATE reservations SET ${fields.join(', ')}, updated_at=NOW() WHERE reservation_id=?`,
+    params
+  );
+}
+
 
   /**
    * Mark reservation as cancelled

@@ -1,51 +1,67 @@
 class Reservation {
-  constructor({
-    reservation_id,
-    user_id,
-    station_id,
-    point_id,
-    connector_type = 'Type2',
-    start_time,
-    end_time,
-    status = 'pending',
-    expires_at,
-    created_at,
-    updated_at,
-    price_per_min = 1000,     // 🆕 Giá mỗi phút
-    reserved_minutes = null,  // 🆕 Số phút đã tính
-    total_cost = 0            // 🆕 Tổng tiền
-    
-  }) {
-    this.reservation_id = reservation_id;
-    this.user_id = user_id;
-    this.station_id = station_id;
-    this.point_id = point_id;
-    this.connector_type = connector_type;
-    this.start_time = start_time ? new Date(start_time) : null;
-    this.end_time = end_time ? new Date(end_time) : null;
-    this.status = status;
-    this.expires_at = expires_at ? new Date(expires_at) : null;
-    this.created_at = created_at ? new Date(created_at) : new Date();
-    this.updated_at = updated_at ? new Date(updated_at) : new Date();
-    this.price_per_min = price_per_min;
-    this.reserved_minutes = reserved_minutes;
-    this.total_cost = total_cost;
-  }
+  constructor(data = {}) {
+    this.reservation_id = data.reservation_id;
+    this.user_id = data.user_id;
+    this.station_id = data.station_id;
+    this.point_id = data.point_id;
 
+    this.connector_type = data.connector_type || 'Type2';
+
+    // Convert date fields safely
+    this.start_time = data.start_time ? new Date(data.start_time) : null;
+    this.end_time = data.end_time ? new Date(data.end_time) : null;
+    this.expires_at = data.expires_at ? new Date(data.expires_at) : null;
+
+    this.created_at = data.created_at ? new Date(data.created_at) : new Date();
+    this.updated_at = data.updated_at ? new Date(data.updated_at) : new Date();
+
+    // STATUS FLOW: pending -> confirmed -> completed OR cancelled
+    this.status = data.status || 'pending';
+
+    // Pricing
+    this.price_per_min = typeof data.price_per_min === 'number' ? data.price_per_min : 1000;
+    this.reserved_minutes = data.reserved_minutes ?? null;
+    this.total_cost = data.total_cost ?? 0;
+    this.final_cost = data.final_cost ?? null;
+
+    // Payment: mặc định wallet nếu client không truyền
+    this.payment_id = data.payment_id || null;
+    this.payment_method = ['wallet','bank_transfer'].includes(data.payment_method)
+      ? data.payment_method
+      : 'wallet';
+  }
+  // BUSINESS HELPERS
   isExpired() {
-    return this.expires_at && new Date() > this.expires_at && this.status === 'pending';
+    return this.status === 'pending' && this.expires_at && Date.now() > this.expires_at.getTime();
   }
 
-  confirm() {
+  requiresPayment() {
+    return this.status === 'pending' && !this.payment_id;
+  }
+
+  isActive() {
+    return this.status === 'confirmed';
+  }
+
+  isCompleted() {
+    return this.status === 'completed';
+  }
+
+  markPaid(payment_id, payment_method = null) {
     this.status = 'confirmed';
+    this.payment_id = payment_id;
+    if (payment_method && payment_method.trim() !== '') {
+      this.payment_method = payment_method;
+    }
+  }
+
+  complete(final_cost = null) {
+    this.status = 'completed';
+    if (final_cost !== null) this.final_cost = final_cost;
   }
 
   cancel() {
     this.status = 'cancelled';
-  }
-
-  complete() {
-    this.status = 'completed';
   }
 
   toJSON() {
@@ -63,7 +79,10 @@ class Reservation {
       updated_at: this.updated_at,
       price_per_min: this.price_per_min,
       reserved_minutes: this.reserved_minutes,
-      total_cost: this.total_cost
+      total_cost: this.total_cost,
+      final_cost: this.final_cost,
+      payment_id: this.payment_id,
+      payment_method: this.payment_method, // ✅ luôn đúng
     };
   }
 }

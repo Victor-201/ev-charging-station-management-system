@@ -1,6 +1,6 @@
 // contexts/ChargingControlProvider.jsx
 import React, { useState, useCallback, useMemo } from "react";
-import { ChargingControlContext } from "@/context/ChargingControlContext";
+import { ChargingControlContext } from "@/contexts/ChargingControlContext";
 import chargingControlService from "@/services/chargingControlService"; // sửa path nếu cần
 
 export const ChargingControlProvider = ({ children }) => {
@@ -88,6 +88,34 @@ export const ChargingControlProvider = ({ children }) => {
     } catch (err) {
       setError(err);
       setLoadingBooking(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  // inside ChargingControlProvider (add these functions near other session functions)
+
+  // FETCH SESSIONS BY STATION (aggregator)
+  // Prefer backend: GET /api/v1/charging?station_id={station_id}&status=...
+  // Fallback: call connectors -> for each connector call a session lookup endpoint (not ideal)
+  const fetchSessionsByStation = useCallback(async (station_id, params = {}) => {
+    setLoadingSession(true);
+    setError(null);
+    try {
+      // chargingControlService.getSessions should call /api/v1/charging?station_id=...
+      const res = await chargingControlService.getSessions({ station_id, ...params });
+      const data = res?.data ?? res;
+      // expected data.items or data array
+      const items = data?.items ?? data;
+      setSessions(items);
+      setLoadingSession(false);
+      return { success: true, data: items };
+    } catch (err) {
+      // fallback: try connectors -> attempt to fetch sessions per connector (if your backend supports)
+      try {
+        // stationService used from StationProvider; if not accessible here, upstream caller can do fallback
+      } catch (e) {}
+      setError(err);
+      setLoadingSession(false);
       return { success: false, error: err };
     }
   }, []);
