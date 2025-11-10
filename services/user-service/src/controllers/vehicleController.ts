@@ -25,6 +25,20 @@ export class VehicleController {
     }
   }
 
+  // GET /api/v1/users/vehicles - Get current user's vehicles (convenience route)
+  async getCurrentUserVehicles(req: Request, res: Response): Promise<void> {
+    try {
+      const user_id = req.user!.user_id;
+
+      const vehicles = await vehicleService.getVehiclesByUser(user_id);
+
+      res.json({ vehicles });
+    } catch (error) {
+      logger.error('Error in getCurrentUserVehicles:', error);
+      res.status(500).json({ error: 'Failed to get vehicles' });
+    }
+  }
+
   // GET /api/v1/users/:user_id/vehicles - Get user vehicles
   async getUserVehicles(req: Request, res: Response): Promise<void> {
     try {
