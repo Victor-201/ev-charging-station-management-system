@@ -384,7 +384,21 @@ exports.finalizeReservation = async (req, res) => {
     return res.status(400).json({ error: err.message });
   }
 };
+exports.calculateReservation = async (req, res) => {
+  try {
+    const reservation_id = req.params.reservation_id;
+    if (!reservation_id) return res.status(400).json({ error: 'reservation_id is required' });
 
+    const roundUp = req.body.roundUp !== undefined ? Boolean(req.body.roundUp) : true;
+    const payment_method = req.body.payment_method || null;
+
+    const result = await BookingService.calculateReservationCost(reservation_id, { roundUp, payment_method });
+    return res.status(200).json({ ok: true, result });
+  } catch (err) {
+    console.error('[BookingController.calculateReservation] error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};
 /**
  * Refund / adjust payment (refun)
  * POST /reservations/:reservation_id/refun

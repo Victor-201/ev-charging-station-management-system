@@ -54,7 +54,23 @@ exports.getUserSessions = async (req, res) => {
     return res.status(status).json({ error: err.message || 'Internal server error' });
   }
 };
+exports.reconcileSession = async (req, res) => {
+  try {
+    const session_id = req.params.session_id;
+    if (!session_id) return res.status(400).json({ error: 'session_id is required' });
 
+    const autoSettle = req.body.auto_settle !== undefined ? Boolean(req.body.auto_settle) : false;
+    const threshold = req.body.threshold != null ? Number(req.body.threshold) : 1000;
+    const operator = req.body.operator || null;
+
+    const result = await ChargingService.reconcileSessionWithReservation(session_id, { autoSettle, threshold, operator });
+    return res.status(200).json({ ok: true, result });
+  } catch (err) {
+    console.error('[ChargingController.reconcileSession] error:', err);
+    const status = 500;
+    return res.status(status).json({ error: err.message || 'Internal server error' });
+  }
+};
 // GET /api/v1/stations/:station_id/active-points
 exports.getActivePoints = async (req, res) => {
   try {
