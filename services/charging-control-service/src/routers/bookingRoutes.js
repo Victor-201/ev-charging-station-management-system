@@ -19,7 +19,7 @@ router.post('/', bookingCtrl.createReservation);
 router.get('/:reservation_id/preview-cost', bookingCtrl.previewCost);
 
 // 💰 Calculate & save cost (tính toán & lưu chi phí)
-router.post('/:reservation_id/calculate-cost', bookingCtrl.calculateCost);
+router.post('/:reservation_id/calculate', bookingCtrl.calculateReservation);
 
 // ✅ Finalize reservation (hoàn tất đặt chỗ + tính tiền)
 router.post('/:reservation_id/finalize', bookingCtrl.finalizeReservation);

@@ -16,6 +16,7 @@ router.get('/:session_id/events', sessionCtrl.getEvents);
 router.post('/:session_id/confirm-payment', sessionCtrl.confirmPayment);
 router.get('/:session_id/invoice', sessionCtrl.getInvoice); 
 // routes.js or sessions router
+router.post('/:session_id/reconcile', sessionCtrl.reconcileSession);
 router.get('/:user_id/sessions', sessionCtrl.getUserSessions);
 router.get('/:station_id/active-points', sessionCtrl.getActivePoints);
 
