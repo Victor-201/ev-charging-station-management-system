@@ -46,11 +46,13 @@ export default function Login() {
   // The useEffect that was here caused a race condition.
 
   const onSubmit = async (data) => {
-    await doLogin({
+    console.log('🔐 Login attempt:', data.email);
+    const result = await doLogin({
       email: data.email,
       password: data.password,
       remember: rememberChecked
     });
+    console.log('🔐 Login result:', result);
   };
 
   return (

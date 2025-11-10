@@ -10,7 +10,7 @@ const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
-    'ngrok-skip-browser-warning': 'true', // Bypass ngrok warning page
+    'ngrok-skip-browser-warning': 'true', 
   },
 });
 

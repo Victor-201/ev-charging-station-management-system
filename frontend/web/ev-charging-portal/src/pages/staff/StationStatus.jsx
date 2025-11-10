@@ -1,53 +1,56 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useStation } from "@/hooks/useStation"; // hook bạn đã tạo
+import { useStation } from "@/hooks/useStation"; // hook lấy từ context
 import Card from "../../components/staff/Card/index";
 import Table from "../../components/staff/Table/index";
 
 export default function Stations() {
-  const managedStationId = "22222222-2222-2222-2222-222222222222"; // giả định ID trạm nhân viên quản lý (sau này có thể lấy từ user)
+  // 🚩 ID trạm mà nhân viên hiện tại quản lý (sau này có thể lấy từ user context)
+  const managedStationId = "22222222-2222-2222-2222-222222222222";
+
   const {
     stations,
     currentStation,
+    connectors,
     loading,
     getAll,
     getById,
+    getConnectors,
     update,
-    registerCharger,
   } = useStation();
 
   const [selectedChargerId, setSelectedChargerId] = useState(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // ===== Fetch dữ liệu backend =====
+  // ===== Lấy dữ liệu =====
   useEffect(() => {
-    // 1️⃣ Lấy danh sách tất cả trạm
-    getAll();
+    getAll(); // lấy danh sách tất cả trạm
   }, [getAll]);
 
   useEffect(() => {
-    // 2️⃣ Lấy thông tin chi tiết trạm đang quản lý
     if (managedStationId) {
+      // lấy chi tiết trạm đang quản lý
       getById(managedStationId);
+      // lấy danh sách các point (charger/connector) trong trạm
+      getConnectors(managedStationId);
     }
-  }, [managedStationId, getById]);
+  }, [managedStationId, getById, getConnectors]);
 
   // ===== Tính toán thống kê =====
   const stats = useMemo(() => {
-    if (!currentStation)
-      return { totalChargers: 0, available: 0, in_use: 0, fault: 0, charging: 0 };
-    const totalChargers = currentStation.chargers?.length || 0;
-    const available = currentStation.chargers?.filter((c) => c.status === "available").length || 0;
-    const in_use = currentStation.chargers?.filter((c) => c.status === "in_use").length || 0;
-    const fault = currentStation.chargers?.filter((c) => c.status === "fault").length || 0;
-    const charging = currentStation.chargers?.filter((c) => c.status === "charging").length || 0;
-    return { totalChargers, available, in_use, fault, charging };
-  }, [currentStation]);
+    const list = connectors || currentStation?.chargers || [];
+    return {
+      totalChargers: list.length,
+      available: list.filter((c) => c.status === "available").length,
+      in_use: list.filter((c) => c.status === "in_use").length,
+      fault: list.filter((c) => c.status === "fault").length,
+      charging: list.filter((c) => c.status === "charging").length,
+    };
+  }, [connectors, currentStation]);
 
-  // ===== Lọc danh sách trụ =====
+  // ===== Lọc danh sách point =====
   const filteredChargers = useMemo(() => {
-    if (!currentStation) return [];
-    let list = currentStation.chargers || [];
+    let list = connectors || currentStation?.chargers || [];
     if (query) {
       const q = query.trim().toLowerCase();
       list = list.filter(
@@ -59,58 +62,50 @@ export default function Stations() {
     }
     if (statusFilter !== "all") list = list.filter((c) => c.status === statusFilter);
     return list;
-  }, [currentStation, query, statusFilter]);
+  }, [connectors, currentStation, query, statusFilter]);
 
-  // ===== Chọn trụ sạc =====
+  // ===== Xử lý chọn charger =====
   const selectedCharger =
-    currentStation?.chargers?.find((c) => c.id === selectedChargerId) || null;
+    filteredChargers.find((c) => c.id === selectedChargerId) || null;
 
-  // ===== Thay đổi trạng thái trụ (tạm thời frontend, có thể gọi API controlCharger sau) =====
+  // ===== Đổi trạng thái charger =====
   function setChargerStatus(chargerId, newStatus) {
-    // Nếu có API controlCharger, bạn có thể gọi:
-    // controlCharger(chargerId, { status: newStatus })
     const now = new Date().toISOString().slice(0, 16).replace("T", " ");
-    const updated = {
-      ...currentStation,
-      chargers: currentStation.chargers.map((ch) =>
-        ch.id === chargerId
-          ? {
-              ...ch,
-              status: newStatus,
-              lastUpdated: now,
-              history: [{ time: now, note: `Đặt trạng thái: ${newStatus}` }, ...(ch.history || [])],
-            }
-          : ch
-      ),
-    };
-    update(currentStation.id, updated);
+    const updatedChargers = filteredChargers.map((ch) =>
+      ch.id === chargerId
+        ? {
+            ...ch,
+            status: newStatus,
+            lastUpdated: now,
+            history: [{ time: now, note: `Đặt trạng thái: ${newStatus}` }, ...(ch.history || [])],
+          }
+        : ch
+    );
+    update(currentStation.id, { chargers: updatedChargers });
   }
 
-  // ===== Thêm ghi chú lịch sử =====
+  // ===== Thêm lịch sử charger =====
   function addChargerHistory(chargerId, note) {
     const now = new Date().toISOString().slice(0, 16).replace("T", " ");
-    const updated = {
-      ...currentStation,
-      chargers: currentStation.chargers.map((ch) =>
-        ch.id === chargerId
-          ? {
-              ...ch,
-              history: [{ time: now, note }, ...(ch.history || [])],
-              lastUpdated: now,
-            }
-          : ch
-      ),
-    };
-    update(currentStation.id, updated);
+    const updatedChargers = filteredChargers.map((ch) =>
+      ch.id === chargerId
+        ? {
+            ...ch,
+            history: [{ time: now, note }, ...(ch.history || [])],
+            lastUpdated: now,
+          }
+        : ch
+    );
+    update(currentStation.id, { chargers: updatedChargers });
   }
 
-  // ===== Đổi bộ lọc =====
+  // ===== Chuyển bộ lọc theo loại trạng thái =====
   function onClickStat(statKey) {
     setStatusFilter((prev) => (prev === statKey ? "all" : statKey));
     setSelectedChargerId(null);
   }
 
-  // ===== Hiển thị =====
+  // ===== Giao diện =====
   if (loading)
     return (
       <div className="text-center text-gray-500 py-12 text-lg font-medium">
@@ -123,7 +118,7 @@ export default function Stations() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-extrabold mb-6">Quản lý trạm — Nhân viên</h1>
 
-        {/* Stats */}
+        {/* Bộ thống kê */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
           {[
             { key: "all", label: "Trạm", value: currentStation?.name || "—", sub: currentStation?.id },
@@ -162,74 +157,67 @@ export default function Stations() {
           </div>
         </div>
 
-        {/* Layout */}
+        {/* Lưới trụ sạc */}
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Chargers grid */}
           <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {currentStation ? (
-              filteredChargers.length > 0 ? (
-                filteredChargers.map((ch) => (
-                  <div
-                    key={ch.id}
-                    onClick={() => setSelectedChargerId(ch.id)}
-                    className={`rounded-xl border p-4 shadow-md transition-all cursor-pointer 
-                    ${selectedChargerId === ch.id ? "border-blue-400 shadow-lg -translate-y-1" : "border-gray-200 hover:-translate-y-0.5 hover:shadow-lg"}
-                    ${
-                      ch.status === "available"
-                        ? "bg-emerald-50"
-                        : ch.status === "in_use"
-                        ? "bg-blue-50"
-                        : ch.status === "fault"
-                        ? "bg-red-50"
-                        : "bg-gray-100"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="font-bold text-gray-800">{ch.id}</div>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-bold text-white capitalize
-                        ${
-                          ch.status === "available"
-                            ? "bg-emerald-500"
-                            : ch.status === "in_use"
-                            ? "bg-blue-500"
-                            : ch.status === "charging"
-                            ? "bg-indigo-500"
-                            : ch.status === "fault"
-                            ? "bg-red-500"
-                            : "bg-gray-400"
-                        }`}
-                      >
-                        {ch.status}
-                      </span>
-                    </div>
-                    <div className="mt-2 text-lg font-semibold text-gray-900">{ch.label}</div>
-                    <div className="text-xs text-gray-500 mt-1 flex gap-2 flex-wrap">
-                      <span>{ch.powerPoint} kW</span>
-                      <span>•</span>
-                      <span>{ch.lastUpdated}</span>
-                    </div>
+            {filteredChargers.length > 0 ? (
+              filteredChargers.map((ch) => (
+                <div
+                  key={ch.id}
+                  onClick={() => setSelectedChargerId(ch.id)}
+                  className={`rounded-xl border p-4 shadow-md transition-all cursor-pointer 
+                  ${selectedChargerId === ch.id ? "border-blue-400 shadow-lg -translate-y-1" : "border-gray-200 hover:-translate-y-0.5 hover:shadow-lg"}
+                  ${
+                    ch.status === "available"
+                      ? "bg-emerald-50"
+                      : ch.status === "in_use"
+                      ? "bg-blue-50"
+                      : ch.status === "fault"
+                      ? "bg-red-50"
+                      : "bg-gray-100"
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="font-bold text-gray-800">{ch.id}</div>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-bold text-white capitalize
+                      ${
+                        ch.status === "available"
+                          ? "bg-emerald-500"
+                          : ch.status === "in_use"
+                          ? "bg-blue-500"
+                          : ch.status === "charging"
+                          ? "bg-indigo-500"
+                          : ch.status === "fault"
+                          ? "bg-red-500"
+                          : "bg-gray-400"
+                      }`}
+                    >
+                      {ch.status}
+                    </span>
                   </div>
-                ))
-              ) : (
-                <div className="col-span-full bg-white text-center border border-dashed rounded-xl p-8 text-gray-500">
-                  Không tìm thấy trụ nào theo bộ lọc.
+                  <div className="mt-2 text-lg font-semibold text-gray-900">{ch.label}</div>
+                  <div className="text-xs text-gray-500 mt-1 flex gap-2 flex-wrap">
+                    <span>{ch.powerPoint} kW</span>
+                    <span>•</span>
+                    <span>{ch.lastUpdated}</span>
+                  </div>
                 </div>
-              )
+              ))
             ) : (
               <div className="col-span-full bg-white text-center border border-dashed rounded-xl p-8 text-gray-500">
-                Không có trạm được gán cho nhân viên này.
+                Không có trụ nào trong trạm.
               </div>
             )}
           </div>
 
-          {/* Detail panel */}
+          {/* Panel chi tiết */}
           {currentStation && (
             <aside className="w-full md:w-96 flex flex-col gap-4">
               <div className="bg-white rounded-xl border p-4 shadow">
                 <h2 className="text-lg font-bold mb-1">{currentStation.name}</h2>
                 <div className="text-xs text-gray-500 mb-2">
-                  ID: {currentStation.id} — Cập nhật: {currentStation.lastUpdated}
+                  ID: {currentStation.id} — Cập nhật: {currentStation.lastUpdated || "—"}
                 </div>
                 <div className="text-sm text-gray-600">
                   {stats.totalChargers} trụ • {stats.available} sẵn sàng • {stats.in_use} đang dùng •{" "}

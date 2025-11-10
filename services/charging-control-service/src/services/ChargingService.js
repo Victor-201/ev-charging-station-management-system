@@ -10,13 +10,19 @@ class ChargingService {
    * /api/v1/sessions/initiate
    * Trả về { session_id, status }
    */
-  async initiateSession({ reservation_id = null, point_id, user_id, vehicle_id = null, auth_method = null, connector_type = null }) {
+  async initiateSession({ reservation_id = null, station_id = null, point_id, user_id, vehicle_id = null, auth_method = null, connector_type = null } = {}) {
+    // VALIDATION
     if (!point_id) throw new Error('Missing required field: point_id');
     if (!user_id) throw new Error('Missing required field: user_id');
+    if (!station_id) throw new Error('Missing required field: station_id');
+
+    // debug log để kiểm tra payload — xóa sau khi confirm
+    console.log('[ChargingService.initiateSession] input:', { reservation_id, station_id, point_id, user_id, vehicle_id, auth_method, connector_type });
 
     const session = {
       session_id: uuidv4(),
       reservation_id: reservation_id || null,
+      station_id: station_id || null,
       point_id,
       user_id,
       vehicle_id: vehicle_id || null,
@@ -24,16 +30,16 @@ class ChargingService {
       connector_type: connector_type || null,
       status: 'initiated',
       created_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
-updated_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
+      updated_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
     };
 
     const created = await SessionRepo.create(session);
 
     await publish('charging_events', { type: 'SESSION_INITIATED', data: created });
 
-    // Minimal response shape per your API table
     return { session_id: created.session_id, status: created.status };
   }
+
 
   /**
    * /api/v1/sessions/start
@@ -126,42 +132,143 @@ async startSession({ session_id, start_meter_wh = null }) {
    * body: { stop_reason, end_meter_wh }
    * Trả về: { session_id, status: 'finished', kwh, cost }
    */
-  async stopSession({ session_id, stop_reason = 'user_stop', end_meter_wh = null }) {
+  async stopSession({ session_id, stop_reason = 'user_stop', end_meter_wh = null, payment_method = null } = {}) {
+  const s = await SessionRepo.getById(session_id);
+  if (!s) throw new Error('Charging session not found');
+
+  if (!['charging','paused','active','ACTIVE'].includes((s.status || '').toLowerCase())) {
+    throw new Error('Invalid session state for stopping');
+  }
+
+  // ended_at now
+  const ended_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+
+  // compute cost based on time difference: minutes * 1000
+  let cost = null;
+  let duration_minutes = 0;
+  try {
+    const startAt = s.started_at ? dayjs(s.started_at) : null;
+    const endAt = dayjs(ended_at);
+    if (startAt) {
+      const diffMs = endAt.valueOf() - startAt.valueOf();
+      let minutes = Math.ceil(diffMs / 60000); // charge per started minute
+      if (minutes < 0) minutes = 0;
+      duration_minutes = minutes;
+      cost = minutes * 1000; // 1000 đồng per minute
+    } else {
+      // nếu không có started_at thì tính 0 phút
+      duration_minutes = 0;
+      cost = 0;
+    }
+  } catch (err) {
+    // fallback
+    duration_minutes = 0;
+    cost = 0;
+  }
+
+  const endMeterValue = end_meter_wh != null ? end_meter_wh : (s.end_meter_wh != null ? s.end_meter_wh : null);
+
+  // set default payment method if none provided
+  const AVAILABLE_METHODS = ['wallet', 'bank_transfer', 'cash'];
+  const normalized = (typeof payment_method === 'string' && payment_method.length) ? String(payment_method).toLowerCase() : null;
+  const selected_method = AVAILABLE_METHODS.includes(normalized) ? normalized : 'bank_transfer';
+
+  // update status -> pending and set end_meter_wh, ended_at, cost
+  const updated = await SessionRepo.updateStatus(session_id, 'pending', {
+    end_meter_wh: endMeterValue,
+    ended_at,
+    cost,
+  });
+
+  // attach payment info into metadata JSON column (merge with existing metadata if any)
+  try {
+    const existingMeta = updated.metadata && typeof updated.metadata === 'object'
+      ? updated.metadata
+      : (updated.metadata ? JSON.parse(updated.metadata) : {});
+
+    existingMeta.payment = existingMeta.payment || {};
+    existingMeta.payment.method = selected_method;
+    existingMeta.payment.status = 'pending';
+    existingMeta.payment.amount = cost;
+    existingMeta.payment.created_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+    existingMeta.payment.stop_reason = stop_reason;
+
+    // persist metadata
+    await pool.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [
+      JSON.stringify(existingMeta),
+      dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
+      session_id,
+    ]);
+  } catch (err) {
+    // non-fatal: log and continue
+    console.error('[stopSession] failed to persist metadata.payment', err);
+  }
+
+  await publish('charging_events', { type: 'SESSION_PENDING_PAYMENT', data: { session_id, ended_at, cost, stop_reason, payment_method: selected_method } });
+
+  return {
+    session_id: updated.session_id || session_id,
+    status: 'pending',
+    cost,
+    duration_minutes,
+
+    selected_payment_method: selected_method
+  };
+}
+  /**
+   * Trả về lịch sử session của 1 user (delegates to repo)
+   * opts: { from, to, limit, offset, status }
+   */
+  async getUserSessions(user_id, opts = {}) {
+    if (!user_id) throw new Error('user_id is required');
+    return await SessionRepo.getByUserId(user_id, opts);
+  }
+
+  /**
+   * Trả về danh sách điểm đang sạc cho station_id
+   */
+  async getActivePointsByStation(station_id) {
+    if (!station_id) throw new Error('station_id is required');
+    return await SessionRepo.getActiveByStationId(station_id);
+  }
+
+  async confirmPayment(session_id, { paid_amount = null, payment_method = null, payment_ref = null } = {}) {
     const s = await SessionRepo.getById(session_id);
     if (!s) throw new Error('Charging session not found');
 
-    if (!['charging','paused','ACTIVE','active'].includes((s.status || '').toLowerCase())) {
-      throw new Error('Invalid session state for stopping');
+    if ((s.status || '').toLowerCase() !== 'pending') {
+      throw new Error('Session is not pending payment');
     }
 
-    // compute kWh from meters if possible
-    const startMeter = s.start_meter_wh != null ? Number(s.start_meter_wh) : null;
-    const endMeter = end_meter_wh != null ? Number(end_meter_wh) : (s.end_meter_wh != null ? Number(s.end_meter_wh) : null);
+    // optional: record payment details into metadata (JSON) or payment table
+    // We'll append payment info into metadata JSON column if present.
+    let metadata = s.metadata && typeof s.metadata === 'object' ? s.metadata : {};
+    metadata.payment = {
+      paid_amount,
+      payment_method,
+      payment_ref,
+      paid_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS')
+    };
 
-    let kwh = null;
-    if (startMeter != null && endMeter != null) {
-      kwh = (endMeter - startMeter) / 1000; // Wh -> kWh
-      if (kwh < 0) kwh = 0;
-    }
+    // update status -> confirmed and store metadata (and updated_at)
+    const sets = [];
+    const vals = [];
 
-    // simple cost calc — set default rate (adjust as needed)
-    const RATE_PER_KWH = 200000; // unit e.g. VND per kWh (adjust to your pricing)
-    const cost = kwh != null ? Math.round(kwh * RATE_PER_KWH) : null;
+    // We'll reuse repository updateStatus for status + cost, but need to update metadata too.
+    // Since updateStatus doesn't handle metadata, perform simple UPDATE query here:
+    const q = `UPDATE sessions SET status = ?, metadata = ?, updated_at = ? WHERE session_id = ?`;
+    const updated_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+    await require('../config/db').query(q, ['confirmed', JSON.stringify(metadata), updated_at, session_id]);
 
-    const ended_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+    // refetch
+    const refreshed = await SessionRepo.getById(session_id);
 
+    await publish('charging_events', { type: 'SESSION_PAYMENT_CONFIRMED', data: { session_id, paid_amount, payment_method, payment_ref } });
 
-    await SessionRepo.updateStatus(session_id, 'finished', {
-      end_meter_wh: endMeter,
-      ended_at,
-      kwh,
-      cost,
-    });
-
-    await publish('charging_events', { type: 'SESSION_FINISHED', data: { session_id, ended_at, kwh, cost, stop_reason } });
-
-    return { session_id, status: 'finished', kwh, cost };
+    return refreshed;
   }
+
+  // ... other methods ...
 
   async getSession(session_id) {
     const s = await SessionRepo.getById(session_id);

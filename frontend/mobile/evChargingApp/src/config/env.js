@@ -8,14 +8,22 @@ import {
   GOOGLE_MAPS_API_KEY as ENV_GOOGLE_MAPS_API_KEY,
 } from '@env';
 
-// Fallback to ngrok tunnel URL
-// Updated: November 7, 2025
-const FALLBACK_API_URL = 'https://liane-precritical-felix.ngrok-free.dev/api/v1';
+const FALLBACKS = {
+  API_BASE_URL: 'https://liane-precritical-felix.ngrok-free.dev/api/v1',
+  GOOGLE_WEB_CLIENT_ID: '',
+  GOOGLE_IOS_CLIENT_ID: '',
+  GOOGLE_ANDROID_CLIENT_ID: '',
+  FACEBOOK_APP_ID: '',
+  FACEBOOK_APP_NAME: 'evChargingApp',
+  GOOGLE_MAPS_API_KEY: '',
+};
 
-export const API_BASE_URL = ENV_API_BASE_URL || FALLBACK_API_URL;
-export const GOOGLE_WEB_CLIENT_ID = ENV_GOOGLE_WEB_CLIENT_ID || '';
-export const GOOGLE_IOS_CLIENT_ID = ENV_GOOGLE_IOS_CLIENT_ID || '';
-export const GOOGLE_ANDROID_CLIENT_ID = ENV_GOOGLE_ANDROID_CLIENT_ID || '';
-export const FACEBOOK_APP_ID = ENV_FACEBOOK_APP_ID || '';
-export const FACEBOOK_APP_NAME = ENV_FACEBOOK_APP_NAME || 'evChargingApp';
-export const GOOGLE_MAPS_API_KEY = ENV_GOOGLE_MAPS_API_KEY || '';
+export const API_BASE_URL = ENV_API_BASE_URL?.replace(/\/+$/, '') || FALLBACKS.API_BASE_URL;
+export const GOOGLE_WEB_CLIENT_ID = ENV_GOOGLE_WEB_CLIENT_ID || FALLBACKS.GOOGLE_WEB_CLIENT_ID;
+export const GOOGLE_IOS_CLIENT_ID = ENV_GOOGLE_IOS_CLIENT_ID || FALLBACKS.GOOGLE_IOS_CLIENT_ID;
+export const GOOGLE_ANDROID_CLIENT_ID = ENV_GOOGLE_ANDROID_CLIENT_ID || FALLBACKS.GOOGLE_ANDROID_CLIENT_ID;
+export const FACEBOOK_APP_ID = ENV_FACEBOOK_APP_ID || FALLBACKS.FACEBOOK_APP_ID;
+export const FACEBOOK_APP_NAME = ENV_FACEBOOK_APP_NAME || FALLBACKS.FACEBOOK_APP_NAME;
+export const GOOGLE_MAPS_API_KEY = ENV_GOOGLE_MAPS_API_KEY || FALLBACKS.GOOGLE_MAPS_API_KEY;
+
+export const getApiUrl = (path = '') => `${API_BASE_URL}/${path.replace(/^\/+/, '')}`;

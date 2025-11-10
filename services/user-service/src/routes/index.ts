@@ -18,6 +18,12 @@ router.use('/staff', staffRoutes);
 // GET /api/v1/auth/me - Get current user profile
 router.get('/auth/me', authenticate, userController.getMe);
 
+// GET /api/v1/users/profile - Get current user profile (convenience route)
+router.get('/users/profile', authenticate, userController.getMe);
+
+// GET /api/v1/users/vehicles - Get current user's vehicles (convenience route)
+router.get('/users/vehicles', authenticate, vehicleController.getCurrentUserVehicles);
+
 // GET /api/v1/users - Admin: Get list of users
 router.get('/users', authenticate, authorize('admin'), userController.getUserList);
 
@@ -40,6 +46,7 @@ router.get('/users/:user_id/export-data', authenticate, authorizeOwner, userCont
 router.delete('/users/:user_id/erase', authenticate, authorizeOwner, userController.eraseUserData);
 
 // ==================== VEHICLE ROUTES ====================
+
 // POST /api/v1/users/:user_id/vehicles - Add vehicle
 router.post('/users/:user_id/vehicles', authenticate, authorizeOwner, validate(addVehicleSchema), vehicleController.addVehicle);
 

@@ -1,6 +1,6 @@
 // contexts/useChargingControl.js
 import { useContext } from "react";
-import { ChargingControlContext } from "@/context/ChargingControlContext";
+import { ChargingControlContext } from "@/contexts/ChargingControlContext";
 
 export const useChargingControl = () => {
   const ctx = useContext(ChargingControlContext);

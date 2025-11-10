@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 
 const getStyles = (colors) => StyleSheet.create({
@@ -27,9 +28,9 @@ export default function PaymentScreen({ navigation, route }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Payment Screen</Text>
       <Text style={styles.subtitle}>Payment for: {route.params?.type}</Text>
-    </View>
+    </SafeAreaView>
   );
 }

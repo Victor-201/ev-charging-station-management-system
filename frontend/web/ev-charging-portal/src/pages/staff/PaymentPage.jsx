@@ -1,6 +1,7 @@
-import React, { useState } from "react";
-import Card from "../../components/staff/Card/index";
-import Table from "../../components/staff/Table/index";
+import React, { useState, useContext } from "react";
+import Card from "../../components/staff/Card";
+import Table from "../../components/staff/Table";
+import { PaymentContext } from "@/contexts/PaymentContext";
 
 function formatNow() {
   const d = new Date();
@@ -11,11 +12,15 @@ function formatNow() {
 }
 
 export default function Payments() {
-  const [view, setView] = useState(null);
-  const [history, setHistory] = useState([
-    ["P-001", "Tran", "$12.50", "Card", "2025-10-10 10:00"],
-  ]);
+  const {
+    createIntent,
+    confirmIntent,
+    loadingPayments,
+    error,
+  } = useContext(PaymentContext);
 
+  const [view, setView] = useState(null);
+  const [history, setHistory] = useState([]);
   const [cashAmount, setCashAmount] = useState("");
   const [qrPayload, setQrPayload] = useState(() => `evpay-${Date.now()}`);
   const [processing, setProcessing] = useState(false);
@@ -29,41 +34,85 @@ export default function Payments() {
     setQrPayload(`evpay-${Date.now()}`);
   };
 
-  const confirmCash = ({ collector = "Staff" } = {}) => {
+  // =============== THANH TOÁN TIỀN MẶT ===============
+  const confirmCash = async ({ collector = "Staff" } = {}) => {
     if (!cashAmount || Number(cashAmount) <= 0) {
       setMessage({ type: "error", text: "Nhập số tiền hợp lệ." });
       return;
     }
+
     setProcessing(true);
-    setTimeout(() => {
-      const id = `P-${String(Math.floor(Math.random() * 900) + 100)}`;
-      const amountText = `$${Number(cashAmount).toFixed(2)}`;
-      setHistory((prev) => [
-        [id, collector, amountText, "Cash", formatNow()],
-        ...prev,
-      ]);
-      setProcessing(false);
+    setMessage(null);
+    try {
+      // Gọi API tạo payment intent (giả sử backend có type = "cash")
+      const payload = { amount: Number(cashAmount), method: "cash" };
+      const res = await createIntent(payload);
+
+      if (res.success) {
+        // Optionally xác nhận thanh toán
+        await confirmIntent({ id: res.data.id });
+
+        const record = [
+          res.data.id || `P-${Math.floor(Math.random() * 900 + 100)}`,
+          collector,
+          `$${Number(cashAmount).toFixed(2)}`,
+          "Cash",
+          formatNow(),
+        ];
+
+        setHistory((prev) => [record, ...prev]);
+        setMessage({ type: "success", text: "Thanh toán tiền mặt thành công!" });
+      } else {
+        throw new Error("Tạo thanh toán thất bại.");
+      }
+    } catch (err) {
+      console.error(err);
       setMessage({
-        type: "success",
-        text: "Thanh toán tiền mặt đã được ghi nhận.",
+        type: "error",
+        text: err?.message || "Lỗi khi thực hiện thanh toán.",
       });
-      setTimeout(goBack, 900);
-    }, 600);
+    } finally {
+      setProcessing(false);
+      setTimeout(goBack, 1200);
+    }
   };
 
-  const confirmQrComplete = ({ collector = "Staff" } = {}) => {
+  // =============== THANH TOÁN QR ===============
+  const confirmQrComplete = async ({ collector = "Staff" } = {}) => {
     setProcessing(true);
-    setTimeout(() => {
-      const id = `P-${String(Math.floor(Math.random() * 900) + 100)}`;
-      const amountText = `$0.00`;
-      setHistory((prev) => [
-        [id, collector, amountText, "QR", formatNow()],
-        ...prev,
-      ]);
+    setMessage(null);
+
+    try {
+      // Gọi API tạo intent QR (nếu backend có hỗ trợ)
+      const payload = { method: "qr", reference: qrPayload };
+      const res = await createIntent(payload);
+
+      if (res.success) {
+        await confirmIntent({ id: res.data.id });
+
+        const record = [
+          res.data.id || `P-${Math.floor(Math.random() * 900 + 100)}`,
+          collector,
+          `$${Number(res.data.amount ?? 0).toFixed(2)}`,
+          "QR",
+          formatNow(),
+        ];
+
+        setHistory((prev) => [record, ...prev]);
+        setMessage({ type: "success", text: "Thanh toán QR hoàn tất!" });
+      } else {
+        throw new Error("QR payment thất bại.");
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage({
+        type: "error",
+        text: err?.message || "Không thể hoàn tất thanh toán QR.",
+      });
+    } finally {
       setProcessing(false);
-      setMessage({ type: "success", text: "Thanh toán bằng QR đã hoàn tất." });
-      setTimeout(goBack, 900);
-    }, 900);
+      setTimeout(goBack, 1200);
+    }
   };
 
   return (
@@ -97,7 +146,7 @@ export default function Payments() {
         </div>
       )}
 
-      {/* Make suboptions */}
+      {/* Chọn loại thanh toán */}
       {view === "make" && (
         <div className="mt-4">
           <button onClick={goBack} className="text-blue-600 font-bold mb-3">
@@ -112,7 +161,7 @@ export default function Payments() {
               <div className="text-3xl mb-2">💵</div>
               <div className="text-lg font-bold">Thanh toán tiền mặt</div>
               <div className="text-sm text-gray-500">
-                Nhập số tiền nhân viên đã thu và xác nhận
+                Nhập số tiền và xác nhận thu
               </div>
             </div>
 
@@ -123,14 +172,14 @@ export default function Payments() {
               <div className="text-3xl mb-2">🔳</div>
               <div className="text-lg font-bold">Thanh toán QR</div>
               <div className="text-sm text-gray-500">
-                Hiện mã QR, quét xong nhân viên đánh dấu hoàn thành
+                Hiện mã QR và xác nhận hoàn tất
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Cash form */}
+      {/* Form thanh toán tiền mặt */}
       {view === "make-cash" && (
         <Card title="Thanh toán tiền mặt" onBack={goBack}>
           <div className="flex flex-col gap-4 mt-2">
@@ -158,9 +207,9 @@ export default function Payments() {
               <button
                 className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-60"
                 onClick={() => confirmCash()}
-                disabled={processing}
+                disabled={processing || loadingPayments}
               >
-                {processing ? "Đang xử lý..." : "Xác nhận đã thu"}
+                {processing || loadingPayments ? "Đang xử lý..." : "Xác nhận đã thu"}
               </button>
             </div>
 
@@ -179,7 +228,7 @@ export default function Payments() {
         </Card>
       )}
 
-      {/* QR payment */}
+      {/* Thanh toán QR */}
       {view === "make-qr" && (
         <Card title="Thanh toán bằng QR" onBack={goBack}>
           <div className="flex flex-wrap items-center gap-6 mt-2">
@@ -190,17 +239,9 @@ export default function Payments() {
                   const x = (i % 4) * 22 + (i % 2 ? 4 : 0);
                   const y = Math.floor(i / 4) * 22 + (i % 3 === 0 ? 4 : 0);
                   const w = 12 + (i % 3);
-                  return (
-                    <rect key={i} x={x} y={y} width={w} height={w} fill="#0f2e66" />
-                  );
+                  return <rect key={i} x={x} y={y} width={w} height={w} fill="#0f2e66" />;
                 })}
-                <text
-                  x="50"
-                  y="95"
-                  fontSize="6"
-                  textAnchor="middle"
-                  fill="#0f2e66"
-                >
+                <text x="50" y="95" fontSize="6" textAnchor="middle" fill="#0f2e66">
                   QR: {qrPayload.slice(-6)}
                 </text>
               </svg>
@@ -208,8 +249,7 @@ export default function Payments() {
 
             <div className="flex flex-col gap-3 max-w-md">
               <div className="text-gray-500 text-sm">
-                Cho khách quét mã QR trên điện thoại của họ. Khi quét xong, nhân
-                viên bấm "Hoàn thành".
+                Cho khách quét mã QR này. Khi quét xong, nhân viên bấm “Hoàn thành”.
               </div>
 
               <div className="flex gap-3">
@@ -223,9 +263,9 @@ export default function Payments() {
                 <button
                   className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-60"
                   onClick={() => confirmQrComplete()}
-                  disabled={processing}
+                  disabled={processing || loadingPayments}
                 >
-                  {processing ? "Đang xử lý..." : "Đã quét / Hoàn thành"}
+                  {processing || loadingPayments ? "Đang xử lý..." : "Đã quét / Hoàn thành"}
                 </button>
               </div>
 
@@ -245,13 +285,10 @@ export default function Payments() {
         </Card>
       )}
 
-      {/* Payment history */}
+      {/* Lịch sử thanh toán */}
       {view === "history" && (
         <Card title="Lịch sử thanh toán" onBack={goBack}>
-          <Table
-            columns={["ID", "User", "Amount", "Method", "Time"]}
-            rows={history}
-          />
+          <Table columns={["ID", "User", "Amount", "Method", "Time"]} rows={history} />
         </Card>
       )}
     </div>

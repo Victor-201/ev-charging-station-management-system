@@ -1,27 +1,62 @@
 // src/services/stationService.js
-import mockService from './mockService';
+import apiClient from '../api/apiClient';
+import { ENDPOINTS } from '../api/endpoints';
 
 const stationService = {
   // Get all stations with optional filters
-  getAll: (params) => mockService.getStations(),
+  getAll: async (params = {}) => {
+    const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, { params });
+    return response.data;
+  },
 
   // Get station by ID
-  getById: (stationId) => mockService.getStationById(stationId),
+  getById: async (stationId) => {
+    const url = ENDPOINTS.STATION.DETAIL.replace(':id', stationId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
 
   // Get nearby stations based on coordinates
-  getNearby: (latitude, longitude, radius = 10) => mockService.getStations(), // For now, return all
+  getNearby: async (latitude, longitude, radius = 10) => {
+    const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, {
+      params: { lat: latitude, lng: longitude, radius }
+    });
+    return response.data;
+  },
 
   // Get station availability
-  getAvailability: (stationId) => mockService.mockApi({ station_id: stationId, available_ports: 3, total_ports: 4 }),
+  getAvailability: async (stationId) => {
+    const url = ENDPOINTS.STATION.DETAIL.replace(':id', stationId);
+    const response = await apiClient.get(url);
+    // Extract availability info from station data
+    const station = response.data;
+    return {
+      station_id: stationId,
+      available_ports: station.available_chargers || 0,
+      total_ports: station.total_chargers || 0,
+    };
+  },
 
   // Get station connectors
-  getConnectors: (stationId) => mockService.mockApi(['Type 2', 'CCS2']),
+  getConnectors: async (stationId) => {
+    const url = ENDPOINTS.STATION.CONNECTORS.replace(':id', stationId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
 
   // Report station issue
-  reportIssue: (stationId, payload) => mockService.mockApi({ message: 'Issue reported successfully' }),
+  reportIssue: async (stationId, payload) => {
+    const url = ENDPOINTS.STATION.REPORT_ISSUE.replace(':id', stationId);
+    const response = await apiClient.post(url, payload);
+    return response.data;
+  },
 
   // Get station pricing
-  getPricing: (stationId) => mockService.mockApi({ station_id: stationId, price_per_kwh: 2000 }),
+  getPricing: async (stationId) => {
+    const url = ENDPOINTS.STATION.PRICING.replace(':id', stationId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
 };
 
 export default stationService;

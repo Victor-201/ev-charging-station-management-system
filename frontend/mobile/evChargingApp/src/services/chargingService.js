@@ -1,37 +1,65 @@
-import mockService from './mockService';
+import apiClient from '../api/apiClient';
+import { ENDPOINTS } from '../api/endpoints';
 
 const chargingService = {
   // Initiate a charging session from a booking
-  initiate: (bookingId) =>
-    mockService.mockApi({ sessionId: `session-${Date.now()}`, status: 'initiated' }),
+  initiate: async (bookingId) => {
+    const response = await apiClient.post(ENDPOINTS.CHARGING.INITIATE, {
+      reservation_id: bookingId
+    });
+    return response.data;
+  },
 
   // Start a charging session
-  start: (sessionId) =>
-    mockService.mockApi({ status: 'charging' }),
+  start: async (sessionId) => {
+    const response = await apiClient.post(ENDPOINTS.CHARGING.START, {
+      session_id: sessionId
+    });
+    return response.data;
+  },
 
   // Stop a charging session
-  stop: (sessionId) =>
-    mockService.mockApi({ status: 'completed' }),
+  stop: async (sessionId) => {
+    const url = ENDPOINTS.CHARGING.STOP.replace(':session_id', sessionId);
+    const response = await apiClient.post(url);
+    return response.data;
+  },
 
   // Pause a charging session
-  pause: (sessionId) =>
-    mockService.mockApi({ status: 'paused' }),
+  pause: async (sessionId) => {
+    const url = ENDPOINTS.CHARGING.PAUSE.replace(':session_id', sessionId);
+    const response = await apiClient.post(url);
+    return response.data;
+  },
 
   // Resume a charging session
-  resume: (sessionId) =>
-    mockService.mockApi({ status: 'charging' }),
+  resume: async (sessionId) => {
+    const url = ENDPOINTS.CHARGING.RESUME.replace(':session_id', sessionId);
+    const response = await apiClient.post(url);
+    return response.data;
+  },
 
   // Get session details
-  getSession: (sessionId) =>
-    mockService.getSession(sessionId),
+  getSession: async (sessionId) => {
+    const url = ENDPOINTS.CHARGING.DETAIL.replace(':session_id', sessionId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
 
-  // Get session events
-  getSessionEvents: (sessionId) =>
-    mockService.getSessionEvents(sessionId),
+  // Get session events (telemetry)
+  getSessionEvents: async (sessionId) => {
+    const url = ENDPOINTS.CHARGING.TELEMETRY.replace(':session_id', sessionId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
 
   // Get user's charging history
-  getHistory: (userId) =>
-    mockService.getChargingHistory(userId),
+  getHistory: async (userId) => {
+    const response = await apiClient.get(ENDPOINTS.CHARGING.DETAIL, {
+      params: { user_id: userId }
+    });
+    return response.data;
+  },
 };
 
 export default chargingService;

@@ -27,6 +27,7 @@ router.post('/forgot-password', authRateLimiter, validate(forgotPasswordSchema),
 router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 
 // Protected routes
+router.get('/me', authenticate, authController.getMe);
 router.post('/logout', authenticate, validate(refreshTokenSchema), authController.logout);
 router.post('/link-provider', authenticate, validate(linkProviderSchema), authController.linkProvider);
 router.post('/unlink-provider', authenticate, validate(unlinkProviderSchema), authController.unlinkProvider);

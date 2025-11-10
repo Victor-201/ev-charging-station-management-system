@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function NotificationDetail({ navigation, route }) {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Notification Detail</Text>
       <Text>Notification ID: {route.params?.id}</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 

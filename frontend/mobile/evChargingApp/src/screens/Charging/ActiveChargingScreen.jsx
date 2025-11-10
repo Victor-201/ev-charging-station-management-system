@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Card, Button, ActivityIndicator, Divider } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -128,7 +129,7 @@ const ActiveChargingScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Card style={styles.card}>
         <Card.Content>
           <Text style={styles.title}>Đang sạc...</Text>
@@ -192,7 +193,7 @@ const ActiveChargingScreen = () => {
           Dừng sạc
         </Button>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

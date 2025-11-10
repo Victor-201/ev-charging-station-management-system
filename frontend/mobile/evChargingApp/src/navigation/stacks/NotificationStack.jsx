@@ -3,6 +3,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // Import screens
+import NotificationListScreen from '../../screens/Notification/NotificationListScreen';
 import NotificationList from '../../screens/Notification/NotificationList';
 import NotificationDetail from '../../screens/Notification/NotificationDetail';
 
@@ -15,7 +16,7 @@ export default function NotificationStack() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="NotificationMain" component={NotificationList} />
+      <Stack.Screen name="NotificationMain" component={NotificationListScreen} />
       <Stack.Screen name="NotificationDetail" component={NotificationDetail} />
     </Stack.Navigator>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   Linking
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import stationService from '../../services/stationService';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
@@ -153,6 +154,21 @@ const getStyles = (colors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.errorContainer,
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  reportButtonText: {
+    color: colors.onErrorContainer,
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 
 export default function StationDetail({ route, navigation }) {
@@ -226,6 +242,14 @@ export default function StationDetail({ route, navigation }) {
     }
   };
 
+  const handleReportIssue = () => {
+    if (station) {
+      navigation.navigate('ReportIssue', {
+        station: station
+      });
+    }
+  };
+
   const InfoBox = ({ icon, label, value }) => (
     <View style={styles.infoBox}>
       <Icon name={icon} size={24} color={colors.primary} />
@@ -257,7 +281,8 @@ export default function StationDetail({ route, navigation }) {
   const isAvailable = station.status === 'active' && station.available_ports > 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <Text style={styles.stationName}>{station.name}</Text>
         <View style={[styles.statusBadge, { backgroundColor: station.status === 'active' ? colors.success : colors.error }]}>
@@ -317,6 +342,15 @@ export default function StationDetail({ route, navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+
+      <TouchableOpacity
+        style={styles.reportButton}
+        onPress={handleReportIssue}
+      >
+        <Icon name="report-problem" size={20} color={colors.onErrorContainer} />
+        <Text style={styles.reportButtonText}>Báo cáo vấn đề</Text>
+      </TouchableOpacity>
+          </ScrollView>
+    </SafeAreaView>
   );
 }

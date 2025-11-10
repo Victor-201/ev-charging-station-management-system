@@ -7,6 +7,7 @@ import {
   TouchableOpacity, 
   RefreshControl 
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import reservationService from '../../services/reservationService';
@@ -213,7 +214,7 @@ export default function ReservationList() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Danh sách đặt chỗ</Text>
         <TouchableOpacity 
@@ -249,7 +250,7 @@ export default function ReservationList() {
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

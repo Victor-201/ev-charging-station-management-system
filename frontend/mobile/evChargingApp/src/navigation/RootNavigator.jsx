@@ -44,6 +44,16 @@ export default function RootNavigator() {
     })();
   }, [dispatch]);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 RootNavigator - Auth state:', {
+      hasAccessToken: !!auth?.accessToken,
+      hasUser: !!auth?.user,
+      user: auth?.user,
+      ready
+    });
+  }, [auth, ready]);
+
   if (!ready) return <Loading />;
 
   return auth?.accessToken ? <AppStack /> : <AuthStack />;

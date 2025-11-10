@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ReservationList from '../../screens/Reservation/ReservationList';
 import ReservationDetail from '../../screens/Reservation/ReservationDetail';
 import ScheduleBooking from '../../screens/Reservation/ScheduleBooking';
+import QRCodeScreen from '../../screens/Reservation/QRCodeScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -19,6 +20,7 @@ export default function ReservationStack() {
       <Stack.Screen name="ReservationMain" component={ReservationList} />
       <Stack.Screen name="ReservationDetail" component={ReservationDetail} />
       <Stack.Screen name="ScheduleBooking" component={ScheduleBooking} />
+      <Stack.Screen name="QRCode" component={QRCodeScreen} />
     </Stack.Navigator>
   );
 }

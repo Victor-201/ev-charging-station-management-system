@@ -1,27 +1,73 @@
 // src/services/authService.js
-import mockService from './mockService';
+import apiClient from '../api/apiClient';
+import { ENDPOINTS } from '../api/endpoints';
 
 const authService = {
   // Authentication
-  login: ({ email, password }) => mockService.login(email, password),
-  register: (payload) => mockService.register(payload),
-  logout: () => mockService.logout(),
+  login: async ({ email, password }) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.LOGIN, { email, password });
+    return response.data;
+  },
 
-  // Email verification - Mocking success
-  verifyEmail: (payload) => mockService.mockApi({ message: 'Email verified successfully' }),
-  resendVerificationCode: (payload) => mockService.mockApi({ message: 'Verification code sent' }),
+  register: async (payload) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.REGISTER, payload);
+    return response.data;
+  },
 
-  // Password management - Mocking success
-  forgotPassword: (email) => mockService.mockApi({ message: 'Password reset link sent' }),
-  resetPassword: (payload) => mockService.mockApi({ message: 'Password has been reset' }),
+  logout: async () => {
+    try {
+      const response = await apiClient.post(ENDPOINTS.AUTH.LOGOUT);
+      return response.data;
+    } catch (error) {
+      // Even if API call fails, we still want to logout locally
+      console.warn('Logout API call failed, logging out locally:', error.message);
+      return { message: 'Logged out locally' };
+    }
+  },
+
+  // Email verification
+  verifyEmail: async (payload) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.VERIFY, payload);
+    return response.data;
+  },
+
+  resendVerificationCode: async (payload) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.RESEND_CODE, payload);
+    return response.data;
+  },
+
+  // Password management
+  forgotPassword: async (email) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
+    return response.data;
+  },
+
+  resetPassword: async (payload) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.RESET_PASSWORD, payload);
+    return response.data;
+  },
 
   // Token management
-  refreshToken: (refreshToken) => mockService.mockApi({ accessToken: 'new-mock-access-token' }),
+  refreshToken: async (refreshToken) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.REFRESH, { refreshToken });
+    return response.data;
+  },
 
-  // OAuth - Mocking success
-  socialLogin: (payload) => mockService.login('test@example.com', 'password'), // Reuse mock login for simplicity
-  linkProvider: (payload) => mockService.mockApi({ message: 'Provider linked' }),
-  unlinkProvider: (payload) => mockService.mockApi({ message: 'Provider unlinked' }),
+  // OAuth
+  socialLogin: async (payload) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.SOCIAL, payload);
+    return response.data;
+  },
+
+  linkProvider: async (payload) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.LINK_PROVIDER, payload);
+    return response.data;
+  },
+
+  unlinkProvider: async (payload) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.UNLINK_PROVIDER, payload);
+    return response.data;
+  },
 };
 
 export default authService;

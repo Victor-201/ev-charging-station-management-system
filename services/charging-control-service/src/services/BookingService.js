@@ -1,3 +1,4 @@
+// services/BookingService.js
 const ReservationRepo = require('../repositories/ReservationRepository');
 const WaitlistRepo = require('../repositories/WaitlistRepository');
 const QrRepo = require('../repositories/QrCodeRepository');
@@ -8,10 +9,10 @@ dayjs.extend(utc);
 
 const debug =
   typeof require('debug') === 'function'
-    ? require('debug')('waitlist:service')
-    : (...args) => console.log('[WaitlistService]', ...args);
+    ? require('debug')('booking:service')
+    : (...args) => console.log('[BookingService]', ...args);
 
-// helper timeout cho publish
+// helper timeout cho publish (non-blocking publish with limited wait)
 function withTimeout(promise, ms = 2000) {
   const t = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
   return Promise.race([promise, t]);
@@ -20,6 +21,9 @@ function withTimeout(promise, ms = 2000) {
 class BookingService {
   /**
    * Create new reservation
+   * - By default tạo reservation với status 'pending' (chờ thanh toán).
+   * - Nếu caller truyền status:'confirmed' => coi là đã thanh toán.
+   * - expires_at nên được set (để auto-huỷ khi chưa thanh toán).
    */
   async createReservation(data) {
     const {
@@ -30,25 +34,42 @@ class BookingService {
       start_time,
       end_time,
       price_per_min,
+      status // optional: 'pending' | 'confirmed' ...
     } = data;
 
     // Validate basic fields
     if (!user_id || !station_id || !point_id || !connector_type || !start_time || !end_time) {
-      throw new Error('Missing required reservation fields');
+      const e = new Error('Missing required reservation fields');
+      e.status = 400;
+      throw e;
     }
 
     // Check time range
     if (dayjs(end_time).isBefore(dayjs(start_time))) {
-      throw new Error('Invalid time range');
+      const e = new Error('Invalid time range: end_time is before start_time');
+      e.status = 400;
+      throw e;
     }
 
-    // Check if slot is available
+    // If attempting to create confirmed reservation, ensure availability
     const available = await ReservationRepo.checkAvailability(station_id, point_id, start_time, end_time);
     if (!available) {
-      throw new Error('Charging point is already reserved for this time slot');
+      const e = new Error('Charging point is already reserved for this time slot');
+      e.status = 409;
+      throw e;
     }
 
-    // Create reservation (ensure price_per_min default to 1000)
+    // Determine status: default pending (chờ thanh toán)
+    const finalStatus = status || 'pending';
+
+    // Set reasonable expires_at: if pending, expire a few minutes before start (or in X minutes)
+    // Caller can override expires_at in data; otherwise default: start_time - 5 minutes for pending,
+    // or null for confirmed.
+    const expires_at = data.expires_at
+      ? dayjs.utc(data.expires_at).toISOString()
+      : (finalStatus === 'pending' ? dayjs.utc(start_time).subtract(5, 'minute').toISOString() : null);
+
+    // Create reservation
     const reservation = await ReservationRepo.create({
       user_id,
       station_id,
@@ -56,69 +77,208 @@ class BookingService {
       connector_type,
       start_time,
       end_time,
-      status: 'confirmed',
+      status: finalStatus,
       price_per_min: typeof price_per_min === 'number' ? price_per_min : 1000,
-      expires_at: dayjs(start_time).subtract(5, 'minute').toISOString(),
+      expires_at
     });
 
-    // Optionally publish event (if RabbitMQ active)
-    if (publish) {
-      try {
-        await withTimeout(publish('reservation_events', {
-          type: 'RESERVATION_CREATED',
-          data: reservation,
-        }));
-      } catch (err) {
-        debug('publish RESERVATION_CREATED failed/timeout', err.message);
-      }
+    // Publish event
+    if (typeof publish === 'function') {
+      withTimeout(publish('reservation_events', {
+        type: 'RESERVATION_CREATED',
+        data: reservation,
+      }), 2000).catch(err => debug('publish RESERVATION_CREATED failed/timeout', err.message));
     }
 
     return reservation;
   }
 
   /**
+   * Confirm a reservation after successful payment.
+   * - Moves status from 'pending' -> 'confirmed'
+   * - Validates availability again (race condition)
+   */
+  async confirmReservation(reservation_id, { payment_info = null } = {}) {
+    if (!reservation_id) {
+      const e = new Error('reservation_id is required');
+      e.status = 400;
+      throw e;
+    }
+
+    const reservation = await ReservationRepo.findById(reservation_id);
+    if (!reservation) {
+      const e = new Error('Reservation not found');
+      e.status = 404;
+      throw e;
+    }
+
+    if (reservation.status === 'confirmed') {
+      return reservation;
+    }
+
+    if (reservation.status === 'cancelled' || reservation.status === 'completed' || reservation.status === 'expired') {
+      const e = new Error(`Cannot confirm reservation in status ${reservation.status}`);
+      e.status = 400;
+      throw e;
+    }
+
+    // Re-check availability for the same time slot (avoid double-book)
+    const available = await ReservationRepo.checkAvailability(reservation.station_id, reservation.point_id, reservation.start_time, reservation.end_time);
+    if (!available) {
+      // If not available, mark as cancelled and inform caller to refund
+      await ReservationRepo.markCancelled(reservation_id);
+      if (typeof publish === 'function') {
+        withTimeout(publish('reservation_events', {
+          type: 'RESERVATION_CONFIRM_FAILED',
+          data: { reservation_id, reason: 'slot_unavailable' }
+        }), 2000).catch(err => debug('publish RESERVATION_CONFIRM_FAILED failed', err.message));
+      }
+      const e = new Error('Slot no longer available; reservation cancelled');
+      e.status = 409;
+      throw e;
+    }
+
+    // Mark confirmed
+    reservation.status = 'confirmed';
+    // clear expires_at when confirmed (optional) so it won't auto-expire
+    reservation.expires_at = null;
+    const updated = await ReservationRepo.update(reservation);
+
+    if (typeof publish === 'function') {
+      withTimeout(publish('reservation_events', {
+        type: 'RESERVATION_CONFIRMED',
+        data: { reservation: updated, payment_info }
+      }), 2000).catch(err => debug('publish RESERVATION_CONFIRMED failed', err.message));
+    }
+
+    return updated;
+  }
+    /**
+   * Attach payment_id and confirm reservation if payment succeeded
+   * - Only allowed when reservation is pending
+   */
+  async attachPaymentAndConfirm(reservation_id, payment_id) {
+    if (!reservation_id || !payment_id) {
+      const e = new Error('reservation_id and payment_id are required');
+      e.status = 400;
+      throw e;
+    }
+
+    const reservation = await ReservationRepo.findById(reservation_id);
+    if (!reservation) {
+      const e = new Error('Reservation not found');
+      e.status = 404;
+      throw e;
+    }
+
+    if (reservation.status !== 'pending') {
+      const e = new Error(`Cannot attach payment to reservation in status ${reservation.status}`);
+      e.status = 400;
+      throw e;
+    }
+
+    // Check availability again just in case someone booked same slot
+    const available = await ReservationRepo.checkAvailability(
+      reservation.station_id,
+      reservation.point_id,
+      reservation.start_time,
+      reservation.end_time
+    );
+
+    if (!available) {
+      await ReservationRepo.markCancelled(reservation_id);
+      if (typeof publish === 'function') {
+        withTimeout(publish('reservation_events', {
+          type: 'RESERVATION_CONFIRM_FAILED',
+          data: { reservation_id, reason: 'slot_unavailable_after_payment' }
+        }), 2000);
+      }
+      const e = new Error('Slot no longer available; auto-cancelled. Please refund user.');
+      e.status = 409;
+      throw e;
+    }
+
+    // OK: update reservation to confirmed + store payment_id
+    reservation.payment_id = payment_id;
+    reservation.status = 'confirmed';
+    reservation.expires_at = null;
+    const updated = await ReservationRepo.update(reservation);
+
+    if (typeof publish === 'function') {
+      withTimeout(publish('reservation_events', {
+        type: 'RESERVATION_CONFIRMED',
+        data: updated
+      }), 2000);
+    }
+
+    return updated;
+  }
+
+  /**
+   * Mark a reservation payment failed (and optionally cancel)
+   */
+  async markPaymentFailed(reservation_id, { cancel = true, reason = null } = {}) {
+    const reservation = await ReservationRepo.findById(reservation_id);
+    if (!reservation) throw new Error('Reservation not found');
+
+    if (cancel && reservation.status !== 'cancelled') {
+      await ReservationRepo.markCancelled(reservation_id);
+    }
+
+    if (typeof publish === 'function') {
+      withTimeout(publish('reservation_events', {
+        type: 'RESERVATION_PAYMENT_FAILED',
+        data: { reservation_id, cancel, reason }
+      }), 2000).catch(err => debug('publish RESERVATION_PAYMENT_FAILED failed', err.message));
+    }
+
+    return { reservation_id, cancelled: cancel };
+  }
+
+  /**
    * Get reservation by ID
    */
   async getReservationById(reservation_id) {
+    if (!reservation_id) throw new Error('Missing reservation_id');
     return await ReservationRepo.findById(reservation_id);
   }
 
   /**
-   * Get all reservations of a user
+   * Update reservation (reschedule / change status)
+   * - Contains business rule preventing updates after start unless rescheduling to future start_time
    */
   async updateReservation(data) {
     try {
-      console.log('[updateReservation] input data:', JSON.stringify(data));
+      debug('[updateReservation] input data:', data);
       const rawId = data.reservation_id ?? data.id;
       if (!rawId) throw new Error('Missing reservation_id');
       const id = typeof rawId === 'string' ? rawId.trim() : rawId;
       const idForQuery = Number.isNaN(Number(id)) ? id : Number(id);
 
-      console.log('[updateReservation] normalized id:', idForQuery);
-
       const reservation = await ReservationRepo.findById(idForQuery);
-      console.log('[updateReservation] findById result:', reservation);
       if (!reservation) throw new Error(`Reservation not found (id=${JSON.stringify(idForQuery)})`);
 
-      // --- NEW: robust datetime parsing + logs
+      // robust datetime parsing
       const now = dayjs.utc();
       const dbStart = reservation.start_time ? dayjs.utc(reservation.start_time) : null;
       const payloadStart = data.start_time ? dayjs.utc(data.start_time) : null;
-
-      console.log('[updateReservation] now:', now.toISOString());
-      console.log('[updateReservation] dbStart:', dbStart ? dbStart.toISOString() : null);
-      console.log('[updateReservation] payloadStart:', payloadStart ? payloadStart.toISOString() : null);
 
       // Business rule: if reservation already started (dbStart < now)
       if (dbStart && dbStart.isBefore(now)) {
         // Allow reschedule IF client provided a new start_time in the future
         if (payloadStart && payloadStart.isAfter(now)) {
-          console.log('[updateReservation] allowing reschedule because payloadStart > now');
-          // allow: continue
+          // allowed
         } else {
-          // if no payloadStart provided, or payloadStart is not in future, block update
           throw new Error('Cannot update reservation that has already started (unless rescheduled to future start_time)');
         }
+      }
+
+      // If changing times and reservation is confirmed, re-check availability
+      const newStart = data.start_time ?? reservation.start_time;
+      const newEnd = data.end_time ?? reservation.end_time;
+      if ((data.start_time || data.end_time) && reservation.status === 'confirmed') {
+        const available = await ReservationRepo.checkAvailability(reservation.station_id, reservation.point_id, newStart, newEnd);
+        if (!available) throw new Error('Charging point is already reserved for the new time slot');
       }
 
       // apply updates
@@ -126,24 +286,23 @@ class BookingService {
         start_time: data.start_time ?? reservation.start_time,
         end_time: data.end_time ?? reservation.end_time,
         status: data.status ?? reservation.status,
+        price_per_min: typeof data.price_per_min === 'number' ? data.price_per_min : reservation.price_per_min,
+        // allow explicit expires_at update
+        expires_at: data.expires_at ?? reservation.expires_at,
       });
 
       const updated = await ReservationRepo.update(reservation);
 
-      if (typeof publish !== 'undefined' && publish) {
-        try {
-          await withTimeout(publish('reservation_events', {
-            type: 'RESERVATION_UPDATED',
-            data: updated,
-          }));
-        } catch (err) {
-          debug('publish RESERVATION_UPDATED failed/timeout', err.message);
-        }
+      if (typeof publish === 'function') {
+        withTimeout(publish('reservation_events', {
+          type: 'RESERVATION_UPDATED',
+          data: updated,
+        }), 2000).catch(err => debug('publish RESERVATION_UPDATED failed', err.message));
       }
 
       return updated;
     } catch (e) {
-      console.error('[updateReservation] error:', e && e.stack ? e.stack : e);
+      debug('[updateReservation] error:', e && e.stack ? e.stack : e);
       throw e;
     }
   }
@@ -151,7 +310,8 @@ class BookingService {
   /**
    * Cancel reservation
    */
-  async cancelReservation(reservation_id) {
+  async cancelReservation(reservation_id, { reason = null } = {}) {
+    if (!reservation_id) throw new Error('Missing reservation_id');
     const reservation = await ReservationRepo.findById(reservation_id);
     if (!reservation) throw new Error('Reservation not found');
 
@@ -161,41 +321,88 @@ class BookingService {
 
     await ReservationRepo.markCancelled(reservation_id);
 
-    if (publish) {
-      try {
-        await withTimeout(publish('reservation_events', {
-          type: 'RESERVATION_CANCELLED',
-          data: { reservation_id },
-        }));
-      } catch (err) {
-        debug('publish RESERVATION_CANCELLED failed', err.message);
-      }
+    if (typeof publish === 'function') {
+      withTimeout(publish('reservation_events', {
+        type: 'RESERVATION_CANCELLED',
+        data: { reservation_id, reason }
+      }), 2000).catch(err => debug('publish RESERVATION_CANCELLED failed', err.message));
     }
 
     return { message: 'Reservation cancelled successfully' };
   }
 
+  /**
+   * Auto-cancel expired pending reservations:
+   * - Cancel reservations where status='pending' and expires_at < now
+   * - Publish event with list of cancelled ids
+   */
+  async expirePendingReservations() {
+    const threshold = dayjs.utc().format('YYYY-MM-DD HH:mm:ss');
+
+    // get pending and expired
+    const [rows] = await ReservationRepo && ReservationRepo._getPool
+      ? await ReservationRepo._getPool().query( // defensive: if repo exposes pool
+          `SELECT reservation_id FROM reservations WHERE status='pending' AND expires_at IS NOT NULL AND expires_at < ?`,
+          [threshold]
+        )
+      : null;
+
+    // If repository didn't expose pool, fallback to using repo method (if any).
+    // But since our ReservationRepo doesn't have direct list method, use generic query via repo if available.
+    let ids = [];
+    try {
+      if (rows && rows.length) ids = rows.map(r => r.reservation_id);
+    } catch (e) {
+      // fallback: simple approach - call autoCancelExpired (which earlier cancels 'confirmed' with start_time < threshold)
+      debug('expirePendingReservations: fallback path');
+    }
+
+    // If we have ids, update them
+    if (ids.length) {
+      await ReservationRepo.updateManyStatus(ids, 'cancelled').catch(async (err) => {
+        // if no updateManyStatus, loop
+        debug('updateManyStatus missing or failed, falling back to markCancelled loop', err.message || err);
+        for (const id of ids) {
+          try { await ReservationRepo.markCancelled(id); } catch (e2) { debug('markCancelled failed', id, e2.message || e2); }
+        }
+      });
+
+      if (typeof publish === 'function') {
+        withTimeout(publish('reservation_events', {
+          type: 'RESERVATION_PENDING_EXPIRED',
+          data: ids,
+        }), 2000).catch(err => debug('publish RESERVATION_PENDING_EXPIRED failed', err.message));
+      }
+    }
+
+    return ids;
+  }
+
+  /**
+   * Get all reservations of a user (formatted)
+   */
   async getUserReservations(user_id) {
     if (!user_id) throw new Error('Missing user_id');
 
-    // gọi repository để lấy dữ liệu
     const reservations = await ReservationRepo.findByUser(user_id);
-
-    // xử lý thêm nếu cần, ví dụ: sort theo thời gian mới nhất
     const sorted = reservations.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
 
-    // format dữ liệu trả về
     return sorted.map(r => ({
       reservation_id: r.reservation_id,
       station_id: r.station_id,
+      point_id: r.point_id,
+      connector_type: r.connector_type,
       start_time: r.start_time,
       end_time: r.end_time,
       status: r.status,
+      price_per_min: r.price_per_min,
+      reserved_minutes: r.reserved_minutes,
+      total_cost: r.total_cost
     }));
   }
 
   /**
-   * Add user to waitlist (if slot unavailable)
+   * Waitlist helpers
    */
   async addToWaitlist({ user_id, station_id, connector_type }) {
     if (!user_id) throw new Error('Missing user_id');
@@ -204,10 +411,8 @@ class BookingService {
 
     debug('adding to waitlist', { user_id, station_id, connector_type });
 
-    // Let repository handle transactional position assignment
     const entry = await WaitlistRepo.create({ user_id, station_id, connector_type, status: 'waiting' });
 
-    // publish non-blocking (fire-and-forget) with timeout + catch
     if (typeof publish === 'function') {
       withTimeout(publish('waitlist_events', { type: 'WAITLIST_ADDED', data: entry }), 2000)
         .then(() => debug('published WAITLIST_ADDED', entry.waitlist_id))
@@ -222,7 +427,7 @@ class BookingService {
     return WaitlistRepo.findActiveByStation(station_id);
   }
 
-  async updateStatus(waitlist_id, status) {
+  async updateWaitlistStatus(waitlist_id, status) {
     if (!waitlist_id) throw new Error('Missing waitlist_id');
     if (!status) throw new Error('Missing status');
 
@@ -248,7 +453,6 @@ class BookingService {
 
     await WaitlistRepo.delete(waitlist_id);
 
-    // re-order remaining (simple approach)
     const remainings = await WaitlistRepo.findActiveByStation(waitlist.station_id);
     for (let i = 0; i < remainings.length; i++) {
       const w = remainings[i];
@@ -267,7 +471,7 @@ class BookingService {
   }
 
   /**
-   * Generate a QR code for an existing reservation
+   * QR helpers
    */
   async createQr({ reservation_id, expires_in = 600 }) {
     if (!reservation_id || typeof reservation_id !== 'string') {
@@ -276,27 +480,22 @@ class BookingService {
       throw e;
     }
 
-    // Sanitize & bounds for expires_in
     const expires = Number(expires_in) || 600;
-    if (!Number.isFinite(expires) || expires <= 0 || expires > 86400) { // <= 24h cap
+    if (!Number.isFinite(expires) || expires <= 0 || expires > 86400) {
       const e = new Error('expires_in must be a positive number (max 86400)');
       e.status = 400;
       throw e;
     }
 
-    // Tạo QR bằng repository
     const created = await QrRepo.create({ reservation_id, expires_in: expires });
 
     return {
       qr_code: created.qr_id,
       url: created.url,
-      expires_at: created.expires_at, // optional useful info
+      expires_at: created.expires_at,
     };
   }
 
-  /**
-   * Validate QR (wrapper)
-   */
   async validateQr(qr_id) {
     if (!qr_id) {
       const e = new Error('qr_id is required');
@@ -306,9 +505,6 @@ class BookingService {
     return QrRepo.validate(qr_id);
   }
 
-  /**
-   * Mark a QR used
-   */
   async markUsed(qr_id) {
     if (!qr_id) {
       const e = new Error('qr_id is required');
@@ -318,50 +514,17 @@ class BookingService {
     await QrRepo.markUsed(qr_id);
   }
 
-  /**
-   * Run auto-cancel expired reservations (used in cronjob)
-   */
-  async autoCancelExpiredReservations() {
-    const cancelled = await ReservationRepo.autoCancelExpired(20);
-
-    if (cancelled.length && publish) {
-      try {
-        await withTimeout(publish('reservation_events', {
-          type: 'RESERVATION_AUTO_CANCELLED',
-          data: cancelled,
-        }));
-      } catch (err) {
-        debug('publish RESERVATION_AUTO_CANCELLED failed', err.message);
-      }
-    }
-
-    return cancelled;
-  }
-
-  /**
-   * Check availability of a point
-   */
-  async checkAvailability(station_id, point_id, start_time, end_time) {
-    return await ReservationRepo.checkAvailability(station_id, point_id, start_time, end_time);
-  }
-
   //
-  // ----- NEW: Pricing / Cost helpers -----
+  // Pricing / Cost helpers
   //
 
-  /**
-   * Calculate cost for a reservation (does NOT persist) — returns { minutes, total, price_per_min }
-   * roundUp defaults to true (CEIL)
-   */
   async previewReserrvationCost(reservation_id, { roundUp = true } = {}) {
     const reservation = await ReservationRepo.findById(reservation_id);
     if (!reservation) throw new Error('Reservation not found');
 
     if (!reservation.start_time) throw new Error('Reservation has no start_time');
-    // if end_time is null, use now for preview
     const end = reservation.end_time ? dayjs.utc(reservation.end_time) : dayjs.utc();
     const start = dayjs.utc(reservation.start_time);
-
     if (end.isBefore(start)) throw new Error('Invalid reservation times');
 
     const diffMs = end.diff(start);
@@ -372,79 +535,59 @@ class BookingService {
     return { minutes, total, price_per_min: pricePerMin };
   }
 
-  /**
-   * Calculate cost and persist to DB (calls ReservationRepo.updateCost).
-   * roundUp defaults to true.
-   * Returns { reservation_id, minutes, total }
-   */
-  async calculateReservationCost(reservation_id, { roundUp = true } = {}) {
-    const reservation = await ReservationRepo.findById(reservation_id);
-    if (!reservation) throw new Error('Reservation not found');
-    if (!reservation.start_time) throw new Error('Reservation has no start_time');
+  async calculateReservationCost(reservation_id, { roundUp = true, payment_method = 'wallet' } = {}) {
+  const reservation = await ReservationRepo.findById(reservation_id);
+  if (!reservation) throw new Error('Reservation not found');
+  if (!reservation.start_time) throw new Error('Reservation has no start_time');
 
-    const end = reservation.end_time ? dayjs.utc(reservation.end_time) : dayjs.utc();
-    const start = dayjs.utc(reservation.start_time);
-    if (end.isBefore(start)) throw new Error('Invalid reservation times');
+  const end = reservation.end_time ? dayjs.utc(reservation.end_time) : dayjs.utc();
+  const start = dayjs.utc(reservation.start_time);
+  const diffMs = end.diff(start);
+  const minutes = diffMs <= 0 ? 0 : (roundUp ? Math.ceil(diffMs / 60000) : Math.floor(diffMs / 60000));
+  const pricePerMin = reservation.price_per_min;
+  const total = minutes * pricePerMin;
 
-    const diffMs = end.diff(start);
-    const minutes = diffMs <= 0 ? 0 : (roundUp ? Math.ceil(diffMs / 60000) : Math.floor(diffMs / 60000));
-    const pricePerMin = typeof reservation.price_per_min === 'number' ? reservation.price_per_min : 1000;
-    const total = minutes * pricePerMin;
-
-    // persist
-    await ReservationRepo.updateCost(reservation_id, minutes, total);
-
-    // publish event (non-blocking)
-    if (typeof publish === 'function') {
-      withTimeout(publish('reservation_events', {
-        type: 'RESERVATION_COST_UPDATED',
-        data: { reservation_id, minutes, total },
-      })).catch(err => debug('publish RESERVATION_COST_UPDATED failed', err.message));
-    }
-
-    return { reservation_id, minutes, total };
+  // ✅ Cập nhật luôn phương thức thanh toán nếu hợp lệ
+  reservation.total_cost = total;
+  reservation.reserved_minutes = minutes;
+  if (['wallet','bank_transfer'].includes(payment_method)) {
+    reservation.payment_method = payment_method;
   }
 
+  await ReservationRepo.update(reservation);
+
+  return { reservation_id, minutes, total, payment_method: reservation.payment_method };
+}
+
+
+
+
   /**
    * Finalize a reservation: set end_time (if provided), set status 'completed',
-   * calculate cost (persist) and return summary.
-   * If end_time omitted, uses now.
-   */
-    /**
-   * Finalize a reservation: set end_time (if provided), set status 'completed',
-   * calculate cost (persist) and return summary.
-   * If end_time omitted, uses now.
-   *
-   * Now also compares previous total_cost vs new total and returns adjustment info:
-   * - if new_total > previous_total => charge_extra (thu thêm)
-   * - if new_total < previous_total => refund (hoàn tiền)
+   * calculate cost (persist) and return summary with adjustment (charge/ refund)
    */
   async finalizeReservation(reservation_id, { end_time = null, roundUp = true } = {}) {
+    if (!reservation_id) throw new Error('Missing reservation_id');
+
     const reservation = await ReservationRepo.findById(reservation_id);
     if (!reservation) throw new Error('Reservation not found');
 
-    // previous total (may be 0)
     const previousTotal = typeof reservation.total_cost === 'number' ? reservation.total_cost : (reservation.total_cost ? Number(reservation.total_cost) : 0);
 
-    // Determine end
     const end = end_time ? dayjs.utc(end_time) : dayjs.utc();
 
-    // Validate start exists
     if (!reservation.start_time) throw new Error('Reservation has no start_time');
 
     const start = dayjs.utc(reservation.start_time);
     if (end.isBefore(start)) throw new Error('end_time is before start_time');
 
-    // Update reservation times & status
+    // Update end_time & status
     reservation.end_time = end.toISOString();
     reservation.status = 'completed';
 
-    // persist time and status (call repository update)
     await ReservationRepo.update(reservation);
 
-    // calculate and persist cost (this returns { reservation_id, minutes, total })
     const calc = await this.calculateReservationCost(reservation_id, { roundUp });
-
     const newTotal = typeof calc.total === 'number' ? calc.total : Number(calc.total || 0);
     const minutes = calc.minutes;
 
@@ -461,10 +604,6 @@ class BookingService {
       action = 'refund';
       diff = previousTotal - newTotal;
       message = `Hoàn tiền ${diff} VND cho khách (phí thực tế nhỏ hơn phí đã đặt).`;
-    } else {
-      action = 'none';
-      diff = 0;
-      message = 'Không có chênh lệch chi phí.';
     }
 
     const result = {
@@ -477,17 +616,39 @@ class BookingService {
       message
     };
 
-    // Publish payment adjustment event (non-blocking)
     if (typeof publish === 'function') {
       withTimeout(publish('reservation_events', {
         type: 'RESERVATION_PAYMENT_ADJUSTMENT',
         data: result,
-      })).catch(err => debug('publish RESERVATION_PAYMENT_ADJUSTMENT failed', err.message));
+      }), 2000).catch(err => debug('publish RESERVATION_PAYMENT_ADJUSTMENT failed', err.message));
     }
 
     return result;
   }
 
+  //
+  // Convenience: wrapper for availability check
+  //
+  async checkAvailability(station_id, point_id, start_time, end_time) {
+    if (!station_id || !point_id || !start_time || !end_time) throw new Error('Missing availability parameters');
+    return await ReservationRepo.checkAvailability(station_id, point_id, start_time, end_time);
+  }
+
+  //
+  // Cron / housekeeping helpers
+  //
+  async autoCancelExpiredReservations() {
+    const cancelled = await ReservationRepo.autoCancelExpired(20);
+
+    if (cancelled.length && typeof publish === 'function') {
+      withTimeout(publish('reservation_events', {
+        type: 'RESERVATION_AUTO_CANCELLED',
+        data: cancelled,
+      }), 2000).catch(err => debug('publish RESERVATION_AUTO_CANCELLED failed', err.message));
+    }
+
+    return cancelled;
+  }
 }
 
 module.exports = new BookingService();

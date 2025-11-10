@@ -1,4 +1,4 @@
-
+import React from 'react';
 import { ScrollView, View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
@@ -7,6 +7,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../../config/constants';
 import { logout as logoutAction } from '../../store/slices/authSlice';
+import useWallet from '../../hooks/useWallet';
 
 import Header from '../../components/layout/Header';
 import QuickActionCard from '../../components/cards/QuickActionCard';
@@ -18,6 +19,8 @@ export default function HomeScreen() {
   const dispatch = useDispatch();
   const realUser = useSelector((state) => state.auth.user);
 
+  // Use the wallet hook (auto-fetches the wallet using the mock service)
+  
   // Mock data for frontend development without backend
   const mockUser = {
     info: {
@@ -25,9 +28,9 @@ export default function HomeScreen() {
       avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
     },
   };
-
+  
   const user = realUser || mockUser;
-
+  
   const stats = {
     totalCharges: 15,
     totalEnergy: 350,
@@ -62,7 +65,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView>
-      <Header user={user} onLogout={handleLogout} />
+      <Header user={user} />
 
       {/* Thao tác nhanh */}
       <View style={styles.section}>

@@ -1,26 +1,53 @@
-import mockService from './mockService';
+import apiClient from '../api/apiClient';
+import { ENDPOINTS } from '../api/endpoints';
 
 const profileService = {
-  getMe: () => mockService.getMe(),
-
-  getProfile: (userId) => mockService.getMe(), // Reuse getMe for simplicity
-
-  updateProfile: (userId, profileData) => {
-    // In a real app, you'd update the user and return it.
-    // Here, we'll just return the updated data.
-    return mockService.mockApi({ user: { ...mockService.getMe().data, ...profileData } });
+  // Get current user profile
+  getMe: async () => {
+    const response = await apiClient.get(ENDPOINTS.USER.ME);
+    return response.data;
   },
 
-  changePassword: (userId, passwordData) => {
-    return mockService.mockApi({ message: 'Password changed successfully' });
+  // Get user profile by ID
+  getProfile: async (userId) => {
+    const url = ENDPOINTS.USER.PROFILE.replace(':user_id', userId);
+    const response = await apiClient.get(url);
+    return response.data;
   },
 
-  exportData: (userId) => {
-    return mockService.mockApi({ message: 'Data export started' });
+  // Update user profile
+  updateProfile: async (userId, profileData) => {
+    const url = ENDPOINTS.USER.UPDATE_PROFILE.replace(':user_id', userId);
+    const response = await apiClient.put(url, profileData);
+    return response.data;
   },
 
-  deleteAccount: (userId) => {
-    return mockService.mockApi({ message: 'Account deleted successfully' });
+  // Change password
+  changePassword: async (userId, passwordData) => {
+    const url = ENDPOINTS.USER.CHANGE_PASSWORD.replace(':user_id', userId);
+    const response = await apiClient.post(url, passwordData);
+    return response.data;
+  },
+
+  // Export user data
+  exportData: async (userId) => {
+    const url = ENDPOINTS.USER.EXPORT_DATA.replace(':user_id', userId);
+    const response = await apiClient.post(url);
+    return response.data;
+  },
+
+  // Delete/deactivate account
+  deleteAccount: async (userId) => {
+    const url = ENDPOINTS.USER.DEACTIVATE.replace(':user_id', userId);
+    const response = await apiClient.post(url);
+    return response.data;
+  },
+
+  // Erase user data (GDPR)
+  eraseData: async (userId) => {
+    const url = ENDPOINTS.USER.ERASE_DATA.replace(':user_id', userId);
+    const response = await apiClient.delete(url);
+    return response.data;
   },
 };
 
