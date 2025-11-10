@@ -55,6 +55,19 @@ const getStyles = (colors) => StyleSheet.create({
   },
   locationButton: {
     position: 'absolute',
+    bottom: 260,
+    right: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 25,
+    padding: 12,
+    elevation: 4,
+    shadowColor: colors.onBackground,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  listButton: {
+    position: 'absolute',
     bottom: 200,
     right: 20,
     backgroundColor: colors.surface,
@@ -506,11 +519,19 @@ export default function MapScreen({ navigation }) {
       </View>
 
       {/* Current Location Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.locationButton}
         onPress={getCurrentLocation}
       >
         <Icon name="my-location" size={24} color={colors.accent} />
+      </TouchableOpacity>
+
+      {/* List View Button */}
+      <TouchableOpacity
+        style={styles.listButton}
+        onPress={() => navigation.navigate('StationList')}
+      >
+        <Icon name="list" size={24} color={colors.accent} />
       </TouchableOpacity>
 
       {/* Station Info Card */}

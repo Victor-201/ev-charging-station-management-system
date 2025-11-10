@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -154,6 +154,21 @@ const getStyles = (colors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.errorContainer,
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  reportButtonText: {
+    color: colors.onErrorContainer,
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 
 export default function StationDetail({ route, navigation }) {
@@ -222,6 +237,14 @@ export default function StationDetail({ route, navigation }) {
     if (station) {
       navigation.navigate('ScheduleBooking', {
         stationId: station.id,
+        station: station
+      });
+    }
+  };
+
+  const handleReportIssue = () => {
+    if (station) {
+      navigation.navigate('ReportIssue', {
         station: station
       });
     }
@@ -319,6 +342,14 @@ export default function StationDetail({ route, navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity
+        style={styles.reportButton}
+        onPress={handleReportIssue}
+      >
+        <Icon name="report-problem" size={20} color={colors.onErrorContainer} />
+        <Text style={styles.reportButtonText}>Báo cáo vấn đề</Text>
+      </TouchableOpacity>
           </ScrollView>
     </SafeAreaView>
   );
