@@ -1,3 +1,4 @@
+// models/Session.js
 class Session {
   constructor({
     session_id,
@@ -34,7 +35,8 @@ class Session {
   }
 
   isActive() {
-    return ['initiated', 'charging'].includes(this.status);
+    // active means can push telemetry / charging normally
+    return ['initiated', 'charging', 'paused'].includes(this.status);
   }
 
   startCharging() {
@@ -42,9 +44,15 @@ class Session {
     this.started_at = new Date();
   }
 
-  markAsCompleted() {
-    this.status = 'completed';
+  markAsPending() {
+    // gọi khi dừng sạc và chờ thanh toán
+    this.status = 'pending';
     this.ended_at = new Date();
+  }
+
+  confirmPayment() {
+    // gọi khi thanh toán đã được xác nhận
+    this.status = 'confirmed';
   }
 
   fail() {
