@@ -10,6 +10,7 @@ import {
   Platform,
   Linking
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import stationService from '../../services/stationService';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
@@ -257,7 +258,8 @@ export default function StationDetail({ route, navigation }) {
   const isAvailable = station.status === 'active' && station.available_ports > 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <Text style={styles.stationName}>{station.name}</Text>
         <View style={[styles.statusBadge, { backgroundColor: station.status === 'active' ? colors.success : colors.error }]}>
@@ -317,6 +319,7 @@ export default function StationDetail({ route, navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+          </ScrollView>
+    </SafeAreaView>
   );
 }

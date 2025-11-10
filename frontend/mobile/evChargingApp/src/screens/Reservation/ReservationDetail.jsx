@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
@@ -108,10 +109,10 @@ export default function ReservationDetail() {
   const statusInfo = getStatusInfo(reservation.status);
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Chi tiết đặt chỗ</Text>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
@@ -147,7 +148,8 @@ export default function ReservationDetail() {
           </TouchableOpacity>
         </View>
       )}
-    </ScrollView>
+          </ScrollView>
+    </SafeAreaView>
   );
 }
 

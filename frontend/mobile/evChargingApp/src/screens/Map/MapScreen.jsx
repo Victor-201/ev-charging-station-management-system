@@ -11,6 +11,7 @@ import {
   Platform,
   Linking
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_OSMDROID } from "react-native-maps";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
@@ -463,7 +464,7 @@ export default function MapScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <MapView
         ref={mapRef}
         provider={Platform.OS === 'android' ? PROVIDER_OSMDROID : PROVIDER_DEFAULT}
@@ -626,7 +627,7 @@ export default function MapScreen({ navigation }) {
           />
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
