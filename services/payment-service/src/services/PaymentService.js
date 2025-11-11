@@ -3,6 +3,7 @@ import WalletRepository from '../repositories/WalletRepository.js';
 import WalletTransactionRepository from '../repositories/WalletTransactionRepository.js';
 import PlanRepository from '../repositories/PlanRepository.js';
 import localBus from '../core/LocalEventBus.js';
+import eventBus from '../core/EventBus.js';
 import { randomUUID } from 'crypto';
 
 export default class PaymentService {
@@ -42,7 +43,7 @@ export default class PaymentService {
 
     let referenceCode = null;
     if (method === 'bank_transfer') {
-      const prefixMap = { topup: 'TOP', payment: 'PAY', subscription: 'SUB' };
+      const prefixMap = { topup: 'TOP', subscription: 'SUB', booking: 'BKG', charging: 'CHG' };
       const prefix = prefixMap[related_type] || prefixMap[type] || 'TXN';
       const shortId = randomUUID().replace(/-/g, '').substring(0, 22).toUpperCase();
       referenceCode = `${prefix}${shortId}`;
@@ -104,7 +105,7 @@ export default class PaymentService {
    */
   async processBankWebhook(payload) {
     console.log('📩 Incoming Webhook Payload:', payload);
-    const refCode = payload.code|| payload.content?.split(' ')[0];
+    const refCode = payload.code || payload.content?.split(' ')[0];
     if (!refCode) throw Object.assign(new Error('Missing referenceCode in payload'), { status: 400 });
 
     const prefix = refCode.substring(0, 3).toUpperCase();
@@ -138,14 +139,28 @@ export default class PaymentService {
         });
         break;
       case 'BKG': {
-        await eventBus.publish('payment.booking.succeeded', {
-          user_id: transaction.user_id,
-          booking_id: transaction.related_id,
-          amount: incoming,
-          method: transaction.method,
-          reference_code: refCode,
-          transaction_id: transaction.id,
-        });
+        try {
+          const eventPayload = {
+            user_id: transaction.user_id,
+            booking_id: transaction.related_id,
+            amount: incoming,
+            method: transaction.method,
+            reference_code: refCode,
+            transaction_id: transaction.id,
+          };
+
+          await eventBus.publish('payment.booking.succeeded', eventPayload);
+
+          console.log(
+            `[PaymentService] Published booking payment success event for booking_id=${transaction.related_id}`
+          );
+        } catch (err) {
+          console.error(
+            `[PaymentService] Failed to publish booking payment event for booking_id=${transaction.related_id}`,
+            err.message
+          );
+          // Optionally: bạn có thể retry hoặc lưu vào DB để gửi lại sau
+        }
         break;
       }
 
