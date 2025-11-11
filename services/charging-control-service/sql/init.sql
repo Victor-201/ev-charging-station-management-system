@@ -11,8 +11,6 @@ CREATE TABLE IF NOT EXISTS reservations (
   end_time DATETIME(3),
   status ENUM('pending', 'confirmed', 'cancelled', 'completed', 'expired') DEFAULT 'pending',
   expires_at DATETIME(3),
-  payment_id VARCHAR(100) ,
-  payment_method ENUM('wallet','bank_transfer') DEFAULT 'wallet',
   created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
@@ -141,4 +139,20 @@ CREATE TABLE IF NOT EXISTS qr_codes (
       ON DELETE CASCADE ON UPDATE CASCADE,
 
   CHECK (expires_in > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ===============================
+-- EVENT OUTBOX (for RabbitMQ events)
+-- ===============================
+CREATE TABLE IF NOT EXISTS event_outbox (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  aggregate_type VARCHAR(100) NOT NULL,
+  aggregate_id VARCHAR(50) NOT NULL,
+  type VARCHAR(100) NOT NULL,
+  payload JSON NOT NULL,
+  status ENUM('pending','processed','failed') DEFAULT 'pending',
+  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
+    ON UPDATE CURRENT_TIMESTAMP(3),
+  INDEX idx_status_created (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
