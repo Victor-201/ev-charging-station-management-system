@@ -57,8 +57,11 @@ export class OutboxService {
 
       for (const event of result.rows) {
         try {
-          const payload = JSON.parse(event.payload);
-          
+          // PostgreSQL jsonb column is already parsed as object
+          const payload = typeof event.payload === 'string'
+            ? JSON.parse(event.payload)
+            : event.payload;
+
           const success = await rabbitmqClient.publish(
             event.event_type,
             payload,
@@ -85,17 +88,21 @@ export class OutboxService {
               event_type: event.event_type
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           failCount++;
-          logger.error('Error processing outbox event:', {
-            error: error instanceof Error ? {
-              message: error.message,
-              stack: error.stack,
-              name: error.name
-            } : error,
+          const errorDetails = error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          } : String(error);
+
+          logger.error(`Error processing outbox event: ${error?.message || error}`, {
+            error_details: errorDetails,
             event_id: event.id,
             event_type: event.event_type,
-            payload: event.payload
+            payload_preview: typeof event.payload === 'string'
+              ? event.payload.substring(0, 200)
+              : JSON.stringify(event.payload).substring(0, 200)
           });
         }
       }
