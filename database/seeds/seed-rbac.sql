@@ -4,12 +4,12 @@
 -- ============================================
 -- 1. INSERT ROLES
 -- ============================================
+-- Only 3 roles: admin, staff, user
+-- Legacy roles (driver, customer, station_owner) are deprecated
 INSERT INTO roles (id, name, description, is_system) VALUES
     ('00000000-0000-0000-0000-000000000001', 'admin', 'System Administrator - Full access to all resources', true),
-    ('00000000-0000-0000-0000-000000000002', 'station_owner', 'Charging Station Owner - Manage owned stations', true),
-    ('00000000-0000-0000-0000-000000000003', 'staff', 'Station Staff - Operate charging stations', true),
-    ('00000000-0000-0000-0000-000000000004', 'driver', 'EV Driver - Use charging services', true),
-    ('00000000-0000-0000-0000-000000000005', 'customer', 'Customer - Basic charging services', true)
+    ('00000000-0000-0000-0000-000000000003', 'staff', 'Station Staff - Operate charging stations and manage stations', true),
+    ('00000000-0000-0000-0000-000000000004', 'user', 'EV User - Use charging services and manage personal account', true)
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================
@@ -85,61 +85,34 @@ SELECT
 FROM permissions
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- STATION_OWNER: Manage owned stations and view analytics
+-- STAFF: Manage stations, operate charging, view analytics
+-- Combines permissions from legacy 'station_owner' and 'staff' roles
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 
-    (SELECT id FROM roles WHERE name = 'station_owner'),
+SELECT
+    (SELECT id FROM roles WHERE name = 'staff'),
     id
 FROM permissions
 WHERE name IN (
-    'station:read', 'station:create', 'station:update', 'station:manage',
-    'charging:read', 'charging:manage',
-    'booking:read', 'booking:manage',
+    'station:read', 'station:create', 'station:update', 'station:manage', 'station:operate',
+    'charging:read', 'charging:create', 'charging:update', 'charging:stop', 'charging:manage',
+    'booking:read', 'booking:update', 'booking:manage',
     'payment:read',
     'analytics:read',
     'user:read'
 )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- STAFF: Operate stations
+-- USER: Use charging services, manage personal account
+-- Combines permissions from legacy 'driver' and 'customer' roles
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 
-    (SELECT id FROM roles WHERE name = 'staff'),
-    id
-FROM permissions
-WHERE name IN (
-    'station:read', 'station:operate',
-    'charging:read', 'charging:create', 'charging:update', 'charging:stop',
-    'booking:read', 'booking:update',
-    'user:read'
-)
-ON CONFLICT (role_id, permission_id) DO NOTHING;
-
--- DRIVER: Use charging services
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT 
-    (SELECT id FROM roles WHERE name = 'driver'),
+SELECT
+    (SELECT id FROM roles WHERE name = 'user'),
     id
 FROM permissions
 WHERE name IN (
     'station:read',
     'charging:read', 'charging:create', 'charging:stop',
     'booking:read', 'booking:create', 'booking:cancel',
-    'payment:read', 'payment:create',
-    'user:read', 'user:update'
-)
-ON CONFLICT (role_id, permission_id) DO NOTHING;
-
--- CUSTOMER: Basic charging services
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT 
-    (SELECT id FROM roles WHERE name = 'customer'),
-    id
-FROM permissions
-WHERE name IN (
-    'station:read',
-    'charging:read', 'charging:create',
-    'booking:read', 'booking:create',
     'payment:read', 'payment:create',
     'user:read', 'user:update'
 )

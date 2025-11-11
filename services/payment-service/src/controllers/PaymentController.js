@@ -50,7 +50,13 @@ export class PaymentController {
 
   static async topupWallet(req, res, next) {
     try {
-      const result = await service.topupWallet(req.body);
+      // Get user_id from authenticated user (set by authenticate middleware)
+      const user_id = req.user?.user_id || req.user?.id || req.body.user_id;
+      if (!user_id) {
+        return res.status(400).json({ success: false, error: 'user_id is required' });
+      }
+
+      const result = await service.topupWallet({ ...req.body, user_id });
       res.json({ success: true, data: result });
     } catch (err) {
       next(err);

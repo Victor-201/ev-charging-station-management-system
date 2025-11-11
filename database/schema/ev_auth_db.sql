@@ -6,7 +6,7 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(20),
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL, -- driver, staff, admin
+    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'staff', 'user')),
     status VARCHAR(50) DEFAULT 'active',
     email_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -18,7 +18,7 @@ CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_users_email_verified ON users(email_verified);
 
 COMMENT ON TABLE users IS 'Primary user identity and authentication';
-COMMENT ON COLUMN users.role IS 'User role: driver, staff, admin, station_owner';
+COMMENT ON COLUMN users.role IS 'User role: admin, staff, user (legacy: driver->user, customer->user, station_owner->staff)';
 COMMENT ON COLUMN users.status IS 'User status: active, inactive, suspended';
 COMMENT ON COLUMN users.email_verified IS 'Whether user has verified their email address';
 

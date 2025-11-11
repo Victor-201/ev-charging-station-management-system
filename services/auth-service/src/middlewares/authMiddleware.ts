@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler';
 import { JWTPayload } from '../types';
+import { UserRole, normalizeRole } from '../constants/roles';
 
 // Extend Express Request type
 declare global {
@@ -47,13 +48,30 @@ export const authenticate = async (
   }
 };
 
-export const authorize = (...roles: string[]) => {
+export const authorize = (...roles: (UserRole | string)[]) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new AppError('Unauthorized', 401));
     }
 
-    if (!roles.includes(req.user.role)) {
+    // Normalize user role (convert 'driver' to 'user')
+    let userRole = req.user.role;
+    try {
+      userRole = normalizeRole(req.user.role);
+    } catch (error) {
+      // If normalization fails, use original role
+    }
+
+    // Normalize required roles
+    const normalizedRoles = roles.map(role => {
+      try {
+        return normalizeRole(role as string);
+      } catch {
+        return role;
+      }
+    });
+
+    if (!normalizedRoles.includes(userRole)) {
       return next(new AppError('Forbidden - Insufficient permissions', 403));
     }
 

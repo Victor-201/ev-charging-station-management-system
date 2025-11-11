@@ -64,9 +64,8 @@ const TopupScreen = ({ navigation }) => {
     }
 
     const result = await dispatch(topupWallet({
-      userId: user.id,
+      user_id: user.id,
       amount: Number(amount),
-      paymentMethod,
     }));
 
     if (result.type === 'wallet/topup/fulfilled') {

@@ -12,13 +12,14 @@ export default function Header({ user }) {
   const navigation = useNavigation();
 
   // useWallet will read auth user id from store if not provided
-  const { wallet, loading: walletLoading, error: walletError, fetchWallet } = useWallet(true, 'bc65a1d2-010f-48b9-a63f-c441be4077eb');
+  const { wallet, loading: walletLoading, error: walletError, fetchWallet } = useWallet(true, user?.id);
   console.log('Header wallet', wallet);
   const balance = wallet?.balance ?? wallet?.data?.balance ?? 0;
 
   const handleBalancePress = () => {
-    navigation.navigate('WalletMain');
-  };
+    // Navigate to Wallet tab (which contains WalletStack with WalletMain screen)
+    navigation.navigate('Wallet');
+  }
 
   return (
     <View style={[styles.header, { backgroundColor: colors.primary }]}>

@@ -38,7 +38,7 @@ const StationListScreen = () => {
   const loadStations = async () => {
     try {
       setLoading(true);
-      const response = await stationService.getNearbyStations(10.7769, 106.7009, 50);
+      const response = await stationService.getNearby(10.7769, 106.7009, 50);
       setStations(response.data || []);
     } catch (error) {
       console.error('Error loading stations:', error);

@@ -1,9 +1,11 @@
+import { UserRole } from '../constants/roles';
+
 export interface User {
   id: string;
   email: string;
   phone?: string;
   password_hash: string;
-  role: 'driver' | 'staff' | 'admin';
+  role: UserRole | string; // Allow string for backward compatibility
   status: 'active' | 'inactive' | 'suspended';
   created_at: Date;
 }

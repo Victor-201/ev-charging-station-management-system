@@ -58,7 +58,7 @@ export default function VehicleListScreen({ navigation }) {
   const renderItem = ({ item }) => (
     <VehicleCard 
       vehicle={item} 
-      onPress={() => navigation.navigate('EditVehicle', { vehicleId: item.id })}
+      onPress={() => navigation.navigate('EditVehicleScreen', { vehicleId: item.id })}
     />
   );
 
@@ -84,9 +84,9 @@ export default function VehicleListScreen({ navigation }) {
       {vehicles.length === 0 ? (
         <View style={styles.centeredContainer}>
           <Text style={styles.emptyText}>Bạn chưa có phương tiện nào.</Text>
-          <Button 
+          <Button
             mode="contained"
-            onPress={() => navigation.navigate('AddVehicle')}
+            onPress={() => navigation.navigate('AddVehicleScreen')}
           >
             Thêm phương tiện mới
           </Button>
@@ -102,7 +102,7 @@ export default function VehicleListScreen({ navigation }) {
       <FAB
         style={styles.fab}
         icon="plus"
-        onPress={() => navigation.navigate('AddVehicle')}
+        onPress={() => navigation.navigate('AddVehicleScreen')}
       />
     </View>
   );
