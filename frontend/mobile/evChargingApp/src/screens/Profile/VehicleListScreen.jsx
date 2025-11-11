@@ -2,10 +2,9 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import { Button, ActivityIndicator, Text, FAB } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { useDispatch, useSelector } from 'react-redux';
-import { getVehicles } from '../../store/slices/vehicleSlice';
-import VehicleCard from '../../components/profile/VehicleCard'; // This component will be created next
 import { useTheme } from 'react-native-paper';
+import useVehicles from '../../hooks/useVehicles';
+import VehicleCard from '../../components/profile/VehicleCard';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -43,16 +42,15 @@ const getStyles = (colors) => StyleSheet.create({
 export default function VehicleListScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
-  const dispatch = useDispatch();
-  const { vehicles, loading, error } = useSelector((state) => state.vehicles);
-  const { user } = useSelector((state) => state.auth);
+
+  const { vehicles, loading, error, fetchVehicles } = useVehicles();
 
   useFocusEffect(
     useCallback(() => {
-      if (user?.id) {
-        dispatch(getVehicles(user.id));
-      }
-    }, [dispatch, user?.id])
+      fetchVehicles().catch(err => {
+        console.error('Failed to fetch vehicles:', err);
+      });
+    }, [fetchVehicles])
   );
 
   const renderItem = ({ item }) => (
@@ -74,7 +72,7 @@ export default function VehicleListScreen({ navigation }) {
     return (
       <View style={styles.centeredContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <Button onPress={() => dispatch(getVehicles(user.id))}>Thử lại</Button>
+        <Button onPress={() => fetchVehicles()}>Thử lại</Button>
       </View>
     );
   }

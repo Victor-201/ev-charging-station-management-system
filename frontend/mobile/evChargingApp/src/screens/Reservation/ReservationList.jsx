@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  RefreshControl 
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
-import reservationService from '../../services/reservationService';
-import { Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
+import useReservations from '../../hooks/useReservations';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -133,11 +133,14 @@ export default function ReservationList() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const navigation = useNavigation();
-  const { user } = useSelector((state) => state.auth);
-  const [reservations, setReservations] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
-
+  const {
+    reservations,
+    loading,
+    error,
+    fetchUserReservations,
+  } = useReservations();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -147,23 +150,22 @@ export default function ReservationList() {
 
   const loadReservations = async () => {
     try {
-      setRefreshing(true);
-      if (!user?.id) return;
-      const response = await reservationService.getUserReservations(user.id);
-      const userReservations = response?.data || response;
-      setReservations(Array.isArray(userReservations) ? userReservations : []);
+      await fetchUserReservations();
     } catch (error) {
       console.error('Error loading reservations:', error);
-      Alert.alert('Lỗi', 'Không thể tải danh sách đặt chỗ.');
-    } finally {
-      setRefreshing(false);
+      Alert.alert('Lỗi', 'Không thể tải danh sách đặt chỗ. Vui lòng thử lại.');
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadReservations();
-    setRefreshing(false);
+    try {
+      await fetchUserReservations();
+    } catch (error) {
+      console.error('Error refreshing reservations:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -213,11 +215,26 @@ export default function ReservationList() {
     </TouchableOpacity>
   );
 
+  // Show loading state on initial load
+  if (loading && !refreshing && reservations.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Danh sách đặt chỗ</Text>
+        </View>
+        <View style={[styles.emptyState, { justifyContent: 'center' }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.emptySubtitle, { marginTop: 16 }]}>Đang tải...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Danh sách đặt chỗ</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('Map')}
         >
@@ -232,7 +249,7 @@ export default function ReservationList() {
           <Text style={styles.emptySubtitle}>
             Hãy tìm trạm sạc và đặt chỗ cho lần sạc tiếp theo
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.primaryButton}
             onPress={() => navigation.navigate('Map')}
           >
@@ -243,10 +260,15 @@ export default function ReservationList() {
         <FlatList
           data={reservations}
           renderItem={renderReservationItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id?.toString() || item.reservation_id?.toString()}
           contentContainerStyle={styles.listContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
           }
         />
       )}

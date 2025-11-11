@@ -3,11 +3,10 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Button, Snackbar, Text } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { useDispatch, useSelector } from 'react-redux';
-import { vehicleSchema } from '../../utils/validators';
-import { addVehicle, updateVehicle } from '../../store/slices/vehicleSlice';
-import AppInput from '../../components/common/AppInput';
 import { useTheme } from 'react-native-paper';
+import { vehicleSchema } from '../../utils/validators';
+import useVehicles from '../../hooks/useVehicles';
+import AppInput from '../../components/common/AppInput';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -50,12 +49,19 @@ const getStyles = (colors) => StyleSheet.create({
 export default function AddVehicleScreen({ navigation, route }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
-  const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
-  const { vehicles, loading, error } = useSelector((state) => state.vehicles);
+
+  const {
+    vehicles,
+    loading,
+    error,
+    createVehicle,
+    modifyVehicle,
+    getVehicleById
+  } = useVehicles();
+
   const { vehicleId } = route.params || {};
   const isEditMode = !!vehicleId;
-  const vehicleToEdit = isEditMode ? vehicles.find(v => v.id === vehicleId) : null;
+  const vehicleToEdit = isEditMode ? getVehicleById(vehicleId) : null;
   const [successMessage, setSuccessMessage] = useState('');
 
   const { 
@@ -76,26 +82,18 @@ export default function AddVehicleScreen({ navigation, route }) {
   });
 
   const onSubmit = async (data) => {
-    if (!user?.id) return;
-
-    if (isEditMode) {
-      const result = await dispatch(updateVehicle({
-        vehicleId: vehicleId,
-        vehicleData: data
-      }));
-      if (result.type === 'vehicles/updateVehicle/fulfilled') {
+    try {
+      if (isEditMode) {
+        await modifyVehicle(vehicleId, data);
         setSuccessMessage('Cập nhật phương tiện thành công!');
-        setTimeout(() => navigation.goBack(), 1500);
-      }
-    } else {
-      const result = await dispatch(addVehicle({
-        userId: user.id,
-        vehicleData: data
-      }));
-      if (result.type === 'vehicles/addVehicle/fulfilled') {
+      } else {
+        await createVehicle(data);
         setSuccessMessage('Thêm phương tiện thành công!');
-        setTimeout(() => navigation.goBack(), 1500);
       }
+      setTimeout(() => navigation.goBack(), 1500);
+    } catch (err) {
+      console.error('Failed to save vehicle:', err);
+      // Error is already handled by Redux state
     }
   };
 

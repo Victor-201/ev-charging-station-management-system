@@ -3,11 +3,10 @@ import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Button, Snackbar, Text } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { useDispatch, useSelector } from 'react-redux';
-import { vehicleSchema } from '../../utils/validators';
-import { updateVehicle, deleteVehicle } from '../../store/slices/vehicleSlice';
-import AppInput from '../../components/common/AppInput';
 import { useTheme } from 'react-native-paper';
+import { vehicleSchema } from '../../utils/validators';
+import useVehicles from '../../hooks/useVehicles';
+import AppInput from '../../components/common/AppInput';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -60,10 +59,16 @@ export default function EditVehicleScreen({ navigation, route }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const { vehicleId } = route.params;
-  const dispatch = useDispatch();
-  const { vehicles, loading, error } = useSelector((state) => state.vehicles);
-  const vehicle = vehicles.find(v => v.id === vehicleId);
 
+  const {
+    loading,
+    error,
+    modifyVehicle,
+    removeVehicle,
+    getVehicleById
+  } = useVehicles();
+
+  const vehicle = getVehicleById(vehicleId);
   const [successMessage, setSuccessMessage] = useState('');
 
   const { 
@@ -90,14 +95,13 @@ export default function EditVehicleScreen({ navigation, route }) {
   }, [vehicle, reset]);
 
   const onUpdate = async (data) => {
-    const result = await dispatch(updateVehicle({ 
-      vehicleId,
-      vehicleData: data 
-    }));
-
-    if (result.type === 'vehicles/updateVehicle/fulfilled') {
+    try {
+      await modifyVehicle(vehicleId, data);
       setSuccessMessage('Cập nhật phương tiện thành công!');
       setTimeout(() => navigation.goBack(), 1500);
+    } catch (err) {
+      console.error('Failed to update vehicle:', err);
+      // Error is already handled by Redux state
     }
   };
 
@@ -110,9 +114,12 @@ export default function EditVehicleScreen({ navigation, route }) {
         {
           text: 'Xóa',
           onPress: async () => {
-            const result = await dispatch(deleteVehicle(vehicleId));
-            if (result.type === 'vehicles/deleteVehicle/fulfilled') {
+            try {
+              await removeVehicle(vehicleId);
               navigation.goBack();
+            } catch (err) {
+              console.error('Failed to delete vehicle:', err);
+              Alert.alert('Lỗi', 'Không thể xóa phương tiện. Vui lòng thử lại.');
             }
           },
           style: 'destructive',

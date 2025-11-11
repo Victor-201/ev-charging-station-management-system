@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
-import reservationService from '../../services/reservationService';
+import useReservations from '../../hooks/useReservations';
 
 export default function ReservationDetail() {
   const { colors } = useTheme();
@@ -22,33 +22,37 @@ export default function ReservationDetail() {
   const navigation = useNavigation();
   const { id } = route.params;
 
-  const [reservation, setReservation] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const {
+    currentReservation: reservation,
+    loading,
+    error,
+    fetchReservationById,
+    cancelUserReservation,
+  } = useReservations();
 
   const fetchReservation = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await reservationService.getById(id);
-      const data = response?.data || response;
-      setReservation(data);
-      setError(null);
+      await fetchReservationById(id);
     } catch (e) {
       console.error('Failed to fetch reservation details:', e);
-      setError('Không thể tải chi tiết đặt chỗ. Vui lòng thử lại.');
-    } finally {
-      setLoading(false);
+      Alert.alert('Lỗi', 'Không thể tải chi tiết đặt chỗ. Vui lòng thử lại.');
     }
-  }, [id]);
+  }, [id, fetchReservationById]);
 
   useEffect(() => {
     fetchReservation();
   }, [fetchReservation]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchReservation().then(() => setRefreshing(false));
+    try {
+      await fetchReservation();
+    } finally {
+      setRefreshing(false);
+    }
   }, [fetchReservation]);
 
   const handleCancelReservation = () => {
@@ -62,13 +66,16 @@ export default function ReservationDetail() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await reservationService.cancel(id);
+              setCancelling(true);
+              await cancelUserReservation(id);
               Alert.alert('Thành công', 'Đặt chỗ của bạn đã được hủy.', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
             } catch (err) {
               console.error('Failed to cancel reservation:', err);
               Alert.alert('Lỗi', 'Không thể hủy đặt chỗ. Vui lòng thử lại.');
+            } finally {
+              setCancelling(false);
             }
           },
         },

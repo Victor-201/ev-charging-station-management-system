@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
   Alert,
-  Modal
+  ActivityIndicator
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useSelector } from 'react-redux';
 import { useTheme } from 'react-native-paper';
-import reservationService from '../../services/reservationService';
+import useReservations from '../../hooks/useReservations';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -234,13 +234,18 @@ export default function ScheduleBooking() {
   const route = useRoute();
   const { stationId, station } = route.params;
   const user = useSelector((state) => state.auth.user);
-  
+
+  const {
+    availableSlots: slotsFromRedux,
+    slotsLoading,
+    loading: reservationLoading,
+    fetchAvailableSlots,
+    createNewReservation,
+  } = useReservations();
+
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [selectedConnector, setSelectedConnector] = useState(null);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Generate next 7 days
   const generateDates = () => {
@@ -272,17 +277,11 @@ export default function ScheduleBooking() {
   const loadAvailableSlots = async () => {
     if (!selectedDate) return;
     try {
-      setLoading(true);
       const dateString = selectedDate.date.toISOString().split('T')[0];
-      const response = await reservationService.getAvailableSlots(stationId, dateString);
-      const slots = response?.data || response;
-      setAvailableSlots(Array.isArray(slots) ? slots : []);
+      await fetchAvailableSlots(stationId, dateString);
     } catch (error) {
       console.error('Error loading available slots:', error);
       Alert.alert('Lỗi', 'Không thể tải lịch trống cho ngày đã chọn.');
-      setAvailableSlots([]); // Clear slots on error
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -339,12 +338,12 @@ export default function ScheduleBooking() {
 
   const confirmBooking = async (bookingData) => {
     try {
-      setLoading(true);
-      const response = await reservationService.create(bookingData);
+      const response = await createNewReservation(bookingData);
+      const reservationId = response?.id || response?.reservation_id || response?.data?.id;
 
       Alert.alert(
         'Đặt chỗ thành công!',
-        `Mã đặt chỗ của bạn là: ${response.data.id}. Vui lòng kiểm tra trong mục Đặt chỗ.`,
+        `Mã đặt chỗ của bạn là: ${reservationId}. Vui lòng kiểm tra trong mục Đặt chỗ.`,
         [
           {
             text: 'Xem đặt chỗ',
@@ -357,10 +356,8 @@ export default function ScheduleBooking() {
       );
     } catch (error) {
       console.error('Error creating booking:', error);
-      const errorMessage = error.response?.data?.message || 'Không thể đặt chỗ. Vui lòng thử lại.';
+      const errorMessage = error?.message || 'Không thể đặt chỗ. Vui lòng thử lại.';
       Alert.alert('Lỗi đặt chỗ', errorMessage);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -448,8 +445,22 @@ export default function ScheduleBooking() {
             <Text style={styles.sectionTitle}>
               Chọn giờ - {formatDate(selectedDate)}
             </Text>
-            <View style={styles.timeGrid}>
-              {availableSlots.map((slot) => (
+            {slotsLoading ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={{ marginTop: 8, color: colors.onSurface, opacity: 0.7 }}>
+                  Đang tải lịch trống...
+                </Text>
+              </View>
+            ) : slotsFromRedux.length === 0 ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: colors.onSurface, opacity: 0.7 }}>
+                  Không có lịch trống cho ngày này
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.timeGrid}>
+                {slotsFromRedux.map((slot) => (
                 <TouchableOpacity
                   key={slot.id}
                   style={[
@@ -476,7 +487,8 @@ export default function ScheduleBooking() {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+              </View>
+            )}
           </View>
         )}
 
@@ -545,12 +557,12 @@ export default function ScheduleBooking() {
       {selectedDate && selectedTimeSlot && selectedConnector && (
         <View style={styles.bottomContainer}>
           <TouchableOpacity
-            style={[styles.bookButton, loading && styles.disabledButton]}
+            style={[styles.bookButton, reservationLoading && styles.disabledButton]}
             onPress={handleBooking}
-            disabled={loading}
+            disabled={reservationLoading}
           >
             <Text style={styles.bookButtonText}>
-              {loading ? 'Đang đặt chỗ...' : 'Đặt chỗ ngay'}
+              {reservationLoading ? 'Đang đặt chỗ...' : 'Đặt chỗ ngay'}
             </Text>
           </TouchableOpacity>
         </View>
