@@ -1,5 +1,5 @@
 -- =====================================================
--- EV_PAYMENT_DB — Database Schema (v3.2)
+-- EV_PAYMENT_DB — Database Schema (v3.5)
 -- Service: Payment Service
 -- Author: Victor
 -- Last Updated: 2025-11
@@ -7,92 +7,51 @@
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-
 -- =====================================================
 -- ENUM definitions
 -- =====================================================
 DO $$
 BEGIN
-  -- Giao dịch: loại
-  PERFORM 1 FROM pg_type WHERE typname = 'tx_type';
-  IF NOT FOUND THEN
-    CREATE TYPE tx_type AS ENUM (
-      'topup',         -- Nạp tiền
-      'payment',       -- Thanh toán
-      'refund'         -- Hoàn tiền
-    );
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tx_type') THEN
+    CREATE TYPE tx_type AS ENUM ('topup','payment','refund');
   END IF;
 
-  -- Giao dịch: phương thức
-  PERFORM 1 FROM pg_type WHERE typname = 'tx_method';
-  IF NOT FOUND THEN
-    CREATE TYPE tx_method AS ENUM (
-      'wallet',          -- Ví nội bộ
-      'bank_transfer',   -- Chuyển khoản ngân hàng
-      'cash'             -- Tiền mặt
-    );
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tx_method') THEN
+    CREATE TYPE tx_method AS ENUM ('wallet','bank_transfer','cash');
   END IF;
 
-  -- Giao dịch: trạng thái
-  PERFORM 1 FROM pg_type WHERE typname = 'tx_status';
-  IF NOT FOUND THEN
-    CREATE TYPE tx_status AS ENUM (
-      'pending',      -- Đã tạo, chờ xử lý/thanh toán
-      'completed',    -- Thành công
-      'failed',       -- Thất bại
-      'cancelled'     -- Hủy
-    );
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tx_status') THEN
+    CREATE TYPE tx_status AS ENUM ('pending','completed','failed','cancelled');
   END IF;
 
-  -- Giao dịch: đối tượng liên quan (thống nhất prefix)
-  PERFORM 1 FROM pg_type WHERE typname = 'tx_related_type';
-  IF NOT FOUND THEN
-    CREATE TYPE tx_related_type AS ENUM (
-      'subscription',      -- Đăng ký gói
-      'booking',           -- Đặt chỗ
-      'charging_session',  -- Phiên sạc
-      'guest_charging'     -- Sạc cho khách vãng lai
-    );
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tx_related_type') THEN
+    CREATE TYPE tx_related_type AS ENUM ('subscription','booking','charging_session','guest_charging');
   END IF;
 
-  -- Ví: trạng thái
-  PERFORM 1 FROM pg_type WHERE typname = 'wallet_status';
-  IF NOT FOUND THEN
-    CREATE TYPE wallet_status AS ENUM ('active', 'suspended', 'closed');
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'wallet_status') THEN
+    CREATE TYPE wallet_status AS ENUM ('active','suspended','closed');
   END IF;
 
-  -- Loại giao dịch trong ví
-  PERFORM 1 FROM pg_type WHERE typname = 'wallet_tx_type';
-  IF NOT FOUND THEN
-    CREATE TYPE wallet_tx_type AS ENUM ('topup', 'payment', 'refund');
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'wallet_tx_type') THEN
+    CREATE TYPE wallet_tx_type AS ENUM ('topup','payment','refund');
   END IF;
 
-  -- Hóa đơn: trạng thái
-  PERFORM 1 FROM pg_type WHERE typname = 'invoice_status';
-  IF NOT FOUND THEN
-    CREATE TYPE invoice_status AS ENUM ('unpaid', 'paid', 'overdue', 'cancelled');
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'invoice_status') THEN
+    CREATE TYPE invoice_status AS ENUM ('unpaid','paid','overdue','cancelled');
   END IF;
 
-  -- Gói: loại
-  PERFORM 1 FROM pg_type WHERE typname = 'plan_type';
-  IF NOT FOUND THEN
-    CREATE TYPE plan_type AS ENUM ('basic', 'standard', 'premium');
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'plan_type') THEN
+    CREATE TYPE plan_type AS ENUM ('basic','standard','premium');
   END IF;
 
-  -- Gói đăng ký: trạng thái
-  PERFORM 1 FROM pg_type WHERE typname = 'subscription_status';
-  IF NOT FOUND THEN
-    CREATE TYPE subscription_status AS ENUM ('active', 'cancelled', 'expired');
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscription_status') THEN
+    CREATE TYPE subscription_status AS ENUM ('active','cancelled','expired');
   END IF;
 
-  -- Outbox: trạng thái
-  PERFORM 1 FROM pg_type WHERE typname = 'outbox_status';
-  IF NOT FOUND THEN
-    CREATE TYPE outbox_status AS ENUM ('pending', 'processed', 'failed');
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'outbox_status') THEN
+    CREATE TYPE outbox_status AS ENUM ('pending','processed','failed');
   END IF;
-
 END$$;
-
 
 -- =====================================================
 -- Trigger function: auto-update updated_at
@@ -105,7 +64,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
 -- =====================================================
 -- Table: plans
 -- =====================================================
@@ -114,7 +72,7 @@ CREATE TABLE IF NOT EXISTS plans (
   name VARCHAR(100) NOT NULL,
   description TEXT,
   type plan_type NOT NULL DEFAULT 'basic',
-  price NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (price >= 0),
+  price NUMERIC(12,2) NOT NULL CHECK (price >= 0),
   duration INTERVAL,
   duration_days INT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -123,7 +81,6 @@ CREATE TABLE IF NOT EXISTS plans (
 CREATE TRIGGER trg_plans_updated
 BEFORE UPDATE ON plans
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 
 -- =====================================================
 -- Table: subscriptions
@@ -143,13 +100,12 @@ CREATE TRIGGER trg_subs_updated
 BEFORE UPDATE ON subscriptions
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-
 -- =====================================================
 -- Table: transactions
 -- =====================================================
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,                   -- Bắt buộc có user_id
+  user_id UUID NOT NULL,
   type tx_type NOT NULL,
   amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
   currency VARCHAR(10) DEFAULT 'VND',
@@ -162,10 +118,6 @@ CREATE TABLE IF NOT EXISTS transactions (
   meta JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  -- =====================
-  -- Logic constraints
-  -- =====================
   CHECK (
     (type = 'topup' AND method = 'bank_transfer' AND related_id IS NULL AND related_type IS NULL)
     OR
@@ -182,25 +134,6 @@ CREATE TRIGGER trg_tx_updated
 BEFORE UPDATE ON transactions
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-
--- =====================================================
--- Table: invoices
--- =====================================================
-CREATE TABLE IF NOT EXISTS invoices (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL,
-  total_amount NUMERIC(12,2) NOT NULL CHECK (total_amount >= 0),
-  due_date TIMESTAMPTZ,
-  status invoice_status DEFAULT 'unpaid',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE TRIGGER trg_invoice_updated
-BEFORE UPDATE ON invoices
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-
 -- =====================================================
 -- Table: wallets
 -- =====================================================
@@ -215,7 +148,6 @@ CREATE TABLE IF NOT EXISTS wallets (
 CREATE TRIGGER trg_wallet_updated
 BEFORE UPDATE ON wallets
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 
 -- =====================================================
 -- Table: wallet_transactions
@@ -234,79 +166,76 @@ CREATE TRIGGER trg_wallet_tx_updated
 BEFORE UPDATE ON wallet_transactions
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-
 -- =====================================================
--- Function: update_wallet_balance
+-- Table: invoices
 -- =====================================================
-CREATE OR REPLACE FUNCTION update_wallet_balance()
-RETURNS TRIGGER AS $$
-DECLARE
-  rows_updated INT;
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    CASE NEW.type
-      WHEN 'topup', 'refund' THEN
-        UPDATE wallets
-        SET balance = balance + NEW.amount, updated_at = NOW()
-        WHERE id = NEW.wallet_id;
-      WHEN 'payment' THEN
-        UPDATE wallets
-        SET balance = balance - NEW.amount, updated_at = NOW()
-        WHERE id = NEW.wallet_id AND balance >= NEW.amount;
-        GET DIAGNOSTICS rows_updated = ROW_COUNT;
-        IF rows_updated = 0 THEN
-          RAISE EXCEPTION 'Insufficient balance for wallet_id=%', NEW.wallet_id;
-        END IF;
-    END CASE;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_wallet_balance
-AFTER INSERT ON wallet_transactions
-FOR EACH ROW EXECUTE FUNCTION update_wallet_balance();
-
-
--- =====================================================
--- Table: event_outbox
--- =====================================================
-CREATE TABLE IF NOT EXISTS event_outbox (
+CREATE TABLE IF NOT EXISTS invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  aggregate_type VARCHAR(100) NOT NULL,
-  aggregate_id UUID NOT NULL,
-  type VARCHAR(100) NOT NULL,
-  payload JSONB NOT NULL,
-  status outbox_status DEFAULT 'pending',
+  transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  total_amount NUMERIC(12,2) NOT NULL CHECK (total_amount >= 0),
+  due_date TIMESTAMPTZ,
+  status invoice_status DEFAULT 'unpaid',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE TRIGGER trg_outbox_updated
-BEFORE UPDATE ON event_outbox
+CREATE TRIGGER trg_invoice_updated
+BEFORE UPDATE ON invoices
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- =====================================================
+-- Seed: Plans
+-- =====================================================
+INSERT INTO plans (id, name, description, type, price, duration_days)
+VALUES
+  ('11111111-1111-1111-1111-111111111111','Basic Plan','Gói cơ bản','basic',12000,30),
+  ('22222222-2222-2222-2222-222222222222','Standard Plan','Gói tiêu chuẩn','standard',15000,30),
+  ('33333333-3333-3333-3333-333333333333','Premium Plan','Gói cao cấp','premium',18000,30);
 
 -- =====================================================
--- View: vw_wallet_balances
+-- Seed: Wallets & Users
 -- =====================================================
-CREATE OR REPLACE VIEW vw_wallet_balances AS
-SELECT
-  id AS wallet_id,
-  user_id,
-  balance,
-  status,
-  updated_at
-FROM wallets;
-
+INSERT INTO wallets (id, user_id, balance)
+VALUES
+  ('aaaa1111-1111-1111-1111-aaaaaaaa1111','bbbb1111-1111-1111-1111-bbbbbbbbbbbb',50000),
+  ('aaaa2222-2222-2222-2222-aaaaaaaa2222','bbbb2222-2222-2222-2222-bbbbbbbbbbbb',50000),
+  ('aaaa3333-3333-3333-3333-aaaaaaaa3333','bbbb3333-3333-3333-3333-bbbbbbbbbbbb',50000);
 
 -- =====================================================
--- Indexes
+-- Seed: Subscriptions
 -- =====================================================
-CREATE INDEX IF NOT EXISTS idx_tx_user_created_at
-  ON transactions (user_id, created_at DESC);
+INSERT INTO subscriptions (id, user_id, plan_id, start_date, end_date, status)
+VALUES
+  ('ssss1111-1111-1111-1111-aaaaaaaa1111','bbbb1111-1111-1111-1111-bbbbbbbbbbbb','22222222-2222-2222-2222-222222222222',NOW(),NOW()+INTERVAL '30 days','active'),
+  ('ssss2222-2222-2222-2222-aaaaaaaa2222','bbbb2222-2222-2222-2222-bbbbbbbbbbbb','33333333-3333-3333-3333-333333333333',NOW(),NOW()+INTERVAL '30 days','active');
 
-CREATE INDEX IF NOT EXISTS idx_wallet_tx_wallet_created_at
-  ON wallet_transactions (wallet_id, created_at DESC);
+-- =====================================================
+-- Seed: Transactions
+-- =====================================================
+INSERT INTO transactions (id, user_id, type, amount, method, related_type, related_id, status)
+VALUES
+  ('11111111-1111-1111-1111-aaaaaaaaaaaa','bbbb1111-1111-1111-1111-bbbbbbbbbbbb','topup',20000,'bank_transfer',NULL,NULL,'completed'),
+  ('22222222-2222-2222-2222-aaaaaaaabbbb','bbbb2222-2222-2222-2222-bbbbbbbbbbbb','topup',20000,'bank_transfer',NULL,NULL,'completed'),
+  ('33333333-3333-3333-3333-cccccccccccc','bbbb1111-1111-1111-1111-bbbbbbbbbbbb','payment',12000,'wallet','subscription','ssss1111-1111-1111-1111-aaaaaaaa1111','completed'),
+  ('44444444-4444-4444-4444-dddddddddddd','bbbb2222-2222-2222-2222-bbbbbbbbbbbb','payment',15000,'bank_transfer','booking','aaaa4444-4444-4444-4444-aaaaaaaa4444','completed'),
+  ('55555555-5555-5555-5555-eeeeeeeeeeee','bbbb1111-1111-1111-1111-bbbbbbbbbbbb','refund',10000,'wallet',NULL,NULL,'completed');
 
-CREATE INDEX IF NOT EXISTS idx_invoice_user_status
-  ON invoices (user_id, status);
+-- =====================================================
+-- Seed: Wallet Transactions
+-- =====================================================
+INSERT INTO wallet_transactions (id, wallet_id, transaction_id, amount, type, note)
+VALUES
+  ('aaaaaaa1-1111-1111-1111-aaaaaaaa1111','aaaa1111-1111-1111-1111-aaaaaaaa1111','11111111-1111-1111-1111-aaaaaaaaaaaa',20000,'topup','Nạp tiền seed'),
+  ('aaaaaaa2-2222-2222-2222-aaaaaaaa2222','aaaa2222-2222-2222-2222-aaaaaaaa2222','22222222-2222-2222-2222-aaaaaaaabbbb',20000,'topup','Nạp tiền seed'),
+  ('aaaaaaa3-3333-3333-3333-cccccccccccc','aaaa1111-1111-1111-1111-aaaaaaaa1111','33333333-3333-3333-3333-cccccccccccc',12000,'payment','Thanh toán seed'),
+  ('aaaaaaa4-4444-4444-4444-dddddddddddd','aaaa2222-2222-2222-2222-aaaaaaaa2222','44444444-4444-4444-4444-dddddddddddd',15000,'payment','Thanh toán seed'),
+  ('aaaaaaa5-5555-5555-5555-eeeeeeeeeeee','aaaa1111-1111-1111-1111-aaaaaaaa1111','55555555-5555-5555-5555-eeeeeeeeeeee',10000,'refund','Hoàn tiền seed');
+
+-- =====================================================
+-- Seed: Invoices
+-- =====================================================
+INSERT INTO invoices (id, transaction_id, user_id, total_amount, due_date, status)
+VALUES
+  ('iiii1111-1111-1111-1111-aaaaaaaa1111','33333333-3333-3333-3333-cccccccccccc','bbbb1111-1111-1111-1111-bbbbbbbbbbbb',12000,NOW()+INTERVAL '5 days','paid'),
+  ('iiii2222-2222-2222-2222-bbbbbbbb2222','44444444-4444-4444-4444-dddddddddddd','bbbb2222-2222-2222-2222-bbbbbbbbbbbb',15000,NOW()+INTERVAL '5 days','paid'),
+  ('iiii3333-3333-3333-3333-eeeeeeee3333','55555555-5555-5555-5555-eeeeeeeeeeee','bbbb1111-1111-1111-1111-bbbbbbbbbbbb',10000,NOW()+INTERVAL '5 days','paid');
