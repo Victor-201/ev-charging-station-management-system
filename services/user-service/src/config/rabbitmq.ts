@@ -106,6 +106,22 @@ export class RabbitMQConsumer {
   }
 
   /**
+   * Normalize event format to handle both snake_case and camelCase
+   */
+  private normalizeEvent(rawEvent: any): DomainEvent {
+    // Handle both snake_case (from auth-service) and camelCase formats
+    return {
+      eventId: rawEvent.eventId || rawEvent.event_id || '',
+      eventType: rawEvent.eventType || rawEvent.event_type || '',
+      aggregateType: rawEvent.aggregateType || rawEvent.aggregate_type || '',
+      aggregateId: rawEvent.aggregateId || rawEvent.aggregate_id || '',
+      payload: rawEvent.payload || {},
+      timestamp: rawEvent.timestamp ? new Date(rawEvent.timestamp) : new Date(),
+      version: rawEvent.version || rawEvent.metadata?.version || 1
+    };
+  }
+
+  /**
    * Start consuming messages
    */
   async startConsuming(): Promise<void> {
@@ -119,16 +135,17 @@ export class RabbitMQConsumer {
         if (!msg) return;
 
         try {
-          const event: DomainEvent = JSON.parse(msg.content.toString());
-          
+          const rawEvent = JSON.parse(msg.content.toString());
+          const event = this.normalizeEvent(rawEvent);
+
           logger.info(`Received event: ${event.eventType} for ${event.aggregateType}:${event.aggregateId}`);
 
           // Get handler for this event type
           const handler = this.handlers.get(event.eventType);
-          
+
           if (handler) {
             await handler(event);
-            
+
             // Acknowledge message after successful processing
             if (this.channel) {
               this.channel.ack(msg);
@@ -143,7 +160,7 @@ export class RabbitMQConsumer {
           }
         } catch (error) {
           logger.error('Error processing message:', error);
-          
+
           // Check if message has been redelivered
           if (msg.fields.redelivered) {
             logger.error(`Message ${msg.fields.deliveryTag} failed after retry, sending to DLQ`);

@@ -9,6 +9,8 @@ export const rateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Use skip function to avoid trust proxy warning in development
+  skip: (req) => process.env.NODE_ENV === 'development' && !req.ip,
 });
 
 export const authRateLimiter = rateLimit({
@@ -19,4 +21,6 @@ export const authRateLimiter = rateLimit({
     status: 'error',
     message: 'Too many authentication attempts, please try again after 15 minutes.',
   },
+  // Use skip function to avoid trust proxy warning in development
+  skip: (req) => process.env.NODE_ENV === 'development' && !req.ip,
 });

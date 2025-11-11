@@ -27,7 +27,7 @@ export const registerSchema = Joi.object({
   password: Joi.string().min(8).required()
     .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
     .message('Password must contain at least one uppercase, lowercase, number and special character'),
-  role: Joi.string().valid('driver', 'staff', 'admin').optional(),
+  role: Joi.string().valid('user', 'staff', 'admin').optional(),
 });
 
 export const loginSchema = Joi.object({

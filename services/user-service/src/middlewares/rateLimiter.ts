@@ -6,6 +6,8 @@ export const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Use skip function to avoid trust proxy warning in development
+  skip: (req) => process.env.NODE_ENV === 'development' && !req.ip,
 });
 
 export const strictLimiter = rateLimit({
@@ -14,4 +16,6 @@ export const strictLimiter = rateLimit({
   message: 'Too many attempts, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Use skip function to avoid trust proxy warning in development
+  skip: (req) => process.env.NODE_ENV === 'development' && !req.ip,
 });
