@@ -15,14 +15,7 @@ router.get('/check', bookingCtrl.checkAvailability);
 // ➕ Create new reservation (tạo đặt chỗ mới)
 router.post('/', bookingCtrl.createReservation);
 
-// 🧾 Preview cost (xem trước chi phí, không lưu)
-router.get('/:reservation_id/preview-cost', bookingCtrl.previewCost);
 
-// 💰 Calculate & save cost (tính toán & lưu chi phí)
-router.post('/:reservation_id/calculate', bookingCtrl.calculateReservation);
-
-// ✅ Finalize reservation (hoàn tất đặt chỗ + tính tiền)
-router.post('/:reservation_id/finalize', bookingCtrl.finalizeReservation);
 
 
 // 👤 Get reservations by user (lấy danh sách đặt chỗ theo user)
@@ -40,13 +33,6 @@ router.delete('/:reservation_id', bookingCtrl.cancelReservation);
 // ====================
 // 💳 PAYMENT APIs
 // ====================
-
-// 💳 Attach payment to reservation (gắn thông tin thanh toán vào đặt chỗ)
-router.post('/:reservation_id/attach-payment', bookingCtrl.attachPaymentAndConfirm);
-
-
-// ✅ Confirm payment (xác nhận thanh toán thành công)
-router.post('/:reservation_id/payment/payment-failed', bookingCtrl.markPaymentFailed);
 
 
 // ====================

@@ -2,74 +2,56 @@ import apiClient from "@/api/apiClient";
 
 export const chargingControlService = {
   // ===== BOOKING =====
-  createBooking: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/booking", data: payload }),
-
-  checkAvailability: (params) =>
-    apiClient({ method: "GET", url: "api/v1/booking/check", params }),
-
-  getBookingById: (reservation_id) =>
-    apiClient({ method: "GET", url: `api/v1/booking/${reservation_id}` }),
-
-  updateBooking: (reservation_id, payload) =>
-    apiClient({ method: "PUT", url: `api/v1/booking/${reservation_id}`, data: payload }),
-
-  cancelBooking: (reservation_id) =>
-    apiClient({ method: "DELETE", url: `api/v1/booking/${reservation_id}` }),
-
-  joinWaitlist: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/booking/waitlist", data: payload }),
-
-  getUserReservations: (user_id) =>
-    apiClient({ method: "GET", url: `api/v1/booking/reservations/user/${user_id}` }),
-
-  updateWaitlistStatus: (waitlist_id, payload) =>
-    apiClient({ method: "PATCH", url: `api/v1/booking/waitlist/${waitlist_id}/status`, data: payload }),
-
-  getWaitlistByStation: (station_id) =>
-    apiClient({ method: "GET", url: `api/v1/booking/waitlist/${station_id}` }),
-
-  deleteWaitlist: (waitlist_id) =>
-    apiClient({ method: "DELETE", url: `api/v1/booking/waitlist/${waitlist_id}` }),
-
-  // ===== QR =====
-  generateQr: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/booking/qr/generate", data: payload }),
-
-  validateQr: (qr_id) =>
-    apiClient({ method: "GET", url: `api/v1/booking/qr/${qr_id}/validate` }),
-
-  // ===== SESSION =====
+  // Tạo phiên sạc (khi user cắm xe và hệ thống khởi tạo session)
   initiateSession: (payload) =>
     apiClient({ method: "POST", url: "api/v1/charging/initiate", data: payload }),
 
+  // Bắt đầu sạc sau khi xác nhận
   startSession: (payload) =>
     apiClient({ method: "POST", url: "api/v1/charging/start", data: payload }),
 
-  pushMeterReading: (session_id, payload) =>
-    apiClient({ method: "POST", url: `api/v1/charging/${session_id}/meter`, data: payload }),
+  // Xem điểm sạc nào đang hoạt động tại một trạm
+  getActivePointsByStation: (station_id) =>
+    apiClient({ method: "GET", url: `api/v1/charging/${station_id}/active-points` }),
 
-  getTelemetry: (session_id, params) =>
-    apiClient({ method: "GET", url: `api/v1/charging/${session_id}/telemetry`, params }),
+  // Xem danh sách session của user (nếu nhân viên cần check khách)
+  getUserSessions: (user_id) =>
+    apiClient({ method: "GET", url: `api/v1/charging/${user_id}/sessions` }),
 
-  pauseSession: (session_id) =>
-    apiClient({ method: "POST", url: `api/v1/charging/${session_id}/pause` }),
-
-  resumeSession: (session_id) =>
-    apiClient({ method: "POST", url: `api/v1/charging/${session_id}/resume` }),
-
-  stopSession: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/charging/stop", data: payload }),
-
+  // Lấy thông tin chi tiết 1 session (rất quan trọng)
   getSessionById: (session_id) =>
     apiClient({ method: "GET", url: `api/v1/charging/${session_id}` }),
 
+  // Lấy telemetry để hiển thị thông số theo thời gian thực
+  getTelemetry: (session_id, params) =>
+    apiClient({ method: "GET", url: `api/v1/charging/${session_id}/telemetry`, params }),
+
+  // Lấy log event (để nhân viên biết session có pause/resume/error)
   getSessionEvents: (session_id) =>
     apiClient({ method: "GET", url: `api/v1/charging/${session_id}/events` }),
 
-  // ===== NOTIFICATION (gateway) =====
-  sendNotification: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/notifications/send", data: payload }),
+  // ==== QUYỀN CAN THIỆP CỦA NHÂN VIÊN ====
+
+  // Tạm dừng phiên sạc
+  pauseSession: (session_id) =>
+    apiClient({ method: "POST", url: `api/v1/charging/${session_id}/pause` }),
+
+  // Tiếp tục sạc
+  resumeSession: (session_id) =>
+    apiClient({ method: "POST", url: `api/v1/charging/${session_id}/resume` }),
+
+  // Dừng sạc
+  stopSession: (payload) =>
+    apiClient({ method: "POST", url: `api/v1/charging/${session_id}/stop`, data: payload }),
+
+  // Sau khi kết thúc sạc thì lấy hóa đơn
+  getInvoiceBySession: (session_id) =>
+    apiClient({ method: "GET", url: `api/v1/charging/${session_id}/invoice` }),
+
+  // Nếu hóa đơn sai hoặc đầy lỗi thì nhân viên reconcile (điều chỉnh)
+  reconcileSession: (session_id, payload) =>
+    apiClient({ method: "POST", url: `api/v1/charging/${session_id}/reconcile`, data: payload }),
 };
+
 
 export default chargingControlService;
