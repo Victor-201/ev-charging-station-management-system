@@ -6,6 +6,7 @@ import vehicleReducer from './slices/vehicleSlice';
 import chargingReducer from './slices/chargingSlice';
 import walletReducer from './slices/walletSlice';
 import paymentReducer from './slices/paymentSlice';
+import reservationReducer from './slices/reservationSlice';
 
 const store = configureStore({
   reducer: {
@@ -15,6 +16,7 @@ const store = configureStore({
     charging: chargingReducer,
     wallet: walletReducer,
     payment: paymentReducer,
+    reservation: reservationReducer,
   },
   middleware: (getDefault) => getDefault(),
 });

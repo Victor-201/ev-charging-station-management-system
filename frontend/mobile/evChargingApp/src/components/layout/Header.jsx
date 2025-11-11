@@ -12,7 +12,7 @@ export default function Header({ user }) {
   const navigation = useNavigation();
 
   // useWallet will read auth user id from store if not provided
-  const { wallet, loading: walletLoading, error: walletError, fetchWallet } = useWallet(true, user?.id);
+    const { wallet, loading: walletLoading, error: walletError, fetchWallet } = useWallet(false, user?.id);
   console.log('Header wallet', wallet);
   const balance = wallet?.balance ?? wallet?.data?.balance ?? 0;
 

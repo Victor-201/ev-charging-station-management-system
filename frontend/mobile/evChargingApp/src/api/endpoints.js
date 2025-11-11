@@ -20,6 +20,7 @@ export const ENDPOINTS = {
     DEACTIVATE: '/users/:user_id/deactivate',
     EXPORT_DATA: '/users/:user_id/export-data',
     ERASE_DATA: '/users/:user_id/erase',
+    CHARGING_HISTORY: '/users/:user_id/charging-history',
     LIST: '/users',
   },
   VEHICLE: {

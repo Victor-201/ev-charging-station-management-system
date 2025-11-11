@@ -54,10 +54,9 @@ const chargingService = {
   },
 
   // Get user's charging history
-  getHistory: async (userId) => {
-    const response = await apiClient.get(ENDPOINTS.CHARGING.DETAIL, {
-      params: { user_id: userId }
-    });
+  getHistory: async (userId, params = {}) => {
+    const url = ENDPOINTS.USER.CHARGING_HISTORY.replace(':user_id', userId);
+    const response = await apiClient.get(url, { params });
     return response.data;
   },
 };

@@ -14,8 +14,10 @@ export const getWallet = createAsyncThunk('wallet/getWallet', async (userId, { r
 // Async thunk for fetching transactions
 export const getTransactions = createAsyncThunk('wallet/getTransactions', async ({ userId, params }, { rejectWithValue }) => {
   try {
-    const { data } = await paymentService.getTransactions(userId, params);
-    return data.transactions;
+    const response = await paymentService.getTransactions(userId, params);
+    // Handle different response structures (e.g., response.data, response.data.transactions, etc.)
+    const transactions = response?.data?.transactions || response?.transactions || response?.data || response || [];
+    return Array.isArray(transactions) ? transactions : [];
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
   }

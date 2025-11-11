@@ -8,52 +8,68 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
-import stationService from '../../services/stationService';
+import useStations from '../../hooks/useStations';
 
 const StationListScreen = () => {
   const navigation = useNavigation();
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
-  const [stations, setStations] = useState([]);
+  // Use custom hook for station data management
+  const {
+    stations,
+    loading,
+    error,
+    refreshing,
+    fetchNearbyStations,
+    refresh,
+  } = useStations({
+    autoFetch: true,
+    latitude: 10.7769, // Default to Ho Chi Minh City coordinates
+    longitude: 106.7009,
+    radius: 50,
+  });
+
   const [filteredStations, setFilteredStations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('distance'); // distance, name, rating, availability
 
+  // Show error alert if there's an error
   useEffect(() => {
-    loadStations();
-  }, []);
+    if (error) {
+      Alert.alert(
+        'Lỗi tải dữ liệu',
+        'Không thể tải danh sách trạm sạc. Vui lòng thử lại.',
+        [
+          {
+            text: 'Thử lại',
+            onPress: () => refresh(),
+          },
+          {
+            text: 'Đóng',
+            style: 'cancel',
+          },
+        ]
+      );
+    }
+  }, [error]);
 
   useEffect(() => {
     filterAndSortStations();
   }, [searchQuery, sortBy, stations]);
 
-  const loadStations = async () => {
-    try {
-      setLoading(true);
-      const response = await stationService.getNearby(10.7769, 106.7009, 50);
-      setStations(response.data || []);
-    } catch (error) {
-      console.error('Error loading stations:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadStations();
-    setRefreshing(false);
-  };
-
   const filterAndSortStations = () => {
+    if (!Array.isArray(stations)) {
+      setFilteredStations([]);
+      return;
+    }
+
     let result = [...stations];
 
     // Filter by search query
@@ -61,8 +77,8 @@ const StationListScreen = () => {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (station) =>
-          station.name.toLowerCase().includes(query) ||
-          station.address.toLowerCase().includes(query)
+          (station.name || '').toLowerCase().includes(query) ||
+          (station.address || '').toLowerCase().includes(query)
       );
     }
 
@@ -72,7 +88,7 @@ const StationListScreen = () => {
         result.sort((a, b) => (a.distance || 0) - (b.distance || 0));
         break;
       case 'name':
-        result.sort((a, b) => a.name.localeCompare(b.name));
+        result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         break;
       case 'rating':
         result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -88,18 +104,20 @@ const StationListScreen = () => {
   };
 
   const handleStationPress = (station) => {
-    navigation.navigate('StationDetail', { id: station.id, station });
+    navigation.navigate('StationDetail', { id: station.id || station.station_id, station });
   };
 
   const getStatusColor = (station) => {
+    if (!station) return colors.onSurfaceVariant;
     if (station.status !== 'active') return colors.error;
-    if (station.available_ports === 0) return colors.warning;
+    if ((station.available_ports || 0) === 0) return colors.warning;
     return colors.success;
   };
 
   const getStatusText = (station) => {
+    if (!station) return 'N/A';
     if (station.status !== 'active') return 'Bảo trì';
-    if (station.available_ports === 0) return 'Hết chỗ';
+    if ((station.available_ports || 0) === 0) return 'Hết chỗ';
     return 'Có sẵn';
   };
 
@@ -229,14 +247,26 @@ const StationListScreen = () => {
       <FlatList
         data={filteredStations}
         renderItem={renderStationItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => (item.id || item.station_id || Math.random()).toString()}
         contentContainerStyle={styles.listContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.primary]} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Icon name="search-off" size={64} color={colors.onSurfaceVariant} />
-            <Text style={styles.emptyText}>Không tìm thấy trạm sạc nào</Text>
-            <Text style={styles.emptySubtext}>Thử thay đổi từ khóa tìm kiếm</Text>
+            <Text style={styles.emptyText}>
+              {error ? 'Không thể tải dữ liệu' : 'Không tìm thấy trạm sạc nào'}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {error ? 'Vui lòng kiểm tra kết nối mạng và thử lại' : 'Thử thay đổi từ khóa tìm kiếm'}
+            </Text>
+            {error && (
+              <TouchableOpacity
+                style={[styles.sortButton, styles.sortButtonActive, { marginTop: 16 }]}
+                onPress={refresh}
+              >
+                <Text style={styles.sortButtonTextActive}>Thử lại</Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
       />

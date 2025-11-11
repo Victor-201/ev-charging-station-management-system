@@ -60,9 +60,19 @@ const SessionCard = ({ session, onPress }) => {
   if (!session) return null;
 
   const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString('vi-VN', options);
+    if (!dateString) return 'N/A';
+    try {
+      const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return new Date(dateString).toLocaleDateString('vi-VN', options);
+    } catch (error) {
+      return 'N/A';
+    }
   };
+
+  const stationName = session.station_name || session.stationName || 'Trạm sạc';
+  const startTime = session.start_time || session.startTime || session.created_at;
+  const energyConsumed = session.energy_consumed || session.energyConsumed || 0;
+  const cost = session.cost || session.total_cost || session.totalCost || 0;
 
   return (
     <Card style={styles.card} onPress={onPress}>
@@ -76,16 +86,16 @@ const SessionCard = ({ session, onPress }) => {
           />
         </View>
         <View style={styles.detailsContainer}>
-          <Text style={styles.title}>{session.station_name}</Text>
-          <Text style={styles.date}>{formatDate(session.start_time)}</Text>
+          <Text style={styles.title}>{stationName}</Text>
+          <Text style={styles.date}>{formatDate(startTime)}</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <IconButton icon="flash" size={16} color={colors.onSurface + '80'} style={styles.statIcon} />
-              <Text style={styles.statText}>{session.energy_consumed?.toFixed(2)} kWh</Text>
+              <Text style={styles.statText}>{energyConsumed.toFixed(2)} kWh</Text>
             </View>
             <View style={styles.statItem}>
               <IconButton icon="cash" size={16} color={colors.onSurface + '80'} style={styles.statIcon} />
-              <Text style={styles.statText}>{session.cost?.toLocaleString('vi-VN')} ₫</Text>
+              <Text style={styles.statText}>{cost.toLocaleString('vi-VN')} ₫</Text>
             </View>
           </View>
         </View>

@@ -1,11 +1,11 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, ActivityIndicator, Button } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { useDispatch, useSelector } from 'react-redux';
-import { getChargingHistory } from '../../store/slices/chargingSlice'; // This will be created later
-import SessionCard from '../../components/charging/SessionCard'; // This will be created next
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import useChargingHistory from '../../hooks/useChargingHistory';
+import SessionCard from '../../components/charging/SessionCard';
 import { useTheme } from 'react-native-paper';
 
 const getStyles = (colors) => StyleSheet.create({
@@ -23,67 +23,111 @@ const getStyles = (colors) => StyleSheet.create({
     color: colors.error,
     marginBottom: 16,
     textAlign: 'center',
+    fontSize: 16,
   },
   listContainer: {
     padding: 16,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+  },
   emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
     color: colors.onSurface,
-    opacity: 0.7,
-  }
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
 });
 
 const ChargingHistoryScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = getStyles(colors);
-  const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
-  const { sessions, loading, error } = useSelector((state) => state.charging);
 
-  const loadHistory = useCallback(() => {
-    if (user?.id) {
-      dispatch(getChargingHistory(user.id));
-    }
-  }, [dispatch, user?.id]);
+  const {
+    sessions,
+    loading,
+    error,
+    refreshing,
+    fetchHistory,
+    refresh,
+  } = useChargingHistory({ autoFetch: true });
 
-  useFocusEffect(loadHistory);
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchHistory();
+    }, [fetchHistory])
+  );
 
   const renderItem = ({ item }) => (
     <SessionCard
       session={item}
-      onPress={() => navigation.navigate('SessionDetail', { sessionId: item.id })}
+      onPress={() => navigation.navigate('SessionDetail', { sessionId: item.id || item.session_id })}
     />
   );
 
-  if (loading) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color={colors.primary} /></View>;
-  }
+  const renderEmptyComponent = () => (
+    <View style={styles.emptyContainer}>
+      <Icon name="history" size={80} color={colors.onSurfaceVariant} style={styles.emptyIcon} />
+      <Text style={styles.emptyText}>Chưa có lịch sử sạc</Text>
+      <Text style={styles.emptySubtext}>
+        Lịch sử các phiên sạc của bạn sẽ hiển thị ở đây
+      </Text>
+    </View>
+  );
 
-  if (error) {
+  if (loading && !refreshing && sessions.length === 0) {
     return (
       <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 16, color: colors.onSurfaceVariant }}>
+          Đang tải lịch sử sạc...
+        </Text>
+      </View>
+    );
+  }
+
+  if (error && sessions.length === 0) {
+    return (
+      <View style={styles.centered}>
+        <Icon name="error-outline" size={64} color={colors.error} style={{ marginBottom: 16 }} />
         <Text style={styles.errorText}>{error}</Text>
-        <Button onPress={loadHistory}>Thử lại</Button>
+        <Button mode="contained" onPress={refresh}>
+          Thử lại
+        </Button>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {sessions.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>Bạn chưa có lịch sử sạc nào.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={sessions}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContainer}
-          onRefresh={loadHistory}
-          refreshing={loading}
-        />
-      )}
+      <FlatList
+        data={sessions}
+        renderItem={renderItem}
+        keyExtractor={(item) => (item.id || item.session_id || Math.random()).toString()}
+        contentContainerStyle={sessions.length === 0 ? { flex: 1 } : styles.listContainer}
+        ListEmptyComponent={renderEmptyComponent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      />
     </SafeAreaView>
   );
 };

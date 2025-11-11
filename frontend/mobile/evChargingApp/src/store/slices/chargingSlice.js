@@ -4,8 +4,10 @@ import chargingService from '../../services/chargingService';
 // Async thunk for fetching user's charging history
 export const getChargingHistory = createAsyncThunk('charging/getHistory', async (userId, { rejectWithValue }) => {
   try {
-    const { data } = await chargingService.getHistory(userId);
-    return data.sessions;
+    const response = await chargingService.getHistory(userId);
+    // Handle different response structures
+    const sessions = response?.data?.sessions || response?.sessions || response?.data || response || [];
+    return Array.isArray(sessions) ? sessions : [];
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
   }
