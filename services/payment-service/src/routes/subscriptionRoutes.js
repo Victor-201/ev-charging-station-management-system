@@ -1,6 +1,6 @@
 import express from 'express';
 import { SubscriptionController } from '../controllers/SubscriptionController.js';
-import { authenticate, authorize } from '../middlewares/authMiddleware.js';
+import { authenticate, authorize } from '../middlewares/auth.js';
 
 const router = express.Router();
 

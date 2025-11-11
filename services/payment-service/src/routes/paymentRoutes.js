@@ -1,6 +1,6 @@
 import express from 'express';
 import { PaymentController } from '../controllers/PaymentController.js';
-import { authenticate, authorize } from '../middlewares/authMiddleware.js';
+import { authenticate, authorize } from '../middlewares/auth.js';
 import { UserRole } from '../constants/roles.js';
 
 const router = express.Router();
