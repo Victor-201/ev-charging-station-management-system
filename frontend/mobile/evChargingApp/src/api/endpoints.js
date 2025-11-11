@@ -65,6 +65,8 @@ export const ENDPOINTS = {
     CREATE: '/payments/transaction',
     DETAIL: '/payments/transaction/:id',
     LIST: '/payments/user/:user_id/payments',
+    INVOICE: '/payments/transaction/:id',
+    DOWNLOAD_INVOICE: '/payments/transaction/:id/download',
   },
   NOTIFICATION: {
     LIST: '/notifications/:user_id',

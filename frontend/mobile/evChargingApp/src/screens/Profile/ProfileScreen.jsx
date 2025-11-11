@@ -158,7 +158,7 @@ export default function ProfileScreen({ navigation }) {
           description="Xem lại các phiên sạc của bạn"
           left={(props) => <List.Icon {...props} icon="history" />}
           right={(props) => <List.Icon {...props} icon="chevron-right" />}
-          onPress={() => navigation.navigate('ChargingHistoryScreen')}
+          onPress={() => navigation.navigate('History')}
         />
 
         <List.Item

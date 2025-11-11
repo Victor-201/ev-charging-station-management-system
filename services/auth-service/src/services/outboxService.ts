@@ -88,9 +88,14 @@ export class OutboxService {
         } catch (error) {
           failCount++;
           logger.error('Error processing outbox event:', {
-            error,
+            error: error instanceof Error ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name
+            } : error,
             event_id: event.id,
-            event_type: event.event_type
+            event_type: event.event_type,
+            payload: event.payload
           });
         }
       }

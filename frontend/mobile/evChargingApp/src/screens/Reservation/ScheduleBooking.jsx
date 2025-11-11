@@ -348,7 +348,10 @@ export default function ScheduleBooking() {
         [
           {
             text: 'Xem đặt chỗ',
-            onPress: () => navigation.navigate('Reservation', { screen: 'ReservationList' })
+            onPress: () => navigation.navigate('Profile', {
+              screen: 'ReservationStack',
+              params: { screen: 'ReservationMain' }
+            })
           }
         ]
       );
