@@ -23,9 +23,12 @@ export default function Stations() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   // ===== Lấy dữ liệu =====
-  useEffect(() => {
-    getAll(); // lấy danh sách tất cả trạm
-  }, [getAll]);
+ useEffect(() => {
+  // ví dụ toạ độ giả định của nhân viên hoặc vị trí hiện tại
+  const params = { lat: 10.9, lng: 106.8, radius: 10 };
+  getAll(params);
+}, [getAll]);
+
 
   useEffect(() => {
     if (managedStationId) {
