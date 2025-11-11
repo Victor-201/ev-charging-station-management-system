@@ -7,6 +7,7 @@ import chargingReducer from './slices/chargingSlice';
 import walletReducer from './slices/walletSlice';
 import paymentReducer from './slices/paymentSlice';
 import reservationReducer from './slices/reservationSlice';
+import notificationReducer from './slices/notificationSlice';
 
 const store = configureStore({
   reducer: {
@@ -17,6 +18,7 @@ const store = configureStore({
     wallet: walletReducer,
     payment: paymentReducer,
     reservation: reservationReducer,
+    notification: notificationReducer,
   },
   middleware: (getDefault) => getDefault(),
 });
