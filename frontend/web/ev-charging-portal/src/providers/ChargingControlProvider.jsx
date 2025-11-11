@@ -1,261 +1,41 @@
 // contexts/ChargingControlProvider.jsx
 import React, { useState, useCallback, useMemo } from "react";
 import { ChargingControlContext } from "@/contexts/ChargingControlContext";
-import chargingControlService from "@/services/chargingControlService"; // sửa path nếu cần
+import chargingControlService from "@/services/chargingControlService";
+import apiClient from "@/api/apiClient";
 
 export const ChargingControlProvider = ({ children }) => {
-  // global error
+  // Global error
   const [error, setError] = useState(null);
 
-  // loading flags grouped by domain
-  const [loadingBooking, setLoadingBooking] = useState(false);
-  const [loadingWaitlist, setLoadingWaitlist] = useState(false);
-  const [loadingQr, setLoadingQr] = useState(false);
+  // Loading flags
   const [loadingSession, setLoadingSession] = useState(false);
   const [loadingTelemetry, setLoadingTelemetry] = useState(false);
-  const [loadingNotification, setLoadingNotification] = useState(false);
+  const [loadingInvoice, setLoadingInvoice] = useState(false);
 
-  // caches / last results
-  const [lastBooking, setLastBooking] = useState(null);
-  const [bookings, setBookings] = useState([]); // optional list cache
-  const [userReservations, setUserReservations] = useState([]);
-  const [waitlists, setWaitlists] = useState([]);
-  const [lastQr, setLastQr] = useState(null);
+  // Caches / State
   const [sessions, setSessions] = useState([]);
   const [currentSession, setCurrentSession] = useState(null);
+  const [activePoints, setActivePoints] = useState([]);
   const [telemetry, setTelemetry] = useState(null);
+  const [sessionEvents, setSessionEvents] = useState([]);
+  const [invoice, setInvoice] = useState(null);
 
-  // ===== BOOKING =====
-  const createBooking = useCallback(async (payload) => {
-    setLoadingBooking(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.createBooking(payload);
-      const data = res?.data ?? res;
-      setLastBooking(data);
-      setBookings(prev => (prev ? [data, ...prev] : [data]));
-      setLoadingBooking(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingBooking(false);
-      return { success: false, error: err };
-    }
-  }, []);
+  // ===== SESSION MANAGEMENT =====
 
-  const checkAvailability = useCallback(async (params) => {
-    setLoadingBooking(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.checkAvailability(params);
-      const data = res?.data ?? res;
-      setLoadingBooking(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingBooking(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const getBookingById = useCallback(async (reservation_id) => {
-    setLoadingBooking(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.getBookingById(reservation_id);
-      const data = res?.data ?? res;
-      // optionally update bookings / lastBooking
-      setLastBooking(data);
-      setLoadingBooking(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingBooking(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const updateBooking = useCallback(async (reservation_id, payload) => {
-    setLoadingBooking(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.updateBooking(reservation_id, payload);
-      const data = res?.data ?? res;
-      setBookings(prev => prev?.map(b => (b.id === reservation_id || b.reservation_id === reservation_id ? data : b)) ?? prev);
-      setLastBooking(data);
-      setLoadingBooking(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingBooking(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  // inside ChargingControlProvider (add these functions near other session functions)
-
-  // FETCH SESSIONS BY STATION (aggregator)
-  // Prefer backend: GET /api/v1/charging?station_id={station_id}&status=...
-  // Fallback: call connectors -> for each connector call a session lookup endpoint (not ideal)
-  const fetchSessionsByStation = useCallback(async (station_id, params = {}) => {
-    setLoadingSession(true);
-    setError(null);
-    try {
-      // chargingControlService.getSessions should call /api/v1/charging?station_id=...
-      const res = await chargingControlService.getSessions({ station_id, ...params });
-      const data = res?.data ?? res;
-      // expected data.items or data array
-      const items = data?.items ?? data;
-      setSessions(items);
-      setLoadingSession(false);
-      return { success: true, data: items };
-    } catch (err) {
-      // fallback: try connectors -> attempt to fetch sessions per connector (if your backend supports)
-      try {
-        // stationService used from StationProvider; if not accessible here, upstream caller can do fallback
-      } catch (e) {}
-      setError(err);
-      setLoadingSession(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const cancelBooking = useCallback(async (reservation_id) => {
-    setLoadingBooking(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.cancelBooking(reservation_id);
-      setBookings(prev => prev?.filter(b => b.id !== reservation_id && b.reservation_id !== reservation_id) ?? prev);
-      if (lastBooking && (lastBooking.id === reservation_id || lastBooking.reservation_id === reservation_id)) setLastBooking(null);
-      setLoadingBooking(false);
-      return { success: true, data: res?.data ?? res };
-    } catch (err) {
-      setError(err);
-      setLoadingBooking(false);
-      return { success: false, error: err };
-    }
-  }, [lastBooking]);
-
-  const joinWaitlist = useCallback(async (payload) => {
-    setLoadingWaitlist(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.joinWaitlist(payload);
-      const data = res?.data ?? res;
-      setWaitlists(prev => (prev ? [data, ...prev] : [data]));
-      setLoadingWaitlist(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingWaitlist(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const getUserReservations = useCallback(async (user_id) => {
-    setLoadingBooking(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.getUserReservations(user_id);
-      const data = res?.data ?? res;
-      setUserReservations(data);
-      setLoadingBooking(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingBooking(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const updateWaitlistStatus = useCallback(async (waitlist_id, payload) => {
-    setLoadingWaitlist(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.updateWaitlistStatus(waitlist_id, payload);
-      const data = res?.data ?? res;
-      setWaitlists(prev => prev?.map(w => (w.id === waitlist_id || w.waitlist_id === waitlist_id ? data : w)) ?? prev);
-      setLoadingWaitlist(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingWaitlist(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const getWaitlistByStation = useCallback(async (station_id) => {
-    setLoadingWaitlist(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.getWaitlistByStation(station_id);
-      const data = res?.data ?? res;
-      setWaitlists(data);
-      setLoadingWaitlist(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingWaitlist(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const deleteWaitlist = useCallback(async (waitlist_id) => {
-    setLoadingWaitlist(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.deleteWaitlist(waitlist_id);
-      setWaitlists(prev => prev?.filter(w => w.id !== waitlist_id && w.waitlist_id !== waitlist_id) ?? prev);
-      setLoadingWaitlist(false);
-      return { success: true, data: res?.data ?? res };
-    } catch (err) {
-      setError(err);
-      setLoadingWaitlist(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  // ===== QR =====
-  const generateQr = useCallback(async (payload) => {
-    setLoadingQr(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.generateQr(payload);
-      const data = res?.data ?? res;
-      setLastQr(data);
-      setLoadingQr(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingQr(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const validateQr = useCallback(async (qr_id) => {
-    setLoadingQr(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.validateQr(qr_id);
-      const data = res?.data ?? res;
-      setLoadingQr(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingQr(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  // ===== SESSION =====
+  /**
+   * Khởi tạo session mới (khi user cắm xe)
+   */
   const initiateSession = useCallback(async (payload) => {
     setLoadingSession(true);
     setError(null);
     try {
       const res = await chargingControlService.initiateSession(payload);
       const data = res?.data ?? res;
-      setSessions(prev => (prev ? [data, ...prev] : [data]));
+      
       setCurrentSession(data);
+      setSessions(prev => [data, ...prev]);
+      
       setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
@@ -265,13 +45,23 @@ export const ChargingControlProvider = ({ children }) => {
     }
   }, []);
 
+  /**
+   * Bắt đầu sạc sau khi xác nhận
+   */
   const startSession = useCallback(async (payload) => {
     setLoadingSession(true);
     setError(null);
     try {
       const res = await chargingControlService.startSession(payload);
       const data = res?.data ?? res;
+      
       setCurrentSession(data);
+      setSessions(prev => 
+        prev.map(s => 
+          (s.id === data.id || s.session_id === data.session_id) ? data : s
+        )
+      );
+      
       setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
@@ -281,15 +71,18 @@ export const ChargingControlProvider = ({ children }) => {
     }
   }, []);
 
-  const pushMeterReading = useCallback(async (session_id, payload) => {
+  /**
+   * Lấy danh sách điểm sạc đang hoạt động tại trạm
+   */
+  const getActivePointsByStation = useCallback(async (station_id) => {
     setLoadingSession(true);
     setError(null);
     try {
-      const res = await chargingControlService.pushMeterReading(session_id, payload);
+      const res = await chargingControlService.getActivePointsByStation(station_id);
       const data = res?.data ?? res;
-      // optionally update session in sessions cache
-      setSessions(prev => prev?.map(s => (s.id === session_id || s.session_id === session_id ? data : s)) ?? prev);
-      setCurrentSession(prev => (prev && (prev.id === session_id || prev.session_id === session_id) ? data : prev));
+      
+      setActivePoints(data);
+      
       setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
@@ -299,29 +92,18 @@ export const ChargingControlProvider = ({ children }) => {
     }
   }, []);
 
-  const getTelemetry = useCallback(async (session_id, params) => {
-    setLoadingTelemetry(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.getTelemetry(session_id, params);
-      const data = res?.data ?? res;
-      setTelemetry(data);
-      setLoadingTelemetry(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingTelemetry(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const pauseSession = useCallback(async (session_id) => {
+  /**
+   * Lấy danh sách session của user
+   */
+  const getUserSessions = useCallback(async (user_id) => {
     setLoadingSession(true);
     setError(null);
     try {
-      const res = await chargingControlService.pauseSession(session_id);
+      const res = await chargingControlService.getUserSessions(user_id);
       const data = res?.data ?? res;
-      setCurrentSession(prev => (prev && (prev.id === session_id || prev.session_id === session_id) ? data : prev));
+      
+      setSessions(Array.isArray(data) ? data : []);
+      
       setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
@@ -331,45 +113,30 @@ export const ChargingControlProvider = ({ children }) => {
     }
   }, []);
 
-  const resumeSession = useCallback(async (session_id) => {
-    setLoadingSession(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.resumeSession(session_id);
-      const data = res?.data ?? res;
-      setCurrentSession(prev => (prev && (prev.id === session_id || prev.session_id === session_id) ? data : prev));
-      setLoadingSession(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingSession(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
-  const stopSession = useCallback(async (payload) => {
-    setLoadingSession(true);
-    setError(null);
-    try {
-      const res = await chargingControlService.stopSession(payload);
-      const data = res?.data ?? res;
-      // optional: update sessions / currentSession
-      setLoadingSession(false);
-      return { success: true, data };
-    } catch (err) {
-      setError(err);
-      setLoadingSession(false);
-      return { success: false, error: err };
-    }
-  }, []);
-
+  /**
+   * Lấy thông tin chi tiết 1 session
+   */
   const getSessionById = useCallback(async (session_id) => {
     setLoadingSession(true);
     setError(null);
     try {
       const res = await chargingControlService.getSessionById(session_id);
       const data = res?.data ?? res;
+      
       setCurrentSession(data);
+      // Update trong danh sách nếu có
+      setSessions(prev => {
+        const exists = prev.some(s => 
+          s.id === session_id || s.session_id === session_id
+        );
+        if (exists) {
+          return prev.map(s => 
+            (s.id === session_id || s.session_id === session_id) ? data : s
+          );
+        }
+        return prev;
+      });
+      
       setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
@@ -379,12 +146,39 @@ export const ChargingControlProvider = ({ children }) => {
     }
   }, []);
 
+  /**
+   * Lấy telemetry (thông số thời gian thực)
+   */
+  const getTelemetry = useCallback(async (session_id, params = {}) => {
+    setLoadingTelemetry(true);
+    setError(null);
+    try {
+      const res = await chargingControlService.getTelemetry(session_id, params);
+      const data = res?.data ?? res;
+      
+      setTelemetry(data);
+      
+      setLoadingTelemetry(false);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setLoadingTelemetry(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  /**
+   * Lấy log events của session
+   */
   const getSessionEvents = useCallback(async (session_id) => {
     setLoadingSession(true);
     setError(null);
     try {
       const res = await chargingControlService.getSessionEvents(session_id);
       const data = res?.data ?? res;
+      
+      setSessionEvents(Array.isArray(data) ? data : []);
+      
       setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
@@ -394,125 +188,285 @@ export const ChargingControlProvider = ({ children }) => {
     }
   }, []);
 
-  // ===== NOTIFICATION (gateway) =====
-  const sendNotification = useCallback(async (payload) => {
-    setLoadingNotification(true);
+  // ===== QUYỀN CAN THIỆP CỦA NHÂN VIÊN =====
+
+  /**
+   * Tạm dừng phiên sạc
+   */
+  const pauseSession = useCallback(async (session_id) => {
+    setLoadingSession(true);
     setError(null);
     try {
-      const res = await chargingControlService.sendNotification(payload);
+      const res = await chargingControlService.pauseSession(session_id);
       const data = res?.data ?? res;
-      setLoadingNotification(false);
+      
+      // Update session status
+      setCurrentSession(prev => 
+        (prev && (prev.id === session_id || prev.session_id === session_id)) 
+          ? { ...prev, status: 'paused', ...data } 
+          : prev
+      );
+      setSessions(prev => 
+        prev.map(s => 
+          (s.id === session_id || s.session_id === session_id)
+            ? { ...s, status: 'paused', ...data }
+            : s
+        )
+      );
+      
+      setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
       setError(err);
-      setLoadingNotification(false);
+      setLoadingSession(false);
       return { success: false, error: err };
     }
   }, []);
+
+  /**
+   * Tiếp tục sạc
+   */
+  const resumeSession = useCallback(async (session_id) => {
+    setLoadingSession(true);
+    setError(null);
+    try {
+      const res = await chargingControlService.resumeSession(session_id);
+      const data = res?.data ?? res;
+      
+      // Update session status
+      setCurrentSession(prev => 
+        (prev && (prev.id === session_id || prev.session_id === session_id)) 
+          ? { ...prev, status: 'active', ...data } 
+          : prev
+      );
+      setSessions(prev => 
+        prev.map(s => 
+          (s.id === session_id || s.session_id === session_id)
+            ? { ...s, status: 'active', ...data }
+            : s
+        )
+      );
+      
+      setLoadingSession(false);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setLoadingSession(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  /**
+   * Dừng sạc
+   */
+  const stopSession = useCallback(async (payload) => {
+  setLoadingSession(true);
+  setError(null);
+
+  // validate input
+  const sessionId = payload?.session_id || payload?.sessionId;
+  if (!sessionId) {
+    const err = new Error('stopSession: session_id is required');
+    setError(err);
+    setLoadingSession(false);
+    return { success: false, error: err };
+  }
+
+  try {
+    // Gọi trực tiếp apiClient để avoid service bị lỗi (session_id undefined)
+    const res = await apiClient({
+      method: 'POST',
+      url: `api/v1/charging/${sessionId}/stop`,
+      data: payload,
+    });
+
+    const data = res?.data ?? res;
+
+    // Cập nhật trạng thái session local (giữ nguyên logic cũ)
+    setCurrentSession(prev =>
+      (prev && (prev.id === sessionId || prev.session_id === sessionId))
+        ? { ...prev, status: 'stopped', ...data }
+        : prev
+    );
+
+    setSessions(prev =>
+      Array.isArray(prev) ? prev.map(s =>
+        (s.id === sessionId || s.session_id === sessionId)
+          ? { ...s, status: 'stopped', ...data }
+          : s
+      ) : prev
+    );
+
+    setLoadingSession(false);
+    return { success: true, data };
+  } catch (err) {
+    setError(err);
+    setLoadingSession(false);
+    return { success: false, error: err };
+  }
+}, [/* add deps if needed */]);
+
+  /**
+   * Lấy hóa đơn sau khi kết thúc sạc
+   */
+  const getInvoiceBySession = useCallback(async (session_id) => {
+    setLoadingInvoice(true);
+    setError(null);
+    try {
+      const res = await chargingControlService.getInvoiceBySession(session_id);
+      const data = res?.data ?? res;
+      
+      setInvoice(data);
+      
+      setLoadingInvoice(false);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setLoadingInvoice(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  /**
+   * Điều chỉnh session nếu có lỗi (reconcile)
+   */
+  const reconcileSession = useCallback(async (session_id, payload) => {
+    setLoadingSession(true);
+    setError(null);
+    try {
+      const res = await chargingControlService.reconcileSession(session_id, payload);
+      const data = res?.data ?? res;
+      
+      // Update session sau khi reconcile
+      setCurrentSession(prev => 
+        (prev && (prev.id === session_id || prev.session_id === session_id)) 
+          ? { ...prev, ...data } 
+          : prev
+      );
+      setSessions(prev => 
+        prev.map(s => 
+          (s.id === session_id || s.session_id === session_id)
+            ? { ...s, ...data }
+            : s
+        )
+      );
+      
+      setLoadingSession(false);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setLoadingSession(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  // ===== UTILITY FUNCTIONS =====
+
+  /**
+   * Clear error
+   */
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  /**
+   * Clear current session
+   */
+  const clearCurrentSession = useCallback(() => {
+    setCurrentSession(null);
+  }, []);
+
+  /**
+   * Refresh session data
+   */
+  const refreshSession = useCallback(async (session_id) => {
+    const result = await getSessionById(session_id);
+    if (result.success) {
+      // Optionally refresh telemetry and events
+      await getTelemetry(session_id);
+      await getSessionEvents(session_id);
+    }
+    return result;
+  }, [getSessionById, getTelemetry, getSessionEvents]);
 
   // Memoize context value
   const value = useMemo(
     () => ({
-      // errors & flags
+      // State
       error,
-      loadingBooking,
-      loadingWaitlist,
-      loadingQr,
       loadingSession,
       loadingTelemetry,
-      loadingNotification,
-
-      // caches
-      lastBooking,
-      bookings,
-      userReservations,
-      waitlists,
-      lastQr,
+      loadingInvoice,
       sessions,
       currentSession,
+      activePoints,
       telemetry,
+      sessionEvents,
+      invoice,
 
-      // booking actions
-      createBooking,
-      checkAvailability,
-      getBookingById,
-      updateBooking,
-      cancelBooking,
-      joinWaitlist,
-      getUserReservations,
-      updateWaitlistStatus,
-      getWaitlistByStation,
-      deleteWaitlist,
-
-      // qr
-      generateQr,
-      validateQr,
-
-      // session
+      // Session Management
       initiateSession,
       startSession,
-      pushMeterReading,
+      getActivePointsByStation,
+      getUserSessions,
+      getSessionById,
       getTelemetry,
+      getSessionEvents,
+
+      // Staff Controls
       pauseSession,
       resumeSession,
       stopSession,
-      getSessionById,
-      getSessionEvents,
+      getInvoiceBySession,
+      reconcileSession,
 
-      // notifications
-      sendNotification,
+      // Utilities
+      clearError,
+      clearCurrentSession,
+      refreshSession,
 
-      // optional setters
-      setLastBooking,
-      setBookings,
-      setUserReservations,
-      setWaitlists,
-      setLastQr,
+      // Setters (for manual updates if needed)
       setSessions,
       setCurrentSession,
+      setActivePoints,
       setTelemetry,
+      setSessionEvents,
+      setInvoice,
     }),
     [
       error,
-      loadingBooking,
-      loadingWaitlist,
-      loadingQr,
       loadingSession,
       loadingTelemetry,
-      loadingNotification,
-      lastBooking,
-      bookings,
-      userReservations,
-      waitlists,
-      lastQr,
+      loadingInvoice,
       sessions,
       currentSession,
+      activePoints,
       telemetry,
-      // callbacks stable due to useCallback, but included for clarity
-      createBooking,
-      checkAvailability,
-      getBookingById,
-      updateBooking,
-      cancelBooking,
-      joinWaitlist,
-      getUserReservations,
-      updateWaitlistStatus,
-      getWaitlistByStation,
-      deleteWaitlist,
-      generateQr,
-      validateQr,
+      sessionEvents,
+      invoice,
       initiateSession,
       startSession,
-      pushMeterReading,
+      getActivePointsByStation,
+      getUserSessions,
+      getSessionById,
       getTelemetry,
+      getSessionEvents,
       pauseSession,
       resumeSession,
       stopSession,
-      getSessionById,
-      getSessionEvents,
-      sendNotification,
+      getInvoiceBySession,
+      reconcileSession,
+      clearError,
+      clearCurrentSession,
+      refreshSession,
     ]
   );
 
-  return <ChargingControlContext.Provider value={value}>{children}</ChargingControlContext.Provider>;
+  return (
+    <ChargingControlContext.Provider value={value}>
+      {children}
+    </ChargingControlContext.Provider>
+  );
 };
+
+export default ChargingControlProvider;
