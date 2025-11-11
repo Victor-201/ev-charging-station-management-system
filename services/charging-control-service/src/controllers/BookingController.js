@@ -41,20 +41,7 @@ exports.confirmReservation = async (req, res) => {
  * Attach payment ID and confirm reservation
  * POST /reservations/:reservation_id/attach-payment
  */
-exports.attachPaymentAndConfirm = async (req, res) => {
-  try {
-    const reservation_id = req.params.reservation_id;
-    const { payment_id } = req.body;
 
-    const result = await BookingService.attachPaymentAndConfirm(reservation_id, payment_id);
-
-    return res.json(result);
-  } catch (e) {
-    console.error('[attachPaymentAndConfirm] error:', e && e.stack ? e.stack : e);
-    const status = e.status || 400;
-    return res.status(status).json({ error: e.message });
-  }
-};
 
 /**
  * Mark payment failed
@@ -207,7 +194,7 @@ exports.updateStatus = async (req, res) => {
     if (!waitlist_id) return res.status(400).json({ error: 'Missing waitlist_id' });
     if (!status) return res.status(400).json({ error: 'Missing status' });
 
-    const updated = await BookingService.updateStatus(waitlist_id, status);
+    const updated = await BookingService.updateWaitlistStatus(waitlist_id, status);
     return res.json(updated);
   } catch (err) {
     console.error('[updateStatus] error:', err && err.stack ? err.stack : err);
