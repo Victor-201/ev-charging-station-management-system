@@ -59,9 +59,9 @@ export class AuthService {
 
       // Create user (email_verified = false for new registrations)
       const userResult = await client.query(
-        `INSERT INTO users (email, phone, password_hash, role, status, email_verified) 
+        `INSERT INTO users (email, phone, password_hash, role, status, email_verified)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, role, created_at`,
-        [data.email, data.phone || null, password_hash, data.role || 'driver', 'active', false]
+        [data.email, data.phone || null, password_hash, data.role || 'user', 'active', false]
       );
 
       const user = userResult.rows[0];
@@ -238,9 +238,9 @@ export class AuthService {
         await client.query('BEGIN');
 
         const userResult = await client.query(
-          `INSERT INTO users (email, password_hash, role, status) 
+          `INSERT INTO users (email, password_hash, role, status)
            VALUES ($1, $2, $3, $4) RETURNING id`,
-          [email, '', 'driver', 'active']
+          [email, '', 'user', 'active']
         );
 
         userId = userResult.rows[0].id;

@@ -13,17 +13,16 @@ import {
   unlinkProviderSchema,
 } from '../middlewares/validation';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
-import { authRateLimiter } from '../middlewares/rateLimiter';
 
 const router = Router();
 
 // Public routes
-router.post('/register', authRateLimiter, validate(registerSchema), authController.register);
-router.post('/verify', authRateLimiter, validate(verifyEmailSchema), authController.verifyEmail);
-router.post('/login', authRateLimiter, validate(loginSchema), authController.login);
-router.post('/login/oauth', authRateLimiter, validate(oauthLoginSchema), authController.oauthLogin);
+router.post('/register', validate(registerSchema), authController.register);
+router.post('/verify', validate(verifyEmailSchema), authController.verifyEmail);
+router.post('/login', validate(loginSchema), authController.login);
+router.post('/login/oauth', validate(oauthLoginSchema), authController.oauthLogin);
 router.post('/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
-router.post('/forgot-password', authRateLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
+router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 
 // Protected routes

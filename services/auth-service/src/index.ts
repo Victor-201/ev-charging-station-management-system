@@ -6,7 +6,6 @@ import { errorHandler } from './middlewares/errorHandler';
 import { logger } from './utils/logger';
 import authRoutes from './routes/authRoutes';
 import { testDbConnection } from './config/database';
-import { rateLimiter } from './middlewares/rateLimiter';
 import { rabbitmqClient } from './config/rabbitmq';
 import { outboxService } from './services/outboxService';
 
@@ -31,9 +30,6 @@ app.use(helmet({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Apply rate limiting
-app.use(rateLimiter);
-app.set('trust proxy', true);
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.status(200).json({

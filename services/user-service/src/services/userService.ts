@@ -23,8 +23,8 @@ export class UserService {
       return {
         id: result.rows[0].id,
         email: '', // Email is in auth DB, not available here
-        name: result.rows[0].name,
-        phone: result.rows[0].phone,
+        full_name: result.rows[0].full_name,
+        phone_number: result.rows[0].phone_number,
         role: '', // Role is in auth DB, will be from JWT token
         status: 'active',
         created_at: new Date(),
@@ -116,15 +116,15 @@ export class UserService {
       const params: any[] = [];
       let paramIndex = 1;
 
-      if (updates.name !== undefined) {
-        setClauses.push(`name = $${paramIndex}`);
-        params.push(updates.name);
+      if (updates.full_name !== undefined) {
+        setClauses.push(`full_name = $${paramIndex}`);
+        params.push(updates.full_name);
         paramIndex++;
       }
 
-      if (updates.phone !== undefined) {
-        setClauses.push(`phone = $${paramIndex}`);
-        params.push(updates.phone);
+      if (updates.phone_number !== undefined) {
+        setClauses.push(`phone_number = $${paramIndex}`);
+        params.push(updates.phone_number);
         paramIndex++;
       }
 

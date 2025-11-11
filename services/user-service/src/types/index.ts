@@ -11,8 +11,8 @@ export interface JWTPayload {
 export interface User {
   id: string;
   email: string;
-  name?: string;
-  phone?: string;
+  full_name?: string;
+  phone_number?: string;
   role: string;
   status: string;
   avatar_url?: string;

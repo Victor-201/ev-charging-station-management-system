@@ -21,7 +21,7 @@ export class UserController {
       res.json({
         user_id: userId,
         email: email,
-        name: profile?.name || null,
+        full_name: profile?.full_name || null,
         role: role,
       });
     } catch (error) {
@@ -78,8 +78,8 @@ export class UserController {
       res.json({
         user_id: user.id,
         email: user.email,
-        name: user.name,
-        phone: user.phone,
+        full_name: user.full_name,
+        phone_number: user.phone_number,
         vehicles: user.vehicles,
       });
     } catch (error) {

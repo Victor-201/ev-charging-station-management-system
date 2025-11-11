@@ -5,7 +5,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateProfileSchema } from '../../utils/validators';
-import { updateProfile } from '../../store/slices/userSlice';
+import { updateProfile, getMe } from '../../store/slices/userSlice';
 import AppInput from '../../components/common/AppInput';
 import { useTheme } from 'react-native-paper';
 // import { launchImageLibrary } from 'react-native-image-picker'; // To be added later
@@ -108,6 +108,7 @@ export default function EditProfile({ navigation }) {
 
     if (result.type === 'user/updateProfile/fulfilled') {
       setSuccessMessage('Cập nhật thông tin thành công!');
+      dispatch(getMe()); // Refetch profile to get updated data
       setTimeout(() => navigation.goBack(), 1500);
     }
   };

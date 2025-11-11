@@ -60,7 +60,8 @@ const userSlice = createSlice({
       })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.loading = false;
-        state.profile = action.payload.user; // Assuming the API returns the updated user object
+        // API returns { status: "updated" }, so we need to refetch profile
+        // The profile will be updated when getMe is called after this
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;

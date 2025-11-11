@@ -3,8 +3,8 @@ import { Request, Response, NextFunction } from 'express';
 
 // Validation schemas
 export const updateUserSchema = Joi.object({
-  name: Joi.string().min(2).max(100).optional(),
-  phone: Joi.string().pattern(/^[0-9]{10,15}$/).optional(),
+  full_name: Joi.string().min(2).max(100).optional(),
+  phone_number: Joi.string().pattern(/^[\+]?[0-9]{10,15}$/).optional(),
   avatar_url: Joi.string().uri().optional(),
 });
 
