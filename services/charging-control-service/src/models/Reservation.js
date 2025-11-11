@@ -24,11 +24,7 @@ class Reservation {
     this.total_cost = data.total_cost ?? 0;
     this.final_cost = data.final_cost ?? null;
 
-    // Payment: mặc định wallet nếu client không truyền
-    this.payment_id = data.payment_id || null;
-    this.payment_method = ['wallet','bank_transfer'].includes(data.payment_method)
-      ? data.payment_method
-      : 'wallet';
+   
   }
   // BUSINESS HELPERS
   isExpired() {
@@ -36,7 +32,7 @@ class Reservation {
   }
 
   requiresPayment() {
-    return this.status === 'pending' && !this.payment_id;
+    return this.status === 'pending' ;
   }
 
   isActive() {
@@ -47,12 +43,9 @@ class Reservation {
     return this.status === 'completed';
   }
 
-  markPaid(payment_id, payment_method = null) {
+  markPaid() {
     this.status = 'confirmed';
-    this.payment_id = payment_id;
-    if (payment_method && payment_method.trim() !== '') {
-      this.payment_method = payment_method;
-    }
+  
   }
 
   complete(final_cost = null) {
@@ -80,9 +73,7 @@ class Reservation {
       price_per_min: this.price_per_min,
       reserved_minutes: this.reserved_minutes,
       total_cost: this.total_cost,
-      final_cost: this.final_cost,
-      payment_id: this.payment_id,
-      payment_method: this.payment_method, // ✅ luôn đúng
+      final_cost: this.final_cost,// ✅ luôn đúng
     };
   }
 }
