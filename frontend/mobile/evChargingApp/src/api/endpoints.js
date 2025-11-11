@@ -55,6 +55,7 @@ export const ENDPOINTS = {
     RESUME: '/charging/:session_id/resume',
     DETAIL: '/charging/:session_id',
     TELEMETRY: '/charging/:session_id/telemetry',
+    HISTORY: '/charging/sessions/user/:user_id',
   },
   WALLET: {
     BALANCE: '/payments/wallet/:user_id',

@@ -96,7 +96,10 @@ const walletSlice = createSlice({
         if (state.wallet) {
           state.wallet.balance = action.payload.new_balance;
         }
-        state.transactions.unshift(action.payload.transaction); // Add new transaction to the beginning
+        const newTransaction = action.payload.transaction || action.payload;
+        if (newTransaction && newTransaction.id) {
+          state.transactions.unshift(newTransaction); // Add new transaction to the beginning
+        }
       })
       .addCase(topupWallet.rejected, (state, action) => {
         state.loading = false;
