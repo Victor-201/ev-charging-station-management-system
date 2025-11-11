@@ -23,19 +23,17 @@ class ReservationRepository {
   price_per_min: data.price_per_min || 1000,
   reserved_minutes: data.reserved_minutes || null,
   total_cost: data.total_cost || 0,
-  payment_id: data.payment_id || null,
-  payment_method: data.payment_method , // 👈 thêm dòng này
   ...data,
 });
 
 const sql = `
 INSERT INTO reservations (
   reservation_id, user_id, station_id, point_id, connector_type,
-  start_time, end_time, status, payment_id, payment_method, expires_at,
+  start_time, end_time, status, expires_at,
   price_per_min, reserved_minutes, total_cost, final_cost,
   created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,  NOW(), NOW())
 `;
 
 await pool.query(sql, [
@@ -47,8 +45,6 @@ await pool.query(sql, [
   this.toSqlDatetimeIsoZ(reservation.start_time),
   this.toSqlDatetimeIsoZ(reservation.end_time),
   reservation.status,
-  reservation.payment_id,
-   reservation.payment_method, 
   this.toSqlDatetimeIsoZ(reservation.expires_at),
   reservation.price_per_min,
   reservation.reserved_minutes,
@@ -86,7 +82,7 @@ await pool.query(sql, [
   async update(reservation) {
   const sql = `
   UPDATE reservations
-  SET start_time=?, end_time=?, status=?, payment_id=?, payment_method=?, expires_at=?,
+  SET start_time=?, end_time=?, status=?, expires_at=?,
       price_per_min=?, reserved_minutes=?, total_cost=?, updated_at=NOW()
   WHERE reservation_id=?
 `;
@@ -95,8 +91,6 @@ await pool.query(sql, [
   this.toSqlDatetimeIsoZ(reservation.start_time),
   this.toSqlDatetimeIsoZ(reservation.end_time),
   reservation.status,
-  reservation.payment_id || null,
-  reservation.payment_method || null, // 👈 thêm dòng này
   this.toSqlDatetimeIsoZ(reservation.expires_at),
   reservation.price_per_min,
   reservation.reserved_minutes,
