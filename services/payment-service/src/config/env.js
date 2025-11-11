@@ -1,8 +1,12 @@
-// config/env.js
 import dotenv from 'dotenv';
 import path from 'path';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+const RABBITMQ_USER = process.env.RABBITMQ_USER || 'guest';
+const RABBITMQ_PASS = process.env.RABBITMQ_PASS || 'guest';
+const RABBITMQ_HOST = process.env.RABBITMQ_HOST || 'localhost';
+const RABBITMQ_PORT = process.env.RABBITMQ_PORT || 5672;
 
 export default {
   PORT: process.env.PORT || 3000,
@@ -14,10 +18,11 @@ export default {
   DB_PORT: process.env.DB_PORT || 5432,
   DB_NAME: process.env.DB_NAME,
 
-  RABBITMQ_USER: process.env.RABBITMQ_USER,
-  RABBITMQ_PASS: process.env.RABBITMQ_PASS,
-  RABBITMQ_HOST: process.env.RABBITMQ_HOST,
-  RABBITMQ_PORT: process.env.RABBITMQ_PORT || 5672,
+  RABBITMQ_USER,
+  RABBITMQ_PASS,
+  RABBITMQ_HOST,
+  RABBITMQ_PORT,
+  RABBITMQ_URL: process.env.RABBITMQ_URL || `amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}`,
 
   PAYMENT_GATEWAY_API_KEY: process.env.PAYMENT_GATEWAY_API_KEY,
   WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
