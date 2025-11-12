@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../config/theme';
@@ -148,15 +149,15 @@ const ChargingHistoryScreen = () => {
 
   if (historyLoading && !refreshing) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['top', 'bottom']}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Đang tải lịch sử...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {error && (
         <View style={styles.errorBanner}>
           <Ionicons name="alert-circle" size={20} color={theme.colors.error} />
@@ -179,7 +180,7 @@ const ChargingHistoryScreen = () => {
           />
         }
       />
-    </View>
+    </SafeAreaView>
   );
 };
 

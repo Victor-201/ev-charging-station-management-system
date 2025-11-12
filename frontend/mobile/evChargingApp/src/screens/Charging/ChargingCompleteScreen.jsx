@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Card, Title, Button, ActivityIndicator, Divider, Avatar } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import chargingService from '../../services/chargingService';
@@ -120,19 +121,32 @@ const ChargingCompleteScreen = () => {
   }, [sessionId]);
 
   if (loading) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    return (
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
   }
 
   if (error) {
-    return <View style={styles.centered}><Text style={styles.errorText}>{error}</Text></View>;
+    return (
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
+        <Text style={styles.errorText}>{error}</Text>
+      </SafeAreaView>
+    );
   }
 
   if (!session) {
-    return <View style={styles.centered}><Text>Không tìm thấy thông tin phiên sạc.</Text></View>;
+    return (
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
+        <Text>Không tìm thấy thông tin phiên sạc.</Text>
+      </SafeAreaView>
+    );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView>
       <View style={styles.header}>
         <Avatar.Icon size={64} icon="check-circle" style={styles.icon} color={colors.onPrimary} />
         <Text style={styles.title}>Sạc Hoàn Tất</Text>
@@ -187,7 +201,8 @@ const ChargingCompleteScreen = () => {
           Về màn hình chính
         </Button>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

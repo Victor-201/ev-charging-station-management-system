@@ -193,7 +193,7 @@ const getStyles = (colors) => StyleSheet.create({
     alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: '#ccc', // Should be from theme, e.g., colors.disabled
+    backgroundColor: colors.surfaceDisabled,
   },
   bookButtonText: {
     color: colors.onPrimary,
@@ -219,7 +219,7 @@ const getStyles = (colors) => StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee', // Should be from theme
+    borderBottomColor: colors.outlineVariant,
   },
   searchInput: {
     flex: 1,
@@ -233,7 +233,7 @@ const getStyles = (colors) => StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0', // Should be from theme
+    borderBottomColor: colors.outlineVariant,
   },
   resultName: {
     fontSize: 16,

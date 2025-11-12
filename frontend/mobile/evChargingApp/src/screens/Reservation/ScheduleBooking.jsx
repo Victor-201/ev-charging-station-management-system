@@ -87,7 +87,7 @@ const getStyles = (colors) => StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0', // Should be from theme
+    borderColor: colors.outline,
     minWidth: 70,
   },
   selectedDateCard: {
@@ -126,7 +126,7 @@ const getStyles = (colors) => StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0', // Should be from theme
+    borderColor: colors.outline,
     minWidth: 80,
     backgroundColor: colors.surface,
   },
@@ -136,7 +136,7 @@ const getStyles = (colors) => StyleSheet.create({
   },
   unavailableSlot: {
     backgroundColor: colors.brand50,
-    borderColor: '#e0e0e0', // Should be from theme
+    borderColor: colors.outline,
   },
   timeText: {
     fontSize: 14,
@@ -153,7 +153,7 @@ const getStyles = (colors) => StyleSheet.create({
     color: colors.onPrimary,
   },
   unavailableText: {
-    color: '#ccc', // Should be from theme
+    color: colors.onSurfaceVariant,
   },
   connectorContainer: {
     flexDirection: 'row',
@@ -209,7 +209,7 @@ const getStyles = (colors) => StyleSheet.create({
     padding: 20,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0', // Should be from theme
+    borderTopColor: colors.outline,
   },
   bookButton: {
     backgroundColor: colors.accent,
@@ -218,7 +218,7 @@ const getStyles = (colors) => StyleSheet.create({
     alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: '#ccc', // Should be from theme
+    backgroundColor: colors.surfaceDisabled,
   },
   bookButtonText: {
     color: colors.onPrimary,

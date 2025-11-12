@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  RefreshControl 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { theme } from '../../config/theme';
 
 export default function NotificationList() {
   const navigation = useNavigation();
@@ -117,12 +118,12 @@ export default function NotificationList() {
 
   const getNotificationColor = (type) => {
     switch (type) {
-      case 'booking': return '#4CAF50';
-      case 'payment': return '#2196F3';
-      case 'promotion': return '#FF9800';
-      case 'system': return '#9C27B0';
-      case 'charging': return '#00BCD4';
-      default: return '#666';
+      case 'booking': return theme.colors.success;
+      case 'payment': return theme.colors.primary;
+      case 'promotion': return theme.colors.warning;
+      case 'system': return theme.colors.secondary;
+      case 'charging': return theme.colors.accent;
+      default: return theme.colors.onSurfaceVariant;
     }
   };
 
@@ -211,7 +212,7 @@ export default function NotificationList() {
 
       {notifications.length === 0 ? (
         <View style={styles.emptyState}>
-          <Icon name="notifications-none" size={64} color="#ccc" />
+          <Icon name="notifications-none" size={64} color={theme.colors.onSurfaceVariant} />
           <Text style={styles.emptyTitle}>Chưa có thông báo nào</Text>
           <Text style={styles.emptySubtitle}>
             Các thông báo mới sẽ hiển thị ở đây
@@ -235,7 +236,7 @@ export default function NotificationList() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -244,26 +245,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: '#2196F3',
+    backgroundColor: theme.colors.primary,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: 'white',
+    color: theme.colors.onPrimary,
   },
   unreadCount: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.colors.onPrimary + 'CC', // 80% opacity
     marginTop: 2,
   },
   markAllButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: theme.colors.onPrimary + '33', // 20% opacity
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   markAllText: {
-    color: 'white',
+    color: theme.colors.onPrimary,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   notificationCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -283,7 +284,7 @@ const styles = StyleSheet.create({
   },
   unreadCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
+    borderLeftColor: theme.colors.primary,
   },
   notificationHeader: {
     flexDirection: 'row',
@@ -304,7 +305,7 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.onSurface,
     flex: 1,
   },
   unreadTitle: {
@@ -314,18 +315,18 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#2196F3',
+    backgroundColor: theme.colors.primary,
     marginLeft: 8,
   },
   notificationMessage: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.onSurface + '99', // 60% opacity
     lineHeight: 20,
     marginBottom: 8,
   },
   timeText: {
     fontSize: 12,
-    color: '#999',
+    color: theme.colors.onSurfaceVariant,
   },
   emptyState: {
     flex: 1,
@@ -336,13 +337,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.onSurface,
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.onSurface + '99', // 60% opacity
     textAlign: 'center',
     lineHeight: 20,
   },

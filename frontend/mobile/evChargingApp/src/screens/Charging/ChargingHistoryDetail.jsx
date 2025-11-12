@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../config/theme';
@@ -101,24 +102,25 @@ const ChargingHistoryDetail = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['top', 'bottom']}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Đang tải chi tiết...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!currentSession) {
     return (
-      <View style={styles.errorContainer}>
+      <SafeAreaView style={styles.errorContainer} edges={['top', 'bottom']}>
         <Ionicons name="alert-circle-outline" size={64} color={theme.colors.error} />
         <Text style={styles.errorText}>Không tìm thấy phiên sạc</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.content}>
       {/* Status Badge */}
       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentSession.status) + '20' }]}>
         <Text style={[styles.statusText, { color: getStatusColor(currentSession.status) }]}>
@@ -240,7 +242,8 @@ const ChargingHistoryDetail = () => {
           )}
         </TouchableOpacity>
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

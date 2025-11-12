@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../config/theme';
@@ -73,18 +74,19 @@ const InitiateChargingScreen = () => {
 
   if (!reservation) {
     return (
-      <View style={styles.errorContainer}>
+      <SafeAreaView style={styles.errorContainer} edges={['top', 'bottom']}>
         <Ionicons name="alert-circle-outline" size={64} color={theme.colors.error} />
         <Text style={styles.errorText}>Không tìm thấy thông tin đặt chỗ</Text>
         <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
           <Text style={styles.buttonText}>Quay lại</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.content}>
       {/* Success Icon */}
       <View style={styles.iconContainer}>
         <View style={styles.iconCircle}>
@@ -170,7 +172,8 @@ const InitiateChargingScreen = () => {
       >
         <Text style={styles.cancelButtonText}>Hủy</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

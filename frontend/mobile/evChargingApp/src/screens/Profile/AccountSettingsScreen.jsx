@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, List, Divider, Text, Dialog, Portal, Switch } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutAsync } from '../../store/slices/authSlice';
@@ -119,7 +120,8 @@ export default function AccountSettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView>
       <List.Section>
         <List.Subheader>Thông báo</List.Subheader>
         <List.Item
@@ -240,7 +242,8 @@ export default function AccountSettingsScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
