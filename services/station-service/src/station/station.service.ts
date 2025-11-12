@@ -2,10 +2,8 @@ import { Injectable, BadRequestException, InternalServerErrorException, NotFound
 
 import { PrismaService } from 'src/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { Prisma } from '@prisma/client';
 
 import { SearchStationDto, CreateStationDto, UpdateStationDto, ConnectorDto, ReportIssueDto, ScheduleMaintenanceDto, StationStatus, PricingItemDto, GetListOfStation } from 'src/dto/station.dto';
-import { stat } from 'fs';
 
 @Injectable()
 export class StationService {
