@@ -386,10 +386,30 @@ class BookingService {
     };
   }
 
-  async validateQr(qr_id) {
-    if (!qr_id) throw new Error('qr_id required');
-    return this.qrRepo.validate(qr_id);
+async validateQr(qr_id) {
+  if (!qr_id) throw new Error('qr_id required');
+
+  // fallback nếu this.qrRepo undefined
+  if (!this.qrRepo) {
+    console.log('[BookingService.validateQr] this.qrRepo undefined, fallback');
+    const fallbackQrRepo = require('../repositories/QrCodeRepository');
+    this.qrRepo = fallbackQrRepo;
   }
+
+  const qrCheck = await this.qrRepo.validate(qr_id);
+
+  if (!qrCheck || qrCheck.valid === false) {
+    console.log('[BookingService.validateQr] QR invalid');
+    return { valid: false };
+  }
+
+  console.log('[BookingService.validateQr] QR valid, reservation_id=', qrCheck.reservation_id);
+  return {
+    valid: true,
+    reservation_id: qrCheck.reservation_id,
+  };
+}
+
 
   async markUsed(qr_id) {
     if (!qr_id) throw new Error('qr_id required');

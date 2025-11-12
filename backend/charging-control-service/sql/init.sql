@@ -50,7 +50,6 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_id VARCHAR(50) NOT NULL,
   station_id VARCHAR(50) NOT NULL,  
   point_id VARCHAR(50) NOT NULL,
-  vehicle_id VARCHAR(50) NOT NULL,      -- từ user_service
   reservation_id VARCHAR(50) DEFAULT NULL,
   start_meter_wh INT DEFAULT NULL,
   end_meter_wh INT DEFAULT NULL,
@@ -59,7 +58,6 @@ CREATE TABLE IF NOT EXISTS sessions (
   ended_at DATETIME(3) DEFAULT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  auth_method ENUM('token','rfid','qr','app','kiosk','manual','other') NOT NULL DEFAULT 'other',
 
   kwh DECIMAL(10,3) GENERATED ALWAYS AS (
     CASE

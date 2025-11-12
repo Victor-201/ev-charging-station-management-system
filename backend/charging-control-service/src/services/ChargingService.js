@@ -10,23 +10,21 @@ class ChargingService {
    * /api/v1/sessions/initiate
    * Trả về { session_id, status }
    */
-  async initiateSession({ reservation_id = null, station_id = null, point_id, user_id, vehicle_id = null, auth_method = null, connector_type = null } = {}) {
+  async initiateSession({ reservation_id = null, station_id = null, point_id, user_id, connector_type = null } = {}) {
     // VALIDATION
     if (!point_id) throw new Error('Missing required field: point_id');
     if (!user_id) throw new Error('Missing required field: user_id');
     if (!station_id) throw new Error('Missing required field: station_id');
 
     // debug log để kiểm tra payload — xóa sau khi confirm
-    console.log('[ChargingService.initiateSession] input:', { reservation_id, station_id, point_id, user_id, vehicle_id, auth_method, connector_type });
+    console.log('[ChargingService.initiateSession] input:', { reservation_id, station_id, point_id, user_id,  connector_type });
 
     const session = {
       session_id: uuidv4(),
       reservation_id: reservation_id || null,
-      station_id: station_id || null,
+      station_id,
       point_id,
       user_id,
-      vehicle_id: vehicle_id || null,
-      auth_method: auth_method || null,
       connector_type: connector_type || null,
       status: 'initiated',
       created_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),

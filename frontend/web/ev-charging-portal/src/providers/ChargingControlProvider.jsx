@@ -21,6 +21,12 @@ export const ChargingControlProvider = ({ children }) => {
   const [sessionEvents, setSessionEvents] = useState([]);
   const [invoice, setInvoice] = useState(null);
 
+  const [loadingReservation, setLoadingReservation] = useState(false);
+const [reservationDetail, setReservationDetail] = useState(null);
+
+  const [loadingQr, setLoadingQr] = useState(false);
+  const [qrResult, setQrResult] = useState(null);
+
   // ===== SESSION MANAGEMENT =====
 
   /**
@@ -327,6 +333,47 @@ export const ChargingControlProvider = ({ children }) => {
     }
   }, []);
 
+ const validateQr = useCallback(async (qr_id) => {
+  setLoadingQr(true);
+  setError(null);
+
+  try {
+    const res = await chargingControlService.validateQr(qr_id);
+    const data = res?.data ?? res;
+
+    setQrResult(data);
+
+    setLoadingQr(false);
+    return { success: true, data };
+  } catch (err) {
+    setError(err?.response?.data?.message || err.message);
+    setLoadingQr(false);
+    return { success: false, error: err };
+  }
+}, []);
+
+/**
+ * Lấy chi tiết đặt chỗ
+ */
+const getReservationById = useCallback(async (reservation_id) => {
+  setLoadingReservation(true);
+  setError(null);
+  try {
+    const res = await chargingControlService.getReservationById(reservation_id);
+    const data = res?.data ?? res;
+
+    setReservationDetail(data);
+
+    setLoadingReservation(false);
+    return { success: true, data };
+  } catch (err) {
+    setError(err);
+    setLoadingReservation(false);
+    return { success: false, error: err };
+  }
+}, []);
+
+
   /**
    * Điều chỉnh session nếu có lỗi (reconcile)
    */
@@ -424,6 +471,15 @@ export const ChargingControlProvider = ({ children }) => {
       clearError,
       clearCurrentSession,
       refreshSession,
+
+      // ===== thêm vào value =====
+      loadingQr,
+      qrResult,
+      validateQr,
+      loadingReservation,
+       reservationDetail,
+      getReservationById,
+
 
       // Setters (for manual updates if needed)
       setSessions,

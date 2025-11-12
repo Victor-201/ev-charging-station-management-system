@@ -73,16 +73,30 @@ class QrCodeRepository {
   /**
    * Check if QR code is valid (not expired)
    */
-  async validate(qr_id) {
-    const [rows] = await pool.query('SELECT * FROM qr_codes WHERE qr_id=?', [qr_id]);
-    if (!rows.length) return { valid: false };
+  // src/repositories/QrCodeRepository.js (chỉ phần validate)
+async validate(qr_id) {
+  const [rows] = await pool.query('SELECT * FROM qr_codes WHERE qr_id=?', [qr_id]);
 
-    const qr = rows[0];
-    const expired = dayjs(qr.created_at).add(qr.expires_in, 'second').isBefore(dayjs());
-    if (expired) return { valid: false };
-
-    return { valid: true, reservation_id: qr.reservation_id };
+  if (!rows.length) {
+    console.log('[QrCodeRepository.validate] QR not found');
+    return { valid: false };
   }
+
+  const qr = rows[0];
+  const createdAtUtc = dayjs.utc(qr.created_at);
+  const expiresAtUtc = createdAtUtc.add(Number(qr.expires_in || 0), 'second');
+  const nowUtc = dayjs.utc();
+
+  const expired = expiresAtUtc.isBefore(nowUtc);
+  if (expired) {
+    console.log('[QrCodeRepository.validate] QR expired');
+    return { valid: false };
+  }
+
+  console.log('[QrCodeRepository.validate] QR valid, reservation_id=', qr.reservation_id);
+  return { valid: true, reservation_id: qr.reservation_id };
+}
+
 }
 
 module.exports = new QrCodeRepository();

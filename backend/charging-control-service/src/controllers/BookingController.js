@@ -247,13 +247,17 @@ exports.validateQr = async (req, res) => {
     const qr_id = req.params.qr_id;
     if (!qr_id) return res.status(400).json({ error: 'Missing qr_id' });
 
-    const qr = await BookingService.validateQr(qr_id);
-    return res.json(qr);
+    // gọi service
+    const result = await BookingService.validateQr(qr_id);
+
+    console.log('[Controller] validateQr result:', result); // debug test
+    return res.json(result);
   } catch (e) {
-    console.error('[validateQr] error:', e && e.stack ? e.stack : e);
+    console.error('[Controller] validateQr error:', e && e.stack ? e.stack : e);
     return res.status(400).json({ error: e.message });
   }
 };
+
 
 /**
  * Mark QR as used

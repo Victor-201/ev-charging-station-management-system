@@ -1,25 +1,25 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useNavigate } from 'react-router-dom';
-import { ROUTERS } from "@/utils/constants";
+import { ROUTERS } from '@/utils/constants';
+import apiClient from '@/api/apiClient';
 
-/**
- * ScanPage - Quét QR full-screen overlay với nút quay lại.
- */
 export default function ScanPage() {
   const [status, setStatus] = useState('init');
   const [errorMsg, setErrorMsg] = useState(null);
-  const [scanResult, setScanResult] = useState(null);
   const [scanned, setScanned] = useState(false);
+  const [reservation, setReservation] = useState(null);
+  const [sessionData, setSessionData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
+  const navigate = useNavigate();
   const scannerRef = useRef(null);
   const tempStreamRef = useRef(null);
-  const containerDivRef = useRef(null);
   const mountedRef = useRef(false);
-  const navigate = useNavigate();
+  const confirmLockRef = useRef(false);
+  const scanLockRef = useRef(false); // ✅ lock callback scan
 
-  const makeId = () => `qr-external-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-
+  // ================= Dọn dẹp camera =================
   const stopTempStream = () => {
     if (tempStreamRef.current) {
       tempStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -36,93 +36,65 @@ export default function ScanPage() {
         } catch {}
         scannerRef.current = null;
       }
-    } catch (e) {
-      console.warn('[ScanPage] safeStopScanner ignored error:', e);
-    }
+    } catch {}
   };
 
   const stopAllCameraStreams = () => {
-    const videos = Array.from(document.querySelectorAll('video'));
-    videos.forEach((video) => {
+    document.querySelectorAll('video').forEach((video) => {
       const stream = video.srcObject;
       if (stream?.getTracks) stream.getTracks().forEach((track) => track.stop());
       video.srcObject = null;
     });
-    if (tempStreamRef.current) {
-      tempStreamRef.current.getTracks().forEach((t) => t.stop());
-      tempStreamRef.current = null;
-    }
+    stopTempStream();
   };
 
   const removeAllOverlays = () => {
     document.querySelectorAll('.qr-overlay-external, .qr-external-container').forEach((el) => el.remove());
   };
 
-  const applyStylesToInjectedElements = (container) => {
-    const video = container?.querySelector('video');
-    const canvas = container?.querySelector('canvas');
-    [video, canvas].forEach((el) => {
-      if (el) {
-        el.style.width = '100%';
-        el.style.height = '100%';
-        el.style.objectFit = 'cover';
-        el.style.display = 'block';
+  // ================= Quét QR =================
+  const initScanner = async () => {
+    if (!mountedRef.current) return;
+
+    setStatus('checking');
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (!mountedRef.current) return;
+
+      if (!cameras || cameras.length === 0) {
+        setStatus('no-camera');
+        setErrorMsg('Không tìm thấy camera.');
+        return;
       }
-    });
-  };
 
-  useEffect(() => {
-    mountedRef.current = true;
-
-    const init = async () => {
-      setStatus('checking');
+      setStatus('requesting');
       try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (!mountedRef.current) return;
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        tempStreamRef.current = stream;
+      } catch {
+        setStatus('error');
+        setErrorMsg('Quyền camera bị từ chối.');
+        return;
+      } finally {
+        stopTempStream();
+      }
 
-        if (!cameras || cameras.length === 0) {
-          setStatus('no-camera');
-          setErrorMsg('Không tìm thấy camera trên thiết bị này.');
-          return;
-        }
-
-        setStatus('requesting');
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          tempStreamRef.current = stream;
-        } catch {
-          setErrorMsg('Quyền camera bị từ chối hoặc không khả dụng.');
-          setStatus('error');
-          return;
-        } finally {
-          stopTempStream();
-        }
-
-        // ===== TẠO OVERLAY TOÀN MÀN HÌNH =====
+      // tạo overlay nếu chưa có
+      const containerId = 'qr-scanner-container';
+      if (!document.getElementById(containerId)) {
         const overlay = document.createElement('div');
-        overlay.className =
-          'qr-overlay-external fixed inset-0 z-[99999] flex items-center justify-center backdrop-blur-sm bg-black/60';
+        overlay.className = 'qr-overlay-external fixed inset-0 z-[99999] flex items-center justify-center backdrop-blur-sm bg-black/60';
 
-        // Khung chứa video
         const container = document.createElement('div');
-        const containerId = makeId();
         container.id = containerId;
         container.className =
           'qr-external-container w-[420px] h-[420px] rounded-xl overflow-hidden bg-black shadow-[0_14px_40px_rgba(0,0,0,0.5)] relative';
-
         overlay.appendChild(container);
-        document.body.appendChild(overlay);
 
-        // ===== NÚT QUAY LẠI TRONG OVERLAY =====
+        // nút quay lại
         const backButton = document.createElement('button');
-        backButton.className =
-          'absolute top-4 left-4 bg-white/90 hover:bg-white text-black font-medium px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition';
-        backButton.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-          <span>Trở lại</span>
-        `;
+        backButton.className = 'absolute top-4 left-4 bg-white/90 hover:bg-white text-black font-medium px-4 py-2 rounded-lg shadow-md';
+        backButton.innerHTML = '← Trở lại';
         backButton.onclick = async () => {
           await safeStopScanner();
           stopAllCameraStreams();
@@ -130,71 +102,125 @@ export default function ScanPage() {
           navigate(ROUTERS.STAFF.DASHBOARD);
         };
         overlay.appendChild(backButton);
-        // ===============================
 
-        containerDivRef.current = container;
-        containerDivRef.current.__overlay = overlay;
-
-        await new Promise((r) => requestAnimationFrame(r));
-        if (!mountedRef.current) return;
-
-        // ===== KHỞI TẠO HTML5 QR CODE =====
-        scannerRef.current = new Html5Qrcode(containerId, false);
-        const config = {
-          fps: 10,
-          qrbox: { width: 320, height: 320 },
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-        };
-
-        setStatus('scanning');
-        await scannerRef.current.start(
-          { facingMode: 'environment' },
-          config,
-          async (decodedText) => {
-            if (!mountedRef.current) return;
-            setScanResult(decodedText);
-            setStatus('stopped');
-            await safeStopScanner();
-            overlay.remove();
-            stopAllCameraStreams();
-            setScanned(true);
-          },
-          () => {}
-        );
-
-        applyStylesToInjectedElements(container);
-        const observer = new MutationObserver(() => applyStylesToInjectedElements(container));
-        observer.observe(container, { childList: true, subtree: true });
-        container.__observer = observer;
-      } catch (err) {
-        console.error('[ScanPage] init error', err);
-        setErrorMsg(err?.message || String(err));
-        setStatus('error');
+        document.body.appendChild(overlay);
       }
-    };
 
-    init();
+      await new Promise((r) => requestAnimationFrame(r));
+      if (!mountedRef.current) return;
+
+      // khởi tạo scanner
+      scannerRef.current = new Html5Qrcode(containerId, false);
+      setStatus('scanning');
+
+      const config = { fps: 10, qrbox: { width: 320, height: 320 } };
+
+      await scannerRef.current.start(
+        { facingMode: 'environment' },
+        config,
+        async (decodedText) => {
+          if (!mountedRef.current || scanLockRef.current) return; // ✅ chỉ scan 1 lần
+          scanLockRef.current = true;
+          setScanned(true);
+
+          // Dừng scanner ngay lập tức
+          await safeStopScanner();
+          stopAllCameraStreams();
+          removeAllOverlays();
+
+          setStatus('validating');
+          setLoading(true);
+
+          try {
+            const match = decodedText.match(/qr\/([^\/?#]+)/i);
+            const qr_id = match ? match[1] : decodedText;
+
+            // Validate QR
+            const validateRes = await apiClient.get(`/api/v1/booking/qr/${qr_id}/validate`);
+            const reservation_id = validateRes.data?.reservation_id;
+            if (!reservation_id) throw new Error('QR không hợp lệ hoặc đã sử dụng.');
+
+            // Lấy chi tiết đặt chỗ
+            const resDetail = await apiClient.get(`/api/v1/booking/${reservation_id}`);
+            const resData = resDetail.data;
+            setReservation(resData);
+
+            // Tạo phiên sạc
+            const initPayload = {
+              station_id: resData.station_id,
+              point_id: resData.point_id,
+              user_id: resData.user_id
+            };
+            const initRes = await apiClient.post(`/api/v1/charging/initiate`, initPayload);
+            setSessionData(initRes.data);
+
+            setStatus('ready');
+          } catch (err) {
+            console.error('[ScanPage] error:', err);
+            setErrorMsg(err?.response?.data?.message || err.message || 'Lỗi khi xử lý QR');
+            setStatus('error');
+          } finally {
+            setLoading(false);
+          }
+        }
+      );
+    } catch (err) {
+      console.error('[ScanPage] init error', err);
+      setErrorMsg(err?.message || String(err));
+      setStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    initScanner();
 
     return () => {
       mountedRef.current = false;
       (async () => {
         await safeStopScanner();
-        stopTempStream();
         stopAllCameraStreams();
-        if (containerDivRef.current?.__observer) containerDivRef.current.__observer.disconnect();
         removeAllOverlays();
       })();
     };
-  }, []);
+  }, [navigate]);
 
-  const handleConfirm = async () => {
-    await safeStopScanner();
-    stopAllCameraStreams();
-    removeAllOverlays();
-    navigate(ROUTERS.STAFF.DASHBOARD);
+  // ================= Xác nhận bắt đầu sạc =================
+  const handleConfirm = useCallback(async () => {
+    if (confirmLockRef.current) return;
+    confirmLockRef.current = true;
+
+    try {
+      if (!sessionData?.session_id) {
+        setErrorMsg('Không tìm thấy session để bắt đầu.');
+        confirmLockRef.current = false;
+        return;
+      }
+
+      setLoading(true);
+      const startPayload = { session_id: sessionData.session_id };
+
+      await apiClient.post(`/api/v1/charging/start`, startPayload);
+      alert('✅ Phiên sạc đã được bắt đầu!');
+      navigate(ROUTERS.STAFF.DASHBOARD);
+    } catch (err) {
+      console.error('[handleConfirm] error:', err);
+      setErrorMsg(err?.response?.data?.message || 'Lỗi khi bắt đầu phiên sạc.');
+      confirmLockRef.current = false;
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionData, navigate]);
+
+  const handleScanAgain = () => {
+    scanLockRef.current = false; // ✅ reset lock
+    setScanned(false);
+    setReservation(null);
+    setSessionData(null);
+    setErrorMsg(null);
+    setStatus('init');
+    initScanner();
   };
-
-  const handleScanAgain = () => window.location.reload();
 
   const handleClose = async () => {
     await safeStopScanner();
@@ -203,6 +229,7 @@ export default function ScanPage() {
     navigate(-1);
   };
 
+  // ================= UI =================
   return (
     <div className="p-6 min-h-[60vh] text-center">
       <div className="flex items-center justify-center relative mb-2">
@@ -213,42 +240,44 @@ export default function ScanPage() {
       </div>
 
       <div className="w-[420px] h-[420px] mx-auto border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 flex items-center justify-center shadow-md">
-        {status !== 'scanning' && !scanned && !scanResult && (
+        {!scanned && (
           <div className="text-gray-600">
             {status === 'checking' && 'Kiểm tra camera...'}
             {status === 'requesting' && 'Yêu cầu quyền camera...'}
-            {status === 'no-camera' && 'Không tìm thấy camera.'}
-            {status === 'error' && 'Lỗi khi mở camera.'}
-            {status === 'init' && 'Chuẩn bị...'}
+            {status === 'scanning' && 'Đang quét QR...'}
+            {status === 'validating' && 'Đang xác thực QR...'}
+            {status === 'error' && (errorMsg || 'Đã xảy ra lỗi.')}
           </div>
         )}
       </div>
 
-      <div className="mt-3">
-        <p>
-          Trạng thái: <strong>{status}</strong>
-        </p>
-        {errorMsg && <p className="text-red-600 mt-1">Lỗi: {errorMsg}</p>}
-      </div>
+      {scanned && reservation && (
+        <div className="fixed inset-0 flex items-center justify-center z-[100000] bg-black/40 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-2xl shadow-xl w-[480px] max-w-[90%] animate-[popIn_0.26s_ease-out_forwards]">
+            <h3 className="font-semibold text-2xl mb-4 text-center">Thông tin lượt sạc</h3>
+            <p className="mb-2"><strong>Reservation ID:</strong> {reservation.id}</p>
+            <p className="mb-2"><strong>User:</strong> {reservation.user_name || reservation.user_id}</p>
+            <p className="mb-2"><strong>Station:</strong> {reservation.station_name}</p>
+            <p className="mb-2"><strong>Point:</strong> {reservation.point_id}</p>
+            <p className="mb-2"><strong>Status:</strong> {reservation.status}</p>
 
-      {scanned && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-[100000]">
-          <div className="bg-white rounded-xl shadow-2xl w-[420px] max-w-[92%] p-6 text-center">
-            <div className="w-[86px] h-[86px] mx-auto mb-3 rounded-full bg-green-600 text-white text-[44px] font-bold flex items-center justify-center animate-[popIn_0.26s_ease-out_forwards]">
-              ✓
-            </div>
-            <h3 className="text-lg font-semibold mb-1">Mã QR đã được quét</h3>
-            <p className="font-semibold break-all">{scanResult}</p>
-            <div className="mt-4 flex gap-3 justify-center">
+            {sessionData && (
+              <p className="mb-2 text-green-600">
+                <strong>Session ID:</strong> {sessionData.session_id}
+              </p>
+            )}
+
+            <div className="mt-4 flex gap-4 justify-center">
               <button
+                disabled={loading || confirmLockRef.current}
                 onClick={handleConfirm}
-                className="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600"
+                className="bg-sky-500 text-white px-6 py-3 rounded-lg hover:bg-sky-600 disabled:opacity-50"
               >
-                Xác nhận lượt sạc
+                {loading ? 'Đang xử lý...' : 'Xác nhận lượt sạc'}
               </button>
               <button
                 onClick={handleScanAgain}
-                className="bg-gray-100 px-4 py-2 rounded-lg hover:bg-gray-200"
+                className="bg-gray-100 px-6 py-3 rounded-lg hover:bg-gray-200"
               >
                 Quét lại
               </button>
@@ -256,11 +285,13 @@ export default function ScanPage() {
           </div>
         </div>
       )}
+
+      {errorMsg && <p className="text-red-600 mt-3">{errorMsg}</p>}
     </div>
   );
 }
 
-/* Custom animation */
+// Custom animation
 const style = document.createElement('style');
 style.textContent = `
 @keyframes popIn { to { transform: scale(1); opacity: 1; } }

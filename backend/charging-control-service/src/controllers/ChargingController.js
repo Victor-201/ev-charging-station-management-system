@@ -126,7 +126,7 @@ exports.getInvoice = async (req, res) => {
 
 exports.initiateSession = async (req, res) => {
   try {
-    // req.body should contain: { reservation_id?, station_id, point_id, user_id, vehicle_id?, auth_method?, connector_type? }
+    // req.body should contain: { reservation_id?, station_id, point_id, user_id, auth_method?, connector_type? }
     const payload = req.body || {};
 
     // basic validation
