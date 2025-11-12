@@ -17,7 +17,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import Geolocation from '@react-native-community/geolocation';
 import { useTheme } from 'react-native-paper';
-import stationService from '../../services/stationService';
+import { useDispatch, useSelector } from 'react-redux';
+import { searchStations, setSelectedStation } from '../../store/slices/stationSlice';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -256,6 +257,9 @@ export default function MapScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const mapRef = useRef(null);
+  const dispatch = useDispatch();
+  const { stations, selectedStation, loading, error } = useSelector((state) => state.stations);
+
   const [region, setRegion] = useState({
     latitude: 10.762622,
     longitude: 106.660172,
@@ -263,62 +267,15 @@ export default function MapScreen({ navigation }) {
     longitudeDelta: 0.05,
   });
   const [userLocation, setUserLocation] = useState(null);
-  const [stations, setStations] = useState([]);
-  const [selectedStation, setSelectedStation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  // Sample stations data - sẽ được thay thế bằng API call
-  const sampleStations = [
-    {
-      id: 's1',
-      name: 'Trạm sạc Central Park',
-      address: '123 Nguyễn Huệ, Q1, TP.HCM',
-      latitude: 10.7629,
-      longitude: 106.6601,
-      available_ports: 3,
-      total_ports: 4,
-      price_per_kwh: 2000,
-      connector_types: ['Type 2', 'CCS'],
-      status: 'active',
-      rating: 4.5,
-      distance: 0.5
-    },
-    {
-      id: 's2',
-      name: 'Trạm sạc Landmark 81',
-      address: '456 Vinhomes, Bình Thạnh, TP.HCM',
-      latitude: 10.7946,
-      longitude: 106.7218,
-      available_ports: 1,
-      total_ports: 6,
-      price_per_kwh: 2200,
-      connector_types: ['Type 2', 'CCS', 'CHAdeMO'],
-      status: 'active',
-      rating: 4.8,
-      distance: 3.2
-    },
-    {
-      id: 's3',
-      name: 'Trạm sạc Vincom Đồng Khởi',
-      address: '789 Đồng Khởi, Q1, TP.HCM',
-      latitude: 10.7700,
-      longitude: 106.7010,
-      available_ports: 0,
-      total_ports: 2,
-      price_per_kwh: 1800,
-      connector_types: ['Type 2'],
-      status: 'maintenance',
-      rating: 4.2,
-      distance: 1.8
-    },
-  ];
+
 
   useEffect(() => {
     requestLocationPermission();
-    loadStations();
-  }, []);
+    dispatch(searchStations());
+  }, [dispatch]);
 
   const requestLocationPermission = async () => {
     try {
@@ -371,46 +328,9 @@ export default function MapScreen({ navigation }) {
     );
   };
 
-  const loadStations = async () => {
-    try {
-      // Try to fetch from API
-      const response = await stationService.getAll();
-      const apiStations = response?.data || response;
-      
-      if (apiStations && Array.isArray(apiStations) && apiStations.length > 0) {
-        // Map API response to expected format
-        const mappedStations = apiStations.map(station => ({
-          id: station.id || station.station_id,
-          name: station.name,
-          address: station.address,
-          latitude: parseFloat(station.latitude),
-          longitude: parseFloat(station.longitude),
-          available_ports: station.available_ports || 0,
-          total_ports: station.total_ports || 0,
-          price_per_kwh: station.price_per_kwh || 2000,
-          connector_types: station.connector_types || ['Type 2'],
-          status: station.status || 'active',
-          rating: station.rating || 4.5,
-          distance: station.distance || 0,
-        }));
-        
-        console.log('✅ Loaded stations from API:', mappedStations.length);
-        setStations(mappedStations);
-      } else {
-        // Fallback to sample data if API returns empty
-        console.log('⚠️ API returned empty, using sample data');
-        setStations(sampleStations);
-      }
-    } catch (error) {
-      console.error('❌ Error loading stations from API:', error);
-      // Fallback to sample data on error
-      setStations(sampleStations);
-    }
-  };
-
   const onMarkerPress = (station) => {
-    setSelectedStation(station);
-    
+    dispatch(setSelectedStation(station));
+
     // Animate to station location
     if (mapRef.current) {
       mapRef.current.animateToRegion({

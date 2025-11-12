@@ -3,14 +3,14 @@ import apiClient from '../api/apiClient';
 import { ENDPOINTS } from '../api/endpoints';
 
 const stationService = {
-  // Get all stations with optional filters
-  getAll: async (params = {}) => {
+  // Search stations with optional filters
+  searchStations: async (params = {}) => {
     const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, { params });
     return response.data;
   },
 
   // Get station by ID
-  getById: async (stationId) => {
+  getStationById: async (stationId) => {
     const url = ENDPOINTS.STATION.DETAIL.replace(':id', stationId);
     const response = await apiClient.get(url);
     return response.data;
