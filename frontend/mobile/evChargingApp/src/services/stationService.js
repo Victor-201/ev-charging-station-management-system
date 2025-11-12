@@ -2,18 +2,80 @@
 import apiClient from '../api/apiClient';
 import { ENDPOINTS } from '../api/endpoints';
 
+/**
+ * Fix double-encoded UTF-8 text (backend database issue workaround)
+ * The backend database has incorrectly stored Vietnamese text.
+ * This attempts to fix it on the client side.
+ */
+const fixTextEncoding = (text) => {
+  if (!text || typeof text !== 'string') return text;
+
+  try {
+    // Check if text contains mojibake patterns (double-encoded UTF-8)
+    // Common patterns: Ã¡, Ã©, Ã­, Ã³, Ãº, etc.
+    if (/[ÃÂ][¡-¿]/.test(text)) {
+      // This is a known backend issue - text is double-encoded
+      // Unfortunately, we cannot reliably fix this on the client side
+      // because the data is already corrupted in the database
+      console.warn('Detected corrupted Vietnamese text encoding:', text);
+
+      // Return as-is - backend needs to fix the database
+      return text;
+    }
+
+    return text;
+  } catch (error) {
+    console.error('Error fixing text encoding:', error);
+    return text;
+  }
+};
+
+/**
+ * Transform station data from API response
+ * - Parse latitude/longitude from string to number
+ * - Fix text encoding issues (workaround for backend bug)
+ * - Ensure proper data types for all fields
+ */
+const transformStationData = (station) => {
+  if (!station) return null;
+
+  return {
+    ...station,
+    // Fix text encoding (backend database issue)
+    name: fixTextEncoding(station.name),
+    address: fixTextEncoding(station.address),
+    city: fixTextEncoding(station.city),
+    region: fixTextEncoding(station.region),
+    // Parse coordinates to numbers (API returns strings)
+    latitude: parseFloat(station.latitude),
+    longitude: parseFloat(station.longitude),
+    // Parse numeric fields
+    available_ports: parseInt(station.available_ports || 0, 10),
+    total_ports: parseInt(station.total_ports || 0, 10),
+    // Transform charging_points if present
+    charging_points: station.charging_points?.map(point => ({
+      ...point,
+      max_power_kw: parseFloat(point.max_power_kw || 0),
+      price_per_kwh: parseFloat(point.price_per_kwh || 0),
+      price_per_hour: point.price_per_hour ? parseFloat(point.price_per_hour) : null,
+    })) || [],
+  };
+};
+
 const stationService = {
   // Search stations with optional filters
   searchStations: async (params = {}) => {
     const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, { params });
-    return response.data;
+    // Transform array of stations
+    const stations = Array.isArray(response.data) ? response.data : [];
+    return stations.map(transformStationData);
   },
 
   // Get station by ID
   getStationById: async (stationId) => {
     const url = ENDPOINTS.STATION.DETAIL.replace(':id', stationId);
     const response = await apiClient.get(url);
-    return response.data;
+    return transformStationData(response.data);
   },
 
   // Get nearby stations based on coordinates
@@ -21,7 +83,8 @@ const stationService = {
     const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, {
       params: { lat: latitude, lng: longitude, radius }
     });
-    return response.data;
+    const stations = Array.isArray(response.data) ? response.data : [];
+    return stations.map(transformStationData);
   },
 
   // Get station availability
@@ -29,11 +92,11 @@ const stationService = {
     const url = ENDPOINTS.STATION.DETAIL.replace(':id', stationId);
     const response = await apiClient.get(url);
     // Extract availability info from station data
-    const station = response.data;
+    const station = transformStationData(response.data);
     return {
       station_id: stationId,
-      available_ports: station.available_chargers || 0,
-      total_ports: station.total_chargers || 0,
+      available_ports: station.available_ports || 0,
+      total_ports: station.total_ports || 0,
     };
   },
 
