@@ -14,7 +14,12 @@ services:
     volumes:
       - station-data:/var/lib/mysql
       - ../../services/station-service/seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
-      - ./my.cnf:/etc/mysql/conf.d/my.cnf
+    command: > 
+     mysqld
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --init-connect='SET NAMES utf8mb4;'
+      --skip-character-set-client-handshake
     networks:
       - kong-net
 
