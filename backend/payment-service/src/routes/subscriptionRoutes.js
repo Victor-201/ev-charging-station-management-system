@@ -1,14 +1,15 @@
 import express from 'express';
 import { SubscriptionController } from '../controllers/SubscriptionController.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
+import { UserRole } from '../constants/roles.js';
 
 const router = express.Router();
 
 router.use(authenticate);
 
-router.post('/activate', authorize('admin', 'user'), SubscriptionController.activate);
-router.post('/:id/cancel', authorize('admin', 'user'), SubscriptionController.cancel);
-router.get('/user/:user_id/active', authorize('admin', 'user'), SubscriptionController.getActiveByUser);
-router.get('/user/:user_id', authorize('admin', 'user'), SubscriptionController.listByUser);
+router.post('/activate', authorize(UserRole.ADMIN, UserRole.USER), SubscriptionController.activate);
+router.post('/:id/cancel', authorize(UserRole.ADMIN, UserRole.USER), SubscriptionController.cancel);
+router.get('/user/:user_id/active', authorize(UserRole.ADMIN, UserRole.USER), SubscriptionController.getActiveByUser);
+router.get('/user/:user_id', authorize(UserRole.ADMIN, UserRole.USER), SubscriptionController.listByUser);
 
 export default router;
