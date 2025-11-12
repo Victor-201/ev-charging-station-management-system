@@ -130,4 +130,24 @@ export class VehicleController {
   }
 }
 
+  // POST /api/v1/vehicles/lookup - Look up vehicle specs
+  // async lookupVehicle(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const { make, model } = req.body;
+
+  //     if (!make || !model) {
+  //       res.status(400).json({ error: 'Make and model are required' });
+  //       return;
+  //     }
+
+  //     const specs = await vehicleService.lookupVehicle(make, model);
+
+  //     res.json(specs);
+  //   } catch (error) {
+  //     logger.error('Error in lookupVehicle:', error);
+  //     res.status(500).json({ error: 'Failed to look up vehicle' });
+  //   }
+  // }
+
+
 export default new VehicleController();

@@ -28,7 +28,11 @@ export const ENDPOINTS = {
     DEACTIVATE: '/users/:user_id/deactivate',
     EXPORT_DATA: '/users/:user_id/export-data',
     ERASE_DATA: '/users/:user_id/erase',
-    LIST: '/users',
+        LIST: '/users',
+    SOCIAL: {
+      LIST: '/users/:user_id/social-accounts',
+      UNLINK: '/users/:user_id/social-accounts/:provider',
+    },
   },
 
   // Vehicle Management
@@ -40,12 +44,13 @@ export const ENDPOINTS = {
     UPDATE: '/vehicles/:vehicle_id',
     DELETE: '/vehicles/:vehicle_id',
   },
+    LOOKUP: '/vehicles/lookup',
 
   // Wallet Management
   WALLET: {
-    TRANSACTIONS: '/wallets/:user_id/transactions',
-    WITHDRAW: '/wallets/:user_id/withdraw',
-    TOPUP_CALLBACK: '/wallets/:user_id/topup/callback',
+    TRANSACTIONS: '/payments/wallet/:user_id/transactions',
+    WITHDRAW: '/payments/wallet/:user_id/withdraw',
+    TOPUP_CALLBACK: '/payments/wallet/topup/callback',
   },
 
   // Subscription Management
@@ -64,6 +69,8 @@ export const ENDPOINTS = {
     SCHEDULE: '/notifications/schedule',
     FCM_REGISTER: '/notifications/fcm/register',
     FCM_UNREGISTER: '/notifications/fcm/unregister',
+    GET_SETTINGS: '/users/:user_id/notifications/settings',
+    UPDATE_SETTINGS: '/users/:user_id/notifications/settings',
   },
 
   // ==================== STATION SERVICE (Port 3003) ====================
@@ -81,25 +88,25 @@ export const ENDPOINTS = {
     DELETE: '/stations/:id',
   },
 
-  // ==================== CHARGING CONTROL SERVICE (Port 3004) ====================
+  // ==================== CHARGING CONTROL SERVICE (Port 4002) ====================
   // Booking/Reservation
   BOOKING: {
-    CHECK_AVAILABILITY: '/booking/check',
-    CREATE: '/booking',
-    LIST_USER: '/booking/user/:user_id',
-    DETAIL: '/booking/:reservation_id',
-    UPDATE: '/booking/:reservation_id',
-    CANCEL: '/booking/:reservation_id',
-    AUTO_CANCEL: '/booking/auto-cancel',
+    CHECK: '/booking/check',                      // Check availability
+    CREATE: '/booking',                           // Create new reservation
+    LIST: '/booking/user/:user_id',               // Get user's reservations
+    DETAIL: '/booking/:reservation_id',           // Get reservation detail
+    UPDATE: '/booking/:reservation_id',           // Update reservation
+    CANCEL: '/booking/:reservation_id',           // Cancel reservation
+    AUTO_CANCEL: '/booking/auto-cancel',          // Auto-cancel expired reservations
     // Waitlist
-    ADD_WAITLIST: '/booking/waitlist',
-    GET_WAITLIST: '/booking/waitlist/:station_id',
-    UPDATE_WAITLIST_STATUS: '/booking/waitlist/:waitlist_id/status',
-    REMOVE_WAITLIST: '/booking/waitlist/:waitlist_id',
+    WAITLIST_ADD: '/booking/waitlist',            // Add to waitlist
+    WAITLIST_GET: '/booking/waitlist/:station_id', // Get station waitlist
+    WAITLIST_UPDATE: '/booking/waitlist/:waitlist_id/status', // Update waitlist status
+    WAITLIST_REMOVE: '/booking/waitlist/:waitlist_id', // Remove from waitlist
     // QR Code
-    GENERATE_QR: '/booking/qr/generate',
-    VALIDATE_QR: '/booking/qr/:qr_id/validate',
-    MARK_QR_USED: '/booking/qr/:qr_id/mark-used',
+    QR_GENERATE: '/booking/qr/generate',          // Generate QR for reservation
+    QR_VALIDATE: '/booking/qr/:qr_id/validate',   // Validate QR code
+    QR_MARK_USED: '/booking/qr/:qr_id/mark-used', // Mark QR as used
   },
 
   // Charging Session

@@ -91,6 +91,19 @@ class NotificationService {
       },
     });
   }
+
+  async getSettings(userId) {
+    const url = ENDPOINTS.NOTIFICATION.GET_SETTINGS.replace(':user_id', userId);
+    const response = await apiClient.get(url);
+    return response.data;
+  }
+
+  async updateSettings(userId, settings) {
+    const url = ENDPOINTS.NOTIFICATION.UPDATE_SETTINGS.replace(':user_id', userId);
+    const response = await apiClient.put(url, settings);
+    return response.data;
+  }
+
 }
 
 export default new NotificationService();

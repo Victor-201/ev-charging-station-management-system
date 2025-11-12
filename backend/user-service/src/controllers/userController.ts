@@ -14,10 +14,10 @@ export class UserController {
       const userId = req.user!.user_id;
       const email = req.user!.email;
       const role = req.user!.role;
-      
+
       // Get extended profile from database
       const profile = await userService.getUserById(userId);
-      
+
       res.json({
         user_id: userId,
         email: email,
@@ -34,7 +34,7 @@ export class UserController {
   async getUserList(req: Request, res: Response): Promise<void> {
     try {
       const { page = '1', size = '10', q, role, status } = req.query;
-      
+
       // Extract token from request header to forward to auth service
       const authHeader = req.headers.authorization;
       const token = authHeader?.split(' ')[1];
@@ -53,13 +53,13 @@ export class UserController {
       res.json(result);
     } catch (error: any) {
       logger.error('Error in getUserList:', error);
-      
+
       // Forward error from auth service
       if (error.response?.data) {
         res.status(error.response.status || 500).json(error.response.data);
         return;
       }
-      
+
       res.status(500).json({ error: 'Failed to get user list' });
     }
   }
@@ -127,7 +127,7 @@ export class UserController {
   async deactivateUser(req: Request, res: Response): Promise<void> {
     try {
       const { user_id } = req.params;
-      
+
       // Extract token to forward to auth service
       const authHeader = req.headers.authorization;
       const token = authHeader?.split(' ')[1];
@@ -137,13 +137,13 @@ export class UserController {
       res.json({ status: 'deactivated' });
     } catch (error: any) {
       logger.error('Error in deactivateUser:', error);
-      
+
       // Forward error from auth service
       if (error.response?.data) {
         res.status(error.response.status || 500).json(error.response.data);
         return;
       }
-      
+
       res.status(500).json({ error: 'Failed to deactivate user' });
     }
   }
@@ -209,7 +209,7 @@ ${userData.note || ''}
 
       logger.info(`User data exported successfully for user: ${user_id}`);
 
-      res.json({ 
+      res.json({
         export_url: exportUrl,
         file_size_bytes: archive.pointer(),
         exported_at: userData.exported_at
@@ -232,7 +232,7 @@ ${userData.note || ''}
 
       logger.info(`User data erasure queued successfully for user: ${user_id}`);
 
-      res.status(202).json({ 
+      res.status(202).json({
         status: 'erase_queued',
         message: 'Your data erasure request has been queued. This process may take up to 30 days to complete in accordance with GDPR regulations.',
         user_id
@@ -240,6 +240,30 @@ ${userData.note || ''}
     } catch (error) {
       logger.error('Error in eraseUserData:', error);
       res.status(500).json({ error: 'Failed to erase user data' });
+    }
+  }
+
+  // GET /api/v1/users/:user_id/social-accounts - Get linked social accounts
+  async getSocialAccounts(req: Request, res: Response): Promise<void> {
+    try {
+      const { user_id } = req.params;
+      const accounts = await userService.getSocialAccounts(user_id);
+      res.json(accounts);
+    } catch (error) {
+      logger.error('Error in getSocialAccounts:', error);
+      res.status(500).json({ error: 'Failed to get social accounts' });
+    }
+  }
+
+  // DELETE /api/v1/users/:user_id/social-accounts/:provider - Unlink a social account
+  async unlinkSocialAccount(req: Request, res: Response): Promise<void> {
+    try {
+      const { user_id, provider } = req.params;
+      await userService.unlinkSocialAccount(user_id, provider);
+      res.status(204).send(); // No content
+    } catch (error) {
+      logger.error('Error in unlinkSocialAccount:', error);
+      res.status(500).json({ error: 'Failed to unlink social account' });
     }
   }
 }

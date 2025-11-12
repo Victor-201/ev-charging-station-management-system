@@ -9,14 +9,15 @@ const authService = {
     return response.data;
   },
 
-  register: async (payload) => {
+  register: async ({ full_name, email, password, phone_number }) => {
+    const payload = { full_name, email, password, phone: phone_number };
     const response = await apiClient.post(ENDPOINTS.AUTH.REGISTER, payload);
     return response.data;
   },
 
-  logout: async () => {
+  logout: async (refreshToken) => {
     try {
-      const response = await apiClient.post(ENDPOINTS.AUTH.LOGOUT);
+      const response = await apiClient.post(ENDPOINTS.AUTH.LOGOUT, { refreshToken });
       return response.data;
     } catch (error) {
       // Even if API call fails, we still want to logout locally

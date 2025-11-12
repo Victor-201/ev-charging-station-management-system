@@ -88,7 +88,7 @@ export const changePasswordSchema = yup.object().shape({
 
 // Vehicle schema
 export const vehicleSchema = yup.object().shape({
-  make: yup.string().required('Hãng xe là bắt buộc'),
+  brand: yup.string().required('Hãng xe là bắt buộc'),
   model: yup.string().required('Mẫu xe là bắt buộc'),
   year: yup
     .number()
@@ -96,11 +96,5 @@ export const vehicleSchema = yup.object().shape({
     .required('Năm sản xuất là bắt buộc')
     .min(1990, 'Năm sản xuất phải sau 1990')
     .max(new Date().getFullYear() + 1, `Năm sản xuất không được lớn hơn ${new Date().getFullYear() + 1}`),
-  license_plate: yup.string().required('Biển số xe là bắt buộc'),
-  battery_capacity: yup
-    .number()
-    .typeError('Dung lượng pin phải là số')
-    .positive('Dung lượng pin phải là số dương')
-    .required('Dung lượng pin là bắt buộc'),
-  connector_type: yup.string().required('Loại cổng sạc là bắt buộc'),
+  plate_number: yup.string().required('Biển số xe là bắt buộc'),
 });

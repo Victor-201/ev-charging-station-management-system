@@ -106,12 +106,12 @@ export async function handleUserCreated(event: DomainEvent): Promise<void> {
     }
 
     // Create user profile
-    const { email, fullName, phoneNumber, role } = payload;
-    
+    const { email, full_name, phone, role } = payload;
+
     await client.query(
       `INSERT INTO users (id, email, full_name, phone_number, role, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-      [aggregateId, email, fullName || null, phoneNumber || null, role || 'customer']
+      [aggregateId, email, full_name || null, phone || null, role || 'customer']
     );
 
     logger.info(`Created user profile for user: ${aggregateId}`);

@@ -25,7 +25,7 @@ const profileService = {
   // Change password
   changePassword: async (userId, passwordData) => {
     const url = ENDPOINTS.USER.CHANGE_PASSWORD.replace(':user_id', userId);
-    const response = await apiClient.post(url, passwordData);
+    const response = await apiClient.put(url, passwordData);
     return response.data;
   },
 
@@ -49,6 +49,21 @@ const profileService = {
     const response = await apiClient.delete(url);
     return response.data;
   },
+
+  // Get linked social accounts
+  getSocialAccounts: async (userId) => {
+    const url = ENDPOINTS.USER.SOCIAL.LIST.replace(':user_id', userId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  // Unlink a social account
+  unlinkSocialAccount: async (userId, provider) => {
+    const url = ENDPOINTS.USER.SOCIAL.UNLINK.replace(':user_id', userId).replace(':provider', provider);
+    const response = await apiClient.delete(url);
+    return response.data;
+  },
+
 };
 
 export default profileService;

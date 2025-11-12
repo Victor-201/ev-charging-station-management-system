@@ -15,7 +15,7 @@ export class NotificationService {
     try {
       let query = `SELECT id, user_id, title, message, type, status, data, created_at, read_at
                    FROM notifications WHERE user_id = $1`;
-      
+
       if (unreadOnly) {
         query += ` AND status = 'UNREAD'`;
       }
@@ -150,8 +150,8 @@ export class NotificationService {
   async markAsRead(notificationId: string, userId: string): Promise<void> {
     try {
       await pool.query(
-        `UPDATE notifications 
-         SET status = 'READ', read_at = CURRENT_TIMESTAMP 
+        `UPDATE notifications
+         SET status = 'READ', read_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND user_id = $2`,
         [notificationId, userId]
       );
@@ -165,8 +165,8 @@ export class NotificationService {
   async markAllAsRead(userId: string): Promise<void> {
     try {
       await pool.query(
-        `UPDATE notifications 
-         SET status = 'READ', read_at = CURRENT_TIMESTAMP 
+        `UPDATE notifications
+         SET status = 'READ', read_at = CURRENT_TIMESTAMP
          WHERE user_id = $1 AND status = 'UNREAD'`,
         [userId]
       );
@@ -303,6 +303,56 @@ export class NotificationService {
       throw error;
     }
   }
+
+  // Get notification settings for a user
+  async getNotificationSettings(userId: string): Promise<any> {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM user_notification_settings WHERE user_id = $1',
+        [userId]
+      );
+
+      if (result.rows.length > 0) {
+        return result.rows[0];
+      } else {
+        // Return default settings if none are found
+        return {
+          user_id: userId,
+          email_notifications: true,
+          push_notifications: true,
+          sms_notifications: false,
+        };
+      }
+    } catch (error) {
+      logger.error('Error getting notification settings:', error);
+      throw error;
+    }
+  }
+
+  // Update notification settings for a user
+  async updateNotificationSettings(userId: string, settings: any): Promise<any> {
+    try {
+      const { email_notifications, push_notifications, sms_notifications } = settings;
+
+      const result = await pool.query(
+        `INSERT INTO user_notification_settings (user_id, email_notifications, push_notifications, sms_notifications, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+         ON CONFLICT (user_id) DO UPDATE SET
+           email_notifications = EXCLUDED.email_notifications,
+           push_notifications = EXCLUDED.push_notifications,
+           sms_notifications = EXCLUDED.sms_notifications,
+           updated_at = CURRENT_TIMESTAMP
+         RETURNING *`,
+        [userId, email_notifications, push_notifications, sms_notifications]
+      );
+
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Error updating notification settings:', error);
+      throw error;
+    }
+  }
 }
+
 
 export default new NotificationService();

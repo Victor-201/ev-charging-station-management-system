@@ -1,6 +1,6 @@
 import pool from '../config/database';
 import bcrypt from 'bcryptjs';
-import { User, UserListQuery } from '../types';
+import { User, UserListQuery, SocialAccount } from '../types';
 import logger from '../utils/logger';
 import httpClient from '../utils/httpClient';
 
@@ -14,11 +14,11 @@ export class UserService {
          FROM user_profiles WHERE user_id = $1`,
         [userId]
       );
-      
+
       if (result.rows.length === 0) {
         return null;
       }
-      
+
       // Return user profile data with id from user_id
       return {
         id: result.rows[0].id,
@@ -200,7 +200,7 @@ export class UserService {
     try {
       // Call Auth Service to deactivate user in auth database
       await httpClient.deactivateUserInAuthService(userId, token);
-      
+
       // Optionally, mark user profile as inactive in user database
       await pool.query(
         `UPDATE user_profiles SET updated_at = CURRENT_TIMESTAMP WHERE user_id = $1`,
@@ -269,7 +269,7 @@ export class UserService {
 
       // Anonymize user profile data
       await client.query(
-        `UPDATE user_profiles SET 
+        `UPDATE user_profiles SET
          name = 'Deleted User',
          phone = NULL,
          avatar_url = NULL,
@@ -284,9 +284,9 @@ export class UserService {
 
       // Cancel subscriptions (keep for accounting, but mark as cancelled)
       await client.query(
-        `UPDATE subscriptions SET 
-         status = 'CANCELLED', 
-         updated_at = CURRENT_TIMESTAMP 
+        `UPDATE subscriptions SET
+         status = 'CANCELLED',
+         updated_at = CURRENT_TIMESTAMP
          WHERE user_id = $1 AND status != 'CANCELLED'`,
         [userId]
       );
@@ -296,7 +296,7 @@ export class UserService {
 
       // Anonymize wallet transactions (keep amounts for accounting)
       await client.query(
-        `UPDATE wallet_transactions SET 
+        `UPDATE wallet_transactions SET
          description = 'Transaction (user deleted)',
          updated_at = CURRENT_TIMESTAMP
          WHERE user_id = $1`,
@@ -320,6 +320,35 @@ export class UserService {
       client.release();
     }
   }
+
+  // Get linked social accounts for a user
+  async getSocialAccounts(userId: string): Promise<SocialAccount[]> {
+    try {
+      const result = await pool.query(
+        'SELECT id, provider, provider_user_id, username, created_at FROM user_social_accounts WHERE user_id = $1',
+        [userId]
+      );
+      return result.rows;
+    } catch (error) {
+      logger.error('Error getting social accounts:', error);
+      throw error;
+    }
+  }
+
+  // Unlink a social account
+  async unlinkSocialAccount(userId: string, provider: string): Promise<void> {
+    try {
+      await pool.query(
+        'DELETE FROM user_social_accounts WHERE user_id = $1 AND provider = $2',
+        [userId, provider]
+      );
+      logger.info(`Social account '${provider}' unlinked for user: ${userId}`);
+    } catch (error) {
+      logger.error('Error unlinking social account:', error);
+      throw error;
+    }
+  }
+
 }
 
 export default new UserService();

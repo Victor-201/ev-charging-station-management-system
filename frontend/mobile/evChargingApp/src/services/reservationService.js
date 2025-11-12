@@ -33,6 +33,13 @@ const reservationService = {
     return response.data;
   },
 
+  // Update a reservation
+  update: async (reservationId, data) => {
+    const url = ENDPOINTS.BOOKING.UPDATE.replace(':reservation_id', reservationId);
+    const response = await apiClient.put(url, data);
+    return response.data;
+  },
+
   // Cancel a reservation
   cancel: async (reservationId) => {
     const url = ENDPOINTS.BOOKING.CANCEL.replace(':reservation_id', reservationId);
@@ -40,17 +47,49 @@ const reservationService = {
     return response.data;
   },
 
-  // Preview reservation cost
-  previewCost: async (reservationId) => {
-    const url = ENDPOINTS.BOOKING.PREVIEW_COST.replace(':reservation_id', reservationId);
+  // Generate QR code for reservation
+  generateQR: async (reservationId) => {
+    const response = await apiClient.post(ENDPOINTS.BOOKING.QR_GENERATE, {
+      reservation_id: reservationId
+    });
+    return response.data;
+  },
+
+  // Validate QR code
+  validateQR: async (qrId) => {
+    const url = ENDPOINTS.BOOKING.QR_VALIDATE.replace(':qr_id', qrId);
     const response = await apiClient.get(url);
     return response.data;
   },
 
-  // Finalize reservation
-  finalize: async (reservationId) => {
-    const url = ENDPOINTS.BOOKING.FINALIZE.replace(':reservation_id', reservationId);
+  // Mark QR code as used
+  markQRUsed: async (qrId) => {
+    const url = ENDPOINTS.BOOKING.QR_MARK_USED.replace(':qr_id', qrId);
     const response = await apiClient.post(url);
+    return response.data;
+  },
+
+  // Waitlist operations
+  addToWaitlist: async (data) => {
+    const response = await apiClient.post(ENDPOINTS.BOOKING.WAITLIST_ADD, data);
+    return response.data;
+  },
+
+  getWaitlist: async (stationId) => {
+    const url = ENDPOINTS.BOOKING.WAITLIST_GET.replace(':station_id', stationId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  updateWaitlistStatus: async (waitlistId, status) => {
+    const url = ENDPOINTS.BOOKING.WAITLIST_UPDATE.replace(':waitlist_id', waitlistId);
+    const response = await apiClient.patch(url, { status });
+    return response.data;
+  },
+
+  removeFromWaitlist: async (waitlistId) => {
+    const url = ENDPOINTS.BOOKING.WAITLIST_REMOVE.replace(':waitlist_id', waitlistId);
+    const response = await apiClient.delete(url);
     return response.data;
   },
 };

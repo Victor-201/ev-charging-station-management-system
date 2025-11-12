@@ -39,6 +39,7 @@ export class AuthService {
     phone?: string;
     password: string;
     role?: string;
+    full_name?: string;
   }) {
     const client = await getClient();
 
@@ -88,6 +89,7 @@ export class AuthService {
           email: user.email,
           role: user.role,
           phone: data.phone,
+          full_name: data.full_name,
           created_at: user.created_at,
         }
       );

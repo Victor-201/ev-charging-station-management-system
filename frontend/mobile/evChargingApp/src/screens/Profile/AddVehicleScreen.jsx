@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Button, Snackbar, Text } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { Button, Snackbar, Text, TextInput } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useTheme } from 'react-native-paper';
 import { vehicleSchema } from '../../utils/validators';
 import useVehicles from '../../hooks/useVehicles';
 import AppInput from '../../components/common/AppInput';
+import vehicleService from '../../services/vehicleService';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -20,7 +21,7 @@ const getStyles = (colors) => StyleSheet.create({
     marginBottom: 16,
   },
   saveButton: {
-    marginTop: 16,
+    marginTop: 24,
     paddingVertical: 4,
     backgroundColor: colors.primary,
   },
@@ -44,97 +45,151 @@ const getStyles = (colors) => StyleSheet.create({
   snackbar: {
     backgroundColor: colors.success,
   },
+  lookupContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  lookupInput: {
+    flex: 1,
+  },
+  lookupButton: {
+    marginLeft: 8,
+    marginTop: 8,
+  },
+  specsContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+  },
+  specsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
 });
 
 export default function AddVehicleScreen({ navigation, route }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
-  const {
-    vehicles,
-    loading,
-    error,
-    createVehicle,
-    modifyVehicle,
-    getVehicleById
-  } = useVehicles();
-
+  const { createVehicle, modifyVehicle, getVehicleById, loading, error } = useVehicles();
   const { vehicleId } = route.params || {};
   const isEditMode = !!vehicleId;
   const vehicleToEdit = isEditMode ? getVehicleById(vehicleId) : null;
-  const [successMessage, setSuccessMessage] = useState('');
 
-  const { 
-    control, 
-    handleSubmit, 
-    formState: { errors, isValid, isDirty } 
+  const [successMessage, setSuccessMessage] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState('');
+  const [vehicleSpecs, setVehicleSpecs] = useState(null);
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors, isValid },
   } = useForm({
     resolver: yupResolver(vehicleSchema),
     mode: 'onChange',
     defaultValues: {
-      make: vehicleToEdit?.make || '',
+      brand: vehicleToEdit?.brand || '',
       model: vehicleToEdit?.model || '',
       year: vehicleToEdit?.year?.toString() || '',
-      license_plate: vehicleToEdit?.license_plate || '',
-      battery_capacity: vehicleToEdit?.battery_capacity?.toString() || '',
-      connector_type: vehicleToEdit?.connector_type || '',
-    }
+      plate_number: vehicleToEdit?.plate_number || '',
+    },
   });
+
+  const brandValue = watch('brand');
+  const modelValue = watch('model');
+
+  const handleLookup = async () => {
+    if (!brandValue || !modelValue) {
+      setLookupError('Please enter both make and model.');
+      return;
+    }
+    setLookupLoading(true);
+    setLookupError('');
+    setVehicleSpecs(null);
+    try {
+      const { data } = await vehicleService.lookupVehicle(brandValue, modelValue);
+      if (Object.keys(data).length > 0) {
+        setVehicleSpecs(data);
+      } else {
+        setLookupError('Vehicle not found. Please check make and model.');
+      }
+    } catch (err) {
+      setLookupError('Failed to fetch vehicle data. Please try again.');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
 
   const onSubmit = async (data) => {
     try {
+      const finalVehicleData = {
+        ...data,
+        ...vehicleSpecs,
+      };
+
       if (isEditMode) {
         await modifyVehicle(vehicleId, data);
         setSuccessMessage('Cập nhật phương tiện thành công!');
       } else {
-        await createVehicle(data);
+        await createVehicle(finalVehicleData);
         setSuccessMessage('Thêm phương tiện thành công!');
       }
       setTimeout(() => navigation.goBack(), 1500);
     } catch (err) {
       console.error('Failed to save vehicle:', err);
-      // Error is already handled by Redux state
     }
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.contentContainer}>
-        <Controller 
-          control={control} name="make" 
-          render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput label="Hãng xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.make?.message} style={styles.input} />
-          )} 
-        />
-        <Controller 
-          control={control} name="model" 
+        <View style={styles.lookupContainer}>
+          <Controller
+            control={control}
+            name="brand"
+            render={({ field: { onChange, value, onBlur } }) => (
+              <AppInput label="Hãng xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.brand?.message} style={styles.lookupInput} />
+            )}
+          />
+          <Button onPress={handleLookup} loading={lookupLoading} style={styles.lookupButton}>Kiểm tra</Button>
+        </View>
+        <Controller
+          control={control}
+          name="model"
           render={({ field: { onChange, value, onBlur } }) => (
             <AppInput label="Mẫu xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.model?.message} style={styles.input} />
-          )} 
+          )}
         />
-        <Controller 
-          control={control} name="year" 
+
+        {lookupError && <Text style={{ color: colors.error, marginBottom: 16 }}>{lookupError}</Text>}
+
+        {vehicleSpecs && (
+          <View style={styles.specsContainer}>
+            <Text style={styles.specsTitle}>Thông số kỹ thuật</Text>
+            <TextInput label="Dung lượng pin" value={vehicleSpecs.usable_battery_capacity} editable={false} />
+            <TextInput label="Cổng sạc" value={vehicleSpecs.charge_port} editable={false} style={{ marginTop: 8 }} />
+            <TextInput label="Công suất sạc tối đa" value={vehicleSpecs.max_charge_power} editable={false} style={{ marginTop: 8 }} />
+          </View>
+        )}
+
+        <Controller
+          control={control}
+          name="year"
           render={({ field: { onChange, value, onBlur } }) => (
             <AppInput label="Năm sản xuất *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.year?.message} keyboardType="numeric" style={styles.input} />
-          )} 
+          )}
         />
-        <Controller 
-          control={control} name="license_plate" 
+        <Controller
+          control={control}
+          name="plate_number"
           render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput label="Biển số xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.license_plate?.message} autoCapitalize="characters" style={styles.input} />
-          )} 
-        />
-        <Controller 
-          control={control} name="battery_capacity" 
-          render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput label="Dung lượng pin (kWh) *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.battery_capacity?.message} keyboardType="numeric" style={styles.input} />
-          )} 
-        />
-        <Controller 
-          control={control} name="connector_type" 
-          render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput label="Loại cổng sạc *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.connector_type?.message} style={styles.input} />
-          )} 
+            <AppInput label="Biển số xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.plate_number?.message} autoCapitalize="characters" style={styles.input} />
+          )}
         />
 
         {error && (
@@ -143,11 +198,11 @@ export default function AddVehicleScreen({ navigation, route }) {
           </View>
         )}
 
-        <Button 
+        <Button
           mode="contained"
-          onPress={handleSubmit(onSubmit)} 
-          loading={loading} 
-          disabled={!isValid || !isDirty || loading}
+          onPress={handleSubmit(onSubmit)}
+          loading={loading}
+          disabled={!isValid || loading}
           style={styles.saveButton}
           labelStyle={styles.saveButtonLabel}
         >

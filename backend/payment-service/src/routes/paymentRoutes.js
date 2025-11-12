@@ -18,7 +18,7 @@ router.post('/webhook', PaymentController.processBankWebhook);
 
 // Wallet routes
 router.get('/wallet/:user_id', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getWallet);
-router.post('/wallet/topup', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.topupWallet);
+router.post('/wallet/topup', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.initiateTopup);
 
 // User payment history
 router.get('/user/:user_id/payments', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.listUserPayments);

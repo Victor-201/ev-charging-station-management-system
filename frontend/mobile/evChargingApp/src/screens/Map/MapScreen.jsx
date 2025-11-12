@@ -274,8 +274,16 @@ export default function MapScreen({ navigation }) {
 
   useEffect(() => {
     requestLocationPermission();
-    dispatch(searchStations());
-  }, [dispatch]);
+  }, []);
+
+  const handleRegionChangeComplete = (newRegion) => {
+    const radius = Math.max(1, Math.round(newRegion.latitudeDelta * 111)); // Approx delta to km
+    dispatch(searchStations({
+      lat: newRegion.latitude,
+      lng: newRegion.longitude,
+      radius
+    }));
+  };
 
   const requestLocationPermission = async () => {
     try {
@@ -287,16 +295,15 @@ export default function MapScreen({ navigation }) {
       if (result === RESULTS.GRANTED) {
         getCurrentLocation();
       } else {
-        setLoading(false);
+        handleRegionChangeComplete(region);
         Alert.alert(
           'Quyền truy cập vị trí',
-          'Ứng dụng cần quyền truy cập vị trí để hiển thị trạm sạc gần bạn.',
+          'Bạn đã từ chối quyền truy cập vị trí. Ứng dụng sẽ hiển thị các trạm sạc ở vị trí mặc định.',
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
       console.error('Error requesting location permission:', error);
-      setLoading(false);
     }
   };
 
@@ -312,17 +319,16 @@ export default function MapScreen({ navigation }) {
         };
         setUserLocation({ latitude, longitude });
         setRegion(newRegion);
-        setLoading(false);
-        
-        // Animate to user location
+
         if (mapRef.current) {
           mapRef.current.animateToRegion(newRegion, 1000);
         }
+        handleRegionChangeComplete(newRegion);
       },
       (error) => {
         console.error('Error getting location:', error);
-        setLoading(false);
-        Alert.alert('Lỗi', 'Không thể lấy vị trí hiện tại');
+        handleRegionChangeComplete(region);
+        Alert.alert('Lỗi', 'Không thể lấy vị trí hiện tại. Hiển thị trạm sạc ở vị trí mặc định.');
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
@@ -344,7 +350,7 @@ export default function MapScreen({ navigation }) {
 
   const getMarkerColor = (station) => {
     if (station.status === 'maintenance') return colors.error;
-    if (station.available_ports === 0) return colors.warning;
+    if ((station.available_ports || 0) === 0) return colors.warning;
     return colors.success;
   };
 
@@ -407,7 +413,8 @@ export default function MapScreen({ navigation }) {
         showsMyLocationButton={false}
         loadingEnabled={true}
         loadingIndicatorColor={colors.accent}
-        onPress={() => setSelectedStation(null)}
+        onPress={() => dispatch(setSelectedStation(null))}
+        onRegionChangeComplete={handleRegionChangeComplete}
         mapType="standard"
       >
         {stations.map((station) => (
@@ -470,7 +477,7 @@ export default function MapScreen({ navigation }) {
                 <Text style={styles.detailsButtonText}>Details</Text>
                 <Icon name="arrow-forward" size={16} color={colors.accent} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setSelectedStation(null)}>
+              <TouchableOpacity onPress={() => dispatch(setSelectedStation(null))}>
                 <Icon name="close" size={24} color={colors.onSurface} style={{ opacity: 0.7 }} />
               </TouchableOpacity>
             </View>
@@ -480,25 +487,25 @@ export default function MapScreen({ navigation }) {
             <View style={styles.detailRow}>
               <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
               <Text style={styles.detailText}>
-                {selectedStation.available_ports}/{selectedStation.total_ports} cổng sạc
+                {selectedStation.available_ports || 0}/{selectedStation.total_ports || 0} cổng sạc
               </Text>
             </View>
             <View style={styles.detailRow}>
               <Icon name="attach-money" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
               <Text style={styles.detailText}>
-                {selectedStation.price_per_kwh.toLocaleString()} VND/kWh
+                {selectedStation.price_per_kwh ? selectedStation.price_per_kwh.toLocaleString() : 'N/A'} VND/kWh
               </Text>
             </View>
             <View style={styles.detailRow}>
               <Icon name="star" size={16} color={colors.warning} />
               <Text style={styles.detailText}>
-                {selectedStation.rating} • {selectedStation.distance} km
+                {selectedStation.rating || 'N/A'} • {selectedStation.distance || 'N/A'} km
               </Text>
             </View>
           </View>
 
           <View style={styles.connectorTypes}>
-            {selectedStation.connector_types.map((type, index) => (
+            {(selectedStation.connector_types || []).map((type, index) => (
               <View key={index} style={styles.connectorBadge}>
                 <Text style={styles.connectorText}>{type}</Text>
               </View>
@@ -514,16 +521,16 @@ export default function MapScreen({ navigation }) {
               <Text style={styles.directionsButtonText}>Chỉ đường</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.bookButton,
-                selectedStation.available_ports === 0 && styles.disabledButton
+                (selectedStation.available_ports || 0) === 0 && styles.disabledButton
               ]}
               onPress={handleBookStation}
-              disabled={selectedStation.available_ports === 0}
+              disabled={(selectedStation.available_ports || 0) === 0}
             >
               <Text style={styles.bookButtonText}>
-                {selectedStation.available_ports === 0 ? 'Hết chỗ' : 'Đặt chỗ sạc'}
+                {(selectedStation.available_ports || 0) === 0 ? 'Hết chỗ' : 'Đặt chỗ sạc'}
               </Text>
             </TouchableOpacity>
           </View>

@@ -29,9 +29,9 @@ export class NotificationController {
 
       await notificationService.markAsRead(notification_id, userId);
 
-      res.json({ 
+      res.json({
         status: 'success',
-        message: 'Notification marked as read' 
+        message: 'Notification marked as read'
       });
     } catch (error) {
       logger.error('Error in markAsRead:', error);
@@ -46,9 +46,9 @@ export class NotificationController {
 
       await notificationService.markAllAsRead(user_id);
 
-      res.json({ 
+      res.json({
         status: 'success',
-        message: 'All notifications marked as read' 
+        message: 'All notifications marked as read'
       });
     } catch (error) {
       logger.error('Error in markAllAsRead:', error);
@@ -118,6 +118,31 @@ export class NotificationController {
       res.status(500).json({ error: 'Failed to process webhook' });
     }
   }
+
+  // GET /api/v1/users/:user_id/notifications/settings - Get notification settings
+  async getNotificationSettings(req: Request, res: Response): Promise<void> {
+    try {
+      const { user_id } = req.params;
+      const settings = await notificationService.getNotificationSettings(user_id);
+      res.json(settings);
+    } catch (error) {
+      logger.error('Error in getNotificationSettings:', error);
+      res.status(500).json({ error: 'Failed to get notification settings' });
+    }
+  }
+
+  // PUT /api/v1/users/:user_id/notifications/settings - Update notification settings
+  async updateNotificationSettings(req: Request, res: Response): Promise<void> {
+    try {
+      const { user_id } = req.params;
+      const settings = await notificationService.updateNotificationSettings(user_id, req.body);
+      res.json(settings);
+    } catch (error) {
+      logger.error('Error in updateNotificationSettings:', error);
+      res.status(500).json({ error: 'Failed to update notification settings' });
+    }
+  }
 }
+
 
 export default new NotificationController();

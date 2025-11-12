@@ -5,7 +5,7 @@ import { Avatar, List, Divider, Button, ActivityIndicator, Text } from 'react-na
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMe } from '../../store/slices/userSlice';
-import { logout } from '../../store/slices/authSlice';
+import { logoutAsync } from '../../store/slices/authSlice';
 import { useTheme } from 'react-native-paper';
 
 const getStyles = (colors) => StyleSheet.create({
@@ -60,13 +60,12 @@ export default function ProfileScreen({ navigation }) {
   const styles = getStyles(colors);
   const dispatch = useDispatch();
   const { profile, loading, error } = useSelector((state) => state.user);
-  const authUser = useSelector((state) => state.auth.user);
-
   useFocusEffect(
     useCallback(() => {
-      // Fetch user profile when the screen is focused
-      dispatch(getMe());
-    }, [dispatch])
+      if (!profile) { // Fetch only if profile is not already in state
+        dispatch(getMe());
+      }
+    }, [dispatch, profile])
   );
 
   const handleLogout = () => {
@@ -78,9 +77,7 @@ export default function ProfileScreen({ navigation }) {
         {
           text: 'Đăng xuất',
           onPress: () => {
-            dispatch(logout());
-            // Reset navigation to Auth stack
-            navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
+            dispatch(logoutAsync());
           },
           style: 'destructive'
         },
@@ -88,7 +85,7 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  if (loading && !profile) {
+  if (loading || !profile) {
     return (
       <View style={styles.centeredContainer}>
         <ActivityIndicator animating={true} size="large" color={colors.primary} />
@@ -96,7 +93,7 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  if (error) {
+  if (error && !profile) {
     return (
       <View style={styles.centeredContainer}>
         <Text style={styles.errorText}>{error}</Text>
@@ -105,9 +102,7 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-
-
-  const user = profile || authUser;
+  const user = profile;
 
   return (
     <SafeAreaView style={styles.container}>

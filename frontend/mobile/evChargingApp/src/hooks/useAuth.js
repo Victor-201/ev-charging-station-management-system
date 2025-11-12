@@ -1,6 +1,6 @@
 // src/hooks/useAuth.js
 import { useDispatch, useSelector } from 'react-redux';
-import { login, register, forgotPassword, refreshToken, socialLogin } from '../store/slices/authSlice';
+import { login, register, forgotPassword, refreshToken, socialLogin, logoutAsync } from '../store/slices/authSlice';
 import { useCallback } from 'react';
 
 export default function useAuth() {
@@ -12,6 +12,7 @@ export default function useAuth() {
   const doForgot = useCallback((e) => dispatch(forgotPassword(e)), [dispatch]);
   const doRefresh = useCallback(() => dispatch(refreshToken()), [dispatch]);
   const doSocialLogin = useCallback((p) => dispatch(socialLogin(p)), [dispatch]);
+  const doLogout = useCallback(() => dispatch(logoutAsync()), [dispatch]);
 
-  return { ...auth, doLogin, doRegister, doForgot, doRefresh, doSocialLogin };
+  return { ...auth, doLogin, doRegister, doForgot, doRefresh, doSocialLogin, doLogout };
 }

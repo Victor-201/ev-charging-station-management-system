@@ -4,9 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../../config/constants';
-import { logout as logoutAction } from '../../store/slices/authSlice';
+import { logoutAsync } from '../../store/slices/authSlice';
 import useWallet from '../../hooks/useWallet';
 
 import Header from '../../components/layout/Header';
@@ -42,14 +40,8 @@ export default function HomeScreen() {
       {
         text: 'Đăng xuất',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-            await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-            dispatch(logoutAction());
-          } catch (error) {
-            Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
-          }
+        onPress: () => {
+          dispatch(logoutAsync());
         },
       },
     ]);

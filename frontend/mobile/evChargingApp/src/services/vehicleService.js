@@ -21,6 +21,10 @@ const vehicleService = {
     const url = ENDPOINTS.VEHICLE.DELETE.replace(':vehicle_id', vehicleId);
     return apiClient.delete(url);
   },
+
+  lookupVehicle: (make, model) => {
+    return apiClient.post(ENDPOINTS.VEHICLE.LOOKUP, { make, model });
+  },
 };
 
 export default vehicleService;

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Text, Button, Card, TextInput, RadioButton, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
-import { topupWallet } from '../../store/slices/walletSlice'; // To be added
+import { topupWallet } from '../../store/slices/walletSlice';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -45,6 +45,28 @@ const getStyles = (colors) => StyleSheet.create({
   button: {
     paddingVertical: 8,
   },
+  referenceContainer: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  referenceTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  referenceCode: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  referenceInstruction: {
+    textAlign: 'center',
+    opacity: 0.8,
+  },
 });
 
 const TopupScreen = ({ navigation }) => {
@@ -55,7 +77,8 @@ const TopupScreen = ({ navigation }) => {
   const { loading, error } = useSelector((state) => state.wallet || {});
 
   const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('bank_transfer'); // 'bank_transfer' or 'credit_card'
+  const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
+  const [topupResult, setTopupResult] = useState(null);
 
   const handleTopup = async () => {
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
@@ -66,14 +89,30 @@ const TopupScreen = ({ navigation }) => {
     const result = await dispatch(topupWallet({
       user_id: user.id,
       amount: Number(amount),
+      method: paymentMethod,
     }));
 
     if (result.type === 'wallet/topup/fulfilled') {
-      Alert.alert('Thành công', 'Nạp tiền thành công!', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      setTopupResult(result.payload);
     }
   };
+
+  if (topupResult) {
+    return (
+      <View style={styles.container}>
+        <Card style={styles.referenceContainer}>
+          <Card.Content>
+            <Text style={styles.referenceTitle}>Hoàn tất nạp tiền</Text>
+            <Text style={styles.referenceInstruction}>Vui lòng chuyển khoản với nội dung sau:</Text>
+            <Text style={styles.referenceCode}>{topupResult.reference_code}</Text>
+            <Button mode="contained" onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
+              Đã hiểu
+            </Button>
+          </Card.Content>
+        </Card>
+      </View>
+    )
+  }
 
   return (
     <View style={styles.container}>
@@ -97,8 +136,8 @@ const TopupScreen = ({ navigation }) => {
               <Text style={styles.radioLabel}>Chuyển khoản ngân hàng</Text>
             </View>
             <View style={styles.radioItem}>
-              <RadioButton value="credit_card" />
-              <Text style={styles.radioLabel}>Thẻ tín dụng/ghi nợ</Text>
+              <RadioButton value="credit_card" disabled />
+              <Text style={[styles.radioLabel, { opacity: 0.5 }]}>Thẻ tín dụng/ghi nợ (sắp có)</Text>
             </View>
           </RadioButton.Group>
         </Card.Content>
@@ -113,7 +152,7 @@ const TopupScreen = ({ navigation }) => {
         disabled={loading || !amount}
         style={styles.button}
       >
-        Xác nhận nạp tiền
+        Lấy mã nạp tiền
       </Button>
     </View>
   );

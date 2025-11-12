@@ -12,6 +12,15 @@ export default class PaymentService {
     this.walletRepo = new WalletRepository();
     this.walletTxRepo = new WalletTransactionRepository();
     this.planRepo = new PlanRepository();
+
+    localBus.subscribe('payment.topup.succeeded', async (payload) => {
+      try {
+        await this._applyTopup(payload);
+        console.log(`[PaymentService] Applied top-up for user ${payload.user_id}`);
+      } catch (error) {
+        console.error(`[PaymentService] Error applying top-up for user ${payload.user_id}:`, error);
+      }
+    });
   }
 
   async createTransaction({
@@ -226,7 +235,18 @@ export default class PaymentService {
     return wallet;
   }
 
-  async topupWallet({ user_id, amount }) {
+  async initiateTopup({ user_id, amount, method = 'bank_transfer' }) {
+    const transaction = await this.createTransaction({
+      user_id,
+      type: 'topup',
+      amount,
+      method,
+      description: `Top-up via ${method}`,
+    });
+    return transaction;
+  }
+
+  async _applyTopup({ user_id, amount, reference_code }) {
     let wallet = await this.walletRepo.findByUserId(user_id);
     if (!wallet) wallet = await this.walletRepo.create(user_id);
 
@@ -237,7 +257,7 @@ export default class PaymentService {
       wallet_id: wallet.id,
       type: 'topup',
       amount,
-      note: 'Manual top-up',
+      note: `Top-up from transaction: ${reference_code}`,
     });
 
     return { message: 'Wallet topped up successfully', transaction: walletTx };

@@ -68,6 +68,25 @@ export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provide
   }
 });
 
+export const logoutAsync = createAsyncThunk('auth/logoutAsync', async (_, { getState, rejectWithValue }) => {
+  try {
+    const state = getState();
+    const refreshToken = state.auth?.refreshToken || (await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN));
+    if (refreshToken) {
+      await authService.logout(refreshToken);
+    }
+    // Clear local storage
+    await AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    return { message: 'Logged out successfully' };
+  } catch (err) {
+    // Even if API call fails, clear local storage
+    await AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
 const initialState = {
   user: null,
   accessToken: null,
@@ -162,7 +181,22 @@ const authSlice = createSlice({
           s.user = null;
         }
       })
-      .addCase(socialLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Social login failed'; });
+      .addCase(socialLogin.rejected, (s, a) => { s.loading = false; s.error = a.payload?.message || 'Social login failed'; })
+
+      .addCase(logoutAsync.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(logoutAsync.fulfilled, (s) => {
+        s.loading = false;
+        s.user = null;
+        s.accessToken = null;
+        s.refreshToken = null;
+      })
+      .addCase(logoutAsync.rejected, (s) => {
+        s.loading = false;
+        // Even if logout fails, clear the state
+        s.user = null;
+        s.accessToken = null;
+        s.refreshToken = null;
+      });
   },
 });
 

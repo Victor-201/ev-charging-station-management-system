@@ -45,6 +45,20 @@ router.get('/users/:user_id/export-data', authenticate, authorizeOwner, userCont
 // DELETE /api/v1/users/:user_id/erase - GDPR: Erase user data
 router.delete('/users/:user_id/erase', authenticate, authorizeOwner, userController.eraseUserData);
 
+
+// GET /api/v1/users/:user_id/social-accounts - Get linked social accounts
+router.get('/users/:user_id/social-accounts', authenticate, authorizeOwner, userController.getSocialAccounts);
+
+// DELETE /api/v1/users/:user_id/social-accounts/:provider - Unlink a social account
+router.delete('/users/:user_id/social-accounts/:provider', authenticate, authorizeOwner, userController.unlinkSocialAccount);
+
+
+// GET /api/v1/users/:user_id/notifications/settings - Get notification settings
+router.get('/users/:user_id/notifications/settings', authenticate, authorizeOwner, notificationController.getNotificationSettings);
+
+// PUT /api/v1/users/:user_id/notifications/settings - Update notification settings
+router.put('/users/:user_id/notifications/settings', authenticate, authorizeOwner, notificationController.updateNotificationSettings);
+
 // ==================== VEHICLE ROUTES ====================
 
 // POST /api/v1/users/:user_id/vehicles - Add vehicle
@@ -61,6 +75,10 @@ router.put('/vehicles/:vehicle_id', authenticate, validate(updateVehicleSchema),
 
 // DELETE /api/v1/vehicles/:vehicle_id - Delete vehicle
 router.delete('/vehicles/:vehicle_id', authenticate, vehicleController.deleteVehicle);
+
+
+// POST /api/v1/vehicles/lookup - Look up vehicle specs from external API
+// router.post('/vehicles/lookup', authenticate, vehicleController.lookupVehicle);
 
 // ==================== SUBSCRIPTION ROUTES ====================
 // GET /api/v1/users/:user_id/subscriptions - Get user subscriptions

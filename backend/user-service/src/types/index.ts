@@ -27,6 +27,9 @@ export interface Vehicle {
   brand: string;
   model: string;
   battery_kwh?: number;
+  usable_battery_capacity?: number;
+  charge_port?: string;
+  max_charge_power?: number;
   color?: string;
   year?: number;
   status: string;
@@ -93,4 +96,14 @@ export interface NotificationRequest {
   message: string;
   channels: string[];
   data?: any;
+}
+
+
+export interface SocialAccount {
+  id: string;
+  user_id: string;
+  provider: string;
+  provider_user_id: string;
+  username?: string;
+  created_at: Date;
 }

@@ -1,53 +1,57 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import apiClient from '../../api/apiClient';
-import { ENDPOINTS } from '../../api/endpoints';
+import notificationService from '../../services/notificationService';
 
-// Async thunk for fetching notifications
-export const getNotifications = createAsyncThunk(
-  'notification/getNotifications',
-  async (userId, { rejectWithValue }) => {
-    try {
-      const url = ENDPOINTS.NOTIFICATION.LIST.replace(':user_id', userId);
-      const response = await apiClient.get(url);
-      const notifications = response?.data?.notifications || response?.notifications || response?.data || response || [];
-      return Array.isArray(notifications) ? notifications : [];
-    } catch (err) {
-      return rejectWithValue(err.response?.data || { message: err.message });
-    }
+// Async thunks for notifications
+export const getNotifications = createAsyncThunk('notification/getNotifications', async (userId, { rejectWithValue }) => {
+  try {
+    const response = await notificationService.getNotifications(userId);
+    return response.notifications || [];
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
   }
-);
+});
 
-// Async thunk for marking a notification as read
-export const markNotificationAsRead = createAsyncThunk(
-  'notification/markAsRead',
-  async (notificationId, { rejectWithValue }) => {
-    try {
-      const url = ENDPOINTS.NOTIFICATION.MARK_READ.replace(':notification_id', notificationId);
-      await apiClient.put(url);
-      return notificationId;
-    } catch (err) {
-      return rejectWithValue(err.response?.data || { message: err.message });
-    }
+export const markNotificationAsRead = createAsyncThunk('notification/markAsRead', async (notificationId, { rejectWithValue }) => {
+  try {
+    await notificationService.markAsRead(notificationId);
+    return notificationId;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
   }
-);
+});
 
-// Async thunk for marking all notifications as read
-export const markAllNotificationsAsRead = createAsyncThunk(
-  'notification/markAllAsRead',
-  async (userId, { rejectWithValue }) => {
-    try {
-      const url = ENDPOINTS.NOTIFICATION.MARK_ALL_READ.replace(':user_id', userId);
-      await apiClient.put(url);
-      return true;
-    } catch (err) {
-      return rejectWithValue(err.response?.data || { message: err.message });
-    }
+export const markAllNotificationsAsRead = createAsyncThunk('notification/markAllAsRead', async (userId, { rejectWithValue }) => {
+  try {
+    await notificationService.markAllAsRead(userId);
+    return true;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
   }
-);
+});
+
+// Async thunks for settings
+export const getNotificationSettings = createAsyncThunk('notifications/getSettings', async (userId, { rejectWithValue }) => {
+  try {
+    const data = await notificationService.getSettings(userId);
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const updateNotificationSettings = createAsyncThunk('notifications/updateSettings', async ({ userId, settings }, { rejectWithValue }) => {
+  try {
+    const data = await notificationService.updateSettings(userId, settings);
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
 
 const initialState = {
   notifications: [],
   unreadCount: 0,
+  settings: null,
   loading: false,
   error: null,
 };
@@ -62,7 +66,6 @@ const notificationSlice = createSlice({
       state.error = null;
     },
     addNotification(state, action) {
-      // Add a new notification (e.g., from push notification)
       state.notifications.unshift(action.payload);
       if (!action.payload.read) {
         state.unreadCount += 1;
@@ -88,17 +91,12 @@ const notificationSlice = createSlice({
 
       // Mark Notification as Read
       .addCase(markNotificationAsRead.fulfilled, (state, action) => {
-        const notification = state.notifications.find(
-          n => n.id === action.payload || n.notification_id === action.payload
-        );
+        const notification = state.notifications.find(n => n.id === action.payload);
         if (notification && !notification.read && !notification.is_read) {
           notification.read = true;
           notification.is_read = true;
           state.unreadCount = Math.max(0, state.unreadCount - 1);
         }
-      })
-      .addCase(markNotificationAsRead.rejected, (state, action) => {
-        state.error = action.payload?.message || 'Failed to mark notification as read';
       })
 
       // Mark All Notifications as Read
@@ -109,8 +107,23 @@ const notificationSlice = createSlice({
         });
         state.unreadCount = 0;
       })
-      .addCase(markAllNotificationsAsRead.rejected, (state, action) => {
-        state.error = action.payload?.message || 'Failed to mark all notifications as read';
+
+      // Get Settings
+      .addCase(getNotificationSettings.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getNotificationSettings.fulfilled, (state, action) => {
+        state.loading = false;
+        state.settings = action.payload;
+      })
+      .addCase(getNotificationSettings.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || 'Failed to fetch settings';
+      })
+
+      // Update Settings
+      .addCase(updateNotificationSettings.fulfilled, (state, action) => {
+        state.settings = action.payload;
       });
   },
 });
