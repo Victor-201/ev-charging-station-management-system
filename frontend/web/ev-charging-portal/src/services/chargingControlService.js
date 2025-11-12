@@ -51,6 +51,13 @@ export const chargingControlService = {
   // Nếu hóa đơn sai hoặc đầy lỗi thì nhân viên reconcile (điều chỉnh)
   reconcileSession: (session_id, payload) =>
     apiClient({ method: "POST", url: `api/v1/charging/${session_id}/reconcile`, data: payload }),
+  // ===== RESERVATION =====
+getReservationById: (reservation_id) =>
+  apiClient({ method: "GET", url: `api/v1/booking/${reservation_id}` }),
+
+    // ===== QR CODE =====
+  validateQr: (qr_id) =>
+    apiClient({ method: "GET", url: `api/v1/booking/qr/${qr_id}/validate` }),
 };
 
 
