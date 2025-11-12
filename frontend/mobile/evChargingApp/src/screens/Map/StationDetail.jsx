@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getStationById, getStationPricing } from '../../store/slices/stationSlice';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
+import reservationService from '../../services/reservationService';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -155,6 +156,21 @@ const getStyles = (colors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  waitlistButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primaryContainer,
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  waitlistButtonText: {
+    color: colors.onPrimaryContainer,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   reportButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -178,6 +194,8 @@ export default function StationDetail({ route, navigation }) {
   const { id } = route.params;
   const dispatch = useDispatch();
   const { selectedStation: station, loading, error } = useSelector((state) => state.stations);
+  const { user } = useSelector((state) => state.auth);
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -215,6 +233,37 @@ export default function StationDetail({ route, navigation }) {
       navigation.navigate('ReportIssue', {
         station: station
       });
+    }
+  };
+
+  const handleJoinWaitlist = async () => {
+    if (!user?.id || !station?.id) {
+      Alert.alert('Lỗi', 'Vui lòng đăng nhập để tham gia danh sách chờ');
+      return;
+    }
+
+    setJoiningWaitlist(true);
+    try {
+      const response = await reservationService.addToWaitlist({
+        user_id: user.id,
+        station_id: station.id,
+        connector_type: station.connector_types?.[0] || 'Type 2', // Default to first available type
+      });
+
+      Alert.alert(
+        'Thành công',
+        'Bạn đã được thêm vào danh sách chờ. Chúng tôi sẽ thông báo khi có chỗ trống.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Join waitlist error:', error);
+      Alert.alert(
+        'Lỗi',
+        error.response?.data?.message || 'Không thể tham gia danh sách chờ. Vui lòng thử lại.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setJoiningWaitlist(false);
     }
   };
 
@@ -320,6 +369,20 @@ export default function StationDetail({ route, navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Waitlist Button - Show when no slots available */}
+      {!isAvailable && station.status === 'active' && (
+        <TouchableOpacity
+          style={[styles.waitlistButton, joiningWaitlist && styles.disabledButton]}
+          onPress={handleJoinWaitlist}
+          disabled={joiningWaitlist}
+        >
+          <Icon name="schedule" size={20} color={colors.onPrimaryContainer} />
+          <Text style={styles.waitlistButtonText}>
+            {joiningWaitlist ? 'Đang xử lý...' : 'Tham gia danh sách chờ'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         style={styles.reportButton}

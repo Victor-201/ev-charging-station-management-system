@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Card, Button, ActivityIndicator, Divider } from 'react-native-paper';
@@ -8,6 +8,7 @@ import useSocket from '../../hooks/useSocket';
 import { updateTelemetry } from '../../store/slices/chargingSlice';
 import chargingService from '../../services/chargingService';
 import { useTheme } from 'react-native-paper';
+import useCharging from '../../hooks/useCharging';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -75,8 +76,10 @@ const ActiveChargingScreen = () => {
   const route = useRoute();
   const { sessionId } = route.params;
   const { activeSession, loading, error } = useSelector((state) => state.charging);
+  const { getTelemetry, pause, resume, stop } = useCharging();
   const [actionLoading, setActionLoading] = useState(null); // 'pause', 'resume', 'stop'
 
+  // WebSocket event handlers
   const eventHandlers = useCallback({
     charging_update: (data) => {
       dispatch(updateTelemetry({ sessionId, telemetry: data }));
@@ -93,24 +96,59 @@ const ActiveChargingScreen = () => {
 
   useSocket(eventHandlers);
 
+  // Polling fallback for telemetry updates (every 5 seconds)
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const pollTelemetry = async () => {
+      try {
+        await getTelemetry(sessionId);
+      } catch (error) {
+        console.error('Telemetry polling error:', error);
+      }
+    };
+
+    // Initial fetch
+    pollTelemetry();
+
+    // Set up polling interval
+    const interval = setInterval(pollTelemetry, 5000);
+
+    return () => clearInterval(interval);
+  }, [sessionId, getTelemetry]);
+
   const handleAction = async (action) => {
     setActionLoading(action);
     try {
+      let result;
       switch (action) {
         case 'pause':
-          await chargingService.pause(sessionId);
+          result = await pause(sessionId);
+          if (result.error) {
+            throw new Error(result.error.message || 'Không thể tạm dừng');
+          }
+          Alert.alert('Thành công', 'Đã tạm dừng phiên sạc');
           break;
         case 'resume':
-          await chargingService.resume(sessionId);
+          result = await resume(sessionId);
+          if (result.error) {
+            throw new Error(result.error.message || 'Không thể tiếp tục');
+          }
+          Alert.alert('Thành công', 'Đã tiếp tục phiên sạc');
           break;
         case 'stop':
-          await chargingService.stop(sessionId);
+          result = await stop(sessionId);
+          if (result.error) {
+            throw new Error(result.error.message || 'Không thể dừng');
+          }
+          // Navigate to complete screen
+          navigation.replace('ChargingComplete', { sessionId });
           break;
         default:
           break;
       }
     } catch (err) {
-      Alert.alert('Lỗi', `Không thể thực hiện hành động: ${err.message}`);
+      Alert.alert('Lỗi', err.message || `Không thể thực hiện hành động`);
     } finally {
       setActionLoading(null);
     }
