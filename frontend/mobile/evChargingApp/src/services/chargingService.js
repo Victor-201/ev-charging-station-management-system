@@ -3,9 +3,9 @@ import { ENDPOINTS } from '../api/endpoints';
 
 const chargingService = {
   // Initiate a charging session from a booking
-  initiate: async (bookingId) => {
+  initiate: async (reservationId) => {
     const response = await apiClient.post(ENDPOINTS.CHARGING.INITIATE, {
-      reservation_id: bookingId
+      reservation_id: reservationId
     });
     return response.data;
   },
@@ -46,10 +46,45 @@ const chargingService = {
     return response.data;
   },
 
-  // Get session events (telemetry)
-  getSessionEvents: async (sessionId) => {
+  // Get session telemetry (real-time data)
+  getTelemetry: async (sessionId) => {
     const url = ENDPOINTS.CHARGING.TELEMETRY.replace(':session_id', sessionId);
     const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  // Get session events
+  getEvents: async (sessionId) => {
+    const url = ENDPOINTS.CHARGING.GET_EVENTS.replace(':session_id', sessionId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  // Push meter reading
+  pushMeterReading: async (sessionId, meterData) => {
+    const url = ENDPOINTS.CHARGING.PUSH_METER.replace(':session_id', sessionId);
+    const response = await apiClient.post(url, meterData);
+    return response.data;
+  },
+
+  // Confirm payment for session
+  confirmPayment: async (sessionId, paymentData) => {
+    const url = ENDPOINTS.CHARGING.CONFIRM_PAYMENT.replace(':session_id', sessionId);
+    const response = await apiClient.post(url, paymentData);
+    return response.data;
+  },
+
+  // Get invoice for session
+  getInvoice: async (sessionId) => {
+    const url = ENDPOINTS.CHARGING.GET_INVOICE.replace(':session_id', sessionId);
+    const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  // Reconcile session (for payment discrepancies)
+  reconcileSession: async (sessionId, reconcileData) => {
+    const url = ENDPOINTS.CHARGING.RECONCILE.replace(':session_id', sessionId);
+    const response = await apiClient.post(url, reconcileData);
     return response.data;
   },
 
@@ -57,6 +92,13 @@ const chargingService = {
   getHistory: async (userId, params = {}) => {
     const url = ENDPOINTS.CHARGING.USER_SESSIONS.replace(':user_id', userId);
     const response = await apiClient.get(url, { params });
+    return response.data;
+  },
+
+  // Get active charging points at a station
+  getActivePoints: async (stationId) => {
+    const url = ENDPOINTS.CHARGING.ACTIVE_POINTS.replace(':station_id', stationId);
+    const response = await apiClient.get(url);
     return response.data;
   },
 };

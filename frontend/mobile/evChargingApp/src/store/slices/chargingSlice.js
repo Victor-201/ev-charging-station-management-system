@@ -22,10 +22,73 @@ export const initiateCharging = createAsyncThunk('charging/initiate', async (boo
   }
 });
 
-export const handleChargingAction = createAsyncThunk('charging/handleAction', async ({ action, sessionId }, { rejectWithValue }) => {
+export const startCharging = createAsyncThunk('charging/start', async (sessionId, { rejectWithValue }) => {
   try {
-    const { data } = await chargingService[action](sessionId);
-    return data; // Assuming API returns the updated session
+    const response = await chargingService.start(sessionId);
+    return response?.data || response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const stopCharging = createAsyncThunk('charging/stop', async (sessionId, { rejectWithValue }) => {
+  try {
+    const response = await chargingService.stop(sessionId);
+    return response?.data || response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const pauseCharging = createAsyncThunk('charging/pause', async (sessionId, { rejectWithValue }) => {
+  try {
+    const response = await chargingService.pause(sessionId);
+    return response?.data || response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const resumeCharging = createAsyncThunk('charging/resume', async (sessionId, { rejectWithValue }) => {
+  try {
+    const response = await chargingService.resume(sessionId);
+    return response?.data || response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const getSessionDetail = createAsyncThunk('charging/getSession', async (sessionId, { rejectWithValue }) => {
+  try {
+    const response = await chargingService.getSession(sessionId);
+    return response?.data || response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const getSessionTelemetry = createAsyncThunk('charging/getTelemetry', async (sessionId, { rejectWithValue }) => {
+  try {
+    const response = await chargingService.getTelemetry(sessionId);
+    return response?.data || response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const getInvoice = createAsyncThunk('charging/getInvoice', async (sessionId, { rejectWithValue }) => {
+  try {
+    const response = await chargingService.getInvoice(sessionId);
+    return response?.data || response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const confirmPayment = createAsyncThunk('charging/confirmPayment', async ({ sessionId, paymentData }, { rejectWithValue }) => {
+  try {
+    const response = await chargingService.confirmPayment(sessionId, paymentData);
+    return response?.data || response;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
   }
@@ -34,9 +97,14 @@ export const handleChargingAction = createAsyncThunk('charging/handleAction', as
 const initialState = {
   sessions: [],
   activeSession: null,
+  currentSession: null,
   telemetry: null,
+  invoice: null,
   loading: false,
   error: null,
+  historyLoading: false,
+  telemetryLoading: false,
+  invoiceLoading: false,
 };
 
 const chargingSlice = createSlice({
@@ -46,31 +114,38 @@ const chargingSlice = createSlice({
     clearChargingState(state) {
       state.sessions = [];
       state.activeSession = null;
+      state.currentSession = null;
       state.telemetry = null;
+      state.invoice = null;
       state.loading = false;
       state.error = null;
     },
+    clearError(state) {
+      state.error = null;
+    },
     updateTelemetry(state, action) {
-      if (state.activeSession && state.activeSession.id === action.payload.sessionId) {
-        state.telemetry = action.payload.telemetry;
-        // Also update the active session with the latest data
-        state.activeSession = { ...state.activeSession, ...action.payload.telemetry };
+      state.telemetry = action.payload;
+      if (state.activeSession) {
+        state.activeSession = { ...state.activeSession, ...action.payload };
       }
+    },
+    setActiveSession(state, action) {
+      state.activeSession = action.payload;
     },
   },
   extraReducers: (builder) => {
     builder
       // Get Charging History
       .addCase(getChargingHistory.pending, (state) => {
-        state.loading = true;
+        state.historyLoading = true;
         state.error = null;
       })
       .addCase(getChargingHistory.fulfilled, (state, action) => {
-        state.loading = false;
+        state.historyLoading = false;
         state.sessions = action.payload;
       })
       .addCase(getChargingHistory.rejected, (state, action) => {
-        state.loading = false;
+        state.historyLoading = false;
         state.error = action.payload?.message || 'Failed to fetch charging history';
       })
 
@@ -88,20 +163,87 @@ const chargingSlice = createSlice({
         state.error = action.payload?.message || 'Failed to initiate session';
       })
 
-      // Handle other actions (start, pause, resume, stop)
-      .addCase(handleChargingAction.pending, () => {
-        // Optionally handle loading state for specific actions
+      // Start Charging
+      .addCase(startCharging.pending, (state) => {
+        state.loading = true;
       })
-      .addCase(handleChargingAction.fulfilled, (state, action) => {
-        if (state.activeSession && state.activeSession.id === action.payload.session.id) {
-          state.activeSession = action.payload.session;
+      .addCase(startCharging.fulfilled, (state, action) => {
+        state.loading = false;
+        state.activeSession = action.payload;
+      })
+      .addCase(startCharging.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || 'Failed to start charging';
+      })
+
+      // Stop Charging
+      .addCase(stopCharging.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(stopCharging.fulfilled, (state, action) => {
+        state.loading = false;
+        state.activeSession = null;
+        state.currentSession = action.payload;
+      })
+      .addCase(stopCharging.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || 'Failed to stop charging';
+      })
+
+      // Pause Charging
+      .addCase(pauseCharging.fulfilled, (state, action) => {
+        state.activeSession = action.payload;
+      })
+      .addCase(pauseCharging.rejected, (state, action) => {
+        state.error = action.payload?.message || 'Failed to pause charging';
+      })
+
+      // Resume Charging
+      .addCase(resumeCharging.fulfilled, (state, action) => {
+        state.activeSession = action.payload;
+      })
+      .addCase(resumeCharging.rejected, (state, action) => {
+        state.error = action.payload?.message || 'Failed to resume charging';
+      })
+
+      // Get Session Detail
+      .addCase(getSessionDetail.fulfilled, (state, action) => {
+        state.currentSession = action.payload;
+      })
+
+      // Get Telemetry
+      .addCase(getSessionTelemetry.pending, (state) => {
+        state.telemetryLoading = true;
+      })
+      .addCase(getSessionTelemetry.fulfilled, (state, action) => {
+        state.telemetryLoading = false;
+        state.telemetry = action.payload;
+      })
+      .addCase(getSessionTelemetry.rejected, (state) => {
+        state.telemetryLoading = false;
+      })
+
+      // Get Invoice
+      .addCase(getInvoice.pending, (state) => {
+        state.invoiceLoading = true;
+      })
+      .addCase(getInvoice.fulfilled, (state, action) => {
+        state.invoiceLoading = false;
+        state.invoice = action.payload;
+      })
+      .addCase(getInvoice.rejected, (state, action) => {
+        state.invoiceLoading = false;
+        state.error = action.payload?.message || 'Failed to get invoice';
+      })
+
+      // Confirm Payment
+      .addCase(confirmPayment.fulfilled, (state, action) => {
+        if (state.currentSession) {
+          state.currentSession = action.payload;
         }
-      })
-      .addCase(handleChargingAction.rejected, (state, action) => {
-        state.error = action.payload?.message || 'Charging action failed';
       });
   },
 });
 
-export const { clearChargingState, updateTelemetry } = chargingSlice.actions;
+export const { clearChargingState, clearError, updateTelemetry, setActiveSession } = chargingSlice.actions;
 export default chargingSlice.reducer;
