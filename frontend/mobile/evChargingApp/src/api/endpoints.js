@@ -1,52 +1,108 @@
 export const ENDPOINTS = {
+  // ==================== AUTH SERVICE (Port 3001) ====================
   AUTH: {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
     VERIFY: '/auth/verify',
-    RESEND_CODE: '/auth/resend-code',
+    RESEND_VERIFICATION_CODE: '/auth/resend-verification-code',
     LOGOUT: '/auth/logout',
     FORGOT_PASSWORD: '/auth/forgot-password',
     RESET_PASSWORD: '/auth/reset-password',
     REFRESH: '/auth/refresh-token',
-    SOCIAL: '/auth/login/oauth',
+    OAUTH_LOGIN: '/auth/login/oauth',
     LINK_PROVIDER: '/auth/link-provider',
     UNLINK_PROVIDER: '/auth/unlink-provider',
+    ME: '/auth/me',
+    // Admin endpoints
+    USERS_LIST: '/auth/users',
+    DEACTIVATE_USER: '/auth/users/:user_id/deactivate',
   },
+
+  // ==================== USER SERVICE (Port 3002) ====================
   USER: {
     ME: '/auth/me',
-    PROFILE: '/users/:user_id',
-    UPDATE_PROFILE: '/users/:user_id',
+    PROFILE: '/users/profile',
+    GET_USER: '/users/:user_id',
+    UPDATE_USER: '/users/:user_id',
     CHANGE_PASSWORD: '/users/:user_id/change-password',
     DEACTIVATE: '/users/:user_id/deactivate',
     EXPORT_DATA: '/users/:user_id/export-data',
     ERASE_DATA: '/users/:user_id/erase',
-    CHARGING_HISTORY: '/users/:user_id/charging-history',
     LIST: '/users',
   },
+
+  // Vehicle Management
   VEHICLE: {
     ADD: '/users/:user_id/vehicles',
     LIST: '/users/:user_id/vehicles',
+    CURRENT_USER_VEHICLES: '/users/vehicles',
     DETAIL: '/vehicles/:vehicle_id',
     UPDATE: '/vehicles/:vehicle_id',
     DELETE: '/vehicles/:vehicle_id',
   },
+
+  // Wallet Management
+  WALLET: {
+    TRANSACTIONS: '/wallets/:user_id/transactions',
+    WITHDRAW: '/wallets/:user_id/withdraw',
+    TOPUP_CALLBACK: '/wallets/:user_id/topup/callback',
+  },
+
+  // Subscription Management
+  SUBSCRIPTION: {
+    LIST: '/users/:user_id/subscriptions',
+    SUBSCRIBE: '/users/:user_id/subscriptions',
+    CANCEL: '/users/:user_id/subscriptions/:subscription_id/cancel',
+  },
+
+  // Notification Management
+  NOTIFICATION: {
+    LIST: '/notifications/:user_id',
+    MARK_READ: '/notifications/:notification_id/read',
+    MARK_ALL_READ: '/notifications/:user_id/read-all',
+    SEND: '/notifications/send',
+    SCHEDULE: '/notifications/schedule',
+    FCM_REGISTER: '/notifications/fcm/register',
+    FCM_UNREGISTER: '/notifications/fcm/unregister',
+  },
+
+  // ==================== STATION SERVICE (Port 3003) ====================
   STATION: {
-    SEARCH: '/stations',
+    SEARCH: '/stations/search',
+    LIST: '/stations',
     DETAIL: '/stations/:id',
     CONNECTORS: '/stations/:id/connectors',
     PRICING: '/stations/:id/pricing',
     REPORT_ISSUE: '/stations/:id/report-issue',
+    SCHEDULE_MAINTENANCE: '/stations/:id/maintenance',
+    // Admin endpoints
+    CREATE: '/stations',
+    UPDATE: '/stations/:id',
+    DELETE: '/stations/:id',
   },
+
+  // ==================== CHARGING CONTROL SERVICE (Port 3004) ====================
+  // Booking/Reservation
   BOOKING: {
-    CHECK: '/booking/check',
+    CHECK_AVAILABILITY: '/booking/check',
     CREATE: '/booking',
-    LIST: '/booking/user/:user_id',
+    LIST_USER: '/booking/user/:user_id',
     DETAIL: '/booking/:reservation_id',
     UPDATE: '/booking/:reservation_id',
     CANCEL: '/booking/:reservation_id',
-    PREVIEW_COST: '/booking/:reservation_id/preview-cost',
-    FINALIZE: '/booking/:reservation_id/finalize',
+    AUTO_CANCEL: '/booking/auto-cancel',
+    // Waitlist
+    ADD_WAITLIST: '/booking/waitlist',
+    GET_WAITLIST: '/booking/waitlist/:station_id',
+    UPDATE_WAITLIST_STATUS: '/booking/waitlist/:waitlist_id/status',
+    REMOVE_WAITLIST: '/booking/waitlist/:waitlist_id',
+    // QR Code
+    GENERATE_QR: '/booking/qr/generate',
+    VALIDATE_QR: '/booking/qr/:qr_id/validate',
+    MARK_QR_USED: '/booking/qr/:qr_id/mark-used',
   },
+
+  // Charging Session
   CHARGING: {
     INITIATE: '/charging/initiate',
     START: '/charging/start',
@@ -55,25 +111,28 @@ export const ENDPOINTS = {
     RESUME: '/charging/:session_id/resume',
     DETAIL: '/charging/:session_id',
     TELEMETRY: '/charging/:session_id/telemetry',
-    HISTORY: '/charging/sessions/user/:user_id',
+    PUSH_METER: '/charging/:session_id/meter',
+    GET_EVENTS: '/charging/:session_id/events',
+    CONFIRM_PAYMENT: '/charging/:session_id/confirm-payment',
+    GET_INVOICE: '/charging/:session_id/invoice',
+    RECONCILE: '/charging/:session_id/reconcile',
+    USER_SESSIONS: '/charging/:user_id/sessions',
+    ACTIVE_POINTS: '/charging/:station_id/active-points',
   },
-  WALLET: {
-    BALANCE: '/payments/wallet/:user_id',
-    TOPUP: '/payments/wallet/topup',
-    TRANSACTIONS: '/wallets/:user_id/transactions',
-    WITHDRAW: '/wallets/:user_id/withdraw',
-  },
+
+  // ==================== PAYMENT SERVICE (Port 3005) ====================
   PAYMENT: {
-    CREATE: '/payments/transaction',
-    DETAIL: '/payments/transaction/:id',
-    LIST: '/payments/user/:user_id/payments',
-    INVOICE: '/payments/transaction/:id',
-    DOWNLOAD_INVOICE: '/payments/transaction/:id/download',
-  },
-  NOTIFICATION: {
-    LIST: '/notifications/:user_id',
-    MARK_READ: '/notifications/:notification_id/read',
-    MARK_ALL_READ: '/notifications/:user_id/read-all',
-    FCM_REGISTER: '/notifications/fcm/register',
+    // Transaction
+    CREATE_TRANSACTION: '/payments/transaction',
+    GET_TRANSACTION: '/payments/transaction/:id',
+    CONFIRM_CASH: '/payments/transaction/:id/confirm',
+    REFUND: '/payments/transaction/:id/refund',
+    // Wallet
+    GET_WALLET: '/payments/wallet/:user_id',
+    TOPUP_WALLET: '/payments/wallet/topup',
+    // Payment History
+    USER_PAYMENTS: '/payments/user/:user_id/payments',
+    // Webhook
+    BANK_WEBHOOK: '/payments/webhook',
   },
 };

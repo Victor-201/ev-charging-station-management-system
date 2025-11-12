@@ -100,16 +100,20 @@ export default function VerifyEmail({ navigation, route }) {
   const [errorMessage, setErrorMessage] = useState('');
   const countdownRef = useRef(null);
 
-  const { 
-    control, 
-    handleSubmit, 
-    formState: { errors, isValid } 
+
+
+
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid }
   } = useForm({
     resolver: yupResolver(verifyEmailSchema),
     mode: 'onChange',
-    defaultValues: { 
-      email: email || '', 
-      verification_code: '' 
+    defaultValues: {
+      email: email || '',
+      verification_code: ''
     }
   });
 
@@ -138,14 +142,11 @@ export default function VerifyEmail({ navigation, route }) {
     try {
       setLoading(true);
       setErrorMessage('');
-      
-      const response = await authService.verifyEmail({
-        email: data.email,
-        verification_code: data.verification_code
-      });
+
+      await authService.verifyEmail(data.email, data.verification_code);
 
       setSuccessMessage('Xác thực email thành công!');
-      
+
       // Navigate to login after 1.5 seconds
       setTimeout(() => {
         navigation.navigate('Login', { email: data.email });
@@ -164,10 +165,9 @@ export default function VerifyEmail({ navigation, route }) {
     try {
       setResending(true);
       setErrorMessage('');
-      
-      const emailValue = email || '';
-      await authService.resendVerificationCode({ email: emailValue });
-      
+
+      await authService.resendVerificationCode({ email });
+
       setSuccessMessage('Mã xác thực đã được gửi lại!');
       startCountdown();
     } catch (error) {
@@ -177,6 +177,8 @@ export default function VerifyEmail({ navigation, route }) {
       setResending(false);
     }
   };
+
+
 
   return (
     <AuthWrapper title="Xác Thực Email">
@@ -193,27 +195,27 @@ export default function VerifyEmail({ navigation, route }) {
         </View>
 
         {/* Email Input (readonly) */}
-        <Controller 
-          control={control} 
-          name="email" 
+        <Controller
+          control={control}
+          name="email"
           render={({ field: { value } }) => (
-            <AppInput 
-              label="Email" 
-              value={value} 
+            <AppInput
+              label="Email"
+              value={value}
               editable={false}
               style={styles.input}
             />
-          )} 
+          )}
         />
 
         {/* Verification Code Input */}
-        <Controller 
-          control={control} 
-          name="verification_code" 
+        <Controller
+          control={control}
+          name="verification_code"
           render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput 
-              label="Mã xác thực *" 
-              value={value} 
+            <AppInput
+              label="Mã xác thực *"
+              value={value}
               onChangeText={onChange}
               onBlur={onBlur}
               error={errors.verification_code?.message}
@@ -222,13 +224,13 @@ export default function VerifyEmail({ navigation, route }) {
               maxLength={6}
               style={styles.input}
             />
-          )} 
+          )}
         />
 
         {/* Verify Button */}
-        <AppButton 
-          onPress={handleSubmit(onSubmit)} 
-          loading={loading} 
+        <AppButton
+          onPress={handleSubmit(onSubmit)}
+          loading={loading}
           disabled={!isValid || loading}
           style={styles.verifyButton}
         >
@@ -245,11 +247,11 @@ export default function VerifyEmail({ navigation, route }) {
         {/* Resend Code */}
         <View style={styles.resendContainer}>
           <Text style={styles.resendText}>Không nhận được mã? </Text>
-          <Text 
+          <Text
             style={[
               styles.resendLink,
               (countdown > 0 || resending) && styles.resendLinkDisabled
-            ]} 
+            ]}
             onPress={handleResendCode}
             disabled={countdown > 0 || resending}
           >

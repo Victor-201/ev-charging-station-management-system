@@ -1,11 +1,12 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import axios from 'axios';
 import { query, getClient } from '../config/database';
 import { AppError } from '../middlewares/errorHandler';
 import { JWTPayload } from '../types';
 import { sendEmail } from '../utils/email';
 import { outboxService } from './outboxService';
-import axios from 'axios';
 import { logger } from '../utils/logger';
 
 export class AuthService {
@@ -66,17 +67,17 @@ export class AuthService {
 
       const user = userResult.rows[0];
 
-      // Generate email verification token
-      const verificationToken = jwt.sign(
-        { user_id: user.id, type: 'email_verification' },
-        process.env.JWT_SECRET || 'default-secret',
-        { expiresIn: '24h' }
+      // Generate 6-digit verification code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
+
+      // Update user with verification code
+      await client.query(
+        'UPDATE users SET verification_code = $1, verification_code_expires_at = $2 WHERE id = $3',
+        [verificationCode, verificationCodeExpiresAt, user.id]
       );
 
-      // Store verification token (if we had the table)
-      // For now, we'll use JWT-based verification without database storage
-
-      // Insert event vào outbox (trong cùng transaction)
+      // Insert event into outbox (in the same transaction)
       await outboxService.insertEvent(
         client,
         'User',
@@ -88,7 +89,6 @@ export class AuthService {
           role: user.role,
           phone: data.phone,
           created_at: user.created_at,
-          verification_token: verificationToken
         }
       );
 
@@ -98,14 +98,13 @@ export class AuthService {
       sendEmail({
         to: data.email,
         subject: 'Verify your email - EV Charging System',
-        text: `Please verify your email by clicking this link: ${process.env.FRONTEND_URL}/verify?token=${verificationToken}`,
+        html: `Your verification code is: <b>${verificationCode}</b>. It will expire in 15 minutes.`,
       }).catch(err => logger.error('Failed to send verification email:', err));
 
       return {
         user_id: user.id,
         email: user.email,
         role: user.role,
-        verification_token: verificationToken,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -115,40 +114,78 @@ export class AuthService {
     }
   }
 
-  // Verify email with JWT token
-  async verifyEmail(token: string) {
-    try {
-      // Verify JWT token
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET || 'default-secret'
-      ) as any;
+  // Verify email with 6-digit code
+  async verifyEmail(email: string, verificationCode: string) {
+    // Find user with matching email and verification code
+    const result = await query(
+      `SELECT id, email, verification_code, verification_code_expires_at
+       FROM users
+       WHERE email = $1 AND verification_code = $2`,
+      [email, verificationCode]
+    );
 
-      if (decoded.type !== 'email_verification') {
-        throw new AppError('Invalid verification token', 400);
-      }
-
-      // Update user email_verified status
-      const result = await query(
-        'UPDATE users SET email_verified = true WHERE id = $1 RETURNING id, email',
-        [decoded.user_id]
-      );
-
-      if (result.rows.length === 0) {
-        throw new AppError('User not found', 404);
-      }
-
-      return {
-        user_id: result.rows[0].id,
-        email: result.rows[0].email,
-      };
-    } catch (error) {
-      if (error instanceof jwt.JsonWebTokenError) {
-        throw new AppError('Invalid or expired verification token', 400);
-      }
-      throw error;
+    if (result.rows.length === 0) {
+      throw new AppError('Invalid verification code', 400);
     }
+
+    const user = result.rows[0];
+
+    // Check if code has expired
+    if (new Date() > new Date(user.verification_code_expires_at)) {
+      throw new AppError('Verification code has expired', 400);
+    }
+
+    // Update user: mark as verified and clear verification code
+    await query(
+      `UPDATE users
+       SET email_verified = true,
+           verification_code = NULL,
+           verification_code_expires_at = NULL
+       WHERE id = $1`,
+      [user.id]
+    );
+
+    return {
+      user_id: user.id,
+      email: user.email,
+    };
   }
+
+  // Resend verification code
+  async resendVerificationCode(email: string) {
+    const userResult = await query('SELECT id, email, email_verified FROM users WHERE email = $1', [email]);
+
+    if (userResult.rows.length === 0) {
+      // Don't reveal if email exists, just return a success-like message
+      return { message: 'If your email is registered, a new code has been sent.' };
+    }
+
+    const user = userResult.rows[0];
+
+    if (user.email_verified) {
+      throw new AppError('Email is already verified', 400);
+    }
+
+    // Generate a new 6-digit verification code and expiry
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Update user with the new code
+    await query(
+      'UPDATE users SET verification_code = $1, verification_code_expires_at = $2 WHERE id = $3',
+      [verificationCode, verificationCodeExpiresAt, user.id]
+    );
+
+    // Send the new code via email
+    sendEmail({
+      to: user.email,
+      subject: 'Your New Verification Code - EV Charging System',
+      html: `Your new verification code is: <b>${verificationCode}</b>. It will expire in 15 minutes.`,
+    }).catch(err => logger.error('Failed to resend verification email:', err));
+
+    return { message: 'A new verification code has been sent to your email.' };
+  }
+
 
   // Verify OTP - Removed (no otp_verifications table in new schema)
   // This feature can be re-implemented using external service or sessions table
@@ -192,7 +229,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     await query(
-      `INSERT INTO sessions (user_id, refresh_token_hash, device_info, expires_at) 
+      `INSERT INTO sessions (user_id, refresh_token_hash, device_info, expires_at)
        VALUES ($1, $2, $3, $4)`,
       [user.id, refreshTokenHash, deviceInfo || 'unknown', expiresAt]
     );
@@ -258,9 +295,9 @@ export class AuthService {
 
     // Link OAuth provider
     await query(
-      `INSERT INTO user_auth_providers (user_id, provider, provider_uid, access_token) 
-       VALUES ($1, $2, $3, $4) 
-       ON CONFLICT (user_id, provider) DO UPDATE SET 
+      `INSERT INTO user_auth_providers (user_id, provider, provider_uid, access_token)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, provider) DO UPDATE SET
        provider_uid = $3, access_token = $4`,
       [userId, provider, provider_uid, providerToken]
     );
@@ -285,7 +322,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     await query(
-      `INSERT INTO sessions (user_id, refresh_token_hash, device_info, expires_at) 
+      `INSERT INTO sessions (user_id, refresh_token_hash, device_info, expires_at)
        VALUES ($1, $2, $3, $4)`,
       [userId, refreshTokenHash, deviceInfo || 'oauth', expiresAt]
     );
@@ -302,17 +339,17 @@ export class AuthService {
   private async verifyGoogleToken(token: string) {
     try {
       logger.info('🔍 Verifying Google token...');
-      
+
       // Try to verify as ID token first (from Google Sign-In button)
       let response;
       let userData = null;
-      
+
       try {
         logger.info('📋 Trying ID token verification...');
         response = await axios.get(
           `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`
         );
-        
+
         if (response.data && response.data.email) {
           logger.info('✅ ID token verification successful');
           userData = {
@@ -323,13 +360,13 @@ export class AuthService {
         }
       } catch (idTokenError) {
         logger.info('⚠️ ID token verification failed, trying access token...');
-        
+
         // If ID token verification fails, try as access token
         try {
           response = await axios.get(
             `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`
           );
-          
+
           if (response.data && response.data.email) {
             logger.info('✅ Access token verification successful');
             userData = {
@@ -340,13 +377,13 @@ export class AuthService {
           }
         } catch (accessTokenError) {
           logger.info('⚠️ Access token verification failed, trying user info API...');
-          
+
           // Last resort: use the token to get user info
           try {
             response = await axios.get(
               `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${token}`
             );
-            
+
             if (response.data && response.data.email) {
               logger.info('✅ User info API verification successful');
               userData = {
@@ -361,20 +398,20 @@ export class AuthService {
           }
         }
       }
-      
+
       if (!userData || !userData.email) {
         throw new Error('Unable to get user data from Google token');
       }
-      
-      logger.info('✅ Google token verified successfully:', { 
+
+      logger.info('✅ Google token verified successfully:', {
         email: userData.email,
-        provider_uid: userData.provider_uid 
+        provider_uid: userData.provider_uid
       });
-      
+
       return userData;
     } catch (error: any) {
-      logger.error('Google token verification error:', { 
-        error: error.response?.data || error.message 
+      logger.error('Google token verification error:', {
+        error: error.response?.data || error.message
       });
       throw new AppError('Invalid Google token', 401);
     }
@@ -408,7 +445,7 @@ export class AuthService {
 
       // Check if session exists with matching hashed refresh token
       const sessionResult = await query(
-        `SELECT id, user_id, refresh_token_hash FROM sessions 
+        `SELECT id, user_id, refresh_token_hash FROM sessions
          WHERE user_id = $1 AND expires_at > NOW()`,
         [decoded.user_id]
       );
@@ -479,25 +516,84 @@ export class AuthService {
     }
   }
 
-  // Forgot password - Feature removed (no password_reset_tokens table)
-  // TODO: Implement password reset via email with JWT tokens or external service
   async forgotPassword(email: string) {
-    const user = await query('SELECT id, email FROM users WHERE email = $1', [email]);
+    const userResult = await query('SELECT id, email FROM users WHERE email = $1', [email]);
 
-    if (user.rows.length === 0) {
-      // Don't reveal if email exists
-      return { status: 'reset_link_sent' };
+    if (userResult.rows.length === 0) {
+      // To prevent email enumeration attacks, we don't reveal if the user was found.
+      // We'll send a success-like response in either case.
+      logger.warn(`Password reset attempt for non-existent email: ${email}`);
+      return { message: 'If your email is registered, you will receive a password reset link.' };
     }
 
-    // TODO: Send password reset email with JWT token in link
-    // For now, just return success
-    return { status: 'reset_link_sent' };
+    const user = userResult.rows[0];
+
+    // Generate a secure reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set token expiry (e.g., 1 hour)
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Store the hashed token and expiry in the database
+    await query(
+      'UPDATE users SET password_reset_token = $1, password_reset_token_expires_at = $2 WHERE id = $3',
+      [hashedToken, expiresAt, user.id]
+    );
+
+    // Create the reset URL
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+    // Send the email
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Password Reset Request - EV Charging System',
+        html: `You requested a password reset. Please click this link to reset your password: <a href="${resetUrl}">${resetUrl}</a>. This link will expire in 1 hour.`,
+      });
+    } catch (error) {
+      logger.error(`Failed to send password reset email to ${user.email}`, error);
+      // Even if email fails, we don't want to inform the user to prevent attacks.
+    }
+
+    // For development/testing, we return the token. In production, this should be removed.
+    return {
+      message: 'If your email is registered, you will receive a password reset link.',
+      development_only_reset_token: resetToken,
+    };
   }
 
-  // Reset password - Feature removed (no password_reset_tokens table)
-  // TODO: Implement password reset via JWT tokens instead
-  async resetPassword(_token: string, _newPassword: string) {
-    throw new AppError('Password reset feature is currently unavailable. Please contact support.', 501);
+  async resetPassword(token: string, newPassword: string) {
+    // Hash the token to find it in the database
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find the user with the matching, non-expired token
+    const userResult = await query(
+      `SELECT id FROM users
+       WHERE password_reset_token = $1 AND password_reset_token_expires_at > NOW()`,
+      [hashedToken]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new AppError('Invalid or expired password reset token', 400);
+    }
+
+    const user = userResult.rows[0];
+
+    // Hash the new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+    // Update the user's password and clear the reset token fields
+    await query(
+      `UPDATE users
+       SET password_hash = $1,
+           password_reset_token = NULL,
+           password_reset_token_expires_at = NULL
+       WHERE id = $2`,
+      [newPasswordHash, user.id]
+    );
+
+    return { message: 'Password has been reset successfully.' };
   }
 
   // Link OAuth provider to existing account
@@ -524,9 +620,9 @@ export class AuthService {
 
     // Link provider
     await query(
-      `INSERT INTO user_auth_providers (user_id, provider, provider_uid, access_token) 
-       VALUES ($1, $2, $3, $4) 
-       ON CONFLICT (user_id, provider) DO UPDATE SET 
+      `INSERT INTO user_auth_providers (user_id, provider, provider_uid, access_token)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, provider) DO UPDATE SET
        provider_uid = $3, access_token = $4`,
       [user_id, provider, providerData.provider_uid, provider_token]
     );
@@ -631,7 +727,7 @@ export class AuthService {
   async deactivateUser(userId: string): Promise<void> {
     try {
       const result = await query(
-        `UPDATE users 
+        `UPDATE users
          SET status = 'inactive'
          WHERE id = $1`,
         [userId]

@@ -26,15 +26,18 @@ const authService = {
   },
 
   // Email verification
-  verifyEmail: async (payload) => {
-    const response = await apiClient.post(ENDPOINTS.AUTH.VERIFY, payload);
+  verifyEmail: async (email, verification_code) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.VERIFY, { email, verification_code });
     return response.data;
   },
 
-  resendVerificationCode: async (payload) => {
-    const response = await apiClient.post(ENDPOINTS.AUTH.RESEND_CODE, payload);
+
+  resendVerificationCode: async ({ email }) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.RESEND_VERIFICATION_CODE, { email });
     return response.data;
   },
+
+
 
   // Password management
   forgotPassword: async (email) => {
@@ -55,7 +58,7 @@ const authService = {
 
   // OAuth
   socialLogin: async (payload) => {
-    const response = await apiClient.post(ENDPOINTS.AUTH.SOCIAL, payload);
+    const response = await apiClient.post(ENDPOINTS.AUTH.OAUTH_LOGIN, payload);
     return response.data;
   },
 

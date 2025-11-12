@@ -6,7 +6,7 @@ export class AuthController {
   // Register new user
   register = asyncHandler(async (req: Request, res: Response) => {
     const result = await authService.register(req.body);
-    
+
     res.status(201).json({
       status: 'success',
       message: 'User registered successfully. Please check your email for verification.',
@@ -17,10 +17,10 @@ export class AuthController {
 
   // Verify Email
   verifyEmail = asyncHandler(async (req: Request, res: Response) => {
-    const { token } = req.body;
-    
-    const result = await authService.verifyEmail(token);
-    
+    const { email, verification_code } = req.body;
+
+    const result = await authService.verifyEmail(email, verification_code);
+
     res.status(200).json({
       status: 'verified',
       message: 'Email verified successfully',
@@ -28,13 +28,21 @@ export class AuthController {
     });
   });
 
+  // Resend Verification Code
+  resendVerificationCode = asyncHandler(async (req: Request, res: Response) => {
+    const { email } = req.body;
+    const result = await authService.resendVerificationCode(email);
+    res.status(200).json(result);
+  });
+
+
   // Login
   login = asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body;
     const deviceInfo = req.headers['user-agent'] || 'unknown';
-    
+
     const result = await authService.login(email, password, deviceInfo);
-    
+
     res.status(200).json(result);
   });
 
@@ -63,18 +71,18 @@ export class AuthController {
   // Refresh Token
   refreshToken = asyncHandler(async (req: Request, res: Response) => {
     const { refreshToken } = req.body;
-    
+
     const result = await authService.refreshAccessToken(refreshToken);
-    
+
     res.status(200).json(result);
   });
 
   // Logout
   logout = asyncHandler(async (req: Request, res: Response) => {
     const { refreshToken } = req.body;
-    
+
     await authService.logout(refreshToken);
-    
+
     res.status(200).json({
       status: 'logged_out',
     });
@@ -83,9 +91,9 @@ export class AuthController {
   // Forgot Password
   forgotPassword = asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body;
-    
+
     await authService.forgotPassword(email);
-    
+
     res.status(200).json({
       status: 'reset_token_sent',
     });
@@ -94,9 +102,9 @@ export class AuthController {
   // Reset Password
   resetPassword = asyncHandler(async (req: Request, res: Response) => {
     const { token, new_password } = req.body;
-    
+
     await authService.resetPassword(token, new_password);
-    
+
     res.status(200).json({
       status: 'password_reset',
     });
@@ -105,9 +113,9 @@ export class AuthController {
   // Link OAuth Provider
   linkProvider = asyncHandler(async (req: Request, res: Response) => {
     const { user_id, provider, provider_token } = req.body;
-    
+
     await authService.linkProvider(user_id, provider, provider_token);
-    
+
     res.status(200).json({
       status: 'linked',
     });
@@ -116,9 +124,9 @@ export class AuthController {
   // Unlink OAuth Provider
   unlinkProvider = asyncHandler(async (req: Request, res: Response) => {
     const { user_id, provider } = req.body;
-    
+
     await authService.unlinkProvider(user_id, provider);
-    
+
     res.status(200).json({
       status: 'unlinked',
     });
@@ -127,7 +135,7 @@ export class AuthController {
   // Admin: Get list of users
   getUserList = asyncHandler(async (req: Request, res: Response) => {
     const { page = '1', size = '10', q, role, status } = req.query;
-    
+
     const result = await authService.getUserList({
       page: parseInt(page as string),
       size: parseInt(size as string),
@@ -135,16 +143,16 @@ export class AuthController {
       role: role as string,
       status: status as string,
     });
-    
+
     res.status(200).json(result);
   });
 
   // Admin: Deactivate user
   deactivateUser = asyncHandler(async (req: Request, res: Response) => {
     const { user_id } = req.params;
-    
+
     await authService.deactivateUser(user_id);
-    
+
     res.status(200).json({ status: 'deactivated' });
   });
 }

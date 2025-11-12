@@ -36,8 +36,14 @@ export const loginSchema = Joi.object({
 });
 
 export const verifyEmailSchema = Joi.object({
-  token: Joi.string().required(),
+  email: Joi.string().email().required(),
+  verification_code: Joi.string().length(6).required(),
 });
+
+export const resendVerificationSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
+
 
 export const oauthLoginSchema = Joi.object({
   provider: Joi.string().valid('google', 'facebook').required(),
