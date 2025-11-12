@@ -1,3 +1,4 @@
+import axios from 'axios';
 import pool from '../config/database';
 import { Vehicle } from '../types';
 import logger from '../utils/logger';
@@ -6,18 +7,30 @@ export class VehicleService {
   // Add vehicle for user
   async addVehicle(userId: string, vehicleData: Partial<Vehicle>): Promise<string> {
     try {
+      // Look up vehicle specifications from external API
+      let vehicleSpecs: Partial<Vehicle> = {};
+      if (vehicleData.brand && vehicleData.model) {
+        vehicleSpecs = await this.lookupVehicle(vehicleData.brand, vehicleData.model);
+      }
+
+      // Combine user data with API data
+      const finalVehicleData = { ...vehicleData, ...vehicleSpecs };
+
       const result = await pool.query(
-        `INSERT INTO vehicles (user_id, plate_number, brand, model, battery_kwh, color, year, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE')
+        `INSERT INTO vehicles (user_id, plate_number, brand, model, battery_kwh, color, year, status, usable_battery_capacity, charge_port, max_charge_power)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE', $8, $9, $10)
          RETURNING id`,
         [
           userId,
-          vehicleData.plate_number,
-          vehicleData.brand,
-          vehicleData.model,
-          vehicleData.battery_kwh || null,
-          vehicleData.color || null,
-          vehicleData.year || null,
+          finalVehicleData.plate_number,
+          finalVehicleData.brand,
+          finalVehicleData.model,
+          finalVehicleData.battery_kwh || null,
+          finalVehicleData.color || null,
+          finalVehicleData.year || null,
+          finalVehicleData.usable_battery_capacity || null,
+          finalVehicleData.charge_port || null,
+          finalVehicleData.max_charge_power || null,
         ]
       );
       return result.rows[0].id;
@@ -136,6 +149,49 @@ export class VehicleService {
       throw error;
     }
   }
+
+  // Look up vehicle specifications from external API
+  async lookupVehicle(make: string, model: string): Promise<Partial<Vehicle>> {
+    try {
+      logger.info(`Looking up vehicle specs for make: ${make}, model: ${model}`);
+      const apiKey = 'EfbKAwJ8fB+SiKHDfa4Ftw==58RwKUmF40m34Wui';
+      const response = await axios.get('https://api.api-ninjas.com/v1/electricvehicle',
+        {
+          params: { make, model },
+          headers: { 'X-Api-Key': apiKey },
+        }
+      );
+
+      if (response.data && response.data.length > 0) {
+        const vehicleData = response.data[0];
+        logger.info('Vehicle data found from API:', vehicleData);
+
+        const specs: Partial<Vehicle> = {};
+        if (vehicleData.usable_battery_capacity) {
+          specs.usable_battery_capacity = vehicleData.usable_battery_capacity;
+        }
+        if (vehicleData.charge_port) {
+          specs.charge_port = vehicleData.charge_port;
+        }
+        // The API might use fast_charge_power for DC charging
+        if (vehicleData.fast_charge_power) {
+          specs.max_charge_power = vehicleData.fast_charge_power;
+        } else if (vehicleData.max_charge_power) {
+          specs.max_charge_power = vehicleData.max_charge_power;
+        }
+
+        return specs;
+      }
+
+      logger.warn(`No vehicle data found for make: ${make}, model: ${model}`);
+      return {};
+    } catch (error: any) {
+      logger.error('Error looking up vehicle from API:', error.response?.data || error.message);
+      // Do not block vehicle creation if API fails, just return empty object
+      return {};
+    }
+  }
+
 
   // Check vehicle ownership
   async checkVehicleOwnership(vehicleId: string, userId: string): Promise<boolean> {
