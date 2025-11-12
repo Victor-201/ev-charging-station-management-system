@@ -10,7 +10,8 @@ import { AuthProvider } from "@/providers/AuthProvider.jsx";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { StationProvider } from "@/providers/StationProvider";
 import { ChargingControlProvider } from "@/providers/ChargingControlProvider";
-import { PaymentProvider } from "@/providers/PaymentProvider"; // ✅ thêm dòng này
+import { PaymentProvider } from "@/providers/PaymentProvider"; 
+import UserProvider from "@/providers/UserProvider"; // 👈 thêm dòng này
 
 console.log("🚀 Rendering App...");
 
@@ -21,15 +22,15 @@ root.render(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          {/* StationProvider phải nằm ngoài để ChargingControlProvider có thể dùng StationContext */}
-          <StationProvider>
-            <ChargingControlProvider>
-              {/* ✅ Thêm PaymentProvider vào đây */}
-              <PaymentProvider>
-                <App />
-              </PaymentProvider>
-            </ChargingControlProvider>
-          </StationProvider>
+          <UserProvider> {/* 👈 Bọc App trong UserProvider */}
+            <StationProvider>
+              <ChargingControlProvider>
+                <PaymentProvider>
+                  <App />
+                </PaymentProvider>
+              </ChargingControlProvider>
+            </StationProvider>
+          </UserProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
