@@ -9,8 +9,9 @@ import { normalizeRole } from '../constants/roles.js';
 export const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader?.startsWith('Bearer '))
+  if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Unauthorized: Missing token' });
+  }
 
   const token = authHeader.split(' ')[1];
 
@@ -21,15 +22,22 @@ export const authenticate = (req, res, next) => {
     if (decoded.role) {
       try {
         decoded.role = normalizeRole(decoded.role);
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to normalize role:', err.message);
+      }
     }
 
     req.user = decoded;
     next();
   } catch (err) {
     console.error('Payment Service JWT error:', err.message);
-    if (err.name === 'TokenExpiredError') return res.status(403).json({ message: 'Token expired' });
-    return res.status(403).json({ message: 'Invalid token' });
+    if (err.name === 'TokenExpiredError') {
+      return res.status(403).json({ message: 'Token expired' });
+    } else if (err.name === 'JsonWebTokenError') {
+      return res.status(403).json({ message: 'Invalid token' });
+    } else {
+      return res.status(403).json({ message: 'Authentication error' });
+    }
   }
 };
 
@@ -43,13 +51,15 @@ export const authorize = (...roles) => {
     const normalizedRoles = roles.map(role => {
       try {
         return normalizeRole(role);
-      } catch {
+      } catch (err) {
+        console.warn(`Failed to normalize role "${role}":`, err.message);
         return role;
       }
     });
 
-    if (!normalizedRoles.includes(req.user.role))
+    if (!normalizedRoles.includes(req.user.role)) {
       return res.status(403).json({ message: 'Forbidden: insufficient role' });
+    }
 
     next();
   };
