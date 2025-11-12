@@ -14,11 +14,8 @@ services:
     volumes:
       - station-data:/var/lib/mysql
       - ../../services/station-service/seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
-    command: > 
-     mysqld
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
-      --init-connect='SET NAMES utf8mb4;'
+    command: >
+      mysqld
       --skip-character-set-client-handshake
     networks:
       - kong-net
@@ -41,7 +38,6 @@ services:
       - kong-net
 
 ## Charging-service
-
   reservation-database:
     image: mysql:8.0
     container_name: reservation-database
@@ -120,6 +116,7 @@ services:
     networks:
       - kong-net
 
+  # PostgreSQL for Auth Service
   postgres-auth:
     image: postgres:15-alpine
     container_name: ev-postgres-auth
@@ -366,6 +363,39 @@ services:
     networks:
       - kong-net
 
+  # Apache nifi and warehouse database
+  nifi:
+    image: apache/nifi:latest
+    container_name: nifi
+    ports:
+      - "9443:9443"
+    environment:
+      - NIFI_WEB_HTTPS_PORT=9443
+    volumes:
+      - nifi-data:/opt/nifi/nifi-current
+    networks:
+      - kong-net
+
+  warehouse-database:
+    image: mysql:8.0
+    container_name: warehouse-database
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: warehouse
+    ports:
+      - "3309:3306"
+    command: >
+      mysqld
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --init-connect='SET NAMES utf8mb4;'
+      --skip-character-set-client-handshake
+    volumes:
+      - warehouse-data:/var/lib/mysql
+    networks:
+      - kong-net
+
 volumes:
   station-data:
   charging-data:
@@ -378,6 +408,8 @@ volumes:
   reservation-data:
   rabbitmq-data:
   payment-db-data:
+  nifi-data:
+  warehouse-data:
 
 networks:
   kong-net:
