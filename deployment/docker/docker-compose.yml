@@ -13,7 +13,7 @@ services:
       - "3306:3306"
     volumes:
       - station-data:/var/lib/mysql
-      - ../../services/station-service/seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
+      - ../../backend/station-service/seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
     command: >
       mysqld
       --character-set-server=utf8mb4
@@ -25,7 +25,7 @@ services:
 
   station-service:
     build:
-      context: ../../services/station-service
+      context: ../../backend/station-service
       dockerfile: Dockerfile
     image: station-service:v1.0.0
     container_name: station-service
@@ -52,7 +52,7 @@ services:
       - "3307:3306"
     volumes:
       - reservation-data:/var/lib/mysql
-      - ../../services/charging-control-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../../backend/charging-control-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
       interval: 5s
@@ -63,7 +63,7 @@ services:
 
   reservation-service:
     build:
-      context: ../../services/charging-control-service
+      context: ../../backend/charging-control-service
       dockerfile: Dockerfile
     image: reservation-service:v1.0.0
     container_name: reservation-service
@@ -88,13 +88,13 @@ services:
 ## Payment service
   payment-service:
     build:
-      context: ../../services/payment-service
+      context: ../../backend/payment-service
       dockerfile: Dockerfile
     image: payment-service:v1.0.0
     container_name: payment-service
     ports:
       - "8080:8080"
-    env_file: ../../services/payment-service/.env
+    env_file: ../../backend/payment-service/.env
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
@@ -114,7 +114,7 @@ services:
       - "5432:5432"
     volumes:
       - payment-db-data:/var/lib/postgresql/data
-      - ../../services/payment-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../../backend/payment-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: always
     networks:
       - kong-net
@@ -183,12 +183,12 @@ services:
 # Auth Service
   ev-auth-service:
     build:
-      context: ../../services/auth-service
+      context: ../../backend/auth-service
       dockerfile: Dockerfile
     image: auth-service:v1.0.0
     container_name: ev-auth-service
     env_file:
-      - ../../services/auth-service/.env
+      - ../../backend/auth-service/.env
     environment:
       PORT: 3001
       NODE_ENV: development
@@ -212,12 +212,12 @@ services:
   # User Service
   ev-user-service:
     build:
-      context: ../../services/user-service
+      context: ../../backend/user-service
       dockerfile: Dockerfile
     image: user-service:v1.0.0
     container_name: ev-user-service
     env_file:
-      - ../../services/user-service/.env
+      - ../../backend/user-service/.env
     environment:
       PORT: 3002
       NODE_ENV: development
@@ -246,14 +246,14 @@ services:
 ## Analytics-service
   analytics-service:
     build:
-      context: ../../services/analytics-service
+      context: ../../backend/analytics-service
       dockerfile: Dockerfile
     image: analytics-service:v1.0.0
     container_name: analytics-service
     ports:
       - "3000:3000"
     env_file:
-      - ../../services/analytics-service/.env
+      - ../../backend/analytics-service/.env
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
@@ -272,7 +272,7 @@ services:
     ports:
       - "3308:3306"
     volumes:
-      - ../../services/analytics-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../../backend/analytics-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysql_data:/var/lib/mysql
     networks:
       - kong-net
