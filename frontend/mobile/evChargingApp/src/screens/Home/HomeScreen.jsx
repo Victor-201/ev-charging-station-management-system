@@ -49,7 +49,7 @@ export default function HomeScreen() {
 
   const quickActions = [
     { id: 'find-station', title: 'Tìm trạm sạc', subtitle: 'Tìm trạm sạc gần nhất', onPress: () => navigation.navigate('Map') },
-    { id: 'charging-history', title: 'Lịch sử sạc', subtitle: 'Xem lịch sử sạc xe', onPress: () => navigation.navigate('History') },
+    { id: 'charging-history', title: 'Lịch sử sạc', subtitle: 'Xem lịch sử sạc xe', onPress: () => navigation.navigate('Charging', { screen: 'ChargingHistory' }) },
     { id: 'wallet', title: 'Ví của tôi', subtitle: 'Quản lý số dư và giao dịch', onPress: () => navigation.navigate('Wallet') },
     { id: 'profile', title: 'Hồ sơ', subtitle: 'Quản lý thông tin cá nhân', onPress: () => navigation.navigate('Profile') },
   ];

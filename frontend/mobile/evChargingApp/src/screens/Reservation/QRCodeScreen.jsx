@@ -232,6 +232,17 @@ const QRCodeScreen = () => {
           </View>
         </View>
 
+        {/* Start Charging Button */}
+        {reservation.status === 'confirmed' && !timeRemaining?.expired && (
+          <TouchableOpacity
+            style={styles.startChargingButton}
+            onPress={() => navigation.navigate('InitiateCharging', { reservation })}
+          >
+            <Icon name="flash-on" size={24} color={colors.onPrimary} />
+            <Text style={styles.startChargingButtonText}>Bắt đầu sạc</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Cancel Button */}
         {reservation.status === 'confirmed' && (
           <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
@@ -384,6 +395,26 @@ const getStyles = (colors) =>
       fontSize: 14,
       color: colors.onPrimaryContainer,
       lineHeight: 20,
+    },
+    startChargingButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      padding: 16,
+      gap: 8,
+      marginBottom: 12,
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+    },
+    startChargingButtonText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.onPrimary,
     },
     cancelButton: {
       flexDirection: 'row',
