@@ -11,6 +11,8 @@ import EditVehicleScreen from '../../screens/Profile/EditVehicleScreen';
 import ChangePasswordScreen from '../../screens/Profile/ChangePasswordScreen';
 import AccountSettingsScreen from '../../screens/Profile/AccountSettingsScreen';
 import ReservationStack from './ReservationStack';
+import SubscriptionScreen from '../../screens/Subscription/SubscriptionScreen';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -27,6 +29,8 @@ export default function ProfileStack() {
       <Stack.Screen name="AddVehicleScreen" component={AddVehicleScreen} />
       <Stack.Screen name="EditVehicleScreen" component={EditVehicleScreen} />
       <Stack.Screen name="ChangePasswordScreen" component={ChangePasswordScreen} />
+      <Stack.Screen name="SubscriptionScreen" component={SubscriptionScreen} />
+
       <Stack.Screen name="AccountSettingsScreen" component={AccountSettingsScreen} />
       <Stack.Screen name="ReservationStack" component={ReservationStack} />
     </Stack.Navigator>

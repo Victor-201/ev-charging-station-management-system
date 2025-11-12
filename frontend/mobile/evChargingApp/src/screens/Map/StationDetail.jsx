@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import stationService from '../../services/stationService';
+import { useDispatch, useSelector } from 'react-redux';
+import { getStationById, getStationPricing } from '../../store/slices/stationSlice';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
 
@@ -175,48 +176,15 @@ export default function StationDetail({ route, navigation }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const { id } = route.params;
-  const [station, setStation] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const dispatch = useDispatch();
+  const { selectedStation: station, loading, error } = useSelector((state) => state.stations);
 
   useEffect(() => {
-    const fetchStationDetails = async () => {
-      try {
-        setLoading(true);
-        const response = await stationService.getById(id);
-        const apiStation = response?.data || response;
-
-        if (apiStation) {
-          const mappedStation = {
-            id: apiStation.id || apiStation.station_id,
-            name: apiStation.name,
-            address: apiStation.address,
-            latitude: parseFloat(apiStation.latitude),
-            longitude: parseFloat(apiStation.longitude),
-            available_ports: apiStation.available_ports ?? 0,
-            total_ports: apiStation.total_ports ?? 0,
-            price_per_kwh: apiStation.price_per_kwh ?? 2000,
-            connector_types: apiStation.connector_types ?? ['Type 2'],
-            status: apiStation.status ?? 'active',
-            rating: apiStation.rating ?? 4.5,
-            amenities: apiStation.amenities ?? [],
-          };
-          setStation(mappedStation);
-        } else {
-          setError('Không tìm thấy thông tin trạm sạc.');
-        }
-      } catch (e) {
-        console.error('Failed to fetch station details:', e);
-        setError('Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
-      fetchStationDetails();
+      dispatch(getStationById(id));
+      dispatch(getStationPricing(id));
     }
-  }, [id]);
+  }, [id, dispatch]);
 
   const openDirections = () => {
     if (!station) return;
@@ -295,7 +263,17 @@ export default function StationDetail({ route, navigation }) {
       <View style={styles.infoSection}>
         <InfoBox icon="power" label="Khả dụng" value={`${station.available_ports}/${station.total_ports}`} />
         <InfoBox icon="star" label="Đánh giá" value={`${station.rating} / 5.0`} />
-        <InfoBox icon="attach-money" label="Giá" value={`${station.price_per_kwh.toLocaleString()}đ / kWh`} />
+        {station.pricing ? (
+          <View style={styles.infoBox}>
+            <Icon name="attach-money" size={24} color={colors.primary} />
+            <Text style={styles.infoBoxLabel}>Bảng giá</Text>
+            {station.pricing.map((p, i) => (
+              <Text key={i} style={styles.infoBoxValue}>{p.name}: {p.price.toLocaleString()}đ</Text>
+            ))}
+          </View>
+        ) : (
+          <InfoBox icon="attach-money" label="Giá" value={`${(station.price_per_kwh || 0).toLocaleString()}đ / kWh`} />
+        )}
       </View>
 
       <View style={styles.section}>

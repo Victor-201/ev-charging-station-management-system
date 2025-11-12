@@ -155,7 +155,13 @@ export default function ProfileScreen({ navigation }) {
           right={(props) => <List.Icon {...props} icon="chevron-right" />}
           onPress={() => navigation.navigate('History')}
         />
-
+        <List.Item
+          title="Quản lý đăng ký"
+          description="Xem và quản lý các gói đăng ký của bạn"
+          left={(props) => <List.Icon {...props} icon="credit-card-outline" />}
+          right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          onPress={() => navigation.navigate('SubscriptionScreen')}
+        />
         <List.Item
           title="Tài khoản và Bảo mật"
           description="Quản lý dữ liệu và xóa tài khoản"

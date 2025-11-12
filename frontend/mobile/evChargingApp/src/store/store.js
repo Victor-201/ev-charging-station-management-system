@@ -8,6 +8,10 @@ import walletReducer from './slices/walletSlice';
 import paymentReducer from './slices/paymentSlice';
 import reservationReducer from './slices/reservationSlice';
 import notificationReducer from './slices/notificationSlice';
+import subscriptionReducer from './slices/subscriptionSlice';
+import stationReducer from './slices/stationSlice';
+
+
 
 const store = configureStore({
   reducer: {
@@ -18,6 +22,10 @@ const store = configureStore({
     wallet: walletReducer,
     payment: paymentReducer,
     reservation: reservationReducer,
+    subscriptions: subscriptionReducer,
+    stations: stationReducer,
+
+
     notification: notificationReducer,
   },
   middleware: (getDefault) => getDefault(),
