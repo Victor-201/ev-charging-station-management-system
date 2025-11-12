@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import Section from "@/components/admin/Section";
 import Chart from "@/components/admin/Chart";
 import PageHeader from "@/components/admin/PageHeader";
-import analyticsService from "@/services/analyticsService";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const TRAIN_LOG = "evcs_train_log";
 
@@ -12,13 +12,32 @@ export default function Analytics() {
   const [to, setTo] = useState(today);
   const [key, setKey] = useState(0);
 
-  // Dữ liệu hiển thị
-  const [forecast, setForecast] = useState([]); // getRevenueReport
-  const [stationForecast, setStationForecast] = useState([]); // getForecastByStation
-  const [metrics, setMetrics] = useState([]); // getMetrics
-  const [telemetry, setTelemetry] = useState([]); // getHealth
-  const [alerts, setAlerts] = useState([]); // getAlerts
-  const [logs, setLogs] = useState([]); // getLogs
+  // Context data (provider caches)
+  const {
+    revenueReport,
+    forecastByStation,
+    metrics,
+    health,
+    alerts,
+    logs,
+    // actions
+    getRevenueReport,
+    getForecastByStation,
+    getMetrics,
+    getHealth,
+    getAlerts,
+    ackAlert,
+    getLogs,
+    trainForecastModel,
+    // flags
+    loadingAnalytics,
+    loadingMonitoring,
+  } = useAnalytics();
+
+  // Local mapped view models
+  const [forecastVM, setForecastVM] = useState([]); // mapped from revenueReport
+  const [stationForecastVM, setStationForecastVM] = useState([]); // mapped from forecastByStation
+  const [telemetryVM, setTelemetryVM] = useState([]); // mapped from health/raw telemetry
 
   const [training, setTraining] = useState(false);
   const [trainProgress, setTrainProgress] = useState(0);
@@ -44,15 +63,14 @@ export default function Analytics() {
 
   // ===== API 1: Tổng quan doanh thu =====
   const loadRevenueReport = async () => {
+    const result = await getRevenueReport({ from, to });
+    const data = result?.data ?? revenueReport ?? [];
     try {
-      const res = await analyticsService.getRevenueReport({ from, to });
-      const data = res?.data ?? [];
-
       if (Array.isArray(data) && data.length) {
         const totalRevenue = data.reduce((s, r) => s + (r.revenue || 0), 0);
         const totalSessions = data.reduce((s, r) => s + (r.sessions || 0), 0);
         const totalEnergy = data.reduce((s, r) => s + (r.energy_kwh || 0), 0);
-        setForecast([
+        setForecastVM([
           { label: "Doanh thu (VND)", value: totalRevenue },
           { label: "Phiên sạc", value: totalSessions },
           { label: "Tổng điện (kWh)", value: totalEnergy },
@@ -60,7 +78,7 @@ export default function Analytics() {
       } else throw new Error("empty");
     } catch (e) {
       console.warn("Fallback Revenue mock:", e.message);
-      setForecast([
+      setForecastVM([
         { label: "Doanh thu (VND)", value: 3500000 },
         { label: "Phiên sạc", value: 21 },
         { label: "Tổng điện (kWh)", value: 12800 },
@@ -72,13 +90,13 @@ export default function Analytics() {
 
   // ===== API 2: Forecast theo trạm =====
   const loadForecastByStation = async () => {
+    const result = await getForecastByStation();
+    const data = result?.data ?? forecastByStation ?? [];
     try {
-      const res = await analyticsService.getForecastByStation();
-      const data = res?.data ?? [];
-      if (Array.isArray(data) && data.length) setStationForecast(data);
+      if (Array.isArray(data) && data.length) setStationForecastVM(data);
       else throw new Error("empty");
     } catch {
-      setStationForecast([
+      setStationForecastVM([
         { label: "Trạm Nguyễn Văn Linh", value: 91 },
         { label: "Trạm Lê Văn Việt", value: 78 },
         { label: "Trạm Phạm Hùng", value: 65 },
@@ -88,28 +106,24 @@ export default function Analytics() {
 
   // ===== API 3: Metrics hệ thống =====
   const loadMetrics = async () => {
-    try {
-      const res = await analyticsService.getMetrics();
-      const data = res?.data ?? [];
-      setMetrics(data.length ? data : []);
-    } catch {
-      setMetrics([
-        { user: "alice", sessions: 15, energy_kwh: 4750, total_cost: 1250000 },
-        { user: "bob", sessions: 9, energy_kwh: 3200, total_cost: 950000 },
-      ]);
+    const result = await getMetrics();
+    const data = result?.data ?? metrics ?? [];
+    if (!Array.isArray(data) || !data.length) {
+      setForecastVM((prev) => prev); // no-op
     }
   };
 
   // ===== API 4: Telemetry (Health) =====
   const loadTelemetry = async () => {
+    const result = await getHealth();
+    const data = result?.data ?? health ?? [];
     try {
-      const res = await analyticsService.getHealth();
-      const data = res?.data ?? [];
-      setTelemetry(data.length ? data : []);
+      if (Array.isArray(data) && data.length) setTelemetryVM(data);
+      else throw new Error("empty");
     } catch {
       const now = Date.now();
       const states = ["ok", "idle", "charging", "error"];
-      setTelemetry(
+      setTelemetryVM(
         Array.from({ length: 6 }).map((_, i) => ({
           ts: now - i * 60000,
           station: "Trạm mô phỏng",
@@ -122,18 +136,16 @@ export default function Analytics() {
 
   // ===== API 5-6: Cảnh báo hệ thống =====
   const loadAlerts = async () => {
-    try {
-      const res = await analyticsService.getAlerts();
-      setAlerts(res?.data ?? []);
-    } catch {
-      setAlerts([{ id: 1, message: "Trạm ST-03 mất kết nối", severity: "high" }]);
+    const result = await getAlerts();
+    const data = result?.data ?? alerts ?? [];
+    if (!Array.isArray(data) || !data.length) {
+      // fallback
     }
   };
 
   const acknowledgeAlert = async (id) => {
     try {
-      await analyticsService.ackAlert(id);
-      setAlerts((prev) => prev.filter((a) => a.id !== id));
+      await ackAlert({ id });
     } catch {
       console.warn("Không thể xác nhận cảnh báo");
     }
@@ -141,11 +153,10 @@ export default function Analytics() {
 
   // ===== API 7: Logs hệ thống =====
   const loadLogs = async () => {
-    try {
-      const res = await analyticsService.getLogs({ limit: 10 });
-      setLogs(res?.data ?? []);
-    } catch {
-      setLogs([{ timestamp: new Date().toLocaleTimeString(), message: "Log mô phỏng: hệ thống ổn định." }]);
+    const result = await getLogs({ limit: 10 });
+    const data = result?.data ?? logs ?? [];
+    if (!Array.isArray(data) || !data.length) {
+      // fallback render uses provider cache or initial mock below
     }
   };
 
@@ -154,13 +165,11 @@ export default function Analytics() {
     setTraining(true);
     setTrainProgress(0);
     setTrainMsg("");
-
     try {
-      await analyticsService.trainForecastModel({ from, to });
+      await trainForecastModel({ from, to });
     } catch {
       console.warn("Fallback training mock");
     }
-
     let progress = 0;
     const interval = setInterval(() => {
       progress += 10;
@@ -243,7 +252,7 @@ export default function Analytics() {
 
       {/* Tổng quan doanh thu */}
       <Section title="Tổng quan doanh thu & năng lượng">
-        <Chart height={320} data={forecast} />
+        <Chart height={320} data={forecastVM} />
         <p className="text-xs text-gray-500 mt-2 text-right">
           Cập nhật lúc: {lastUpdated}
         </p>
@@ -251,7 +260,7 @@ export default function Analytics() {
 
       {/* Forecast theo trạm */}
       <Section title="Dự báo AI theo từng trạm">
-        <Chart height={260} data={stationForecast} />
+        <Chart height={260} data={stationForecastVM} />
       </Section>
 
       {/* Metrics hệ thống */}
@@ -267,7 +276,7 @@ export default function Analytics() {
               </tr>
             </thead>
             <tbody>
-              {metrics.map((m, i) => (
+              {(metrics || []).map((m, i) => (
                 <tr key={i}>
                   <td className="border p-2">{m.user}</td>
                   <td className="border p-2 text-right">{m.sessions}</td>
@@ -295,7 +304,7 @@ export default function Analytics() {
               </tr>
             </thead>
             <tbody>
-              {telemetry.map((t, i) => (
+              {(telemetryVM || []).map((t, i) => (
                 <tr key={i}>
                   <td className="border p-2">
                     {new Date(t.ts).toLocaleTimeString()}

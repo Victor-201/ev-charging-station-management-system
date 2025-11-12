@@ -2,14 +2,16 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { SearchX, RotateCw } from "lucide-react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const NotFound = () => {
   const location = useLocation();
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const { getHealth } = useAnalytics();
 
-  // ✅ Giả lập kiểm tra trạng thái hệ thống
+  // ✅ Giả lập kiểm tra trạng thái hệ thống (fallback)
   const simulateHealth = () => {
     setLoading(true);
     setErr("");
@@ -25,8 +27,33 @@ const NotFound = () => {
     }, 600);
   };
 
+  // 🔍 Kiểm tra qua AnalyticsProvider
+  const checkHealth = async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      const res = await getHealth();
+      const data = res?.data ?? [];
+      let ok = true;
+      if (Array.isArray(data)) ok = data.every((x) => x?.status !== "error");
+      else if (data && typeof data === "object") ok = data.ok ?? true;
+      setHealth({
+        ok,
+        message: ok
+          ? "Hệ thống hoạt động bình thường."
+          : "Một số dịch vụ đang gặp sự cố, vui lòng thử lại sau.",
+      });
+    } catch (e) {
+      setErr("Không thể kiểm tra trạng thái, dùng mô phỏng");
+      simulateHealth();
+      return;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    simulateHealth();
+    checkHealth();
   }, []);
 
   const StatusCard = () => (
@@ -51,7 +78,7 @@ const NotFound = () => {
       )}
 
       <button
-        onClick={simulateHealth}
+        onClick={checkHealth}
         className="mt-3 text-xs flex items-center justify-center gap-1 px-3 py-1 border rounded hover:bg-gray-50 transition disabled:opacity-50"
         disabled={loading}
       >

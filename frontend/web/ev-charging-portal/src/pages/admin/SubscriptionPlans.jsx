@@ -1,5 +1,6 @@
 // SubscriptionPlans.jsx — CRUD + Edit cho Gói, Coupon, Thuê bao (localStorage)
 import { useEffect, useState } from "react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 
@@ -8,6 +9,7 @@ const STORAGE_KEY_COUPONS = "evcs_mock_coupons";
 const STORAGE_KEY_SUBS = "evcs_mock_subscriptions";
 
 export default function SubscriptionPlans() {
+  const { getRevenue, getOverview, getAlerts, revenue, overview, alerts } = useAnalytics();
   const [plans, setPlans] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -22,6 +24,7 @@ export default function SubscriptionPlans() {
 
   const [statusMsg, setStatusMsg] = useState("");
   const [error, setError] = useState("");
+  const [sum, setSum] = useState({ rev30d: 0, stations: 0, alerts: 0 });
 
   const showToast = (m) => {
     setStatusMsg(m);
@@ -41,6 +44,23 @@ export default function SubscriptionPlans() {
 
   useEffect(() => {
     loadData();
+    // Pull lightweight analytics summary for context
+    const init = async () => {
+      try {
+        const [revRes, ovRes, alRes] = await Promise.all([
+          getRevenue({ range: "30d" }),
+          getOverview(),
+          getAlerts(),
+        ]);
+        const total = revRes?.data?.total ?? revenue?.total ?? 0;
+        const st = ovRes?.data?.stations ?? overview?.stations ?? 0;
+        const al = Array.isArray(alRes?.data ?? alerts) ? (alRes?.data ?? alerts).length : 0;
+        setSum({ rev30d: total, stations: st, alerts: al });
+      } catch {
+        setSum({ rev30d: 0, stations: 0, alerts: 0 });
+      }
+    };
+    init();
   }, []);
 
   const refresh = () => {
@@ -221,6 +241,42 @@ export default function SubscriptionPlans() {
         title="Gói thuê bao"
         subtitle="Quản lý gói, mã giảm giá và thuê bao người dùng (localStorage)"
       />
+
+      {/* Provider analytics summary for context */}
+      <Section title="Tổng quan liên quan gói (30 ngày)">
+        <div className="flex flex-wrap gap-6 text-sm">
+          <div>
+            Doanh thu 30 ngày: <b>{formatVND(sum.rev30d)}</b>
+          </div>
+          <div>
+            Số trạm hoạt động: <b>{sum.stations}</b>
+          </div>
+          <div>
+            Cảnh báo đang mở: <b>{sum.alerts}</b>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const [revRes, ovRes, alRes] = await Promise.all([
+                  getRevenue({ range: "30d" }),
+                  getOverview(),
+                  getAlerts(),
+                ]);
+                const total = revRes?.data?.total ?? revenue?.total ?? 0;
+                const st = ovRes?.data?.stations ?? overview?.stations ?? 0;
+                const al = Array.isArray(alRes?.data ?? alerts) ? (alRes?.data ?? alerts).length : 0;
+                setSum({ rev30d: total, stations: st, alerts: al });
+                showToast("🔄 Đã đồng bộ dữ liệu Analytics");
+              } catch {
+                showToast("⚠️ Không thể đồng bộ Analytics");
+              }
+            }}
+            className="ml-auto rounded-md bg-sky-600 hover:bg-sky-700 px-4 py-1.5 text-white"
+          >
+            Đồng bộ Analytics
+          </button>
+        </div>
+      </Section>
 
       {/* ===== GÓI THUÊ BAO ===== */}
       <Section

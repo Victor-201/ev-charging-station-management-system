@@ -1,13 +1,15 @@
 // src/pages/Forbidden.jsx
 import { useEffect, useState } from "react";
 import { ShieldAlert, RotateCw } from "lucide-react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const Forbidden = () => {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const { getHealth } = useAnalytics();
 
-  // ✅ Giả lập trạng thái hệ thống (mock prototype)
+  // ✅ Giả lập trạng thái hệ thống (fallback mock)
   const simulateHealth = () => {
     setLoading(true);
     setErr("");
@@ -23,8 +25,34 @@ const Forbidden = () => {
     }, 600);
   };
 
+  // 🔍 Kiểm tra qua AnalyticsProvider
+  const checkHealth = async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      const res = await getHealth();
+      const data = res?.data ?? [];
+      let ok = true;
+      if (Array.isArray(data)) ok = data.every((x) => x?.status !== "error");
+      else if (data && typeof data === "object") ok = data.ok ?? true;
+      setHealth({
+        ok,
+        message: ok
+          ? "Hệ thống hoạt động ổn định và sẵn sàng phục vụ."
+          : "Một số dịch vụ đang bảo trì, vui lòng thử lại sau vài phút.",
+      });
+    } catch (e) {
+      setErr("Không thể kiểm tra trạng thái, dùng mô phỏng");
+      // fallback mock
+      simulateHealth();
+      return;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    simulateHealth();
+    checkHealth();
   }, []);
 
   const Dot = ({ ok }) => (
@@ -69,7 +97,7 @@ const Forbidden = () => {
         )}
 
         <button
-          onClick={simulateHealth}
+          onClick={checkHealth}
           className="mt-3 text-xs flex items-center justify-center gap-1 px-3 py-1 border rounded hover:bg-gray-50 transition disabled:opacity-50"
           disabled={loading}
         >
