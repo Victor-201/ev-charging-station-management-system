@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import stationService from '../../services/stationService'; // Import stationService
 
 const ISSUE_TYPES = [
   { id: 'not_working', label: 'Trạm không hoạt động', icon: 'alert-circle' },
@@ -29,26 +31,58 @@ const ReportIssueScreen = ({ route, navigation }) => {
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [connectors, setConnectors] = useState([]);
+  const [selectedConnectorId, setSelectedConnectorId] = useState(null);
+  const [loadingConnectors, setLoadingConnectors] = useState(true);
+
+  useEffect(() => {
+    if (station?.id) {
+      const fetchConnectors = async () => {
+        try {
+          setLoadingConnectors(true);
+          const fetchedConnectors = await stationService.getConnectors(station.id);
+          setConnectors(fetchedConnectors || []);
+        } catch (error) {
+          console.error("Failed to fetch connectors:", error);
+          Alert.alert("Lỗi", "Không thể tải danh sách đầu sạc.");
+        } finally {
+          setLoadingConnectors(false);
+        }
+      };
+      fetchConnectors();
+    } else {
+      setLoadingConnectors(false);
+    }
+  }, [station?.id]);
 
   const handleSubmit = async () => {
-    if (!selectedIssue) {
-      Alert.alert('Lỗi', 'Vui lòng chọn loại vấn đề');
+    if (!selectedConnectorId) {
+      Alert.alert('Lỗi', 'Vui lòng chọn đầu sạc gặp sự cố.');
       return;
     }
-
+    if (!selectedIssue) {
+      Alert.alert('Lỗi', 'Vui lòng chọn loại vấn đề.');
+      return;
+    }
     if (!description.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng mô tả chi tiết vấn đề');
+      Alert.alert('Lỗi', 'Vui lòng mô tả chi tiết vấn đề.');
       return;
     }
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const payload = {
+        connector_id: selectedConnectorId,
+        issue_type: selectedIssue, // Sending issue type for context
+        description: description.trim(),
+      };
+
+      await stationService.reportIssue(station.id, payload);
+
       Alert.alert(
         'Thành công',
-        'Báo cáo của bạn đã được gửi. Chúng tôi sẽ xử lý trong thời gian sớm nhất.',
+        'Báo cáo của bạn đã được gửi. Cảm ơn bạn đã đóng góp!',
         [
           {
             text: 'OK',
@@ -56,7 +90,12 @@ const ReportIssueScreen = ({ route, navigation }) => {
           },
         ]
       );
-    }, 1500);
+    } catch (error) {
+      console.error("Failed to submit report:", error);
+      Alert.alert('Lỗi', 'Không thể gửi báo cáo. Vui lòng thử lại sau.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const styles = StyleSheet.create({
@@ -103,7 +142,7 @@ const ReportIssueScreen = ({ route, navigation }) => {
       padding: 16,
       borderRadius: 12,
       borderWidth: 2,
-      borderColor: 'transparent',
+      borderColor: colors.surface,
       alignItems: 'center',
     },
     issueCardSelected: {
@@ -190,6 +229,49 @@ const ReportIssueScreen = ({ route, navigation }) => {
           </View>
         )}
 
+        {/* Connector Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Chọn đầu sạc gặp sự cố *</Text>
+          {loadingConnectors ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : connectors.length > 0 ? (
+            <View style={styles.issueGrid}>
+              {connectors.map((connector) => (
+                <TouchableOpacity
+                  key={connector.id}
+                  style={[
+                    styles.issueCard,
+                    selectedConnectorId === connector.id && styles.issueCardSelected,
+                  ]}
+                  onPress={() => setSelectedConnectorId(connector.id)}
+                >
+                  <Icon
+                    name="power-plug"
+                    size={32}
+                    color={
+                      selectedConnectorId === connector.id
+                        ? colors.primary
+                        : colors.onSurfaceVariant
+                    }
+                    style={styles.issueIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.issueLabel,
+                      selectedConnectorId === connector.id && styles.issueLabelSelected,
+                    ]}
+                  >
+                    {`Đầu sạc ${connector.id}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.stationAddress}>Không tìm thấy đầu sạc nào cho trạm này.</Text>
+          )}
+        </View>
+
+
         {/* Issue Type Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Loại vấn đề *</Text>
@@ -259,16 +341,16 @@ const ReportIssueScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (!selectedIssue || !description.trim() || isSubmitting) &&
+            (!selectedConnectorId || !selectedIssue || !description.trim() || isSubmitting) &&
               styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={!selectedIssue || !description.trim() || isSubmitting}
+          disabled={!selectedConnectorId || !selectedIssue || !description.trim() || isSubmitting}
         >
           <Text
             style={[
               styles.submitButtonText,
-              (!selectedIssue || !description.trim() || isSubmitting) &&
+              (!selectedConnectorId || !selectedIssue || !description.trim() || isSubmitting) &&
                 styles.submitButtonTextDisabled,
             ]}
           >

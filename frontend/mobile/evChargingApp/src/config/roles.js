@@ -2,7 +2,7 @@
  * User Role Constants
  * 
  * Centralized role definitions to ensure consistency across the application.
- * This file should be kept in sync with `services/auth-service/src/constants/roles.ts`
+ * This file should be kept in sync with `backend/auth-service/src/constants/roles.ts`
  */
 
 export const UserRole = {
