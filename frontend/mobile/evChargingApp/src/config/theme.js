@@ -94,20 +94,5 @@ export const theme = {
 
     // === Màu chữ phụ & chữ mờ ===
     onSurfaceVariant: '#8A93B9', // chữ phụ, mô tả, text ít quan trọng, placeholder, disabled text
-
-    // === Màu viền & divider ===
-    outline: '#D1D9E6',          // borders, dividers, separators
-    outlineVariant: '#E5ECFF',   // subtle borders
-
-    // === Màu container ===
-    primaryContainer: '#E5ECFF',      // light primary background
-    onPrimaryContainer: '#001653',    // text on primary container
-    secondaryContainer: '#D1E0FF',    // light secondary background
-    onSecondaryContainer: '#001F6B',  // text on secondary container
-
-    // === Màu disabled ===
-    surfaceVariant: '#F5F7FA',   // disabled backgrounds, inactive surfaces
-    surfaceDisabled: '#E0E0E0',  // disabled surface
-    onSurfaceDisabled: '#9E9E9E', // disabled text
   },
 };
