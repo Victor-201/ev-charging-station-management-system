@@ -4,7 +4,7 @@ const dayjs = require('dayjs');
 class SessionRepository {
   /**
    * Tạo session mới (trạng thái initiated)
-   * session object expected keys: session_id, reservation_id, point_id, user_id, vehicle_id, auth_method, status, created_at, updated_at
+   * session object expected keys: session_id, reservation_id, point_id, user_id , status, created_at, updated_at
    */
    async create(session) {
     if (!session) throw new Error('Missing session object');
@@ -12,12 +12,13 @@ class SessionRepository {
     if (!session.user_id) throw new Error('session.user_id is required');
     if (!session.point_id) throw new Error('session.point_id is required');
 
-    const q = `
-      INSERT INTO sessions
-        (session_id, reservation_id, station_id, point_id, user_id, vehicle_id, auth_method,
-         start_meter_wh, end_meter_wh, started_at, ended_at, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+ const q = `
+  INSERT INTO sessions
+    (session_id, reservation_id, station_id, point_id, user_id, 
+     start_meter_wh, end_meter_wh, started_at, ended_at, status, created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+`;
+
 
     const values = [
       session.session_id,
@@ -25,8 +26,6 @@ class SessionRepository {
       session.station_id || null,            // <-- station_id here (3rd slot)
       session.point_id,
       session.user_id,
-      session.vehicle_id || null,
-      session.auth_method || null,
       session.start_meter_wh != null ? session.start_meter_wh : null,
       session.end_meter_wh != null ? session.end_meter_wh : null,
       session.started_at || null,
@@ -44,8 +43,6 @@ class SessionRepository {
       station_id: session.station_id || null,
       point_id: session.point_id,
       user_id: session.user_id,
-      vehicle_id: session.vehicle_id || null,
-      auth_method: session.auth_method || null,
       start_meter_wh: values[7],
       end_meter_wh: values[8],
       started_at: values[9],
@@ -137,15 +134,15 @@ class SessionRepository {
 
   /**
    * Lấy tất cả điểm đang active (status = 'charging') cho một station
-   * Trả về list các điểm: { session_id, point_id, user_id, vehicle_id, started_at, status, metadata }
+   * Trả về list các điểm: { session_id, point_id, user_id, , started_at, status, metadata }
    */
   async getActiveByStationId(station_id) {
     if (!station_id) throw new Error('station_id is required');
+const q = `SELECT session_id, point_id, user_id, started_at, status, metadata
+           FROM sessions
+           WHERE station_id = ? AND LOWER(status) IN ('charging', 'pending')
+           ORDER BY started_at ASC`;
 
-    const q = `SELECT session_id, point_id, user_id, vehicle_id, started_at, status, metadata
-               FROM sessions
-               WHERE station_id = ? AND LOWER(status) = 'charging'
-               ORDER BY started_at ASC`;
 
     const [rows] = await pool.query(q, [station_id]);
 
