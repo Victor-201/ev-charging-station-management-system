@@ -71,7 +71,7 @@ export default function Dashboard() {
       const newKpis = { users: usersCount, stations: stationsCount, revenue: revenueTotal, sessions };
       setKpis(newKpis);
 
-      const noData = !usersCount && !stationsCount && !revenue && !sessions;
+  const noData = !usersCount && !stationsCount && !revenueTotal && !sessions;
       setHasData(!noData);
 
       // ✅ Giả lập trend ngẫu nhiên
