@@ -3,8 +3,7 @@ class Session {
   constructor({
     session_id,
     user_id,
-    charging_point_id,
-    vehicle_id,
+    point_id,
     reservation_id = null,
     start_meter_wh = 0,
     end_meter_wh = 0,
@@ -19,8 +18,7 @@ class Session {
   }) {
     this.session_id = session_id;
     this.user_id = user_id;
-    this.charging_point_id = charging_point_id;
-    this.vehicle_id = vehicle_id;
+    this.point_id = point_id;
     this.reservation_id = reservation_id;
     this.start_meter_wh = start_meter_wh;
     this.end_meter_wh = end_meter_wh;
