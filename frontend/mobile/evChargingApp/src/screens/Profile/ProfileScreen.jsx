@@ -105,12 +105,7 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-          <List.Item
-            title="Lịch sử đặt chỗ"
-            left={(props) => <List.Icon {...props} icon="calendar-clock" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => navigation.navigate('ReservationStack')}
-          />
+
 
   const user = profile || authUser;
 

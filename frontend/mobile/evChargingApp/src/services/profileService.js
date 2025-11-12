@@ -10,14 +10,14 @@ const profileService = {
 
   // Get user profile by ID
   getProfile: async (userId) => {
-    const url = ENDPOINTS.USER.PROFILE.replace(':user_id', userId);
+    const url = ENDPOINTS.USER.GET_USER.replace(':user_id', userId);
     const response = await apiClient.get(url);
     return response.data;
   },
 
   // Update user profile
   updateProfile: async (userId, profileData) => {
-    const url = ENDPOINTS.USER.UPDATE_PROFILE.replace(':user_id', userId);
+    const url = ENDPOINTS.USER.UPDATE_USER.replace(':user_id', userId);
     const response = await apiClient.put(url, profileData);
     return response.data;
   },

@@ -1,10 +1,10 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import paymentService from '../../services/paymentService';
+import walletService from '../../services/walletService';
 
 // Async thunk for fetching wallet data
 export const getWallet = createAsyncThunk('wallet/getWallet', async (userId, { rejectWithValue }) => {
   try {
-    const { data } = await paymentService.getWallet(userId);
+    const data = await walletService.getWallet(userId);
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
@@ -14,9 +14,7 @@ export const getWallet = createAsyncThunk('wallet/getWallet', async (userId, { r
 // Async thunk for fetching transactions
 export const getTransactions = createAsyncThunk('wallet/getTransactions', async ({ userId, params }, { rejectWithValue }) => {
   try {
-    const response = await paymentService.getTransactions(userId, params);
-    // Handle different response structures (e.g., response.data, response.data.transactions, etc.)
-    const transactions = response?.data?.transactions || response?.transactions || response?.data || response || [];
+    const transactions = await walletService.getTransactions(userId, params);
     return Array.isArray(transactions) ? transactions : [];
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
@@ -25,7 +23,7 @@ export const getTransactions = createAsyncThunk('wallet/getTransactions', async 
 
 export const topupWallet = createAsyncThunk('wallet/topup', async (payload, { rejectWithValue }) => {
   try {
-    const { data } = await paymentService.topup(payload);
+    const data = await walletService.topup(payload);
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
@@ -34,7 +32,7 @@ export const topupWallet = createAsyncThunk('wallet/topup', async (payload, { re
 
 export const withdrawFromWallet = createAsyncThunk('wallet/withdraw', async (payload, { rejectWithValue }) => {
   try {
-    const { data } = await paymentService.withdraw(payload);
+    const data = await walletService.withdraw(payload);
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });

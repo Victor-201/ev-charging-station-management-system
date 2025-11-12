@@ -9,119 +9,50 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
-import mockService from '../../services/mockService';
+import { useDispatch, useSelector } from 'react-redux';
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../store/slices/notificationSlice';
 
 const NotificationListScreen = () => {
   const navigation = useNavigation();
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+  const { notifications, unreadCount, loading, error } = useSelector((state) => state.notification);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, unread, read
 
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      // Mock notifications data
-      const mockNotifications = [
-        {
-          id: 'notif-1',
-          type: 'charging_complete',
-          title: 'Sạc hoàn tất',
-          message: 'Phiên sạc tại Trạm sạc Central Park đã hoàn tất. Tổng: 45.2 kWh',
-          timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
-          read: false,
-          icon: 'battery-charging-full',
-          iconColor: colors.success,
-        },
-        {
-          id: 'notif-2',
-          type: 'reservation_confirmed',
-          title: 'Đặt chỗ đã xác nhận',
-          message: 'Đặt chỗ của bạn tại Trạm sạc Landmark 81 vào 14:00 ngày 10/11 đã được xác nhận',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-          read: false,
-          icon: 'event-available',
-          iconColor: colors.primary,
-        },
-        {
-          id: 'notif-3',
-          type: 'payment_success',
-          title: 'Thanh toán thành công',
-          message: 'Bạn đã nạp 500,000đ vào ví thành công',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
-          read: true,
-          icon: 'payment',
-          iconColor: colors.success,
-        },
-        {
-          id: 'notif-4',
-          type: 'promotion',
-          title: 'Khuyến mãi đặc biệt',
-          message: 'Giảm 20% cho lần sạc tiếp theo tại tất cả các trạm. Áp dụng đến 15/11',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-          read: true,
-          icon: 'local-offer',
-          iconColor: colors.warning,
-        },
-        {
-          id: 'notif-5',
-          type: 'system',
-          title: 'Cập nhật hệ thống',
-          message: 'Ứng dụng đã được cập nhật lên phiên bản 2.1.0 với nhiều tính năng mới',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
-          read: true,
-          icon: 'system-update',
-          iconColor: colors.primary,
-        },
-        {
-          id: 'notif-6',
-          type: 'reminder',
-          title: 'Nhắc nhở đặt chỗ',
-          message: 'Bạn có lịch đặt chỗ sạc vào 09:00 ngày mai tại Trạm sạc Central Park',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), // 3 days ago
-          read: true,
-          icon: 'notifications-active',
-          iconColor: colors.warning,
-        },
-      ];
-      setNotifications(mockNotifications);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-    } finally {
-      setLoading(false);
+  const loadNotifications = React.useCallback(() => {
+    if (user?.id) {
+      dispatch(getNotifications(user.id));
     }
-  };
+  }, [dispatch, user?.id]);
 
-  const onRefresh = async () => {
+  useFocusEffect(loadNotifications);
+
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     await loadNotifications();
     setRefreshing(false);
+  }, [loadNotifications]);
+
+  const handleMarkAsRead = (notificationId) => {
+    dispatch(markNotificationAsRead(notificationId));
   };
 
-  const markAsRead = (notificationId) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === notificationId ? { ...notif, read: true } : notif
-      )
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })));
+  const handleMarkAllAsRead = () => {
+    if (user?.id) {
+      dispatch(markAllNotificationsAsRead(user.id));
+    }
   };
 
   const deleteNotification = (notificationId) => {
-    setNotifications((prev) => prev.filter((notif) => notif.id !== notificationId));
+    // TODO: Implement delete notification functionality in the slice and service
+    console.log('Delete notification:', notificationId);
   };
 
   const getFilteredNotifications = () => {
@@ -163,11 +94,11 @@ const NotificationListScreen = () => {
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity
       style={[styles.notificationCard, !item.read && styles.notificationCardUnread]}
-      onPress={() => markAsRead(item.id)}
+      onPress={() => handleMarkAsRead(item.id)}
       activeOpacity={0.7}
     >
       <View style={styles.notificationIcon}>
-        <Icon name={item.icon} size={28} color={item.iconColor} />
+        <Icon name={item.icon || 'notifications'} size={28} color={item.iconColor || colors.primary} />
       </View>
 
       <View style={styles.notificationContent}>
@@ -182,7 +113,7 @@ const NotificationListScreen = () => {
           {item.message}
         </Text>
 
-        <Text style={styles.notificationTime}>{getTimeAgo(item.timestamp)}</Text>
+        <Text style={styles.notificationTime}>{getTimeAgo(item.created_at || item.timestamp)}</Text>
       </View>
 
       <TouchableOpacity
@@ -195,10 +126,9 @@ const NotificationListScreen = () => {
     </TouchableOpacity>
   );
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
   const filteredNotifications = getFilteredNotifications();
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -225,7 +155,7 @@ const NotificationListScreen = () => {
           )}
         </View>
         {unreadCount > 0 && (
-          <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
+          <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllButton}>
             <Icon name="done-all" size={24} color={colors.primary} />
           </TouchableOpacity>
         )}
@@ -242,7 +172,7 @@ const NotificationListScreen = () => {
       <FlatList
         data={filteredNotifications}
         renderItem={renderNotificationItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
