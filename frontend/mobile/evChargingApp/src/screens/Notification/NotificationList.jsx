@@ -215,7 +215,7 @@ export default function NotificationList() {
 
       {notifications.length === 0 ? (
         <View style={styles.emptyState}>
-          <Icon name="notifications-none" size={64} color={theme.colors.onSurfaceVariant} />
+          <Icon name="notifications-none" size={64} color={colors.onSurfaceVariant} />
           <Text style={styles.emptyTitle}>Chưa có thông báo nào</Text>
           <Text style={styles.emptySubtitle}>
             Các thông báo mới sẽ hiển thị ở đây
@@ -232,14 +232,14 @@ export default function NotificationList() {
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: 'row',
@@ -248,26 +248,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: theme.colors.onPrimary,
+    color: colors.onPrimary,
   },
   unreadCount: {
     fontSize: 12,
-    color: theme.colors.onPrimary + 'CC', // 80% opacity
+    color: colors.onPrimary + 'CC', // 80% opacity
     marginTop: 2,
   },
   markAllButton: {
-    backgroundColor: theme.colors.onPrimary + '33', // 20% opacity
+    backgroundColor: colors.onPrimary + '33', // 20% opacity
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   markAllText: {
-    color: theme.colors.onPrimary,
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   notificationCard: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   unreadCard: {
     borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primary,
+    borderLeftColor: colors.primary,
   },
   notificationHeader: {
     flexDirection: 'row',
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.onSurface,
+    color: colors.onSurface,
     flex: 1,
   },
   unreadTitle: {
@@ -318,18 +318,18 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     marginLeft: 8,
   },
   notificationMessage: {
     fontSize: 14,
-    color: theme.colors.onSurface + '99', // 60% opacity
+    color: colors.onSurface + '99', // 60% opacity
     lineHeight: 20,
     marginBottom: 8,
   },
   timeText: {
     fontSize: 12,
-    color: theme.colors.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   emptyState: {
     flex: 1,
@@ -340,13 +340,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: theme.colors.onSurface,
+    color: colors.onSurface,
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: theme.colors.onSurface + '99', // 60% opacity
+    color: colors.onSurface + '99', // 60% opacity
     textAlign: 'center',
     lineHeight: 20,
   },

@@ -11,6 +11,8 @@ CREATE TABLE users (
     email_verified BOOLEAN DEFAULT FALSE,
     verification_code VARCHAR(6),
     verification_code_expires_at TIMESTAMPTZ,
+    password_reset_token VARCHAR(255),
+    password_reset_token_expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -19,6 +21,7 @@ CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_users_email_verified ON users(email_verified);
 CREATE INDEX idx_users_verification_code ON users(verification_code);
+CREATE INDEX idx_users_password_reset_token ON users(password_reset_token);
 
 COMMENT ON TABLE users IS 'Primary user identity and authentication';
 COMMENT ON COLUMN users.role IS 'User role: admin, staff, user (legacy: driver->user, customer->user, station_owner->staff)';
@@ -26,6 +29,8 @@ COMMENT ON COLUMN users.status IS 'User status: active, inactive, suspended';
 COMMENT ON COLUMN users.email_verified IS 'Whether user has verified their email address';
 COMMENT ON COLUMN users.verification_code IS '6-digit verification code for email verification';
 COMMENT ON COLUMN users.verification_code_expires_at IS 'Expiration time for verification code';
+COMMENT ON COLUMN users.password_reset_token IS 'Token for password reset (hashed)';
+COMMENT ON COLUMN users.password_reset_token_expires_at IS 'Expiration time for password reset token';
 
 -- third-party auth providers (oauth)
 CREATE TABLE user_auth_providers (
