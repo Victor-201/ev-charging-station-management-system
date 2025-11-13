@@ -368,9 +368,15 @@ export default function MapScreen({ navigation }) {
 
     const { latitude, longitude, name, address } = selectedStation;
 
+    // Validate coordinates
+    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+      Alert.alert('Lỗi', 'Không có thông tin vị trí của trạm sạc.');
+      return;
+    }
+
     // iOS - Open Apple Maps
     if (Platform.OS === 'ios') {
-      const url = `maps://app?daddr=${latitude},${longitude}&q=${encodeURIComponent(name)}`;
+      const url = `maps://app?daddr=${latitude},${longitude}&q=${encodeURIComponent(name || 'EV Station')}`;
       Linking.canOpenURL(url)
         .then((supported) => {
           if (supported) {

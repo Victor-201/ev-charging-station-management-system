@@ -39,6 +39,38 @@ const fixTextEncoding = (text) => {
 const transformStationData = (station) => {
   if (!station) return null;
 
+  // Parse connector_types - can be array, string, or null
+  let connectorTypes = [];
+  if (station.connector_types) {
+    if (Array.isArray(station.connector_types)) {
+      connectorTypes = station.connector_types;
+    } else if (typeof station.connector_types === 'string') {
+      try {
+        // Try to parse as JSON array
+        connectorTypes = JSON.parse(station.connector_types);
+      } catch (e) {
+        // If not JSON, split by comma
+        connectorTypes = station.connector_types.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+  }
+
+  // Parse amenities - can be array, string, or null
+  let amenities = [];
+  if (station.amenities) {
+    if (Array.isArray(station.amenities)) {
+      amenities = station.amenities;
+    } else if (typeof station.amenities === 'string') {
+      try {
+        // Try to parse as JSON array
+        amenities = JSON.parse(station.amenities);
+      } catch (e) {
+        // If not JSON, split by comma
+        amenities = station.amenities.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+  }
+
   return {
     ...station,
     // Fix text encoding (backend database issue)
@@ -52,6 +84,13 @@ const transformStationData = (station) => {
     // Parse numeric fields
     available_ports: parseInt(station.available_ports || 0, 10),
     total_ports: parseInt(station.total_ports || 0, 10),
+    // Parse rating
+    rating: parseFloat(station.rating || 0),
+    // Parse price
+    price_per_kwh: parseFloat(station.price_per_kwh || 0),
+    // Parse arrays
+    connector_types: connectorTypes,
+    amenities: amenities,
     // Transform charging_points if present
     charging_points: station.charging_points?.map(point => ({
       ...point,

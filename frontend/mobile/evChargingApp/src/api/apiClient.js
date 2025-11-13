@@ -13,6 +13,9 @@ const apiClient = axios.create({
     'ngrok-skip-browser-warning': 'true',
     'Content-Type': 'application/json; charset=utf-8',
     'Accept': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
   },
 });
 

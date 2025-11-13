@@ -208,8 +208,15 @@ export default function StationDetail({ route, navigation }) {
     if (!station) return;
 
     const { latitude, longitude, name } = station;
+    
+    // Validate coordinates
+    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+      Alert.alert('Lỗi', 'Không có thông tin vị trí của trạm sạc.');
+      return;
+    }
+
     const url = Platform.select({
-      ios: `maps://app?daddr=${latitude},${longitude}&q=${encodeURIComponent(name)}`,
+      ios: `maps://app?daddr=${latitude},${longitude}&q=${encodeURIComponent(name || 'EV Station')}`,
       android: `https://www.openstreetmap.org/directions?to=${latitude},${longitude}`,
     });
 
@@ -325,18 +332,20 @@ export default function StationDetail({ route, navigation }) {
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Loại cổng sạc</Text>
-        <View style={styles.connectorContainer}>
-          {station.connector_types.map((type, index) => (
-            <View key={index} style={styles.connectorBadge}>
-              <Text style={styles.connectorText}>{type}</Text>
-            </View>
-          ))}
+      {station.connector_types && Array.isArray(station.connector_types) && station.connector_types.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Loại cổng sạc</Text>
+          <View style={styles.connectorContainer}>
+            {station.connector_types.map((type, index) => (
+              <View key={index} style={styles.connectorBadge}>
+                <Text style={styles.connectorText}>{type}</Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
-      {station.amenities.length > 0 && (
+      {station.amenities && Array.isArray(station.amenities) && station.amenities.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.amenitiesContainer}>
