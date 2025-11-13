@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { Checkbox } from 'react-native-paper';
+import { Checkbox, useTheme } from 'react-native-paper';
 import { loginSchema } from '../../utils/validators';
 import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
@@ -12,11 +12,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../../config/constants';
 import { useNavigation } from '@react-navigation/native';
 import AuthWrapper from './AuthWrapper';
-import { theme } from '../../config/theme';
 import logger from '../../utils/logger';
 
 export default function Login() {
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { doLogin, loading, error } = useAuth();
   const [rememberChecked, setRememberChecked] = useState(true);
 
@@ -162,7 +163,7 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   input: {
     marginBottom: 16,
   },
@@ -179,10 +180,10 @@ const styles = StyleSheet.create({
   },
   checkboxLabel: {
     fontSize: 14,
-    color: theme.colors.onSurface,
+    color: colors.onSurface,
   },
   forgotPasswordLink: {
-    color: theme.colors.primary,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -191,15 +192,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorContainer: {
-    backgroundColor: theme.colors.error + '15',
+    backgroundColor: colors.error + '15',
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: theme.colors.error,
+    borderLeftColor: colors.error,
   },
   errorText: {
-    color: theme.colors.error,
+    color: colors.error,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -211,11 +212,11 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: theme.colors.onSurface + '20',
+    backgroundColor: colors.onSurface + '20',
   },
   dividerText: {
     marginHorizontal: 16,
-    color: theme.colors.onSurface + '60',
+    color: colors.onSurface + '60',
     fontSize: 14,
   },
   registerLinkContainer: {
@@ -225,11 +226,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   registerLinkText: {
-    color: theme.colors.onSurface,
+    color: colors.onSurface,
     fontSize: 14,
   },
   registerLink: {
-    color: theme.colors.primary,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },

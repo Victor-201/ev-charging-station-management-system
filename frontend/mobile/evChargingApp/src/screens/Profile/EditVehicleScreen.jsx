@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Snackbar, Text } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -130,14 +131,17 @@ export default function EditVehicleScreen({ navigation, route }) {
 
   if (!vehicle) {
     return (
-      <View style={styles.centeredContainer}>
-        <Text>Không tìm thấy phương tiện.</Text>
-      </View>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.centeredContainer}>
+          <Text>Không tìm thấy phương tiện.</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView>
       <View style={styles.contentContainer}>
         <Controller 
           control={control} name="make" 
@@ -213,7 +217,8 @@ export default function EditVehicleScreen({ navigation, route }) {
       >
         {successMessage}
       </Snackbar>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

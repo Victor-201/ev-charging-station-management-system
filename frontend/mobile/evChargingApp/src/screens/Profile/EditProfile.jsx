@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, Title, Button, Snackbar, Text } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -114,7 +115,8 @@ export default function EditProfile({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView>
       <View style={styles.contentContainer}>
         {/* Avatar Section */}
         <View style={styles.avatarContainer}>
@@ -192,7 +194,8 @@ export default function EditProfile({ navigation }) {
       >
         {successMessage}
       </Snackbar>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

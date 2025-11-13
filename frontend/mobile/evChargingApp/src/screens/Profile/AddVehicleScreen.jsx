@@ -147,7 +147,8 @@ export default function AddVehicleScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
       <View style={styles.contentContainer}>
         <View style={styles.lookupContainer}>
           <Controller
@@ -219,7 +220,8 @@ export default function AddVehicleScreen({ navigation, route }) {
       >
         {successMessage}
       </Snackbar>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

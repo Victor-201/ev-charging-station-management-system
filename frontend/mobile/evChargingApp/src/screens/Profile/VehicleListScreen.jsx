@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, ActivityIndicator, Text, FAB } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from 'react-native-paper';
@@ -62,23 +63,27 @@ export default function VehicleListScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.centeredContainer}>
-        <ActivityIndicator animating={true} size="large" color={colors.primary} />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.centeredContainer}>
+          <ActivityIndicator animating={true} size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centeredContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Button onPress={() => fetchVehicles()}>Thử lại</Button>
-      </View>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.centeredContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Button onPress={() => fetchVehicles()}>Thử lại</Button>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {vehicles.length === 0 ? (
         <View style={styles.centeredContainer}>
           <Text style={styles.emptyText}>Bạn chưa có phương tiện nào.</Text>

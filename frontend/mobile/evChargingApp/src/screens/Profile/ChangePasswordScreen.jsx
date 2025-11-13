@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Snackbar, Text } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -89,8 +90,9 @@ export default function ChangePasswordScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.contentContainer}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView>
+        <View style={styles.contentContainer}>
         {/* Current Password Input */}
         <Controller 
           control={control} 
@@ -171,7 +173,8 @@ export default function ChangePasswordScreen({ navigation }) {
       >
         {successMessage}
       </Snackbar>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
