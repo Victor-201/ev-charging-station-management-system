@@ -11,12 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
 import useCharging from '../../hooks/useCharging';
 
 const ChargingHistoryDetail = () => {
   const route = useRoute();
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { sessionId } = route.params || {};
   const { currentSession, invoice, loading, invoiceLoading, getSession, fetchInvoice } = useCharging();
   const [showInvoice, setShowInvoice] = useState(false);
@@ -38,17 +40,17 @@ const ChargingHistoryDetail = () => {
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'completed':
-        return theme.colors.success;
+        return colors.success;
       case 'active':
       case 'charging':
-        return theme.colors.primary;
+        return colors.primary;
       case 'paused':
-        return theme.colors.warning;
+        return colors.warning;
       case 'failed':
       case 'error':
-        return theme.colors.error;
+        return colors.error;
       default:
-        return theme.colors.onSurfaceVariant;
+        return colors.onSurfaceVariant;
     }
   };
 
@@ -103,7 +105,7 @@ const ChargingHistoryDetail = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer} edges={['top', 'bottom']}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Đang tải chi tiết...</Text>
       </SafeAreaView>
     );
@@ -112,7 +114,7 @@ const ChargingHistoryDetail = () => {
   if (!currentSession) {
     return (
       <SafeAreaView style={styles.errorContainer} edges={['top', 'bottom']}>
-        <Ionicons name="alert-circle-outline" size={64} color={theme.colors.error} />
+        <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
         <Text style={styles.errorText}>Không tìm thấy phiên sạc</Text>
       </SafeAreaView>
     );
@@ -133,12 +135,12 @@ const ChargingHistoryDetail = () => {
         <Text style={styles.sectionTitle}>Thông tin trạm sạc</Text>
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <Ionicons name="location" size={20} color={theme.colors.primary} />
+            <Ionicons name="location" size={20} color={colors.primary} />
             <Text style={styles.infoLabel}>Trạm sạc:</Text>
             <Text style={styles.infoValue}>{currentSession.station_name || 'N/A'}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="flash" size={20} color={theme.colors.primary} />
+            <Ionicons name="flash" size={20} color={colors.primary} />
             <Text style={styles.infoLabel}>Cổng sạc:</Text>
             <Text style={styles.infoValue}>{currentSession.charger_id || 'N/A'}</Text>
           </View>
@@ -233,10 +235,10 @@ const ChargingHistoryDetail = () => {
           disabled={invoiceLoading}
         >
           {invoiceLoading ? (
-            <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <>
-              <Ionicons name="document-text-outline" size={20} color={theme.colors.onPrimary} />
+              <Ionicons name="document-text-outline" size={20} color={colors.onPrimary} />
               <Text style={styles.invoiceButtonText}>Xem hóa đơn</Text>
             </>
           )}
@@ -248,20 +250,23 @@ const ChargingHistoryDetail = () => {
 };
 
 // Helper component for detail rows
-const DetailRow = ({ icon, label, value }) => (
-  <View style={styles.detailRow}>
-    <View style={styles.detailLeft}>
-      <Ionicons name={icon} size={18} color={theme.colors.onSurfaceVariant} />
-      <Text style={styles.detailLabel}>{label}</Text>
+const DetailRow = ({ icon, label, value, colors }) => {
+  const styles = getStyles(colors);
+  return (
+    <View style={styles.detailRow}>
+      <View style={styles.detailLeft}>
+        <Ionicons name={icon} size={18} color={colors.onSurfaceVariant} />
+        <Text style={styles.detailLabel}>{label}</Text>
+      </View>
+      <Text style={styles.detailValue}>{value}</Text>
     </View>
-    <Text style={styles.detailValue}>{value}</Text>
-  </View>
-);
+  );
+};
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
@@ -270,24 +275,24 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: theme.colors.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
     padding: 32,
   },
   errorText: {
     marginTop: 16,
     fontSize: 18,
-    color: theme.colors.error,
+    color: colors.error,
     textAlign: 'center',
   },
   statusBadge: {
