@@ -9,6 +9,7 @@ import {
   Alert,
   Share,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
@@ -71,27 +72,28 @@ Tổng cộng: ${invoice.total_amount?.toLocaleString('vi-VN')} ₫
 
   if (invoiceLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, { color: colors.onSurfaceVariant }]}>Đang tải hóa đơn...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!invoice) {
     return (
-      <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.errorContainer, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
         <MaterialIcons name="receipt-long" size={64} color={colors.onSurfaceVariant} />
         <Text style={[styles.errorText, { color: colors.onSurfaceVariant }]}>Không tìm thấy hóa đơn</Text>
         <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={() => navigation.goBack()}>
           <Text style={[styles.buttonText, { color: colors.onPrimary }]}>Quay lại</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+      <ScrollView>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <View style={[styles.headerIcon, { backgroundColor: colors.onPrimary + '20' }]}>
@@ -191,7 +193,8 @@ Tổng cộng: ${invoice.total_amount?.toLocaleString('vi-VN')} ₫
           Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

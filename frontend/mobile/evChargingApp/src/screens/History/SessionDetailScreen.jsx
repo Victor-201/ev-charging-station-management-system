@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Card, Title, Button, ActivityIndicator, Divider, List } from 'react-native-paper';
 import { useRoute } from '@react-navigation/native';
 import chargingService from '../../services/chargingService';
@@ -131,7 +132,8 @@ const SessionDetailScreen = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView>
       <View style={{ padding: 16 }}>
         <Text style={styles.stationName}>{session.station_name}</Text>
         <Text style={styles.date}>{new Date(session.start_time).toLocaleString('vi-VN')}</Text>
@@ -182,7 +184,8 @@ const SessionDetailScreen = () => {
           Xem hóa đơn
         </Button>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

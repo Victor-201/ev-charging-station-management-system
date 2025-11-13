@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, Title, Paragraph, ActivityIndicator, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { getSubscriptions, subscribeToPlan, cancelSubscription } from '../../store/slices/subscriptionSlice';
@@ -25,11 +26,19 @@ const SubscriptionScreen = () => {
   };
 
   if (loading) {
-    return <ActivityIndicator style={styles.centered} />;
+    return (
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
+        <ActivityIndicator />
+      </SafeAreaView>
+    );
   }
 
   if (error) {
-    return <Text style={styles.centered}>{error}</Text>;
+    return (
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
+        <Text>{error}</Text>
+      </SafeAreaView>
+    );
   }
 
   const renderItem = ({ item }) => (
@@ -48,13 +57,13 @@ const SubscriptionScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <FlatList
         data={subscriptions}
         renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 

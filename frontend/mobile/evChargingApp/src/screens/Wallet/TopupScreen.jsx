@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, Card, TextInput, RadioButton, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { topupWallet } from '../../store/slices/walletSlice';
@@ -99,7 +100,7 @@ const TopupScreen = ({ navigation }) => {
 
   if (topupResult) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <Card style={styles.referenceContainer}>
           <Card.Content>
             <Text style={styles.referenceTitle}>Hoàn tất nạp tiền</Text>
@@ -110,12 +111,12 @@ const TopupScreen = ({ navigation }) => {
             </Button>
           </Card.Content>
         </Card>
-      </View>
+      </SafeAreaView>
     )
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Text style={styles.title}>Nạp tiền vào ví</Text>
 
       <Card style={styles.card}>
@@ -154,7 +155,7 @@ const TopupScreen = ({ navigation }) => {
       >
         Lấy mã nạp tiền
       </Button>
-    </View>
+    </SafeAreaView>
   );
 };
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, useTheme } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -48,8 +49,9 @@ const WithdrawScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.contentContainer}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView>
+        <View style={styles.contentContainer}>
         <Text style={styles.title}>Rút tiền</Text>
 
         <Controller
@@ -93,7 +95,8 @@ const WithdrawScreen = ({ navigation }) => {
           Gửi yêu cầu
         </Button>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

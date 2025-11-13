@@ -107,7 +107,7 @@ export default function VehicleListScreen({ navigation }) {
         icon="plus"
         onPress={() => navigation.navigate('AddVehicleScreen')}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
