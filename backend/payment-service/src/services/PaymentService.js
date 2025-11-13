@@ -3,7 +3,7 @@ import WalletRepository from '../repositories/WalletRepository.js';
 import WalletTransactionRepository from '../repositories/WalletTransactionRepository.js';
 import PlanRepository from '../repositories/PlanRepository.js';
 import localBus from '../core/LocalEventBus.js';
-import eventBus from '../core/EventBus.js';
+import eventBus from '../core/EventBus.js'; // ✅ dùng RabbitMQ EventBus
 import { randomUUID } from 'crypto';
 
 export default class PaymentService {
@@ -13,6 +13,7 @@ export default class PaymentService {
     this.walletTxRepo = new WalletTransactionRepository();
     this.planRepo = new PlanRepository();
 
+    // ================= LOCAL EVENT (TOP-UP) =================
     localBus.subscribe('payment.topup.succeeded', async (payload) => {
       try {
         await this._applyTopup(payload);
@@ -21,8 +22,45 @@ export default class PaymentService {
         console.error(`[PaymentService] Error applying top-up for user ${payload.user_id}:`, error);
       }
     });
+
+    // ================= RABBITMQ EVENT (FROM RESERVATION) =================
+    this._subscribeToReservationEvents();
   }
 
+  async _subscribeToReservationEvents() {
+    await eventBus.connect();
+
+    // Nhận event từ ReservationService: tạo transaction cho booking
+    await eventBus.subscribe('payment.pending', async (payload) => {
+      console.log(`[PaymentService] 🧾 Received payment.pending`, payload);
+      try {
+        await this._handleReservationPayment(payload);
+      } catch (err) {
+        console.error('[PaymentService] Error handling payment.pending:', err.message);
+      }
+    });
+  }
+
+  async _handleReservationPayment(payload) {
+    console.log('[PaymentService] Processing reservation payment:', payload);
+    const { user_id, type, amount, method, related_id, related_type, meta } = payload;
+
+    const transaction = await this.createTransaction({
+      user_id,
+      type: type,
+      amount,
+      method: method,
+      related_id: related_id,
+      related_type: related_type,
+      meta: meta,
+    });
+
+    console.log(`[PaymentService] ✅ Created booking transaction ${transaction.id}`);
+
+    return transaction;
+  }
+
+  // ================= CREATE TRANSACTION =================
   async createTransaction({
     user_id,
     type,
@@ -70,6 +108,7 @@ export default class PaymentService {
       meta: { description },
     });
 
+    // Nếu thanh toán bằng ví → trừ tiền ngay
     if (method === 'wallet') {
       await this.walletTxRepo.addTransaction({
         wallet_id: wallet.id,
@@ -108,10 +147,7 @@ export default class PaymentService {
     return transaction;
   }
 
-  /**
-   * Process webhook payload from bank/gateway
-   * payload: object containing reference_code or content and transferAmount and other fields
-   */
+  // ================= BANK WEBHOOK =================
   async processBankWebhook(payload) {
     console.log('📩 Incoming Webhook Payload:', payload);
     const refCode = payload.code || payload.content?.split(' ')[0];
@@ -148,47 +184,27 @@ export default class PaymentService {
         });
         break;
       case 'BKG': {
-        try {
-          const eventPayload = {
-            user_id: transaction.user_id,
-            booking_id: transaction.related_id,
-            amount: incoming,
-            method: transaction.method,
-            reference_code: refCode,
-            transaction_id: transaction.id,
-          };
-
-          await eventBus.publish('payment.booking.succeeded', eventPayload);
-
-          console.log(
-            `[PaymentService] Published booking payment success event for booking_id=${transaction.related_id}`
-          );
-        } catch (err) {
-          console.error(
-            `[PaymentService] Failed to publish booking payment event for booking_id=${transaction.related_id}`,
-            err.message
-          );
-          // Optionally: bạn có thể retry hoặc lưu vào DB để gửi lại sau
-        }
-        break;
-      }
-
-      case 'CHG': {
-        await eventBus.publish('payment.charging.succeeded', {
+        const eventPayload = {
           user_id: transaction.user_id,
-          session_id: transaction.related_id,
+          booking_id: transaction.related_id,
           amount: incoming,
           method: transaction.method,
           reference_code: refCode,
           transaction_id: transaction.id,
-        });
-        break;
-      }
+        };
 
-      default: {
-        console.warn(`[PaymentService] Unknown payment prefix: ${prefix}`);
+        await eventBus.connect();
+        await eventBus.channel.publish(
+          eventBus.exchange,
+          'payment.booking.succeeded',
+          Buffer.from(JSON.stringify(eventPayload))
+        );
+        console.log(`[PaymentService] Published booking.payment.succeeded for ${transaction.related_id}`);
         break;
       }
+      default:
+        console.warn(`[PaymentService] Unknown prefix: ${prefix}`);
+        break;
     }
 
     return {
