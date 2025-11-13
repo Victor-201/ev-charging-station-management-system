@@ -7,12 +7,15 @@ import {
   TouchableOpacity,
   RefreshControl
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { theme } from '../../config/theme';
+import { useTheme } from 'react-native-paper';
 
 export default function NotificationList() {
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [notifications, setNotifications] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -118,12 +121,12 @@ export default function NotificationList() {
 
   const getNotificationColor = (type) => {
     switch (type) {
-      case 'booking': return theme.colors.success;
-      case 'payment': return theme.colors.primary;
-      case 'promotion': return theme.colors.warning;
-      case 'system': return theme.colors.secondary;
-      case 'charging': return theme.colors.accent;
-      default: return theme.colors.onSurfaceVariant;
+      case 'booking': return colors.success;
+      case 'payment': return colors.primary;
+      case 'promotion': return colors.warning;
+      case 'system': return colors.secondary;
+      case 'charging': return colors.accent;
+      default: return colors.onSurfaceVariant;
     }
   };
 
@@ -190,7 +193,7 @@ export default function NotificationList() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Thông báo</Text>

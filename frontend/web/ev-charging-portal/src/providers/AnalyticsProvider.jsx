@@ -1,6 +1,6 @@
 // contexts/AnalyticsProvider.jsx
 import React, { useState, useCallback, useMemo } from "react";
-import { AnalyticsContext } from "@/context/AnalyticsContext";
+import { AnalyticsContext } from "@/contexts/AnalyticsContext";
 import analyticsService from "@/services/analyticsService"; // sửa path nếu cần
 
 export const AnalyticsProvider = ({ children }) => {

@@ -312,11 +312,11 @@ const getStyles = (colors) => StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: theme.colors.onBackground,
+    color: colors.onBackground,
     marginBottom: 12,
   },
   infoCard: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
   },
@@ -328,13 +328,13 @@ const getStyles = (colors) => StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: theme.colors.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
     flex: 1,
   },
   infoValue: {
     fontSize: 14,
     fontWeight: '500',
-    color: theme.colors.onBackground,
+    color: colors.onBackground,
     flex: 2,
   },
   detailRow: {
@@ -351,16 +351,16 @@ const getStyles = (colors) => StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: theme.colors.onSurfaceVariant,
+    color: colors.onSurfaceVariant,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '500',
-    color: theme.colors.onBackground,
+    color: colors.onBackground,
   },
   divider: {
     height: 1,
-    backgroundColor: theme.colors.outline,
+    backgroundColor: colors.outline,
     marginVertical: 12,
   },
   totalRow: {
@@ -372,18 +372,18 @@ const getStyles = (colors) => StyleSheet.create({
   totalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.onBackground,
+    color: colors.onBackground,
   },
   totalValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: theme.colors.primary,
+    color: colors.primary,
   },
   invoiceButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 8,
@@ -392,7 +392,7 @@ const getStyles = (colors) => StyleSheet.create({
   invoiceButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.onPrimary,
+    color: colors.onPrimary,
   },
 });
 

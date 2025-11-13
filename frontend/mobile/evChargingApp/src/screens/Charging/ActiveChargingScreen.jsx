@@ -6,7 +6,6 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import useSocket from '../../hooks/useSocket';
 import { updateTelemetry } from '../../store/slices/chargingSlice';
-import chargingService from '../../services/chargingService';
 import { useTheme } from 'react-native-paper';
 import useCharging from '../../hooks/useCharging';
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import Section from "@/components/admin/Section";
 import Table from "@/components/admin/Table";
 import PageHeader from "@/components/admin/PageHeader";
@@ -79,6 +80,7 @@ const stationService = {
 };
 
 export default function StationManagement() {
+  const { getForecastByStation, forecastByStation } = useAnalytics();
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -96,6 +98,7 @@ export default function StationManagement() {
   // Giá
   const [pricingModal, setPricingModal] = useState(null);
   const [pricing, setPricing] = useState(null);
+  const [aiStatsCount, setAiStatsCount] = useState(0);
 
   const statuses = useMemo(
     () => [
@@ -116,6 +119,17 @@ export default function StationManagement() {
   useEffect(() => {
     loadStations();
   }, []);
+
+  const loadAiStats = async () => {
+    try {
+      const res = await getForecastByStation();
+      const data = res?.data ?? forecastByStation ?? [];
+      setAiStatsCount(Array.isArray(data) ? data.length : 0);
+      showToast("🤖 Đã tải thống kê AI theo trạm");
+    } catch {
+      setAiStatsCount(0);
+    }
+  };
 
   const showToast = (msg) => {
     setStatusMsg(msg);
@@ -244,6 +258,12 @@ export default function StationManagement() {
               className="rounded-md bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700"
             >
               ↻ Làm mới
+            </button>
+            <button
+              onClick={loadAiStats}
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-700"
+            >
+              🤖 Thống kê AI ({aiStatsCount})
             </button>
           </div>
         }

@@ -1,6 +1,7 @@
 // ✅ UserManagement.jsx
 // Full CRUD + Deactivate + Vehicles (mock local) + thống kê staff/admin
 import { useEffect, useMemo, useState } from "react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
@@ -73,6 +74,7 @@ const userService = {
 
 // ======================= MAIN COMPONENT =======================
 export default function UserManagement() {
+  const { getUserMonthlyReport, userMonthlyReport } = useAnalytics();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -82,6 +84,7 @@ export default function UserManagement() {
   const [vehicles, setVehicles] = useState([]);
   const [vehicleForm, setVehicleForm] = useState({ plate: "", model: "" });
   const [stats, setStats] = useState(null);
+  const [monthlyReport, setMonthlyReport] = useState(null);
 
   const roles = useMemo(
     () => [
@@ -103,6 +106,14 @@ export default function UserManagement() {
     }
     const stat = await userService.getStaffStatistics();
     setStats(stat);
+    // Optional: load monthly report for first admin user
+    try {
+      const firstAdmin = cached.find(u => u.role === "admin") || fallbackUsers.find(u => u.role === "admin");
+      if (firstAdmin) {
+        const rep = await getUserMonthlyReport(firstAdmin.id);
+        setMonthlyReport(rep?.data ?? userMonthlyReport ?? null);
+      }
+    } catch {/* ignore */}
     setLoading(false);
   };
 
@@ -205,6 +216,11 @@ export default function UserManagement() {
             {stats && (
               <p className="text-sm text-gray-600 mb-2">
                 👥 Tổng cộng: {stats.total} (Admin: {stats.admin}, Staff: {stats.staff})
+              </p>
+            )}
+            {monthlyReport && (
+              <p className="text-xs text-indigo-600 mb-2">
+                📈 Báo cáo tháng (user đầu tiên admin): {JSON.stringify(monthlyReport).slice(0,120)}...
               </p>
             )}
             <Table

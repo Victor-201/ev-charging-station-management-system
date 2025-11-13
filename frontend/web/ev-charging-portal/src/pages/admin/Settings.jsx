@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from "react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import * as AuthModule from "@/contexts/AuthContext";
@@ -6,6 +7,7 @@ import * as UserModule from "@/contexts/UserContext";
 import * as ThemeModule from "@/contexts/ThemeContext";
 
 export default function Settings() {
+  const { alerts, getAlerts, getHealth } = useAnalytics();
   const AuthContext = AuthModule.AuthContext || AuthModule.default || null;
   const UserContext = UserModule.UserContext || UserModule.default || null;
   const ThemeContext = ThemeModule.ThemeContext || ThemeModule.default || null;
@@ -32,6 +34,22 @@ export default function Settings() {
   const [savedInfo, setSavedInfo] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [systemStatus, setSystemStatus] = useState("unknown");
+
+  // 🔹 Refresh health/alerts on mount
+  useEffect(() => {
+    refreshSystem();
+  }, []);
+
+  const refreshSystem = async () => {
+    try {
+      const [h, a] = await Promise.all([getHealth(), getAlerts()]);
+      const ok = Array.isArray(h?.data) ? h.data.every((x) => x?.status !== "error") : true;
+      setSystemStatus(ok ? "healthy" : "degraded");
+    } catch {
+      setSystemStatus("unknown");
+    }
+  };
 
   // 🔹 Load dữ liệu
   useEffect(() => {
@@ -370,7 +388,7 @@ export default function Settings() {
 
       {/* === Hệ thống & Theme === */}
       <Section title="Hệ thống & Theme">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <button
             onClick={toggleTheme}
             className="rounded bg-gray-700 text-white px-4 py-2 hover:bg-gray-800"
@@ -385,6 +403,25 @@ export default function Settings() {
             />
             <span>Tự động tải lại dữ liệu mỗi 60s</span>
           </label>
+          <div className="ml-auto flex items-center gap-3 text-sm">
+            <span>
+              Trạng thái hệ thống:
+              <b className={
+                systemStatus === "healthy"
+                  ? "text-emerald-600 ml-1"
+                  : systemStatus === "degraded"
+                  ? "text-amber-600 ml-1"
+                  : "text-gray-500 ml-1"
+              }>
+                {systemStatus}
+              </b>
+            </span>
+            <span>•</span>
+            <span>Cảnh báo mở: <b>{Array.isArray(alerts) ? alerts.length : 0}</b></span>
+            <button onClick={refreshSystem} className="px-3 py-1 rounded bg-blue-600 text-white">
+              Làm mới
+            </button>
+          </div>
         </div>
       </Section>
 

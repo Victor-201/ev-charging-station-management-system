@@ -5,7 +5,6 @@ import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { logoutAsync } from '../../store/slices/authSlice';
-import useWallet from '../../hooks/useWallet';
 
 import Header from '../../components/layout/Header';
 import QuickActionCard from '../../components/cards/QuickActionCard';

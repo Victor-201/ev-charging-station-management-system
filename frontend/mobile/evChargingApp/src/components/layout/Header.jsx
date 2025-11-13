@@ -1,7 +1,5 @@
-import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
-import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import useWallet from '../../hooks/useWallet';
 import Logo from '../common/Logo';

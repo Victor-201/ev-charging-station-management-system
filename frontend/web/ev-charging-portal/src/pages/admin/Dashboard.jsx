@@ -2,7 +2,7 @@ import { Users, CreditCard, PlugZap, Settings, Coins, RefreshCw } from "lucide-r
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
-import analyticsService from "@/services/analyticsService";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import chargingControlService from "@/services/chargingControlService";
 import stationService from "@/services/stationService";
 import userService from "@/services/userService";
@@ -22,6 +22,14 @@ import { ROUTERS } from "@/utils/constants";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const {
+    overview,
+    revenue,
+    alerts,
+    getOverview,
+    getRevenue,
+    getAlerts,
+  } = useAnalytics();
 
   const [kpis, setKpis] = useState({ users: 0, stations: 0, revenue: 0, sessions: 0 });
   const [trend, setTrend] = useState({ users: "+0%", revenue: "+0%", sessions: "+0%" });
@@ -46,24 +54,24 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const [overviewRes, revenueRes, usersRes, stationsRes] = await Promise.allSettled([
-        analyticsService.getOverview(),
-        analyticsService.getRevenue({ range: "week" }),
+        getOverview(),
+        getRevenue({ range: "week" }),
         userService.getAll(),
         stationService.getAll(),
       ]);
 
-      const overview = overviewRes.value?.data ?? {};
-      const revenue = revenueRes.value?.data?.total ?? 0;
+      const overviewData = overviewRes.value?.data ?? overview ?? {};
+      const revenueTotal = revenueRes.value?.data?.total ?? revenue?.total ?? 0;
       const usersCount = usersRes.value?.data?.length ?? 0;
       const stationsCount = stationsRes.value?.data?.length ?? 0;
 
       const sessionsRes = await chargingControlService.getUserSessions();
-      const sessions = sessionsRes?.data?.length ?? overview.total_sessions ?? 0;
+      const sessions = sessionsRes?.data?.length ?? overviewData.total_sessions ?? 0;
 
-      const newKpis = { users: usersCount, stations: stationsCount, revenue, sessions };
+      const newKpis = { users: usersCount, stations: stationsCount, revenue: revenueTotal, sessions };
       setKpis(newKpis);
 
-      const noData = !usersCount && !stationsCount && !revenue && !sessions;
+  const noData = !usersCount && !stationsCount && !revenueTotal && !sessions;
       setHasData(!noData);
 
       // ✅ Giả lập trend ngẫu nhiên
@@ -82,7 +90,10 @@ export default function Dashboard() {
         { id: "ORD-003", user: "Lê Văn C", station: "Trạm Nguyễn Huệ", amount: 56000, time: "08:20 11/11" },
       ]);
 
-      setAlertsCount(Math.floor(Math.random() * 3));
+  // Alerts via provider
+  const alertsRes = await getAlerts();
+  const alertsData = alertsRes?.data ?? alerts ?? [];
+  setAlertsCount(Array.isArray(alertsData) ? alertsData.length : 0);
       setLastUpdated(new Date().toLocaleTimeString("vi-VN"));
       setToastMsg("✅ Đã làm mới dữ liệu thành công!");
       setTimeout(() => setToastMsg(""), 2500);

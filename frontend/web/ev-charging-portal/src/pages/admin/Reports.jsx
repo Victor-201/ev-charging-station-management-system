@@ -4,7 +4,7 @@ import PageHeader from "@/components/admin/PageHeader";
 import Chart from "@/components/admin/Chart";
 import pdfMake from "pdfmake/build/pdfmake";
 import * as pdfFonts from "pdfmake/build/vfs_fonts";
-import analyticsService from "@/services/analyticsService";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import paymentService from "@/services/paymentService";
 
 pdfMake.vfs = pdfFonts.default.vfs;
@@ -17,6 +17,7 @@ pdfMake.vfs = pdfFonts.default.vfs;
  */
 
 export default function Reports() {
+  const { getRevenueReport } = useAnalytics();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
@@ -38,7 +39,7 @@ export default function Reports() {
   const loadReports = async () => {
     setLoading(true);
     try {
-      const res = await analyticsService.getRevenueReport({ from, to });
+      const res = await getRevenueReport({ from, to });
       const data = res?.data?.stations ?? res?.data ?? [];
 
       if (Array.isArray(data) && data.length > 0) {
