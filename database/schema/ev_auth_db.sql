@@ -5,6 +5,8 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(20),
+    full_name VARCHAR(100),
+    date_of_birth DATE,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'staff', 'user')),
     status VARCHAR(50) DEFAULT 'active',
@@ -24,10 +26,12 @@ CREATE INDEX idx_users_verification_code ON users(verification_code);
 CREATE INDEX idx_users_password_reset_token ON users(password_reset_token);
 
 COMMENT ON TABLE users IS 'Primary user identity and authentication';
+COMMENT ON COLUMN users.full_name IS 'User full name (required for registration)';
+COMMENT ON COLUMN users.date_of_birth IS 'User date of birth (must be 18+ years old)';
 COMMENT ON COLUMN users.role IS 'User role: admin, staff, user (legacy: driver->user, customer->user, station_owner->staff)';
 COMMENT ON COLUMN users.status IS 'User status: active, inactive, suspended';
 COMMENT ON COLUMN users.email_verified IS 'Whether user has verified their email address';
-COMMENT ON COLUMN users.verification_code IS '6-digit verification code for email verification';
+COMMENT ON COLUMN users.verification_code IS '6-digit verification code for email verification (legacy)';
 COMMENT ON COLUMN users.verification_code_expires_at IS 'Expiration time for verification code';
 COMMENT ON COLUMN users.password_reset_token IS 'Token for password reset (hashed)';
 COMMENT ON COLUMN users.password_reset_token_expires_at IS 'Expiration time for password reset token';
