@@ -87,6 +87,7 @@ export default function Register({ navigation }) {
       full_name: '',
       email: '',
       phone_number: '',
+      date_of_birth: '',
       password: '',
       confirmPassword: ''
     }
@@ -98,7 +99,9 @@ export default function Register({ navigation }) {
         full_name: data.full_name,
         email: data.email,
         phone_number: data.phone_number,
-        password: data.password
+        date_of_birth: data.date_of_birth,
+        password: data.password,
+        password_confirmation: data.confirmPassword
       });
 
       // Check if registration was successful
@@ -171,6 +174,24 @@ export default function Register({ navigation }) {
               keyboardType="phone-pad"
               error={errors.phone_number?.message}
               placeholder="0123456789"
+              style={styles.input}
+            />
+          )}
+        />
+
+        {/* Date of Birth Input */}
+        <Controller
+          control={control}
+          name="date_of_birth"
+          render={({ field: { onChange, value, onBlur } }) => (
+            <AppInput
+              label="Ngày sinh *"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              error={errors.date_of_birth?.message}
+              placeholder="YYYY-MM-DD (ví dụ: 2000-01-15)"
+              autoCapitalize="none"
               style={styles.input}
             />
           )}

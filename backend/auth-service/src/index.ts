@@ -8,6 +8,7 @@ import authRoutes from './routes/authRoutes';
 import { testDbConnection } from './config/database';
 import { rabbitmqClient } from './config/rabbitmq';
 import { outboxService } from './services/outboxService';
+import { cleanupService } from './services/cleanupService';
 
 dotenv.config();
 
@@ -73,6 +74,10 @@ const startServer = async () => {
       // Service continues without RabbitMQ, events will queue in outbox
     }
 
+    // Start cleanup job for unverified users and expired tokens
+    cleanupService.startCleanupJob();
+    logger.info('Cleanup job started');
+
     app.listen(PORT, () => {
       logger.info(`Auth Service running on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -88,8 +93,12 @@ startServer();
 // Graceful shutdown
 const shutdown = async (signal: string) => {
   logger.info(`${signal} received. Starting graceful shutdown...`);
-  
+
   try {
+    // Stop cleanup job
+    cleanupService.stopCleanupJob();
+    logger.info('Cleanup job stopped');
+
     // Stop outbox publisher
     outboxService.stopPublisher();
     logger.info('Outbox publisher stopped');

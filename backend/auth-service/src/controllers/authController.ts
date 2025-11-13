@@ -15,7 +15,7 @@ export class AuthController {
     });
   });
 
-  // Verify Email
+  // Verify Email (6-digit code - legacy)
   verifyEmail = asyncHandler(async (req: Request, res: Response) => {
     const { email, verification_code } = req.body;
 
@@ -25,6 +25,20 @@ export class AuthController {
       status: 'verified',
       message: 'Email verified successfully',
       user_id: result.user_id,
+    });
+  });
+
+  // Verify Email with Token (new method)
+  verifyEmailToken = asyncHandler(async (req: Request, res: Response) => {
+    const { token } = req.body;
+
+    const result = await authService.verifyEmailToken(token);
+
+    res.status(200).json({
+      status: 'verified',
+      message: 'Email verified successfully',
+      userId: result.user_id,
+      email: result.email,
     });
   });
 

@@ -36,6 +36,21 @@ export const registerSchema = yup.object().shape({
     .required('Họ tên là bắt buộc'),
   email: emailSchema,
   phone_number: phoneSchema,
+  date_of_birth: yup
+    .date()
+    .max(new Date(), 'Ngày sinh không thể là ngày trong tương lai')
+    .test('age', 'Bạn phải đủ 18 tuổi để đăng ký', function(value) {
+      if (!value) return false;
+      const today = new Date();
+      const birthDate = new Date(value);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age >= 18;
+    })
+    .required('Ngày sinh là bắt buộc'),
   password: passwordSchema,
   confirmPassword: yup
     .string()

@@ -4,6 +4,7 @@ import { validate } from '../middlewares/validation';
 import {
   registerSchema,
   verifyEmailSchema,
+  verifyEmailTokenSchema,
   resendVerificationSchema,
   loginSchema,
   oauthLoginSchema,
@@ -20,6 +21,8 @@ const router = Router();
 // Public routes
 router.post('/register', validate(registerSchema), authController.register);
 router.post('/verify', validate(verifyEmailSchema), authController.verifyEmail);
+router.post('/verify-email', validate(verifyEmailTokenSchema), authController.verifyEmailToken);
+router.post('/resend-verification', validate(resendVerificationSchema), authController.resendVerificationCode);
 router.post('/resend-verification-code', validate(resendVerificationSchema), authController.resendVerificationCode);
 router.post('/login', validate(loginSchema), authController.login);
 router.post('/login/oauth', validate(oauthLoginSchema), authController.oauthLogin);

@@ -43,13 +43,34 @@ export class AuthService {
     email: string;
     phone?: string;
     password: string;
+    password_confirmation?: string;
     role?: string;
-    full_name?: string;
+    full_name: string;
+    date_of_birth: Date | string;
   }) {
     const client = await getClient();
 
     try {
       await client.query('BEGIN');
+
+      // Validate password confirmation
+      if (data.password_confirmation && data.password !== data.password_confirmation) {
+        throw new AppError('Password confirmation does not match password', 400);
+      }
+
+      // Validate age requirement (18+ years old)
+      const dateOfBirth = new Date(data.date_of_birth);
+      const today = new Date();
+      let age = today.getFullYear() - dateOfBirth.getFullYear();
+      const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+        age--;
+      }
+
+      if (age < MINIMUM_AGE_YEARS) {
+        throw new AppError(`You must be at least ${MINIMUM_AGE_YEARS} years old to register`, 400);
+      }
 
       // Check if user already exists
       const existingUser = await client.query(
@@ -73,7 +94,25 @@ export class AuthService {
 
       const user = userResult.rows[0];
 
-      // Generate 6-digit verification code
+      // Generate verification token (JWT-based)
+      const verificationToken = jwt.sign(
+        { user_id: user.id, email: user.email, type: 'email_verification' },
+        process.env.JWT_SECRET || 'default-secret',
+        { expiresIn: `${VERIFICATION_TOKEN_EXPIRY_HOURS}h` }
+      );
+
+      // Hash the token for storage
+      const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
+      const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY);
+
+      // Store verification token in database
+      await client.query(
+        `INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3)`,
+        [user.id, tokenHash, expiresAt]
+      );
+
+      // Also generate 6-digit verification code for backward compatibility
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
 
@@ -95,17 +134,29 @@ export class AuthService {
           role: user.role,
           phone: data.phone,
           full_name: data.full_name,
+          date_of_birth: data.date_of_birth,
           created_at: user.created_at,
         }
       );
 
       await client.query('COMMIT');
 
+      // Create verification URL
+      const verificationUrl = `${process.env.FRONTEND_URL || 'https://example.com'}/verify-email?token=${verificationToken}`;
+
       // Send verification email (async, don't wait)
       sendEmail({
         to: data.email,
         subject: 'Verify your email - EV Charging System',
-        html: `Your verification code is: <b>${verificationCode}</b>. It will expire in 15 minutes.`,
+        html: `
+          <h2>Welcome to EV Charging System!</h2>
+          <p>Hello ${data.full_name},</p>
+          <p>Thank you for registering. Please verify your email address by clicking the link below:</p>
+          <p><a href="${verificationUrl}">${verificationUrl}</a></p>
+          <p>This link will expire in ${VERIFICATION_TOKEN_EXPIRY_HOURS} hours.</p>
+          <p>Alternatively, you can use this 6-digit verification code: <b>${verificationCode}</b> (expires in 15 minutes)</p>
+          <p>If you did not create an account, please ignore this email.</p>
+        `,
       }).catch(err => logger.error('Failed to send verification email:', err));
 
       return {
@@ -158,39 +209,169 @@ export class AuthService {
     };
   }
 
+  // Verify email with token (new method)
+  async verifyEmailToken(token: string) {
+    try {
+      // Verify JWT token
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || 'default-secret'
+      ) as any;
+
+      if (decoded.type !== 'email_verification') {
+        throw new AppError('Invalid verification token', 400);
+      }
+
+      // Hash the token to find it in database
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+      // Find the verification token
+      const tokenResult = await query(
+        `SELECT id, user_id, expires_at, verified_at
+         FROM email_verification_tokens
+         WHERE token_hash = $1`,
+        [tokenHash]
+      );
+
+      if (tokenResult.rows.length === 0) {
+        throw new AppError('Invalid verification token', 400);
+      }
+
+      const verificationRecord = tokenResult.rows[0];
+
+      // Check if token has already been used
+      if (verificationRecord.verified_at) {
+        throw new AppError('Verification token has already been used', 400);
+      }
+
+      // Check if token has expired
+      if (new Date() > new Date(verificationRecord.expires_at)) {
+        throw new AppError('Verification token has expired', 400);
+      }
+
+      // Update user: mark as verified
+      await query(
+        `UPDATE users
+         SET email_verified = true,
+             verification_code = NULL,
+             verification_code_expires_at = NULL
+         WHERE id = $1`,
+        [verificationRecord.user_id]
+      );
+
+      // Mark token as used
+      await query(
+        `UPDATE email_verification_tokens
+         SET verified_at = NOW()
+         WHERE id = $1`,
+        [verificationRecord.id]
+      );
+
+      // Get user info
+      const userResult = await query(
+        'SELECT id, email FROM users WHERE id = $1',
+        [verificationRecord.user_id]
+      );
+
+      return {
+        user_id: userResult.rows[0].id,
+        email: userResult.rows[0].email,
+      };
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError) {
+        throw new AppError('Invalid verification token', 400);
+      }
+      if (error instanceof jwt.TokenExpiredError) {
+        throw new AppError('Verification token has expired', 400);
+      }
+      throw error;
+    }
+  }
+
   // Resend verification code
   async resendVerificationCode(email: string) {
-    const userResult = await query('SELECT id, email, email_verified FROM users WHERE email = $1', [email]);
+    const client = await getClient();
 
-    if (userResult.rows.length === 0) {
-      // Don't reveal if email exists, just return a success-like message
-      return { message: 'If your email is registered, a new code has been sent.' };
+    try {
+      await client.query('BEGIN');
+
+      const userResult = await client.query(
+        'SELECT id, email, email_verified FROM users WHERE email = $1',
+        [email]
+      );
+
+      if (userResult.rows.length === 0) {
+        // Don't reveal if email exists, just return a success-like message
+        return { message: 'If your email is registered, a new verification link has been sent.' };
+      }
+
+      const user = userResult.rows[0];
+
+      if (user.email_verified) {
+        throw new AppError('Email is already verified', 400);
+      }
+
+      // Invalidate old verification tokens
+      await client.query(
+        `UPDATE email_verification_tokens
+         SET verified_at = NOW()
+         WHERE user_id = $1 AND verified_at IS NULL`,
+        [user.id]
+      );
+
+      // Generate new verification token
+      const verificationToken = jwt.sign(
+        { user_id: user.id, email: user.email, type: 'email_verification' },
+        process.env.JWT_SECRET || 'default-secret',
+        { expiresIn: `${VERIFICATION_TOKEN_EXPIRY_HOURS}h` }
+      );
+
+      // Hash the token for storage
+      const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
+      const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY);
+
+      // Store new verification token
+      await client.query(
+        `INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3)`,
+        [user.id, tokenHash, expiresAt]
+      );
+
+      // Generate a new 6-digit verification code and expiry
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      // Update user with the new code
+      await client.query(
+        'UPDATE users SET verification_code = $1, verification_code_expires_at = $2 WHERE id = $3',
+        [verificationCode, verificationCodeExpiresAt, user.id]
+      );
+
+      await client.query('COMMIT');
+
+      // Create verification URL
+      const verificationUrl = `${process.env.FRONTEND_URL || 'https://example.com'}/verify-email?token=${verificationToken}`;
+
+      // Send the new verification email
+      sendEmail({
+        to: user.email,
+        subject: 'Your New Verification Link - EV Charging System',
+        html: `
+          <h2>Email Verification</h2>
+          <p>You requested a new verification link. Please verify your email address by clicking the link below:</p>
+          <p><a href="${verificationUrl}">${verificationUrl}</a></p>
+          <p>This link will expire in ${VERIFICATION_TOKEN_EXPIRY_HOURS} hours.</p>
+          <p>Alternatively, you can use this 6-digit verification code: <b>${verificationCode}</b> (expires in 15 minutes)</p>
+        `,
+      }).catch(err => logger.error('Failed to resend verification email:', err));
+
+      return { message: 'A new verification link has been sent to your email.' };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    const user = userResult.rows[0];
-
-    if (user.email_verified) {
-      throw new AppError('Email is already verified', 400);
-    }
-
-    // Generate a new 6-digit verification code and expiry
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-    // Update user with the new code
-    await query(
-      'UPDATE users SET verification_code = $1, verification_code_expires_at = $2 WHERE id = $3',
-      [verificationCode, verificationCodeExpiresAt, user.id]
-    );
-
-    // Send the new code via email
-    sendEmail({
-      to: user.email,
-      subject: 'Your New Verification Code - EV Charging System',
-      html: `Your new verification code is: <b>${verificationCode}</b>. It will expire in 15 minutes.`,
-    }).catch(err => logger.error('Failed to resend verification email:', err));
-
-    return { message: 'A new verification code has been sent to your email.' };
   }
 
 
@@ -200,7 +381,7 @@ export class AuthService {
   // Login with email and password
   async login(email: string, password: string, deviceInfo?: string) {
     const result = await query(
-      `SELECT id, email, password_hash, role, status FROM users WHERE email = $1`,
+      `SELECT id, email, password_hash, role, status, email_verified FROM users WHERE email = $1`,
       [email]
     );
 
@@ -219,6 +400,11 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
       throw new AppError('Invalid email or password', 401);
+    }
+
+    // Check if email is verified
+    if (!user.email_verified) {
+      throw new AppError('Please verify your email address before logging in. Check your email for the verification link.', 403);
     }
 
     // Generate tokens
