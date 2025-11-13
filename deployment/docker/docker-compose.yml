@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-### Station-service
+  ### Station-service
   station-database:
     image: mysql:8.0
     container_name: station-database
@@ -40,7 +40,7 @@ services:
     networks:
       - kong-net
 
-## Charging-service
+  ## Charging-service
   reservation-database:
     image: mysql:8.0
     container_name: reservation-database
@@ -85,7 +85,7 @@ services:
     networks:
       - kong-net
 
-## Payment service
+  ## Payment service
   payment-service:
     build:
       context: ../../backend/payment-service
@@ -97,8 +97,10 @@ services:
     env_file: ../../backend/payment-service/.env
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      DATABASE_URL: "postgres://postgres:1111@payment-db:5432/ev_payment_db"
     depends_on:
       - postgres
+      - rabbitmq
     restart: always
     networks:
       - kong-net
@@ -114,10 +116,16 @@ services:
       - "5432:5432"
     volumes:
       - payment-db-data:/var/lib/postgresql/data
-      - ../../backend/payment-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../../database/schema/ev_payment_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../../database/seeds/seed-payment.sql:/docker-entrypoint-initdb.d/02-seed.sql
     restart: always
     networks:
       - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+      timeout: 5s
 
   # PostgreSQL for Auth Service
   postgres-auth:
@@ -243,7 +251,7 @@ services:
       - kong-net
     restart: unless-stopped
 
-## Analytics-service
+  ## Analytics-service
   analytics-service:
     build:
       context: ../../backend/analytics-service
@@ -313,7 +321,7 @@ services:
     networks:
       - kong-net
 
-## Kong gateway
+  ## Kong gateway
   kong-database:
     image: postgres:9.6
     container_name: kong-database
