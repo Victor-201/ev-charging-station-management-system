@@ -7,6 +7,8 @@ export interface User {
   password_hash: string;
   role: UserRole | string; // Allow string for backward compatibility
   status: 'active' | 'inactive' | 'suspended';
+  email_verified: boolean;
+  is_verified: boolean; // Alias for email_verified
   created_at: Date;
 }
 
@@ -15,6 +17,15 @@ export interface UserProfile {
   user_id: string;
   full_name?: string;
   date_of_birth?: Date;
+}
+
+export interface VerificationToken {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  expires_at: Date;
+  verified_at?: Date;
+  created_at: Date;
 }
 
 export interface OAuthProvider {

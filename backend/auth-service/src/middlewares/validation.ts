@@ -27,6 +27,22 @@ export const registerSchema = Joi.object({
   password: Joi.string().min(8).required()
     .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
     .message('Password must contain at least one uppercase, lowercase, number and special character'),
+  password_confirmation: Joi.string().valid(Joi.ref('password')).required()
+    .messages({
+      'any.only': 'Password confirmation must match password',
+      'any.required': 'Password confirmation is required'
+    }),
+  full_name: Joi.string().min(2).max(100).required()
+    .messages({
+      'string.min': 'Full name must be at least 2 characters',
+      'string.max': 'Full name must not exceed 100 characters',
+      'any.required': 'Full name is required'
+    }),
+  date_of_birth: Joi.date().max('now').required()
+    .messages({
+      'date.max': 'Date of birth cannot be in the future',
+      'any.required': 'Date of birth is required'
+    }),
   role: Joi.string().valid('user', 'staff', 'admin').default('user'),
 });
 
@@ -38,6 +54,14 @@ export const loginSchema = Joi.object({
 export const verifyEmailSchema = Joi.object({
   email: Joi.string().email().required(),
   verification_code: Joi.string().length(6).required(),
+});
+
+export const verifyEmailTokenSchema = Joi.object({
+  token: Joi.string().required()
+    .messages({
+      'any.required': 'Verification token is required',
+      'string.empty': 'Verification token cannot be empty'
+    }),
 });
 
 export const resendVerificationSchema = Joi.object({

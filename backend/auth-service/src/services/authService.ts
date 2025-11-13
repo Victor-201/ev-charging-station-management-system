@@ -8,6 +8,11 @@ import { JWTPayload } from '../types';
 import { sendEmail } from '../utils/email';
 import { outboxService } from './outboxService';
 import { logger } from '../utils/logger';
+import {
+  VERIFICATION_TOKEN_EXPIRY,
+  VERIFICATION_TOKEN_EXPIRY_HOURS,
+  MINIMUM_AGE_YEARS
+} from '../constants/verification';
 
 export class AuthService {
   // Generate JWT tokens
