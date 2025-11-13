@@ -6,71 +6,14 @@ import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
 
-// Local mock key
-const LOCAL_KEY_USERS = "evcs_users_cache";
-const LOCAL_KEY_VEHICLES = "evcs_user_vehicles";
+import userService from "@/services/userService";
 
-// Mock fallback users
-const fallbackUsers = [
-  { id: 1, username: "alice", role: "admin", active: true },
-  { id: 2, username: "bob", role: "staff", active: true },
-  { id: 3, username: "charlie", role: "staff", active: true },
-];
-
-// 🚀 Mock userService (thay bằng API thật nếu backend có sẵn)
-const userService = {
-  getAll: async () => JSON.parse(localStorage.getItem(LOCAL_KEY_USERS) || "[]"),
-  getById: async (id) => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_USERS) || "[]");
-    return all.find((u) => u.id === id);
-  },
-  update: async (id, payload) => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_USERS) || "[]");
-    const updated = all.map((u) => (u.id === id ? { ...u, ...payload } : u));
-    localStorage.setItem(LOCAL_KEY_USERS, JSON.stringify(updated));
-    return updated.find((u) => u.id === id);
-  },
-  deactivate: async (id) => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_USERS) || "[]");
-    const updated = all.map((u) => (u.id === id ? { ...u, active: false } : u));
-    localStorage.setItem(LOCAL_KEY_USERS, JSON.stringify(updated));
-    return true;
-  },
-  erase: async (id) => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_USERS) || "[]");
-    const updated = all.filter((u) => u.id !== id);
-    localStorage.setItem(LOCAL_KEY_USERS, JSON.stringify(updated));
-    return true;
-  },
-  getVehicles: async (userId) => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_VEHICLES) || "{}");
-    return all[userId] || [];
-  },
-  addVehicle: async (userId, vehicle) => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_VEHICLES) || "{}");
-    if (!all[userId]) all[userId] = [];
-    all[userId].push(vehicle);
-    localStorage.setItem(LOCAL_KEY_VEHICLES, JSON.stringify(all));
-    return all[userId];
-  },
-  deleteVehicle: async (userId, plate) => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_VEHICLES) || "{}");
-    if (!all[userId]) return [];
-    all[userId] = all[userId].filter((v) => v.plate !== plate);
-    localStorage.setItem(LOCAL_KEY_VEHICLES, JSON.stringify(all));
-    return all[userId];
-  },
-  getAllStaff: async () => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_USERS) || "[]");
-    return all.filter((u) => u.role === "staff");
-  },
-  getStaffStatistics: async () => {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY_USERS) || "[]");
-    const adminCount = all.filter((u) => u.role === "admin").length;
-    const staffCount = all.filter((u) => u.role === "staff").length;
-    return { total: all.length, admin: adminCount, staff: staffCount };
-  },
-};
+const OVERLAY_USERS_KEY = "evcs_overlay_users";
+const OVERLAY_VEHICLES_KEY = "evcs_overlay_user_vehicles";
+const getOverlayUsers = () => JSON.parse(localStorage.getItem(OVERLAY_USERS_KEY) || "[]");
+const setOverlayUsers = (arr) => localStorage.setItem(OVERLAY_USERS_KEY, JSON.stringify(arr));
+const getOverlayVehicles = () => JSON.parse(localStorage.getItem(OVERLAY_VEHICLES_KEY) || "{}");
+const setOverlayVehicles = (obj) => localStorage.setItem(OVERLAY_VEHICLES_KEY, JSON.stringify(obj));
 
 // ======================= MAIN COMPONENT =======================
 export default function UserManagement() {
@@ -78,6 +21,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [statusMsg, setStatusMsg] = useState("");
   const [modal, setModal] = useState({ open: false, mode: "create" });
   const [form, setForm] = useState({ id: null, username: "", password: "", role: "staff" });
   const [selectedUser, setSelectedUser] = useState(null);
@@ -97,29 +41,53 @@ export default function UserManagement() {
   // Load all users
   const loadUsers = async () => {
     setLoading(true);
-    const cached = await userService.getAll();
-    if (!cached || cached.length === 0) {
-      localStorage.setItem(LOCAL_KEY_USERS, JSON.stringify(fallbackUsers));
-      setUsers(fallbackUsers);
-    } else {
-      setUsers(cached);
-    }
-    const stat = await userService.getStaffStatistics();
-    setStats(stat);
-    // Optional: load monthly report for first admin user
     try {
-      const firstAdmin = cached.find(u => u.role === "admin") || fallbackUsers.find(u => u.role === "admin");
-      if (firstAdmin) {
-        const rep = await getUserMonthlyReport(firstAdmin.id);
-        setMonthlyReport(rep?.data ?? userMonthlyReport ?? null);
-      }
-    } catch {/* ignore */}
-    setLoading(false);
+      // Expect API to provide list of users
+      const res = await userService.getProfile();
+      const me = res?.data ?? null;
+      const overlay = getOverlayUsers();
+      const base = me ? [me] : [];
+      const merged = [...base];
+      overlay.forEach((u) => {
+        if (!merged.some((b) => String(b.username).toLowerCase() === String(u.username).toLowerCase())) {
+          merged.push(u);
+        }
+      });
+      setUsers(merged);
+      const adminCount = merged.filter((u) => u.role === "admin").length;
+      const staffCount = merged.filter((u) => u.role === "staff").length;
+      setStats({ total: merged.length, admin: adminCount, staff: staffCount });
+      try {
+        if (me?.id) {
+          const rep = await getUserMonthlyReport(me.id);
+          setMonthlyReport(rep?.data ?? userMonthlyReport ?? null);
+        }
+      } catch {/* ignore */}
+    } catch {
+      const overlay = getOverlayUsers();
+      setUsers(overlay);
+      const adminCount = overlay.filter((u) => u.role === "admin").length;
+      const staffCount = overlay.filter((u) => u.role === "staff").length;
+      setStats({ total: overlay.length, admin: adminCount, staff: staffCount });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadUsers();
   }, []);
+
+  const showToast = (msg) => {
+    setStatusMsg(msg);
+    setTimeout(() => setStatusMsg(""), 2500);
+  };
+
+  const recomputeStats = (list) => {
+    const adminCount = list.filter((u) => u.role === "admin").length;
+    const staffCount = list.filter((u) => u.role === "staff").length;
+    setStats({ total: list.length, admin: adminCount, staff: staffCount });
+  };
 
   const handleCreateOrUpdate = async (e) => {
     e.preventDefault();
@@ -131,8 +99,9 @@ export default function UserManagement() {
       return;
     }
 
+    let updatedUsers = users.slice();
     if (modal.mode === "create") {
-      const exists = users.some((u) => u.username.toLowerCase() === username.toLowerCase());
+      const exists = users.some((u) => String(u.username).toLowerCase() === username.toLowerCase());
       if (exists) {
         setError("Tài khoản đã tồn tại!");
         return;
@@ -143,56 +112,81 @@ export default function UserManagement() {
         role: form.role,
         active: true,
       };
-      const updated = [...users, newUser];
-      localStorage.setItem(LOCAL_KEY_USERS, JSON.stringify(updated));
-      setUsers(updated);
+      const overlay = getOverlayUsers();
+      setOverlayUsers([...overlay, newUser]);
+      updatedUsers = [...updatedUsers, newUser];
+      setUsers(updatedUsers);
+      showToast("✅ Đã tạo người dùng");
     } else if (modal.mode === "edit") {
-      await userService.update(form.id, { role: form.role });
-      const updated = await userService.getAll();
-      setUsers(updated);
+      const overlay = getOverlayUsers();
+      const updated = overlay.map((x) => (x.id === form.id ? { ...x, role: form.role } : x));
+      setOverlayUsers(updated);
+      updatedUsers = updatedUsers.map((x) => (x.id === form.id ? { ...x, role: form.role } : x));
+      setUsers((prev) => prev.map((x) => (x.id === form.id ? { ...x, role: form.role } : x)));
+      showToast("✏️ Đã cập nhật người dùng");
     }
 
     setModal({ open: false, mode: "create" });
     setForm({ id: null, username: "", password: "", role: "staff" });
-    const stat = await userService.getStaffStatistics();
-    setStats(stat);
+    recomputeStats(getOverlayUsers());
   };
 
   const handleDeactivate = async (user) => {
-    await userService.deactivate(user.id);
-    const updated = await userService.getAll();
-    setUsers(updated);
+    const nextActive = !user.active;
+    const overlay = getOverlayUsers();
+    const exists = overlay.some((x) => x.id === user.id);
+    const updated = exists
+      ? overlay.map((x) => (x.id === user.id ? { ...x, active: nextActive } : x))
+      : [...overlay, { ...user, active: nextActive }];
+    setOverlayUsers(updated);
+    setUsers((prev) => prev.map((x) => (x.id === user.id ? { ...x, active: nextActive } : x)));
+    recomputeStats(updated);
+    showToast(nextActive ? "✅ Đã kích hoạt" : "🚫 Đã hủy kích hoạt");
   };
 
   const handleDelete = async (user) => {
-    if (!confirm(`Xóa tài khoản ${user.username}?`)) return;
-    await userService.erase(user.id);
-    const updated = await userService.getAll();
+    const overlay = getOverlayUsers();
+    const updated = overlay.filter((x) => x.id !== user.id);
+    setOverlayUsers(updated);
     setUsers(updated);
+    recomputeStats(updated);
+    showToast("🗑️ Đã xóa người dùng");
   };
 
   const openVehicles = async (user) => {
-    const v = await userService.getVehicles(user.id);
+    const overlay = getOverlayVehicles();
     setSelectedUser(user);
-    setVehicles(v);
+    setVehicles(overlay[user.id] || []);
   };
 
   const handleAddVehicle = async (e) => {
     e.preventDefault();
     if (!vehicleForm.plate.trim()) return;
-    const newVehicle = { plate: vehicleForm.plate, model: vehicleForm.model };
-    const updated = await userService.addVehicle(selectedUser.id, newVehicle);
-    setVehicles(updated);
+    const overlay = getOverlayVehicles();
+    const list = overlay[selectedUser.id] || [];
+    const updatedList = [...list, { plate: vehicleForm.plate, model: vehicleForm.model }];
+    overlay[selectedUser.id] = updatedList;
+    setOverlayVehicles(overlay);
+    setVehicles(updatedList);
     setVehicleForm({ plate: "", model: "" });
   };
 
   const handleDeleteVehicle = async (plate) => {
-    const updated = await userService.deleteVehicle(selectedUser.id, plate);
-    setVehicles(updated);
+    const overlay = getOverlayVehicles();
+    const list = overlay[selectedUser.id] || [];
+    const updatedList = list.filter((v) => v.plate !== plate);
+    overlay[selectedUser.id] = updatedList;
+    setOverlayVehicles(overlay);
+    setVehicles(updatedList);
   };
 
   return (
     <div className="space-y-6">
+      {statusMsg && (
+        <div className="fixed top-5 right-5 bg-blue-600 text-white px-4 py-2 rounded shadow z-50">
+          {statusMsg}
+        </div>
+      )}
       <PageHeader title="Quản lý người dùng" subtitle="Quản lý tài khoản, vai trò và phương tiện" />
 
       <Section
@@ -243,6 +237,7 @@ export default function UserManagement() {
                   render: (_, row) => (
                     <div className="flex gap-2">
                       <button
+                        type="button"
                         className="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-sm"
                         onClick={() => {
                           setForm({ id: row.id, username: row.username, role: row.role });
@@ -252,18 +247,21 @@ export default function UserManagement() {
                         ✏️ Sửa
                       </button>
                       <button
+                        type="button"
                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-sm"
                         onClick={() => openVehicles(row)}
                       >
                         🚗 Xe
                       </button>
                       <button
-                        className="bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded text-sm"
+                        type="button"
+                        className={row.active ? "bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded text-sm" : "bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-sm"}
                         onClick={() => handleDeactivate(row)}
                       >
-                        🚫 Hủy kích hoạt
+                        {row.active ? "🚫 Hủy kích hoạt" : "✅ Kích hoạt"}
                       </button>
                       <button
+                        type="button"
                         className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm"
                         onClick={() => handleDelete(row)}
                       >

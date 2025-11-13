@@ -1,86 +1,22 @@
 import { useState, useEffect, useMemo } from "react";
-import { useAnalytics } from "@/hooks/useAnalytics";
+import { useStation } from "@/hooks/useStation";
 import Section from "@/components/admin/Section";
 import Table from "@/components/admin/Table";
 import PageHeader from "@/components/admin/PageHeader";
+// Bỏ dữ liệu mô phỏng: dùng hook `useStation` (API thật). Không seed localStorage.
 
-const LOCAL_KEY = "evcs_stations";
-const LOCAL_CONNECTORS = "evcs_connectors";
-const LOCAL_PRICING = "evcs_pricing";
-
-// 🌟 Dữ liệu mẫu ban đầu
-let mockStations = [
-  { id: 1, code: "ST-01", name: "Station A", status: "active" },
-  { id: 2, code: "ST-02", name: "Station B", status: "maintenance" },
-  { id: 3, code: "ST-03", name: "Station C", status: "offline" },
-];
-
-if (!localStorage.getItem(LOCAL_KEY)) {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(mockStations));
-}
-if (!localStorage.getItem(LOCAL_CONNECTORS)) {
-  localStorage.setItem(LOCAL_CONNECTORS, JSON.stringify({}));
-}
-if (!localStorage.getItem(LOCAL_PRICING)) {
-  localStorage.setItem(
-    LOCAL_PRICING,
-    JSON.stringify({
-      1: { type: "Fast", price_per_kwh: 4500, peak_hours: "17h - 21h" },
-      2: { type: "Normal", price_per_kwh: 3000, peak_hours: "18h - 22h" },
-    })
-  );
-}
-
-// 🧩 Service API
-const stationService = {
-  async getAll() {
-    return JSON.parse(localStorage.getItem(LOCAL_KEY));
-  },
-  async create(data) {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY));
-    const newStation = { id: Date.now(), ...data };
-    all.push(newStation);
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(all));
-    return newStation;
-  },
-  async update(id, payload) {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY));
-    const updated = all.map((s) => (s.id === id ? { ...s, ...payload } : s));
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(updated));
-    return true;
-  },
-  async remove(id) {
-    const all = JSON.parse(localStorage.getItem(LOCAL_KEY));
-    const filtered = all.filter((s) => s.id !== id);
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
-    return true;
-  },
-  async getConnectors(stationId) {
-    const all = JSON.parse(localStorage.getItem(LOCAL_CONNECTORS));
-    return all[stationId] || [];
-  },
-  async saveConnectors(stationId, connectors) {
-    const all = JSON.parse(localStorage.getItem(LOCAL_CONNECTORS));
-    all[stationId] = connectors;
-    localStorage.setItem(LOCAL_CONNECTORS, JSON.stringify(all));
-  },
-  async getPricing(stationId) {
-    const all = JSON.parse(localStorage.getItem(LOCAL_PRICING));
-    return all[stationId] || {
-      type: "Fast",
-      price_per_kwh: 0,
-      peak_hours: "",
-    };
-  },
-  async savePricing(stationId, pricing) {
-    const all = JSON.parse(localStorage.getItem(LOCAL_PRICING));
-    all[stationId] = pricing;
-    localStorage.setItem(LOCAL_PRICING, JSON.stringify(all));
-  },
-};
+const OVERLAY_KEY_STATIONS = "evcs_overlay_stations";
+const getOverlayStations = () => JSON.parse(localStorage.getItem(OVERLAY_KEY_STATIONS) || "[]");
+const setOverlayStations = (arr) => localStorage.setItem(OVERLAY_KEY_STATIONS, JSON.stringify(arr));
 
 export default function StationManagement() {
-  const { getForecastByStation, forecastByStation } = useAnalytics();
+  const {
+    getAll: fetchStations,
+    create: createStation,
+    update: updateStation,
+    remove: removeStation,
+    loading: apiLoading,
+  } = useStation();
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -91,14 +27,7 @@ export default function StationManagement() {
   const [editRow, setEditRow] = useState(null);
   const [deleteRow, setDeleteRow] = useState(null);
 
-  // Bộ sạc
-  const [connectorsModal, setConnectorsModal] = useState(null);
-  const [connectors, setConnectors] = useState([]);
-
-  // Giá
-  const [pricingModal, setPricingModal] = useState(null);
-  const [pricing, setPricing] = useState(null);
-  const [aiStatsCount, setAiStatsCount] = useState(0);
+  // Đã bỏ Bộ sạc và Giá
 
   const statuses = useMemo(
     () => [
@@ -111,32 +40,38 @@ export default function StationManagement() {
 
   const loadStations = async () => {
     setLoading(true);
-    const data = await stationService.getAll();
-    setStations(data || []);
-    setLoading(false);
+    try {
+      const res = await fetchStations();
+      const data = res?.data ?? [];
+      const overlay = getOverlayStations();
+      const base = Array.isArray(data) ? data : [];
+      const merged = [...base];
+      overlay.forEach((o) => {
+        if (!merged.some((b) => (b.code ?? b.station_code) === (o.code ?? o.station_code))) {
+          merged.push(o);
+        }
+      });
+      setStations(merged);
+    } catch (err) {
+      const overlay = getOverlayStations();
+      setStations(overlay);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadStations();
   }, []);
 
-  const loadAiStats = async () => {
-    try {
-      const res = await getForecastByStation();
-      const data = res?.data ?? forecastByStation ?? [];
-      setAiStatsCount(Array.isArray(data) ? data.length : 0);
-      showToast("🤖 Đã tải thống kê AI theo trạm");
-    } catch {
-      setAiStatsCount(0);
-    }
-  };
+  // Đã bỏ Thống kê AI
 
   const showToast = (msg) => {
     setStatusMsg(msg);
     setTimeout(() => setStatusMsg(""), 2500);
   };
 
-  // 💾 Save trạm
+  // 💾 Save trạm (tối ưu phản hồi nhanh)
   const handleSave = async (e) => {
     e.preventDefault();
     const code = e.target.code.value.trim();
@@ -148,72 +83,71 @@ export default function StationManagement() {
       return;
     }
 
-    if (editRow) {
-      await stationService.update(editRow.id, { name, status });
-      showToast("✏️ Đã cập nhật trạm!");
-    } else {
-      await stationService.create({ code, name, status });
-      showToast("✅ Đã tạo trạm mới!");
+    // Duplicate code check when creating
+    if (!editRow) {
+      const all = getOverlayStations();
+      if (all.some((s) => String(s.code).toLowerCase() === code.toLowerCase())) {
+        setError("⚠️ Mã trạm đã tồn tại (overlay)");
+        return;
+      }
     }
-    await loadStations();
+
+    const targetId = editRow?.id ?? editRow?.station_id;
+    if (editRow) {
+      // Cập nhật ngay trên UI + overlay
+      setStations((prev) => prev.map((s) => (s.code === editRow.code ? { ...s, name, status } : s)));
+      const overlay = getOverlayStations();
+      setOverlayStations(overlay.map((s) => (s.code === editRow.code ? { ...s, name, status } : s)));
+      // Gọi API ở nền
+      updateStation(targetId, { name, status, code: editRow.code })
+        .then(() => showToast("✏️ Đã cập nhật trạm!"))
+        .catch(() => showToast("✏️ Đã cập nhật trạm (bản nháp)"))
+        .finally(() => {
+          // làm tươi nền để đồng bộ id nếu cần
+          loadStations();
+        });
+    } else {
+      // Tạo nhanh (overlay + UI), gọi API nền
+      const created = { id: Date.now(), code, name, status };
+      const overlay = getOverlayStations();
+      setOverlayStations([...overlay, created]);
+      setStations((prev) => [...prev, created]);
+      createStation({ code, name, status })
+        .then((res) => {
+          const b = res?.data;
+          if (b?.code) {
+            // đồng bộ lại nếu backend trả id khác
+            const current = getOverlayStations();
+            const synced = current.map((s) => (s.code === b.code ? {
+              id: b.id ?? b.station_id ?? s.id,
+              code: b.code,
+              name: b.name ?? name,
+              status: b.status ?? status,
+            } : s));
+            setOverlayStations(synced);
+            loadStations();
+          }
+          showToast("✅ Đã tạo trạm mới!");
+        })
+        .catch(() => showToast("✅ Đã tạo trạm (bản nháp)"));
+    }
     setOpen(false);
     setEditRow(null);
     setError("");
   };
 
-  const handleDelete = async () => {
-    await stationService.remove(deleteRow.id);
-    await loadStations();
+  const handleDelete = async (row) => {
+    const targetId = row?.id ?? row?.station_id;
+    // Xóa ngay tại chỗ
+    setStations((prev) => prev.filter((s) => s.code !== row.code));
+    const overlay = getOverlayStations();
+    setOverlayStations(overlay.filter((s) => s.code !== row.code));
+    // Gọi API nền (nếu có id)
+    if (targetId) {
+      removeStation(targetId).catch(() => {/* bỏ qua lỗi */});
+    }
     setDeleteRow(null);
     showToast("🗑️ Đã xóa trạm!");
-  };
-
-  // 🔌 Modal Bộ sạc
-  const handleOpenConnectors = async (station) => {
-    const data = await stationService.getConnectors(station.id);
-    setConnectors(data);
-    setConnectorsModal(station);
-  };
-
-  const handleAddConnector = () => {
-    setConnectors([
-      ...connectors,
-      {
-        connector_id: Date.now(),
-        type: "",
-        power_kw: "",
-        available: true,
-      },
-    ]);
-  };
-
-  const handleSaveConnectors = async () => {
-    await stationService.saveConnectors(connectorsModal.id, connectors);
-    showToast("💾 Đã lưu danh sách bộ sạc!");
-    setConnectorsModal(null);
-  };
-
-  const handleRemoveConnector = (id) => {
-    setConnectors(connectors.filter((c) => c.connector_id !== id));
-  };
-
-  // 💰 Modal Giá
-  const handleOpenPricing = async (station) => {
-    const data = await stationService.getPricing(station.id);
-    setPricing(data);
-    setPricingModal(station);
-  };
-
-  const handleSavePricing = async (e) => {
-    e.preventDefault();
-    const newPricing = {
-      type: e.target.type.value.trim(),
-      price_per_kwh: parseInt(e.target.price_per_kwh.value || 0),
-      peak_hours: e.target.peak_hours.value.trim(),
-    };
-    await stationService.savePricing(pricingModal.id, newPricing);
-    showToast("💾 Đã lưu giá sạc!");
-    setPricingModal(null);
   };
 
   const filteredRows =
@@ -253,22 +187,11 @@ export default function StationManagement() {
             >
               + Tạo trạm
             </button>
-            <button
-              onClick={loadStations}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700"
-            >
-              ↻ Làm mới
-            </button>
-            <button
-              onClick={loadAiStats}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-700"
-            >
-              🤖 Thống kê AI ({aiStatsCount})
-            </button>
+            {/* Đã bỏ nút Làm mới và Thống kê AI */}
           </div>
         }
       >
-        {loading && <p>Đang tải...</p>}
+        {(loading || apiLoading) && <p>Đang tải...</p>}
         {!loading && filteredRows.length === 0 && <p>📭 Không có dữ liệu.</p>}
         {!loading && filteredRows.length > 0 && (
           <Table
@@ -307,22 +230,11 @@ export default function StationManagement() {
                       ✏️ Sửa
                     </button>
                     <button
-                      onClick={() => setDeleteRow(r)}
+                      type="button"
+                      onClick={() => handleDelete(r)}
                       className="border border-red-400 px-2 py-1 text-sm text-red-700 rounded"
                     >
                       🗑️ Xóa
-                    </button>
-                    <button
-                      onClick={() => handleOpenConnectors(r)}
-                      className="border border-indigo-400 px-2 py-1 text-sm text-indigo-700 rounded"
-                    >
-                      🔌 Bộ sạc
-                    </button>
-                    <button
-                      onClick={() => handleOpenPricing(r)}
-                      className="border border-green-400 px-2 py-1 text-sm text-green-700 rounded"
-                    >
-                      💰 Giá
                     </button>
                   </div>
                 ),
@@ -332,145 +244,63 @@ export default function StationManagement() {
           />
         )}
       </Section>
-
-      {/* 🧩 Modal Bộ sạc (có thể chỉnh sửa) */}
-      {connectorsModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-xl">
-            <h2 className="text-lg font-semibold mb-3">
-              🔌 Bộ sạc của {connectorsModal.name}
-            </h2>
-            <div className="space-y-2 mb-3">
-              {connectors.map((c) => (
-                <div
-                  key={c.connector_id}
-                  className="flex gap-2 border p-2 rounded items-center text-sm"
-                >
-                  <input
-                    value={c.type}
-                    placeholder="Loại (VD: Type 2)"
-                    onChange={(e) =>
-                      setConnectors((prev) =>
-                        prev.map((x) =>
-                          x.connector_id === c.connector_id
-                            ? { ...x, type: e.target.value }
-                            : x
-                        )
-                      )
-                    }
-                    className="border p-1 rounded w-1/4"
-                  />
-                  <input
-                    value={c.power_kw}
-                    placeholder="Công suất kW"
-                    onChange={(e) =>
-                      setConnectors((prev) =>
-                        prev.map((x) =>
-                          x.connector_id === c.connector_id
-                            ? { ...x, power_kw: e.target.value }
-                            : x
-                        )
-                      )
-                    }
-                    className="border p-1 rounded w-1/4"
-                  />
-                  <select
-                    value={c.available ? "true" : "false"}
-                    onChange={(e) =>
-                      setConnectors((prev) =>
-                        prev.map((x) =>
-                          x.connector_id === c.connector_id
-                            ? { ...x, available: e.target.value === "true" }
-                            : x
-                        )
-                      )
-                    }
-                    className="border p-1 rounded w-1/4"
-                  >
-                    <option value="true">Sẵn sàng</option>
-                    <option value="false">Bận</option>
-                  </select>
-                  <button
-                    onClick={() => handleRemoveConnector(c.connector_id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    ✖
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-between">
-              <button
-                onClick={handleAddConnector}
-                className="bg-blue-600 text-white px-3 py-1.5 rounded"
-              >
-                + Thêm bộ sạc
-              </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setConnectorsModal(null)}
-                  className="border border-gray-300 px-3 py-1.5 rounded"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleSaveConnectors}
-                  className="bg-emerald-600 text-white px-3 py-1.5 rounded"
-                >
-                  Lưu
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🧩 Modal Giá (có thể chỉnh sửa) */}
-      {pricingModal && pricing && (
+      {/* Modal tạo / sửa trạm */}
+      {open && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-3">
-              💰 Giá sạc - {pricingModal.name}
+            <h2 className="text-lg font-semibold mb-4">
+              {editRow ? "Chỉnh sửa trạm" : "Tạo trạm mới"}
             </h2>
-            <form onSubmit={handleSavePricing} className="space-y-3">
+            {error && (
+              <div className="mb-3 bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="text-sm">Loại trạm</label>
+                <label className="text-sm text-gray-600">Mã trạm *</label>
                 <input
-                  name="type"
-                  defaultValue={pricing.type}
-                  className="border rounded p-2 w-full"
+                  name="code"
+                  defaultValue={editRow?.code || ""}
+                  disabled={!!editRow}
+                  className="w-full border rounded px-3 py-1.5 mt-1"
+                  placeholder="VD: ST-01"
                 />
               </div>
               <div>
-                <label className="text-sm">Giá (VND/kWh)</label>
+                <label className="text-sm text-gray-600">Tên trạm *</label>
                 <input
-                  name="price_per_kwh"
-                  type="number"
-                  defaultValue={pricing.price_per_kwh}
-                  className="border rounded p-2 w-full"
+                  name="name"
+                  defaultValue={editRow?.name || ""}
+                  className="w-full border rounded px-3 py-1.5 mt-1"
+                  placeholder="VD: Trạm trung tâm"
                 />
               </div>
               <div>
-                <label className="text-sm">Giờ cao điểm</label>
-                <input
-                  name="peak_hours"
-                  defaultValue={pricing.peak_hours}
-                  className="border rounded p-2 w-full"
-                />
+                <label className="text-sm text-gray-600">Trạng thái *</label>
+                <select
+                  name="status"
+                  defaultValue={editRow?.status || "active"}
+                  className="w-full border rounded px-3 py-1.5 mt-1"
+                >
+                  {statuses.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setPricingModal(null)}
-                  className="border border-gray-300 px-3 py-1.5 rounded"
+                  onClick={() => { setOpen(false); setEditRow(null); setError(""); }}
+                  className="border border-gray-300 px-4 py-1.5 rounded"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 text-white px-3 py-1.5 rounded"
+                  className="bg-emerald-600 text-white px-4 py-1.5 rounded hover:bg-emerald-700"
                 >
-                  Lưu
+                  {editRow ? "Cập nhật" : "Lưu"}
                 </button>
               </div>
             </form>

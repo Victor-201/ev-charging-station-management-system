@@ -418,9 +418,7 @@ export default function Settings() {
             </span>
             <span>•</span>
             <span>Cảnh báo mở: <b>{Array.isArray(alerts) ? alerts.length : 0}</b></span>
-            <button onClick={refreshSystem} className="px-3 py-1 rounded bg-blue-600 text-white">
-              Làm mới
-            </button>
+            {/* Bỏ nút Làm mới theo yêu cầu; vẫn auto cập nhật khi tải trang */}
           </div>
         </div>
       </Section>

@@ -10,7 +10,6 @@ import userService from "@/services/userService";
 import StatCard from "@/components/admin/StatCard";
 import Section from "@/components/admin/Section";
 import Chart from "@/components/admin/Chart";
-import Table from "@/components/admin/Table";
 import { ROUTERS } from "@/utils/constants";
 
 /**
@@ -24,22 +23,23 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const {
     overview,
-    revenue,
     alerts,
     getOverview,
-    getRevenue,
+    getRevenueReport,
     getAlerts,
   } = useAnalytics();
 
-  const [kpis, setKpis] = useState({ users: 0, stations: 0, revenue: 0, sessions: 0 });
-  const [trend, setTrend] = useState({ users: "+0%", revenue: "+0%", sessions: "+0%" });
-  const [recent, setRecent] = useState([]);
-  const [traffic, setTraffic] = useState([]);
+  const [kpis, setKpis] = useState({ users: 0, stations: 0, revenue: 0, sessions: 0, energy_kwh: 0 });
+  const [monthlyChart, setMonthlyChart] = useState([]); // 3 cột: Doanh thu, Phiên sạc, kWh
   const [alertsCount, setAlertsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState("");
-  const [hasData, setHasData] = useState(true);
   const [toastMsg, setToastMsg] = useState("");
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return ym;
+  });
 
   // 🧮 Định dạng tiền VND
   const formatVND = (val) =>
@@ -49,73 +49,72 @@ export default function Dashboard() {
       maximumFractionDigits: 0,
     }).format(val || 0);
 
-  // 📡 Gọi API qua service
+  // Tính khoảng thời gian theo giá trị tháng (YYYY-MM)
+  const getRangeFromMonth = (ym) => {
+    const [y, m] = ym.split("-").map((x) => parseInt(x, 10));
+    const first = new Date(y, m - 1, 1).toISOString().slice(0, 10);
+    const last = new Date(y, m, 0).toISOString().slice(0, 10);
+    return { from: first, to: last };
+  };
+
+  // 📡 Gọi API
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      const [overviewRes, revenueRes, usersRes, stationsRes] = await Promise.allSettled([
+      const { from, to } = getRangeFromMonth(month);
+
+      const [overviewRes, revenueReportRes, usersRes, stationsRes] = await Promise.allSettled([
         getOverview(),
-        getRevenue({ range: "week" }),
+        getRevenueReport({ from, to }),
         userService.getAll(),
         stationService.getAll(),
       ]);
 
       const overviewData = overviewRes.value?.data ?? overview ?? {};
-      const revenueTotal = revenueRes.value?.data?.total ?? revenue?.total ?? 0;
+      const revArr = revenueReportRes.value?.data ?? [];
+      const revenueTotal = Array.isArray(revArr) ? revArr.reduce((s, r) => s + (r.revenue || 0), 0) : 0;
+      const sessionsTotal = Array.isArray(revArr) ? revArr.reduce((s, r) => s + (r.sessions || 0), 0) : 0;
+      const energyTotal = Array.isArray(revArr) ? revArr.reduce((s, r) => s + (r.energy_kwh || 0), 0) : 0;
       const usersCount = usersRes.value?.data?.length ?? 0;
       const stationsCount = stationsRes.value?.data?.length ?? 0;
 
       const sessionsRes = await chargingControlService.getUserSessions();
-      const sessions = sessionsRes?.data?.length ?? overviewData.total_sessions ?? 0;
+      const sessions = sessionsRes?.data?.length ?? overviewData.total_sessions ?? sessionsTotal;
 
-      const newKpis = { users: usersCount, stations: stationsCount, revenue: revenueTotal, sessions };
+      const newKpis = { users: usersCount, stations: stationsCount, revenue: revenueTotal, sessions, energy_kwh: energyTotal };
       setKpis(newKpis);
-
-  const noData = !usersCount && !stationsCount && !revenueTotal && !sessions;
-      setHasData(!noData);
-
-      // ✅ Giả lập trend ngẫu nhiên
-      const rnd = () =>
-        (Math.random() > 0.5 ? "+" : "-") + (Math.random() * 4).toFixed(1) + "%";
-      setTrend({
-        users: rnd(),
-        revenue: rnd(),
-        sessions: rnd(),
-      });
-
-      // ✅ Hoạt động gần đây (mock)
-      setRecent([
-        { id: "ORD-001", user: "Nguyễn Văn A", station: "Trạm Nguyễn Văn Linh", amount: 85000, time: "10:30 12/11" },
-        { id: "ORD-002", user: "Trần Thị B", station: "Trạm Phạm Hùng", amount: 120000, time: "09:15 12/11" },
-        { id: "ORD-003", user: "Lê Văn C", station: "Trạm Nguyễn Huệ", amount: 56000, time: "08:20 11/11" },
+      // Biểu đồ 3 cột theo tháng
+      setMonthlyChart([
+        { label: "Doanh thu (VND)", value: revenueTotal },
+        { label: "Phiên sạc", value: sessions },
+        { label: "Tổng điện (kWh)", value: energyTotal },
       ]);
 
-  // Alerts via provider
-  const alertsRes = await getAlerts();
-  const alertsData = alertsRes?.data ?? alerts ?? [];
-  setAlertsCount(Array.isArray(alertsData) ? alertsData.length : 0);
+      // Alerts via provider
+      const alertsRes = await getAlerts();
+      const alertsData = alertsRes?.data ?? alerts ?? [];
+      setAlertsCount(Array.isArray(alertsData) ? alertsData.length : 0);
       setLastUpdated(new Date().toLocaleTimeString("vi-VN"));
       setToastMsg("✅ Đã làm mới dữ liệu thành công!");
       setTimeout(() => setToastMsg(""), 2500);
     } catch (e) {
       console.error("Dashboard error:", e);
-      setHasData(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadTraffic = () => {
-    const days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"];
-    setTraffic(days.map((d) => ({ label: d, value: Math.round(600 + Math.random() * 200) })));
-  };
-
   useEffect(() => {
     loadDashboard();
-    loadTraffic();
     const timer = setInterval(() => loadDashboard(), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Tự động reload khi đổi tháng
+  useEffect(() => {
+    loadDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month]);
 
   const quickCards = [
     { key: "users", title: "Users", subtitle: "Quản lý người dùng", icon: Users, route: ROUTERS.ADMIN.USER_MANAGEMENT },
@@ -148,11 +147,24 @@ export default function Dashboard() {
             <div className="text-sm opacity-80">
               🕒 Cập nhật lúc: <b>{lastUpdated}</b>
             </div>
+            <div className="flex items-center gap-2 ml-4">
+              <span className="text-sm opacity-90">Tháng:</span>
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="rounded bg-white/20 px-2 py-1 text-white placeholder-white/60 focus:outline-none"
+              />
+            </div>
             <button
               onClick={() => loadDashboard()}
-              className="ml-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 px-3 py-2 rounded-lg text-sm transition"
+              disabled={loading}
+              className={`ml-4 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
+                loading ? "bg-white/10 cursor-not-allowed opacity-70" : "bg-white/20 hover:bg-white/30"
+              }`}
             >
-              <RefreshCw size={16} /> Làm mới
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+              {loading ? "Đang tải..." : "Làm mới"}
             </button>
           </div>
         </div>
@@ -180,55 +192,20 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {!hasData ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-400 p-10 bg-gray-50 dark:bg-gray-900/20 text-center">
-          <div className="text-4xl mb-3">📭</div>
-          <div className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-            Không có dữ liệu hiển thị
-          </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Vui lòng kiểm tra lại kết nối hoặc dữ liệu backend.
-          </div>
-        </div>
-      ) : (
-        <>
+      <>
           {/* KPI */}
           <div className="grid gap-4 md:grid-cols-3">
-            <StatCard title="Người dùng" value={loading ? "..." : kpis.users.toLocaleString()} icon={Users} trend={trend.users} />
-            <StatCard title="Doanh thu (tuần)" value={loading ? "..." : formatVND(kpis.revenue)} icon={CreditCard} trend={trend.revenue} />
-            <StatCard title="Phiên sạc" value={loading ? "..." : kpis.sessions.toLocaleString()} icon={PlugZap} trend={trend.sessions} />
+            <StatCard title="Người dùng" value={loading ? "..." : kpis.users.toLocaleString()} icon={Users} />
+            <StatCard title="Doanh thu (tháng)" value={loading ? "..." : formatVND(kpis.revenue)} icon={CreditCard} />
+            <StatCard title="Phiên sạc (tháng)" value={loading ? "..." : kpis.sessions.toLocaleString()} icon={PlugZap} />
           </div>
 
-          {/* Chart */}
-          <Section title="Biểu đồ lưu lượng tuần này (kWh)">
-            <Chart height={260} data={traffic} />
+          {/* Chart 3 cột theo tháng */}
+          <Section title="Tổng quan tháng này">
+            <Chart height={260} data={monthlyChart} />
             <div className="text-xs text-gray-500 mt-2 text-right">Lần cập nhật cuối: {lastUpdated}</div>
           </Section>
-
-          {/* Recent Activities */}
-          <Section title="Hoạt động gần đây">
-            {alertsCount > 0 && (
-              <p className="mb-2 text-xs text-amber-600">
-                ⚠️ Cảnh báo hệ thống đang mở: <b>{alertsCount}</b>
-              </p>
-            )}
-            {recent.length === 0 ? (
-              <div className="text-center py-6 text-gray-500 dark:text-gray-400">📄 Chưa có giao dịch gần đây</div>
-            ) : (
-              <Table
-                columns={[
-                  { key: "id", title: "Mã GD", dataIndex: "id" },
-                  { key: "user", title: "Người dùng", dataIndex: "user" },
-                  { key: "station", title: "Trạm", dataIndex: "station" },
-                  { key: "time", title: "Thời gian", dataIndex: "time" },
-                  { key: "amount", title: "Số tiền", dataIndex: "amount", render: (v) => formatVND(v) },
-                ]}
-                data={recent}
-              />
-            )}
-          </Section>
         </>
-      )}
     </div>
   );
 }

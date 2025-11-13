@@ -2,12 +2,11 @@ import { useMemo, useState, useEffect } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Chart from "@/components/admin/Chart";
-import pdfMake from "pdfmake/build/pdfmake";
-import * as pdfFonts from "pdfmake/build/vfs_fonts";
+// Bỏ PDF fallback, chỉ dùng export từ backend
 import { useAnalytics } from "@/hooks/useAnalytics";
 import paymentService from "@/services/paymentService";
 
-pdfMake.vfs = pdfFonts.default.vfs;
+// PDF fallback bị loại bỏ theo yêu cầu
 
 /**
  * Reports.jsx (Final API-integrated version)
@@ -24,11 +23,19 @@ export default function Reports() {
   const [revenue, setRevenue] = useState(0);
   const [sessions, setSessions] = useState(0);
   const [stations, setStations] = useState([]);
+  const [dailySeries, setDailySeries] = useState([]); // dữ liệu theo ngày cho biểu đồ
+  const [dailyRows, setDailyRows] = useState([]); // bảng theo ngày
   const [avgPerSession, setAvgPerSession] = useState(0);
   const [avgPerStation, setAvgPerStation] = useState(0);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState("");
   const [lastUpdated, setLastUpdated] = useState("");
+
+  // Kiểm tra phạm vi ngày hợp lệ
+  const rangeInvalid = useMemo(() => {
+    if (!from || !to) return true;
+    return new Date(from) > new Date(to);
+  }, [from, to]);
 
   // 🧭 Lấy dữ liệu khi mount
   useEffect(() => {
@@ -37,118 +44,95 @@ export default function Reports() {
 
   // 📡 Gọi API chính
   const loadReports = async () => {
+    if (rangeInvalid) {
+      setToast("⚠️ Phạm vi ngày không hợp lệ");
+      setTimeout(() => setToast(""), 2500);
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await getRevenueReport({ from, to });
-      const data = res?.data?.stations ?? res?.data ?? [];
+      const res = await getRevenueReport({ from, to, groupBy: "day" });
+      const data = res?.data ?? [];
 
       if (Array.isArray(data) && data.length > 0) {
         handleData(data);
         setToast("✅ Dữ liệu doanh thu đã cập nhật!");
       } else {
-        handleData(generateMockData());
-        setToast("⚠️ Dữ liệu rỗng, hiển thị mock!");
+        // Không hiển thị gì khi không có dữ liệu
+        handleData([]);
+        setToast("");
       }
     } catch (err) {
       console.error("Lỗi lấy báo cáo:", err);
-      handleData(generateMockData());
-      setToast("⚠️ API lỗi — hiển thị dữ liệu mô phỏng");
+      handleData([]);
+      setToast("");
     } finally {
       setLoading(false);
       setTimeout(() => setToast(""), 2500);
     }
   };
 
+  // Đã bỏ chọn tháng thủ công; chỉ dùng từ ngày đến ngày
+
   // 🔢 Tính toán dữ liệu thống kê
   const handleData = (arr) => {
-    const totalRev = arr.reduce((s, r) => s + (r.revenue || 0), 0);
-    const totalSes = arr.reduce((s, r) => s + (r.sessions || 0), 0);
+    // arr kỳ vọng là mảng theo ngày hoặc phần tử có trường date/day
+    const sorted = [...arr].sort((a, b) => new Date(a.date || a.day) - new Date(b.date || b.day));
+    const totalRev = sorted.reduce((s, r) => s + (r.revenue || 0), 0);
+    const totalSes = sorted.reduce((s, r) => s + (r.sessions || 0), 0);
 
     setRevenue(totalRev);
     setSessions(totalSes);
     setAvgPerSession(totalSes > 0 ? Math.round(totalRev / totalSes) : 0);
-    setAvgPerStation(arr.length > 0 ? Math.round(totalRev / arr.length) : 0);
-    setStations(arr);
+    setAvgPerStation(0);
+    setStations([]); // không hiển thị theo trạm nữa ở phần biểu đồ
+
+    // Map sang chuỗi theo ngày cho biểu đồ
+    const byDay = sorted
+      .filter((x) => x.date || x.day)
+      .map((x) => ({ label: x.date || x.day, value: x.revenue || 0 }));
+    setDailySeries(byDay);
+    setDailyRows(sorted.filter((x) => x.date || x.day));
     setLastUpdated(new Date().toLocaleTimeString("vi-VN"));
   };
 
-  // 🔧 Dữ liệu mô phỏng khi API lỗi
-  const generateMockData = () => [
-    { station_id: "ST-01", sessions: 128, revenue: 1850000, energy_kwh: 5400 },
-    { station_id: "ST-02", sessions: 145, revenue: 2130000, energy_kwh: 6100 },
-    { station_id: "ST-03", sessions: 112, revenue: 1650000, energy_kwh: 4800 },
-  ];
+  // Bỏ dữ liệu mô phỏng
 
   // 🧾 Gộp xuất báo cáo (API → Fallback PDF)
   const exportReport = async () => {
+    if (rangeInvalid) {
+      setToast("⚠️ Phạm vi ngày không hợp lệ");
+      setTimeout(() => setToast(""), 2500);
+      return;
+    }
+    if (!dailySeries.length) {
+      setToast("ℹ️ Không có dữ liệu để xuất");
+      setTimeout(() => setToast(""), 2500);
+      return;
+    }
     setToast("⏳ Đang tạo báo cáo...");
     try {
-      const res = await paymentService.exportLedger({ from, to }, { responseType: "blob" });
+      const res = await paymentService.exportLedger({ from, to });
       if (res?.data) {
-        // ✅ Tải file thật từ backend
-        const contentType = res.headers["content-type"] || "application/octet-stream";
-        const ext = contentType.includes("excel") ? "xlsx" : "pdf";
+        const contentType = res.headers?.["content-type"] || "application/octet-stream";
         const blob = new Blob([res.data], { type: contentType });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `EV_Ledger_${from}_to_${to}.${ext}`;
+        a.download = `EV_Ledger_${from}_to_${to}`;
         a.click();
         a.remove();
-        setToast(`📤 Đã tải báo cáo (${ext.toUpperCase()})`);
-      } else {
-        // Fallback PDF nếu không có file
-        exportPDF();
+        setToast("📤 Đã tải báo cáo");
       }
     } catch (err) {
-      console.warn("Không thể xuất sổ cái, fallback PDF:", err);
-      exportPDF();
+      console.warn("Không thể xuất sổ cái:", err);
     } finally {
       setTimeout(() => setToast(""), 2500);
     }
   };
 
-  // 🧩 Fallback PDF xuất báo cáo
-  const exportPDF = () => {
-    const summary = [
-      ["Tổng doanh thu", `${revenue.toLocaleString("vi-VN")} VND`],
-      ["Tổng phiên sạc", sessions],
-      ["TB / phiên", `${avgPerSession.toLocaleString("vi-VN")} VND`],
-      ["TB / trạm", `${avgPerStation.toLocaleString("vi-VN")} VND`],
-    ];
-
-    const details = [
-      ["#", "Mã trạm", "Phiên sạc", "Điện (kWh)", "Doanh thu (VND)"],
-      ...stations.map((s, i) => [
-        i + 1,
-        s.station_id,
-        s.sessions,
-        s.energy_kwh?.toLocaleString("vi-VN"),
-        s.revenue?.toLocaleString("vi-VN"),
-      ]),
-    ];
-
-    const docDefinition = {
-      content: [
-        { text: "EV CHARGING SYSTEM REPORT", style: "header", alignment: "center" },
-        { text: `Từ ${from} đến ${to}`, alignment: "center", margin: [0, 4, 0, 10] },
-        { text: `Cập nhật lúc: ${lastUpdated}`, fontSize: 9, alignment: "center", margin: [0, 0, 0, 15] },
-        { text: "I. TỔNG QUAN", style: "section" },
-        { table: { widths: ["*", "*"], body: [["Chỉ số", "Giá trị"], ...summary] }, layout: "lightHorizontalLines" },
-        { text: "II. CHI TIẾT THEO TRẠM", style: "section", margin: [0, 10, 0, 4] },
-        { table: { headerRows: 1, widths: [20, "*", "*", "*", "*"], body: details }, layout: "lightHorizontalLines" },
-        { text: "Generated by EV Charging Admin © 2025", alignment: "center", fontSize: 9, color: "gray", margin: [0, 20, 0, 0] },
-      ],
-      styles: {
-        header: { fontSize: 16, bold: true, color: "#1565c0" },
-        section: { fontSize: 12, bold: true, color: "#1976d2" },
-      },
-      defaultStyle: { fontSize: 10 },
-    };
-
-    pdfMake.createPdf(docDefinition).download(`EV_Report_${from}_to_${to}.pdf`);
-    setToast("📄 Đã tải PDF báo cáo!");
-  };
+  // Bỏ PDF fallback
 
   // ==================== UI ====================
   return (
@@ -173,6 +157,7 @@ export default function Reports() {
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               className="rounded border px-2 py-1.5"
+              max={to}
             />
             <span className="text-sm text-gray-500">đến</span>
             <input
@@ -180,16 +165,26 @@ export default function Reports() {
               value={to}
               onChange={(e) => setTo(e.target.value)}
               className="rounded border px-2 py-1.5"
+              min={from}
             />
             <button
               onClick={loadReports}
-              className="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+              disabled={loading || rangeInvalid}
+              aria-busy={loading ? "true" : "false"}
+              aria-disabled={loading || rangeInvalid ? "true" : "false"}
+              className={`bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 ${
+                loading || rangeInvalid ? "opacity-60 cursor-not-allowed" : ""
+              }`}
             >
-              Làm mới
+              {loading ? "Đang tải..." : "Làm mới"}
             </button>
             <button
               onClick={exportReport}
-              className="bg-indigo-700 text-white px-3 py-1.5 rounded hover:bg-indigo-800"
+              disabled={loading || rangeInvalid || !dailySeries.length}
+              aria-disabled={loading || rangeInvalid || !dailySeries.length ? "true" : "false"}
+              className={`bg-indigo-700 text-white px-3 py-1.5 rounded hover:bg-indigo-800 ${
+                loading || rangeInvalid || !dailySeries.length ? "opacity-60 cursor-not-allowed" : ""
+              }`}
             >
               📤 Xuất báo cáo
             </button>
@@ -198,49 +193,43 @@ export default function Reports() {
       >
         {loading ? (
           <div className="text-center text-gray-500 py-6">Đang tải dữ liệu...</div>
-        ) : stations.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">📭 Chưa có dữ liệu báo cáo</div>
+        ) : dailySeries.length === 0 ? (
+          <div className="text-center text-gray-500 py-6">
+            Không có dữ liệu trong khoảng đã chọn.
+          </div>
         ) : (
           <>
             <div className="flex flex-wrap gap-6 mt-2 text-sm items-center">
               <p>Tổng doanh thu: <b>{revenue.toLocaleString("vi-VN")} VND</b></p>
               <p>Tổng phiên sạc: <b>{sessions}</b></p>
               <p>TB / phiên: <b>{avgPerSession.toLocaleString("vi-VN")} VND</b></p>
-              <p>TB / trạm: <b>{avgPerStation.toLocaleString("vi-VN")} VND</b></p>
+              {/* Bỏ TB / trạm khi không hiển thị theo trạm */}
               <p>Cập nhật lúc: {lastUpdated}</p>
             </div>
 
-            {/* Biểu đồ doanh thu */}
+            {/* Biểu đồ doanh thu theo ngày */}
             <div className="mt-5">
-              <Chart
-                height={260}
-                data={stations.map((s) => ({
-                  label: s.station_id,
-                  value: s.revenue,
-                }))}
-              />
+              <Chart height={260} data={dailySeries} />
             </div>
 
-            {/* Bảng chi tiết */}
-            <div className="mt-8 overflow-x-auto border rounded-lg bg-white shadow-sm">
+            {/* Bảng theo ngày */}
+            <div className="mt-6 overflow-x-auto border rounded-lg bg-white shadow-sm">
               <table className="min-w-full text-sm text-left">
-                <thead className="bg-blue-100 text-blue-800 font-semibold">
+                <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-3 py-2">#</th>
-                    <th className="px-3 py-2">Trạm</th>
+                    <th className="px-3 py-2">Ngày</th>
+                    <th className="px-3 py-2 text-right">Doanh thu (VND)</th>
                     <th className="px-3 py-2 text-right">Phiên sạc</th>
                     <th className="px-3 py-2 text-right">Điện (kWh)</th>
-                    <th className="px-3 py-2 text-right">Doanh thu (VND)</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stations.map((s, i) => (
-                    <tr key={s.station_id} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                      <td className="px-3 py-2">{i + 1}</td>
-                      <td className="px-3 py-2 font-medium">{s.station_id}</td>
-                      <td className="px-3 py-2 text-right">{s.sessions}</td>
-                      <td className="px-3 py-2 text-right">{s.energy_kwh?.toLocaleString("vi-VN")}</td>
-                      <td className="px-3 py-2 text-right">{s.revenue?.toLocaleString("vi-VN")}</td>
+                  {dailyRows.map((d, i) => (
+                    <tr key={i} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                      <td className="px-3 py-2">{d.date || d.day}</td>
+                      <td className="px-3 py-2 text-right">{(d.revenue || 0).toLocaleString("vi-VN")}</td>
+                      <td className="px-3 py-2 text-right">{d.sessions || 0}</td>
+                      <td className="px-3 py-2 text-right">{(d.energy_kwh || 0).toLocaleString("vi-VN")}</td>
                     </tr>
                   ))}
                 </tbody>
