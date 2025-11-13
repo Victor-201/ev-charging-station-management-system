@@ -75,6 +75,11 @@ export default class Invoice {
       updated_at: this.updated_at ? this.updated_at.toISOString() : null,
     };
   }
+  
+  /** === Helper: kiểm tra có thể thanh toán không === */
+  canBePaid() {
+    return ['unpaid', 'overdue'].includes(this.status);
+  }
 
   /** === Khởi tạo từ row trong database === */
   static fromRow(row) {
@@ -91,8 +96,4 @@ export default class Invoice {
     });
   }
 
-  /** === Helper: kiểm tra có thể thanh toán không === */
-  canBePaid() {
-    return ['unpaid', 'overdue'].includes(this.status);
-  }
 }
