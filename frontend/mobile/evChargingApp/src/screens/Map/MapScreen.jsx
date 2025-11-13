@@ -466,8 +466,8 @@ export default function MapScreen({ navigation }) {
         <View style={styles.stationCard}>
           <View style={styles.stationHeader}>
             <View style={styles.stationInfo}>
-              <Text style={styles.stationName}>{selectedStation.name}</Text>
-              <Text style={styles.stationAddress}>{selectedStation.address}</Text>
+              <Text style={styles.stationName} numberOfLines={2} ellipsizeMode="tail">{selectedStation.name}</Text>
+              <Text style={styles.stationAddress} numberOfLines={2} ellipsizeMode="tail">{selectedStation.address}</Text>
             </View>
             <View style={styles.stationHeaderActions}>
               <TouchableOpacity

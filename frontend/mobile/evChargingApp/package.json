@@ -19,6 +19,7 @@
     "clean:cache": "rm -rf .metro-cache && rm -rf ios/main.jsbundle && rm -rf ios/assets && rm -rf android/app/src/main/assets/index.android.bundle"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
     "@hookform/resolvers": "5.2.2",
     "@notifee/react-native": "9.1.8",
     "@react-native-async-storage/async-storage": "2.2.0",

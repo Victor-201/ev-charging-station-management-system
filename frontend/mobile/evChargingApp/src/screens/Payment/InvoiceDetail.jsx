@@ -9,7 +9,6 @@ const getStyles = (colors) => StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     padding: 20,
-    paddingTop: 60,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     alignItems: 'center',

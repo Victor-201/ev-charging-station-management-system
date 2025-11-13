@@ -173,15 +173,19 @@ export default function NotificationList() {
         </View>
         <View style={styles.notificationContent}>
           <View style={styles.titleRow}>
-            <Text style={[
-              styles.notificationTitle,
-              !item.read && styles.unreadTitle
-            ]}>
+            <Text
+              style={[
+                styles.notificationTitle,
+                !item.read && styles.unreadTitle
+              ]}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
               {item.title}
             </Text>
             {!item.read && <View style={styles.unreadDot} />}
           </View>
-          <Text style={styles.notificationMessage} numberOfLines={2}>
+          <Text style={styles.notificationMessage} numberOfLines={2} ellipsizeMode="tail">
             {item.message}
           </Text>
           <Text style={styles.timeText}>{formatDate(item.created_at)}</Text>
@@ -246,8 +250,7 @@ const getStyles = (colors) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingVertical: 16,
     backgroundColor: colors.primary,
   },
   headerTitle: {
