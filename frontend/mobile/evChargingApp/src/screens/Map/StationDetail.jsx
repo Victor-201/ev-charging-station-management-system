@@ -301,7 +301,7 @@ export default function StationDetail({ route, navigation }) {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
-        <Text style={styles.stationName}>{station.name}</Text>
+        <Text style={styles.stationName} numberOfLines={2} ellipsizeMode="tail">{station.name}</Text>
         <View style={[styles.statusBadge, { backgroundColor: station.status === 'active' ? colors.success : colors.error }]}>
           <Text style={styles.statusText}>{station.status === 'active' ? 'Hoạt động' : 'Bảo trì'}</Text>
         </View>
@@ -317,7 +317,7 @@ export default function StationDetail({ route, navigation }) {
             <Icon name="attach-money" size={24} color={colors.primary} />
             <Text style={styles.infoBoxLabel}>Bảng giá</Text>
             {station.pricing.map((p, i) => (
-              <Text key={i} style={styles.infoBoxValue}>{p.name}: {p.price.toLocaleString()}đ</Text>
+              <Text key={i} style={styles.infoBoxValue} numberOfLines={1} ellipsizeMode="tail">{p.name}: {p.price.toLocaleString()}đ</Text>
             ))}
           </View>
         ) : (

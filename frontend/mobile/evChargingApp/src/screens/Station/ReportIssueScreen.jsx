@@ -224,8 +224,8 @@ const ReportIssueScreen = ({ route, navigation }) => {
         {/* Station Info */}
         {station && (
           <View style={styles.stationInfo}>
-            <Text style={styles.stationName}>{station.name}</Text>
-            <Text style={styles.stationAddress}>{station.address}</Text>
+            <Text style={styles.stationName} numberOfLines={2} ellipsizeMode="tail">{station.name}</Text>
+            <Text style={styles.stationAddress} numberOfLines={2} ellipsizeMode="tail">{station.address}</Text>
           </View>
         )}
 

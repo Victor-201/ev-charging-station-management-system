@@ -566,8 +566,8 @@ export default function MapScreen({ navigation }) {
                 }}
               >
                 <View>
-                  <Text style={styles.resultName}>{item.name}</Text>
-                  <Text style={styles.resultAddress}>{item.address}</Text>
+                  <Text style={styles.resultName} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
+                  <Text style={styles.resultAddress} numberOfLines={1} ellipsizeMode="tail">{item.address}</Text>
                 </View>
                 <Text style={styles.resultDistance}>{item.distance} km</Text>
               </TouchableOpacity>

@@ -128,8 +128,8 @@ export default function ReservationDetail() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.stationName}>{reservation.station.name}</Text>
-        <Text style={styles.address}>{reservation.station.address}</Text>
+        <Text style={styles.stationName} numberOfLines={2} ellipsizeMode="tail">{reservation.station.name}</Text>
+        <Text style={styles.address} numberOfLines={2} ellipsizeMode="tail">{reservation.station.address}</Text>
       </View>
 
       <View style={styles.section}>

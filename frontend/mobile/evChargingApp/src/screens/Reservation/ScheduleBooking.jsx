@@ -384,8 +384,8 @@ export default function ScheduleBooking() {
       <ScrollView style={styles.content}>
         {/* Station Info */}
         <View style={styles.stationInfo}>
-          <Text style={styles.stationName}>{station.name}</Text>
-          <Text style={styles.stationAddress}>{station.address}</Text>
+          <Text style={styles.stationName} numberOfLines={2} ellipsizeMode="tail">{station.name}</Text>
+          <Text style={styles.stationAddress} numberOfLines={2} ellipsizeMode="tail">{station.address}</Text>
           <View style={styles.stationMeta}>
             <View style={styles.metaItem}>
               <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />

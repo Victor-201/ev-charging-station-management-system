@@ -10,9 +10,9 @@ const InfoRow = ({ icon, label, value, valueStyle }) => {
     <View style={styles.row}>
       <View style={styles.left}>
         {icon && <Icon name={icon} size={20} color={colors.onSurfaceVariant} />}
-        <Text style={[styles.label, { color: colors.onSurfaceVariant }]}>{label}</Text>
+        <Text style={[styles.label, { color: colors.onSurfaceVariant }]} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
       </View>
-      <Text style={[styles.value, { color: colors.onBackground }, valueStyle]}>{value}</Text>
+      <Text style={[styles.value, { color: colors.onBackground }, valueStyle]} numberOfLines={2} ellipsizeMode="tail">{value}</Text>
     </View>
   );
 };
