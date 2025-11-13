@@ -16,6 +16,12 @@ class EventBus {
     console.log('[PaymentService] Connected to RabbitMQ');
   }
 
+    async publish(event, payload) {
+    if (!this.channel) await this.connect();
+    this.channel.publish(this.exchange, event, Buffer.from(JSON.stringify(payload)), { persistent: true });
+    console.log(`[ReservationService] 📤 Published event "${event}"`, payload);
+  }
+
   async subscribe(event, handler) {
     if (!this.channel) await this.connect();
     const q = await this.channel.assertQueue('', { exclusive: true });
