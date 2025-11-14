@@ -1,6 +1,6 @@
 import pool from '../config/database';
 import bcrypt from 'bcryptjs';
-import { User, UserListQuery, SocialAccount } from '../types';
+import { User, UserListQuery, SocialAccount, UpdateUserData } from '../types';
 import logger from '../utils/logger';
 import httpClient from '../utils/httpClient';
 
@@ -24,9 +24,10 @@ export class UserService {
         id: result.rows[0].id,
         email: '', // Email is in auth DB, not available here
         full_name: result.rows[0].full_name,
-        phone_number: result.rows[0].phone_number,
+        phone: result.rows[0].phone,
         role: '', // Role is in auth DB, will be from JWT token
         status: 'active',
+        email_verified: false,
         created_at: new Date(),
       };
     } catch (error) {
@@ -110,7 +111,7 @@ export class UserService {
   }
 
   // Update user information
-  async updateUser(userId: string, updates: Partial<User>): Promise<void> {
+  async updateUser(userId: string, updates: UpdateUserData): Promise<void> {
     try {
       const setClauses: string[] = [];
       const params: any[] = [];
@@ -122,16 +123,21 @@ export class UserService {
         paramIndex++;
       }
 
-      if (updates.phone_number !== undefined) {
-        setClauses.push(`phone_number = $${paramIndex}`);
-        params.push(updates.phone_number);
+      if (updates.phone !== undefined) {
+        setClauses.push(`phone = $${paramIndex}`);
+        params.push(updates.phone);
         paramIndex++;
       }
 
-      if (updates.avatar_url !== undefined) {
-        setClauses.push(`avatar_url = $${paramIndex}`);
-        params.push(updates.avatar_url);
-        paramIndex++;
+      if (updates.address !== undefined) {
+        // Update user_profiles table for address
+        await pool.query(
+          `INSERT INTO user_profiles (user_id, address, updated_at)
+           VALUES ($1, $2, NOW())
+           ON CONFLICT (user_id)
+           DO UPDATE SET address = $2, updated_at = NOW()`,
+          [userId, updates.address]
+        );
       }
 
       if (setClauses.length === 0) {

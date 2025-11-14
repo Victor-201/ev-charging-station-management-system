@@ -35,7 +35,7 @@ export const registerSchema = yup.object().shape({
     .max(100, 'Họ tên tối đa 100 ký tự')
     .required('Họ tên là bắt buộc'),
   email: emailSchema,
-  phone_number: phoneSchema,
+  phone: phoneSchema,
   date_of_birth: yup
     .date()
     .max(new Date(), 'Ngày sinh không thể là ngày trong tương lai')
@@ -88,7 +88,8 @@ export const updateProfileSchema = yup.object().shape({
     .min(2, 'Họ tên ít nhất 2 ký tự')
     .max(100, 'Họ tên tối đa 100 ký tự')
     .required('Họ tên là bắt buộc'),
-  phone_number: phoneSchema,
+  phone: phoneSchema,
+  address: yup.string().max(255, 'Địa chỉ tối đa 255 ký tự').nullable(),
 });
 
 // Change password schema

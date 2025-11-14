@@ -87,7 +87,8 @@ export default function EditProfile({ navigation }) {
     if (profile) {
       reset({
         full_name: profile.full_name || '',
-        phone_number: profile.phone_number || '',
+        phone: profile.phone || '',
+        address: profile.address || '',
       });
     }
   }, [profile, reset]);
@@ -151,7 +152,7 @@ export default function EditProfile({ navigation }) {
 
         <Controller
           control={control}
-          name="phone_number"
+          name="phone"
           render={({ field: { onChange, value, onBlur } }) => (
             <AppInput
               label="Số điện thoại"
@@ -159,8 +160,25 @@ export default function EditProfile({ navigation }) {
               onChangeText={onChange}
               onBlur={onBlur}
               keyboardType="phone-pad"
-              error={errors.phone_number?.message}
+              error={errors.phone?.message}
               style={styles.input}
+            />
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="address"
+          render={({ field: { onChange, value, onBlur } }) => (
+            <AppInput
+              label="Địa chỉ"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              error={errors.address?.message}
+              style={styles.input}
+              multiline
+              numberOfLines={3}
             />
           )}
         />

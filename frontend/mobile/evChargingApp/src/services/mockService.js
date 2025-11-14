@@ -2,7 +2,7 @@ const mockUser = {
   id: 'user-123',
   full_name: 'Nguyễn Văn A',
   email: 'test@example.com',
-  phone_number: '0987654321',
+  phone: '0987654321',
   avatar_url: `https://i.pravatar.cc/150?u=a042581f4e29026704d`,
 };
 

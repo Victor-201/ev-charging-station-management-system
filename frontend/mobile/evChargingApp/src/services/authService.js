@@ -9,8 +9,8 @@ const authService = {
     return response.data;
   },
 
-  register: async ({ full_name, email, password, phone_number }) => {
-    const payload = { full_name, email, password, phone: phone_number };
+  register: async ({ full_name, email, password, phone, date_of_birth, password_confirmation }) => {
+    const payload = { full_name, email, password, phone, date_of_birth, password_confirmation };
     const response = await apiClient.post(ENDPOINTS.AUTH.REGISTER, payload);
     return response.data;
   },

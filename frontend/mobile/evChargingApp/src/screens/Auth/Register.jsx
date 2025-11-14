@@ -86,7 +86,7 @@ export default function Register({ navigation }) {
     defaultValues: {
       full_name: '',
       email: '',
-      phone_number: '',
+      phone: '',
       date_of_birth: '',
       password: '',
       confirmPassword: ''
@@ -98,7 +98,7 @@ export default function Register({ navigation }) {
       const result = await doRegister({
         full_name: data.full_name,
         email: data.email,
-        phone_number: data.phone_number,
+        phone: data.phone,
         date_of_birth: data.date_of_birth,
         password: data.password,
         password_confirmation: data.confirmPassword
@@ -164,7 +164,7 @@ export default function Register({ navigation }) {
         {/* Phone Number Input */}
         <Controller
           control={control}
-          name="phone_number"
+          name="phone"
           render={({ field: { onChange, value, onBlur } }) => (
             <AppInput
               label="Số điện thoại"
@@ -172,7 +172,7 @@ export default function Register({ navigation }) {
               onChangeText={onChange}
               onBlur={onBlur}
               keyboardType="phone-pad"
-              error={errors.phone_number?.message}
+              error={errors.phone?.message}
               placeholder="0123456789"
               style={styles.input}
             />

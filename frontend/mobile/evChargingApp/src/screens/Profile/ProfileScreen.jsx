@@ -43,6 +43,17 @@ const getStyles = (colors) =>
       fontSize: 16,
       color: colors.onSurface + '80',
     },
+    verificationBadge: {
+      marginTop: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 6,
+      borderRadius: 16,
+    },
+    verificationText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
     logoutContainer: {
       padding: 24,
       backgroundColor: colors.surface,
@@ -126,6 +137,18 @@ export default function ProfileScreen({ navigation }) {
           />
           <Text style={styles.userName}>{user?.full_name || 'User Name'}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
+
+          {/* Email Verification Badge */}
+          {user?.email_verified !== undefined && (
+            <View style={[
+              styles.verificationBadge,
+              { backgroundColor: user.email_verified ? colors.success : colors.warning }
+            ]}>
+              <Text style={styles.verificationText}>
+                {user.email_verified ? '✓ Email đã xác thực' : '⚠ Email chưa xác thực'}
+              </Text>
+            </View>
+          )}
         </View>
 
         <Divider />

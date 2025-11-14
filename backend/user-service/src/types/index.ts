@@ -29,6 +29,13 @@ export interface UserProfile {
   updated_at?: Date;
 }
 
+export interface UpdateUserData {
+  full_name?: string;
+  phone?: string;
+  address?: string;
+  avatar_url?: string;
+}
+
 export interface Vehicle {
   id: string;
   user_id: string;
