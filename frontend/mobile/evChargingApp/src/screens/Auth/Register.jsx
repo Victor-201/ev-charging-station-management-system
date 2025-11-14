@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { Snackbar } from 'react-native-paper';
+import { Snackbar, IconButton } from 'react-native-paper';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { registerSchema } from '../../utils/validators';
 import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
@@ -17,6 +18,42 @@ const getStyles = (colors) => StyleSheet.create({
   },
   input: {
     marginBottom: 16,
+  },
+  dateInputContainer: {
+    marginBottom: 16,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.onSurface + '20',
+  },
+  dateButtonError: {
+    borderColor: colors.error,
+    borderWidth: 2,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: colors.onSurface,
+  },
+  dateButtonPlaceholder: {
+    fontSize: 16,
+    color: colors.onSurfaceVariant,
+  },
+  dateLabel: {
+    fontSize: 12,
+    color: colors.onSurface + '80',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  dateErrorText: {
+    fontSize: 12,
+    color: colors.error,
+    marginTop: 4,
   },
   registerButton: {
     marginTop: 8,
@@ -68,6 +105,12 @@ const getStyles = (colors) => StyleSheet.create({
   snackbar: {
     backgroundColor: colors.success,
   },
+  requiredFieldsNote: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
 });
 
 export default function Register({ navigation }) {
@@ -75,11 +118,14 @@ export default function Register({ navigation }) {
   const styles = getStyles(colors);
   const { doRegister, loading, error } = useAuth();
   const [successMessage, setSuccessMessage] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const {
     control,
     handleSubmit,
-    formState: { errors, isValid, isDirty }
+    formState: { errors, isValid, isDirty },
+    setValue
   } = useForm({
     resolver: yupResolver(registerSchema),
     mode: 'onChange',
@@ -92,6 +138,29 @@ export default function Register({ navigation }) {
       confirmPassword: ''
     }
   });
+
+  // Handle date picker change
+  const handleDateChange = (event, date) => {
+    setShowDatePicker(Platform.OS === 'ios'); // Keep open on iOS
+
+    if (date) {
+      setSelectedDate(date);
+      // Format date as YYYY-MM-DD
+      const formattedDate = date.toISOString().split('T')[0];
+      setValue('date_of_birth', formattedDate, { shouldValidate: true });
+    }
+  };
+
+  // Format date for display
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
 
   const onSubmit = async (data) => {
     try {
@@ -124,6 +193,8 @@ export default function Register({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        <Text style={styles.requiredFieldsNote}>* Trường bắt buộc</Text>
+
         {/* Full Name Input */}
         <Controller
           control={control}
@@ -179,23 +250,43 @@ export default function Register({ navigation }) {
           )}
         />
 
-        {/* Date of Birth Input */}
+        {/* Date of Birth Picker */}
         <Controller
           control={control}
           name="date_of_birth"
-          render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput
-              label="Ngày sinh *"
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={errors.date_of_birth?.message}
-              placeholder="YYYY-MM-DD (ví dụ: 2000-01-15)"
-              autoCapitalize="none"
-              style={styles.input}
-            />
+          render={({ field: { value } }) => (
+            <View style={styles.dateInputContainer}>
+              <Text style={styles.dateLabel}>Ngày sinh *</Text>
+              <TouchableOpacity
+                style={[
+                  styles.dateButton,
+                  errors.date_of_birth && styles.dateButtonError
+                ]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={value ? styles.dateButtonText : styles.dateButtonPlaceholder}>
+                  {value ? formatDateDisplay(value) : 'Chọn ngày sinh (phải đủ 18 tuổi)'}
+                </Text>
+                <IconButton icon="calendar" size={20} />
+              </TouchableOpacity>
+              {errors.date_of_birth && (
+                <Text style={styles.dateErrorText}>{errors.date_of_birth.message}</Text>
+              )}
+            </View>
           )}
         />
+
+        {/* Date Picker Modal */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={selectedDate || new Date(2000, 0, 1)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+            minimumDate={new Date(1900, 0, 1)}
+          />
+        )}
 
         {/* Password Input */}
         <Controller

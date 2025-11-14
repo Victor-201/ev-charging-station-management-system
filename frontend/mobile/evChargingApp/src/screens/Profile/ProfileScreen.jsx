@@ -54,6 +54,37 @@ const getStyles = (colors) =>
       fontWeight: '600',
       color: '#FFFFFF',
     },
+    infoSection: {
+      backgroundColor: colors.surface,
+      padding: 16,
+      marginVertical: 8,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.onSurface + '10',
+    },
+    infoLabel: {
+      flex: 1,
+      fontSize: 14,
+      color: colors.onSurfaceVariant,
+      fontWeight: '500',
+    },
+    infoValue: {
+      flex: 2,
+      fontSize: 14,
+      color: colors.onSurface,
+      fontWeight: '400',
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.onSurface,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.background,
+    },
     logoutContainer: {
       padding: 24,
       backgroundColor: colors.surface,
@@ -153,7 +184,41 @@ export default function ProfileScreen({ navigation }) {
 
         <Divider />
 
+        {/* User Information Section */}
+        <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+        <View style={styles.infoSection}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Họ tên:</Text>
+            <Text style={styles.infoValue}>{user?.full_name || 'Chưa cập nhật'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Email:</Text>
+            <Text style={styles.infoValue}>{user?.email || 'Chưa cập nhật'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Số điện thoại:</Text>
+            <Text style={styles.infoValue}>{user?.phone || 'Chưa cập nhật'}</Text>
+          </View>
+          {user?.address && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Địa chỉ:</Text>
+              <Text style={styles.infoValue}>{user.address}</Text>
+            </View>
+          )}
+          {user?.date_of_birth && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Ngày sinh:</Text>
+              <Text style={styles.infoValue}>
+                {new Date(user.date_of_birth).toLocaleDateString('vi-VN')}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Divider />
+
         {/* Menu List */}
+        <Text style={styles.sectionTitle}>Cài đặt</Text>
         <List.Section>
           <List.Item
             title="Chỉnh sửa thông tin"
