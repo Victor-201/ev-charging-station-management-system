@@ -81,6 +81,7 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     ports:
       - "4002:4002"
+    env_file: ../../backend/charging-control-service/.env
     restart: on-failure
     networks:
       - kong-net
