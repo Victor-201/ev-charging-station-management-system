@@ -72,13 +72,12 @@ export const resetPasswordSchema = yup.object().shape({
     .required('Xác nhận mật khẩu là bắt buộc'),
 });
 
-// Verify email schema
+// Verify email schema (JWT token-based)
 export const verifyEmailSchema = yup.object().shape({
-  email: emailSchema,
-  verification_code: yup
+  token: yup
     .string()
-    .length(6, 'Mã xác thực phải có 6 ký tự')
-    .required('Mã xác thực là bắt buộc'),
+    .min(10, 'Token xác thực không hợp lệ')
+    .required('Token xác thực là bắt buộc'),
 });
 
 // Update profile schema

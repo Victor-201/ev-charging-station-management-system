@@ -112,8 +112,7 @@ export default function VerifyEmail({ navigation, route }) {
     resolver: yupResolver(verifyEmailSchema),
     mode: 'onChange',
     defaultValues: {
-      email: email || '',
-      verification_code: ''
+      token: ''
     }
   });
 
@@ -143,16 +142,16 @@ export default function VerifyEmail({ navigation, route }) {
       setLoading(true);
       setErrorMessage('');
 
-      await authService.verifyEmail(data.email, data.verification_code);
+      await authService.verifyEmail(data.token);
 
       setSuccessMessage('Xác thực email thành công!');
 
       // Navigate to login after 1.5 seconds
       setTimeout(() => {
-        navigation.navigate('Login', { email: data.email });
+        navigation.navigate('Login', { email });
       }, 1500);
     } catch (error) {
-      const message = error.response?.data?.message || 'Xác thực thất bại. Vui lòng kiểm tra lại mã xác thực.';
+      const message = error.response?.data?.message || 'Xác thực thất bại. Vui lòng kiểm tra lại token xác thực.';
       setErrorMessage(message);
     } finally {
       setLoading(false);
@@ -186,42 +185,27 @@ export default function VerifyEmail({ navigation, route }) {
         {/* Info Text */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            Chúng tôi đã gửi mã xác thực 6 số đến email:
+            Chúng tôi đã gửi link xác thực đến email:
           </Text>
           <Text style={styles.emailText}>{email}</Text>
           <Text style={styles.subInfoText}>
-            Vui lòng kiểm tra hộp thư và nhập mã xác thực bên dưới.
+            Vui lòng kiểm tra hộp thư, click vào link hoặc copy token từ email và nhập bên dưới.
           </Text>
         </View>
 
-        {/* Email Input (readonly) */}
+        {/* Verification Token Input */}
         <Controller
           control={control}
-          name="email"
-          render={({ field: { value } }) => (
-            <AppInput
-              label="Email"
-              value={value}
-              editable={false}
-              style={styles.input}
-            />
-          )}
-        />
-
-        {/* Verification Code Input */}
-        <Controller
-          control={control}
-          name="verification_code"
+          name="token"
           render={({ field: { onChange, value, onBlur } }) => (
             <AppInput
-              label="Mã xác thực *"
+              label="Token xác thực *"
               value={value}
               onChangeText={onChange}
               onBlur={onBlur}
-              error={errors.verification_code?.message}
-              placeholder="Nhập mã 6 số"
-              keyboardType="number-pad"
-              maxLength={6}
+              error={errors.token?.message}
+              placeholder="Nhập token từ email"
+              autoCapitalize="none"
               style={styles.input}
             />
           )}

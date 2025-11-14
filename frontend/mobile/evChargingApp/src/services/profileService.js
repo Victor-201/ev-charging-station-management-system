@@ -4,21 +4,20 @@ import { ENDPOINTS } from '../api/endpoints';
 const profileService = {
   // Get current user profile
   getMe: async () => {
-    const response = await apiClient.get(ENDPOINTS.USER.ME);
+    const response = await apiClient.get(ENDPOINTS.USER.PROFILE);
     return response.data;
   },
 
-  // Get user profile by ID
+  // Get user profile by ID (admin only)
   getProfile: async (userId) => {
     const url = ENDPOINTS.USER.GET_USER.replace(':user_id', userId);
     const response = await apiClient.get(url);
     return response.data;
   },
 
-  // Update user profile
-  updateProfile: async (userId, profileData) => {
-    const url = ENDPOINTS.USER.UPDATE_USER.replace(':user_id', userId);
-    const response = await apiClient.put(url, profileData);
+  // Update current user profile
+  updateProfile: async (profileData) => {
+    const response = await apiClient.put(ENDPOINTS.USER.PROFILE, profileData);
     return response.data;
   },
 

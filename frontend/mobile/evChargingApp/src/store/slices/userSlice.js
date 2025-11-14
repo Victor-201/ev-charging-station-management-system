@@ -12,9 +12,9 @@ export const getMe = createAsyncThunk('user/getMe', async (_, { rejectWithValue 
 });
 
 // Async thunk for updating user profile
-export const updateProfile = createAsyncThunk('user/updateProfile', async ({ userId, profileData }, { rejectWithValue }) => {
+export const updateProfile = createAsyncThunk('user/updateProfile', async (profileData, { rejectWithValue }) => {
   try {
-    const { data } = await profileService.updateProfile(userId, profileData);
+    const { data } = await profileService.updateProfile(profileData);
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });

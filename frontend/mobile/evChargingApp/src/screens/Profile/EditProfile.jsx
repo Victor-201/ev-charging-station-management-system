@@ -103,10 +103,7 @@ export default function EditProfile({ navigation }) {
   const onSubmit = async (data) => {
     if (!profile?.id) return;
 
-    const result = await dispatch(updateProfile({
-      userId: profile.id,
-      profileData: data
-    }));
+    const result = await dispatch(updateProfile(data));
 
     if (result.type === 'user/updateProfile/fulfilled') {
       setSuccessMessage('Cập nhật thông tin thành công!');

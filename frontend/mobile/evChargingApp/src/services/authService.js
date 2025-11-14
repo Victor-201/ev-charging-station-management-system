@@ -26,15 +26,14 @@ const authService = {
     }
   },
 
-  // Email verification
-  verifyEmail: async (email, verification_code) => {
-    const response = await apiClient.post(ENDPOINTS.AUTH.VERIFY, { email, verification_code });
+  // Email verification (JWT token-based)
+  verifyEmail: async (token) => {
+    const response = await apiClient.post(ENDPOINTS.AUTH.VERIFY_EMAIL, { token });
     return response.data;
   },
 
-
   resendVerificationCode: async ({ email }) => {
-    const response = await apiClient.post(ENDPOINTS.AUTH.RESEND_VERIFICATION_CODE, { email });
+    const response = await apiClient.post(ENDPOINTS.AUTH.RESEND_VERIFICATION, { email });
     return response.data;
   },
 
