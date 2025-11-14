@@ -2,15 +2,20 @@
 -- Database: ev_user_db
 
 -- User Profiles (extended from auth service)
+-- Only contains extended profile data (avatar, address)
+-- Basic info (name, phone, email) is in users table
 CREATE TABLE user_profiles (
     user_id UUID PRIMARY KEY, -- References users.id from auth service
-    name VARCHAR(100),
-    phone VARCHAR(20),
     avatar_url TEXT,
     address TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE
 );
+
+COMMENT ON TABLE user_profiles IS 'Extended user profile data (avatar, address). Basic info is in users table.';
+COMMENT ON COLUMN user_profiles.user_id IS 'Reference to users.id (same UUID from auth service)';
+COMMENT ON COLUMN user_profiles.avatar_url IS 'URL to user avatar image';
+COMMENT ON COLUMN user_profiles.address IS 'User physical address';
 
 
 -- Vehicles
@@ -110,21 +115,29 @@ CREATE TABLE users (
     id UUID PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     full_name VARCHAR(100),
-    phone_number VARCHAR(20),
-    role VARCHAR(50) DEFAULT 'customer' CHECK (role IN ('customer', 'admin', 'station_owner')),
-    is_active BOOLEAN DEFAULT true,
+    phone VARCHAR(20),
+    date_of_birth DATE,
+    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'staff', 'user')),
+    status VARCHAR(50) DEFAULT 'active',
+    email_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_is_active ON users(is_active);
+CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_email_verified ON users(email_verified);
 
 COMMENT ON TABLE users IS 'User accounts synced from Auth Service via event-driven architecture';
 COMMENT ON COLUMN users.id IS 'User ID from Auth Service (same UUID)';
 COMMENT ON COLUMN users.email IS 'User email address (unique)';
-COMMENT ON COLUMN users.role IS 'User role for authorization';
+COMMENT ON COLUMN users.full_name IS 'User full name (synced from auth service)';
+COMMENT ON COLUMN users.phone IS 'User phone number (synced from auth service)';
+COMMENT ON COLUMN users.date_of_birth IS 'User date of birth (must be 18+ years old)';
+COMMENT ON COLUMN users.role IS 'User role: admin, staff, user (synced from auth service)';
+COMMENT ON COLUMN users.status IS 'User status: active, inactive, suspended (synced from auth service)';
+COMMENT ON COLUMN users.email_verified IS 'Whether user has verified their email (synced from auth service)';
 
 
 -- Processed Events table for idempotency

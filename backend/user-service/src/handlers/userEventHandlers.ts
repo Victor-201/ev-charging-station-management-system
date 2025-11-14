@@ -106,12 +106,21 @@ export async function handleUserCreated(event: DomainEvent): Promise<void> {
     }
 
     // Create user profile
-    const { email, full_name, phone, role } = payload;
+    const { email, full_name, phone, date_of_birth, role, status, email_verified } = payload;
 
     await client.query(
-      `INSERT INTO users (id, email, full_name, phone_number, role, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-      [aggregateId, email, full_name || null, phone || null, role || 'customer']
+      `INSERT INTO users (id, email, full_name, phone, date_of_birth, role, status, email_verified, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+      [
+        aggregateId,
+        email,
+        full_name || null,
+        phone || null,
+        date_of_birth || null,
+        role || 'user',
+        status || 'active',
+        email_verified || false
+      ]
     );
 
     logger.info(`Created user profile for user: ${aggregateId}`);
@@ -162,16 +171,19 @@ export async function handleUserUpdated(event: DomainEvent): Promise<void> {
     }
 
     // Update user profile
-    const { email, fullName, phoneNumber } = payload;
-    
+    const { email, full_name, phone, date_of_birth, status, email_verified } = payload;
+
     const result = await client.query(
-      `UPDATE users 
+      `UPDATE users
        SET email = COALESCE($2, email),
            full_name = COALESCE($3, full_name),
-           phone_number = COALESCE($4, phone_number),
+           phone = COALESCE($4, phone),
+           date_of_birth = COALESCE($5, date_of_birth),
+           status = COALESCE($6, status),
+           email_verified = COALESCE($7, email_verified),
            updated_at = NOW()
        WHERE id = $1`,
-      [aggregateId, email, fullName, phoneNumber]
+      [aggregateId, email, full_name, phone, date_of_birth, status, email_verified]
     );
 
     if ((result.rowCount ?? 0) === 0) {
@@ -227,8 +239,8 @@ export async function handleUserDeactivated(event: DomainEvent): Promise<void> {
 
     // Deactivate user profile
     const result = await client.query(
-      `UPDATE users 
-       SET is_active = false,
+      `UPDATE users
+       SET status = 'inactive',
            updated_at = NOW()
        WHERE id = $1`,
       [aggregateId]

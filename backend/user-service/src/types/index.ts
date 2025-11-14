@@ -12,10 +12,19 @@ export interface User {
   id: string;
   email: string;
   full_name?: string;
-  phone_number?: string;
+  phone?: string;
+  date_of_birth?: Date;
   role: string;
   status: string;
+  email_verified: boolean;
+  created_at: Date;
+  updated_at?: Date;
+}
+
+export interface UserProfile {
+  user_id: string;
   avatar_url?: string;
+  address?: string;
   created_at: Date;
   updated_at?: Date;
 }

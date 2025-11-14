@@ -132,6 +132,8 @@ export class AuthService {
           user_id: user.id,
           email: user.email,
           role: user.role,
+          status: user.status,
+          email_verified: user.email_verified,
           phone: data.phone,
           full_name: data.full_name,
           date_of_birth: data.date_of_birth,
