@@ -1,583 +1,136 @@
-import { useState, useEffect, useContext } from "react";
-import { useAnalytics } from "@/hooks/useAnalytics";
-import Section from "@/components/admin/Section";
+// pages/admin/Settings.jsx
+import React from "react";
 import PageHeader from "@/components/admin/PageHeader";
-import * as AuthModule from "@/contexts/AuthContext";
-import * as UserModule from "@/contexts/UserContext";
-import * as ThemeModule from "@/contexts/ThemeContext";
+import Section from "@/components/admin/Section";
+import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/hooks/useAuth";
 
-export default function Settings() {
-  const { alerts, getAlerts, getHealth } = useAnalytics();
+/**
+ * Trang Cài đặt hệ thống:
+ * - Dùng ThemeProvider để đổi giao diện Sáng/Tối
+ * - Dùng AuthProvider để cho phép admin đăng xuất toàn hệ thống
+ * - Có thể mở rộng để gọi API cấu hình hệ thống sau này
+ */
+export default function AdminSettings() {
+  const { theme, toggleTheme } = useTheme();
+  const { logout, user } = useAuth() || {};
 
-  const AuthContext =
-    AuthModule.AuthContext || AuthModule.default || null;
-  const UserContext =
-    UserModule.UserContext || UserModule.default || null;
-  const ThemeContext =
-    ThemeModule.ThemeContext || ThemeModule.default || null;
-
-  const { user, getMe, logout } =
-    useContext(AuthContext) || {};
-  const { update } = useContext(UserContext) || {};
-  const { theme, toggleTheme } =
-    useContext(ThemeContext) || {};
-
-  const [profile, setProfile] = useState({
-    username: "",
-    email: "",
-    password: "",
-    role: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
-  const [statusColor, setStatusColor] =
-    useState("bg-blue-600");
-  const [emailNotif, setEmailNotif] = useState(true);
-  const [smsNotif, setSmsNotif] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(
-    JSON.parse(
-      localStorage.getItem("evcs_auto_refresh") || "true"
-    )
-  );
-  const [savedInfo, setSavedInfo] = useState(null);
-  const [editForm, setEditForm] = useState(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [systemStatus, setSystemStatus] =
-    useState("unknown");
-
-  useEffect(() => {
-    refreshSystem();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const refreshSystem = async () => {
-    try {
-      const [h] = await Promise.all([getHealth(), getAlerts()]);
-      const ok = Array.isArray(h?.data)
-        ? h.data.every(
-            (x) => x?.status !== "error"
-          )
-        : true;
-      setSystemStatus(ok ? "healthy" : "degraded");
-    } catch {
-      setSystemStatus("unknown");
-    }
-  };
-
-  useEffect(() => {
-    const storedProfile =
-      localStorage.getItem("admin_profile");
-    if (storedProfile) {
-      const parsed = JSON.parse(storedProfile);
-      setProfile(parsed);
-      setSavedInfo(parsed);
-    } else if (getMe) {
-      fetchUser();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchUser = async () => {
-    setLoading(true);
-    try {
-      const data = await getMe?.();
-      setProfile({
-        username: data?.username || "",
-        email: data?.email || "",
-        password: "",
-        role: data?.role || "admin",
-      });
-    } catch {
-      showStatus(
-        "⚠️ Không thể tải thông tin!",
-        "bg-red-600"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const isValidEmail = (email) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-  const showStatus = (msg, color = "bg-blue-600") => {
-    setStatusMsg(msg);
-    setStatusColor(color);
-    setTimeout(() => setStatusMsg(""), 3000);
-  };
-
-  const handleSaveProfile = async () => {
-    if (!profile.username || !profile.email || !profile.role) {
-      showStatus(
-        "⚠️ Vui lòng nhập đầy đủ thông tin!",
-        "bg-yellow-600"
-      );
-      return;
-    }
-    if (!isValidEmail(profile.email)) {
-      showStatus("❌ Email không hợp lệ!", "bg-red-600");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      if (update && user?.id) {
-        await update(user.id, profile);
-        showStatus(
-          "✅ Đã lưu thay đổi!",
-          "bg-green-600"
-        );
-      } else {
-        localStorage.setItem(
-          "admin_profile",
-          JSON.stringify(profile)
-        );
-        showStatus(
-          "💾 Đã lưu tạm vào trình duyệt!",
-          "bg-green-600"
-        );
-      }
-      setSavedInfo(profile);
-    } catch {
-      showStatus(
-        "❌ Lỗi khi lưu thông tin!",
-        "bg-red-600"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEditProfile = () => {
-    if (!savedInfo) return;
-    setEditForm(savedInfo);
-    showStatus(
-      "✏️ Đang chỉnh sửa...",
-      "bg-yellow-600"
-    );
-  };
-
-  const handleSaveEdit = () => {
-    if (
-      !editForm.username ||
-      !editForm.email ||
-      !editForm.role
-    ) {
-      showStatus(
-        "⚠️ Nhập đủ thông tin trước khi lưu!",
-        "bg-yellow-600"
-      );
-      return;
-    }
-    if (!isValidEmail(editForm.email)) {
-      showStatus("❌ Email không hợp lệ!", "bg-red-600");
-      return;
-    }
-
-    localStorage.setItem(
-      "admin_profile",
-      JSON.stringify(editForm)
-    );
-    setSavedInfo(editForm);
-    setProfile(editForm);
-    setEditForm(null);
-    showStatus(
-      "✅ Cập nhật thành công!",
-      "bg-green-600"
-    );
-  };
-
-  const handleDeleteProfile = () => {
-    localStorage.removeItem("admin_profile");
-    setSavedInfo(null);
-    setProfile({
-      username: "",
-      email: "",
-      password: "",
-      role: "",
-    });
-    setEditForm(null);
-    showStatus(
-      "🗑️ Đã xóa thông tin!",
-      "bg-red-600"
-    );
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout?.();
-      showStatus("👋 Đã đăng xuất!", "bg-blue-600");
-      setTimeout(
-        () => (window.location.href = "/login"),
-        1000
-      );
-    } catch {
-      showStatus(
-        "⚠️ Lỗi khi đăng xuất!",
-        "bg-red-600"
-      );
-    }
-  };
-
-  const saveNotifications = () => {
-    localStorage.setItem(
-      "emailNotif",
-      JSON.stringify(emailNotif)
-    );
-    localStorage.setItem(
-      "smsNotif",
-      JSON.stringify(smsNotif)
-    );
-    showStatus(
-      "✅ Đã lưu cài đặt thông báo!",
-      "bg-green-600"
-    );
-  };
-
-  const toggleAutoRefresh = () => {
-    const newVal = !autoRefresh;
-    setAutoRefresh(newVal);
-    localStorage.setItem(
-      "evcs_auto_refresh",
-      JSON.stringify(newVal)
-    );
+  const handleLogoutAll = async () => {
+    // Tuỳ backend: có thể truyền flag "all_devices: true"
+    await logout({ all_devices: true }).catch(() => {});
   };
 
   return (
-    <div className="space-y-6 relative">
-      {statusMsg && (
-        <div
-          className={`${statusColor} fixed top-5 right-5 text-white px-4 py-2 rounded shadow-md z-50 animate-fadeIn`}
-        >
-          {statusMsg}
-        </div>
-      )}
-
+    <div className="p-6 space-y-6">
       <PageHeader
         title="Cài đặt hệ thống"
-        subtitle="Cấu hình tài khoản quản trị, chủ đề giao diện và thông báo"
+        subtitle="Quản lý giao diện, bảo mật và cấu hình chung"
       />
 
-      <Section title="Thông tin quản trị viên">
-        {loading ? (
-          <p className="text-sm text-gray-500">
-            Đang tải...
-          </p>
-        ) : (
-          <div className="max-w-xl space-y-3">
-            <label className="block">
-              <span className="text-sm text-gray-600">
-                Tên người dùng *
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Giao diện */}
+        <Section title="Giao diện">
+          <div className="space-y-4 text-sm">
+            <div className="font-semibold text-gray-800">
+              Chế độ hiển thị hiện tại
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                {theme === "dark" ? "🌙 Dark Mode" : "☀️ Light Mode"}
               </span>
-              <input
-                type="text"
-                value={profile.username}
-                onChange={(e) =>
-                  setProfile((p) => ({
-                    ...p,
-                    username: e.target.value,
-                  }))
-                }
-                className="w-full border rounded px-3 py-1.5 mt-1"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm text-gray-600">
-                Email *
-              </span>
-              <input
-                type="email"
-                value={profile.email}
-                onChange={(e) =>
-                  setProfile((p) => ({
-                    ...p,
-                    email: e.target.value,
-                  }))
-                }
-                className="w-full border rounded px-3 py-1.5 mt-1"
-                placeholder="example@gmail.com"
-              />
-            </label>
-
-            <label className="block relative">
-              <span className="text-sm text-gray-600">
-                Mật khẩu
-              </span>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={profile.password}
-                onChange={(e) =>
-                  setProfile((p) => ({
-                    ...p,
-                    password: e.target.value,
-                  }))
-                }
-                className="w-full border rounded px-3 py-1.5 mt-1 pr-10"
-              />
               <button
-                type="button"
-                onClick={() =>
-                  setShowPassword((v) => !v)
-                }
-                className="absolute right-3 top-8 text-gray-500 hover:text-gray-700"
+                onClick={toggleTheme}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
               >
-                {showPassword ? "🙈" : "👁️"}
-              </button>
-            </label>
-
-            <label className="block">
-              <span className="text-sm text-gray-600">
-                Vai trò *
-              </span>
-              <select
-                value={profile.role}
-                onChange={(e) =>
-                  setProfile((p) => ({
-                    ...p,
-                    role: e.target.value,
-                  }))
-                }
-                className="w-full border rounded px-3 py-1.5 mt-1"
-              >
-                <option value="">-- Chọn vai trò --</option>
-                <option value="admin">Quản trị viên</option>
-                <option value="station_owner">
-                  Chủ trạm
-                </option>
-                <option value="customer">Khách hàng</option>
-              </select>
-            </label>
-
-            <div className="flex gap-3 mt-3 flex-wrap">
-              <button
-                onClick={handleSaveProfile}
-                disabled={saving}
-                className="bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                💾 Lưu thay đổi
-              </button>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700"
-              >
-                🚪 Đăng xuất
+                Chuyển chế độ
               </button>
             </div>
-
-            {savedInfo && (
-              <div className="mt-5 border rounded-lg overflow-hidden shadow-sm">
-                <table className="min-w-full text-sm border-collapse text-left">
-                  <thead className="bg-blue-600 text-white">
-                    <tr>
-                      <th className="px-4 py-2">
-                        Tên người dùng
-                      </th>
-                      <th className="px-4 py-2">Email</th>
-                      <th className="px-4 py-2">Vai trò</th>
-                      <th className="px-4 py-2 text-center">
-                        Hành động
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="bg-white">
-                      <td className="px-4 py-2 border-t">
-                        {savedInfo.username}
-                      </td>
-                      <td className="px-4 py-2 border-t">
-                        {savedInfo.email}
-                      </td>
-                      <td className="px-4 py-2 border-t capitalize">
-                        {savedInfo.role === "admin"
-                          ? "Quản trị viên"
-                          : savedInfo.role ===
-                            "station_owner"
-                          ? "Chủ trạm"
-                          : "Khách hàng"}
-                      </td>
-                      <td className="px-4 py-2 border-t text-center space-x-2">
-                        <button
-                          onClick={handleEditProfile}
-                          className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-                        >
-                          ✏️ Chỉnh sửa
-                        </button>
-                        <button
-                          onClick={handleDeleteProfile}
-                          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
-                        >
-                          🗑️ Xóa
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {editForm && (
-              <div className="mt-5 p-4 border rounded-lg bg-gray-50 shadow-sm animate-fadeIn">
-                <h3 className="font-semibold mb-2 text-blue-600">
-                  ✏️ Chỉnh sửa thông tin
-                </h3>
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={editForm.username}
-                    onChange={(e) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        username: e.target.value,
-                      }))
-                    }
-                    placeholder="Tên người dùng"
-                    className="w-full border rounded px-3 py-1.5"
-                  />
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        email: e.target.value,
-                      }))
-                    }
-                    placeholder="Email"
-                    className="w-full border rounded px-3 py-1.5"
-                  />
-                  <input
-                    type="password"
-                    value={editForm.password}
-                    onChange={(e) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        password: e.target.value,
-                      }))
-                    }
-                    placeholder="Mật khẩu"
-                    className="w-full border rounded px-3 py-1.5"
-                  />
-                  <select
-                    value={editForm.role}
-                    onChange={(e) =>
-                      setEditForm((f) => ({
-                        ...f,
-                        role: e.target.value,
-                      }))
-                    }
-                    className="w-full border rounded px-3 py-1.5"
-                  >
-                    <option value="admin">
-                      Quản trị viên
-                    </option>
-                    <option value="station_owner">
-                      Chủ trạm
-                    </option>
-                    <option value="customer">
-                      Khách hàng
-                    </option>
-                  </select>
-
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={handleSaveEdit}
-                      className="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700"
-                    >
-                      💾 Lưu chỉnh sửa
-                    </button>
-                    <button
-                      onClick={() => setEditForm(null)}
-                      className="bg-gray-400 text-white px-4 py-1.5 rounded hover:bg-gray-500"
-                    >
-                      ✖ Hủy
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <p className="text-xs text-gray-500">
+              Theme được lưu trong <code>localStorage("theme")</code> thông qua
+              ThemeProvider.
+            </p>
           </div>
-        )}
-      </Section>
+        </Section>
 
-      <Section title="Hệ thống & Theme">
-        <div className="flex items-center gap-4 flex-wrap">
-          <button
-            onClick={toggleTheme}
-            className="rounded bg-gray-700 text-white px-4 py-2 hover:bg-gray-800"
-          >
-            🌓 Đổi theme (
-            {theme === "dark" ? "Tối" : "Sáng"})
-          </button>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={toggleAutoRefresh}
-            />
-            <span>
-              Tự động tải lại dữ liệu mỗi 60s
-            </span>
-          </label>
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            <span>
-              Trạng thái hệ thống:
-              <b
-                className={
-                  systemStatus === "healthy"
-                    ? "text-emerald-600 ml-1"
-                    : systemStatus === "degraded"
-                    ? "text-amber-600 ml-1"
-                    : "text-gray-500 ml-1"
-                }
+        {/* Bảo mật & phiên */}
+        <Section title="Bảo mật & Phiên đăng nhập">
+          <div className="space-y-4 text-sm">
+            <div>
+              <div className="font-semibold text-gray-800 mb-1">
+                Tài khoản đang đăng nhập
+              </div>
+              <div className="text-gray-700">
+                {user?.email || "Không xác định"}{" "}
+                {user?.role ? (
+                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs">
+                    {user.role}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-3">
+              <div className="font-semibold text-gray-800 mb-1">
+                Đăng xuất toàn bộ thiết bị
+              </div>
+              <p className="text-xs text-gray-500 mb-2">
+                Hữu ích khi nghi ngờ tài khoản bị lộ hoặc sử dụng trên nhiều
+                máy.
+              </p>
+              <button
+                onClick={handleLogoutAll}
+                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700"
               >
-                {systemStatus}
-              </b>
-            </span>
-            <span>•</span>
-            <span>
-              Cảnh báo mở:{" "}
-              <b>
-                {Array.isArray(alerts)
-                  ? alerts.length
-                  : 0}
-              </b>
-            </span>
+                Đăng xuất tất cả thiết bị
+              </button>
+            </div>
           </div>
-        </div>
-      </Section>
+        </Section>
 
-      <Section title="Thông báo hệ thống">
-        <div className="max-w-xl space-y-4">
-          <label className="flex items-center justify-between border p-3 rounded">
-            <span>Email</span>
-            <input
-              type="checkbox"
-              checked={emailNotif}
-              onChange={(e) =>
-                setEmailNotif(e.target.checked)
-              }
-            />
-          </label>
-          <label className="flex items-center justify-between border p-3 rounded">
-            <span>SMS</span>
-            <input
-              type="checkbox"
-              checked={smsNotif}
-              onChange={(e) =>
-                setSmsNotif(e.target.checked)
-              }
-            />
-          </label>
-          <button
-            onClick={saveNotifications}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            💾 Lưu cài đặt
-          </button>
-        </div>
-      </Section>
+        {/* Thông tin phiên bản (tĩnh – có thể lấy từ API config sau) */}
+        <Section title="Thông tin phiên bản">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Phiên bản frontend</span>
+              <span className="font-semibold">v1.0.0</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Gateway API</span>
+              <span className="font-semibold">
+                {import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8080"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Build</span>
+              <span className="font-semibold">#2025.11.14</span>
+            </div>
+            <p className="mt-2 text-xs text-gray-400">
+              Có thể thay phần này bằng dữ liệu từ một endpoint cấu hình
+              (config-service) nếu backend cung cấp.
+            </p>
+          </div>
+        </Section>
+
+        {/* Placeholder cho cấu hình nâng cao */}
+        <Section title="Cấu hình nâng cao">
+          <p className="text-sm text-gray-600">
+            Khu vực này dành cho các cấu hình nâng cao (rate limit, threshold
+            cảnh báo, cấu hình analytics...). Bạn có thể:
+          </p>
+          <ul className="mt-2 list-disc pl-5 text-xs text-gray-500 space-y-1">
+            <li>
+              Tạo một service mới (vd: <code>settingsService</code>) và gọi
+              từ đây.
+            </li>
+            <li>
+              Lưu giá trị vào backend thay vì <code>localStorage</code>.
+            </li>
+            <li>
+              Sử dụng form + validation (React Hook Form) nếu cần phức tạp.
+            </li>
+          </ul>
+        </Section>
+      </div>
     </div>
   );
 }

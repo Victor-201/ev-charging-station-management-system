@@ -1,410 +1,204 @@
-import { useMemo, useState, useEffect } from "react";
+// pages/admin/Analytics.jsx
+import React, { useState, useEffect } from "react";
+import PageHeader from "@/components/admin/PageHeader";
 import Section from "@/components/admin/Section";
 import Chart from "@/components/admin/Chart";
-import PageHeader from "@/components/admin/PageHeader";
+import Table from "@/components/admin/Table";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
-const TRAIN_LOG = "evcs_train_log";
-
-export default function Analytics() {
-  const today = useMemo(
-    () => new Date().toISOString().slice(0, 10),
-    []
-  );
-  const [from, setFrom] = useState(today);
-  const [to, setTo] = useState(today);
-  const [key, setKey] = useState(0);
-
+/**
+ * Trang Analytics:
+ * - Dùng useAnalytics để gọi:
+ *   + getRevenueReport
+ *   + getStationDailyReport
+ *   + getUserMonthlyReport
+ *   + getForecastByStation
+ * - Cho phép admin chọn trạm / user / khoảng thời gian và xem biểu đồ.
+ */
+export default function AnalyticsPage() {
   const {
-    revenueReport,
-    forecastByStation,
-    metrics,
-    health,
-    alerts,
-    logs,
-    getRevenueReport,
-    getForecastByStation,
-    getMetrics,
-    getHealth,
-    getAlerts,
-    ackAlert,
-    getLogs,
-    trainForecastModel,
     loadingAnalytics,
-    loadingMonitoring,
+    error,
+    revenueReport,
+    stationDailyReport,
+    userMonthlyReport,
+    forecastByStation,
+    getRevenueReport,
+    getStationDailyReport,
+    getUserMonthlyReport,
+    getForecastByStation,
   } = useAnalytics();
 
-  const [forecastVM, setForecastVM] = useState([]);
-  const [stationForecastVM, setStationForecastVM] = useState([]);
-  const [telemetryVM, setTelemetryVM] = useState([]);
+  // state filter UI
+  const [stationId, setStationId] = useState("");
+  const [userId, setUserId] = useState("");
+  const [range, setRange] = useState("last_7_days");
 
-  const [training, setTraining] = useState(false);
-  const [trainProgress, setTrainProgress] = useState(0);
-  const [trainMsg, setTrainMsg] = useState("");
-  const [toastMsg, setToastMsg] = useState("");
-  const [lastUpdated, setLastUpdated] = useState("");
-
-  const getJson = (key) => {
-    try {
-      return JSON.parse(localStorage.getItem(key) || "[]");
-    } catch {
-      return [];
-    }
-  };
-
-  const formatVND = (val) =>
-    new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      maximumFractionDigits: 0,
-    }).format(val || 0);
-
-  const loadRevenueReport = async () => {
-    const result = await getRevenueReport({ from, to });
-    const data = result?.data ?? revenueReport ?? [];
-    if (Array.isArray(data) && data.length) {
-      const totalRevenue = data.reduce(
-        (s, r) => s + (r.revenue || 0),
-        0
-      );
-      const totalSessions = data.reduce(
-        (s, r) => s + (r.sessions || 0),
-        0
-      );
-      const totalEnergy = data.reduce(
-        (s, r) => s + (r.energy_kwh || 0),
-        0
-      );
-      setForecastVM([
-        { label: "Doanh thu (VND)", value: totalRevenue },
-        { label: "Phiên sạc", value: totalSessions },
-        { label: "Tổng điện (kWh)", value: totalEnergy },
-      ]);
-    } else {
-      setForecastVM([]);
-    }
-    setLastUpdated(new Date().toLocaleTimeString("vi-VN"));
-  };
-
-  const loadForecastByStation = async () => {
-    const result = await getForecastByStation();
-    const data = result?.data ?? forecastByStation ?? [];
-    if (Array.isArray(data) && data.length) {
-      const mapped = data.map((r) => ({
-        label: r.station_id || r.station || r.label,
-        value: r.predicted_sessions ?? r.predicted_kwh ?? r.value ?? 0,
-      }));
-      setStationForecastVM(mapped);
-    } else setStationForecastVM([]);
-  };
-
-  const loadMetrics = async () => {
-    await getMetrics();
-  };
-
-  const loadTelemetry = async () => {
-    const result = await getHealth();
-    const data = result?.data ?? health ?? [];
-    if (Array.isArray(data) && data.length) setTelemetryVM(data);
-    else setTelemetryVM([]);
-  };
-
-  const loadAlerts = async () => {
-    await getAlerts();
-  };
-
-  const acknowledgeAlert = async (id) => {
-    try {
-      await ackAlert({ id });
-    } catch {
-      console.warn("Không thể xác nhận cảnh báo");
-    }
-  };
-
-  const loadLogs = async () => {
-    await getLogs({ limit: 10 });
-  };
-
-  const triggerTrain = async () => {
-    setTraining(true);
-    setTrainProgress(0);
-    setTrainMsg("");
-    try {
-      await trainForecastModel({ from, to });
-    } catch {
-      console.warn("Fallback training");
-    }
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setTrainProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        const log = getJson(TRAIN_LOG);
-        log.push({
-          time: new Date().toLocaleString("vi-VN"),
-          message: "Huấn luyện mô phỏng thành công",
-        });
-        localStorage.setItem(TRAIN_LOG, JSON.stringify(log));
-        setTrainMsg("✅ Huấn luyện AI hoàn tất");
-        setTraining(false);
-        setToastMsg("🚀 Dữ liệu AI đã được huấn luyện lại");
-        setTimeout(() => setToastMsg(""), 2500);
-      }
-    }, 120);
-  };
-
+  // Khi vào trang -> load doanh thu mặc định
   useEffect(() => {
-    loadRevenueReport();
-    loadForecastByStation();
-    loadMetrics();
-    loadTelemetry();
-    loadAlerts();
-    loadLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+    getRevenueReport({ range: "last_7_days" });
+  }, [getRevenueReport]);
+
+  const handleRefreshRevenue = () => {
+    getRevenueReport({ range });
+  };
+
+  const handleFetchStationReport = () => {
+    if (!stationId) return;
+    getStationDailyReport(stationId);
+    getForecastByStation(stationId);
+  };
+
+  const handleFetchUserReport = () => {
+    if (!userId) return;
+    getUserMonthlyReport(userId);
+  };
+
+  // Chuẩn hoá data cho Chart doanh thu
+  const revenueChartData = (revenueReport?.points || []).map((p) => ({
+    label: p.label || p.date,
+    value: p.total || p.amount || 0,
+  }));
+
+  const stationEnergyData = (stationDailyReport?.points || []).map((p) => ({
+    label: p.label || p.date,
+    value: p.energy_kwh || 0,
+  }));
+
+  const forecastData = (forecastByStation?.points || []).map((p) => ({
+    label: p.label || p.date,
+    value: p.predicted || p.forecast || 0,
+  }));
+
+  const userUsageData = (userMonthlyReport?.points || []).map((p) => ({
+    label: p.label || p.month,
+    value: p.energy_kwh || p.sessions || 0,
+  }));
 
   return (
-    <div className="space-y-6 relative">
-      {toastMsg && (
-        <div className="fixed top-5 right-5 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg animate-fade-in">
-          {toastMsg}
+    <div className="p-6 space-y-6">
+      <PageHeader
+        title="Phân tích & Thống kê"
+        subtitle="Xem xu hướng sử dụng, doanh thu và dự báo tải trạm"
+      />
+
+      {error && (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+          <strong>Lỗi:</strong>{" "}
+          {error.message || error.toString() || "Có lỗi xảy ra khi lấy dữ liệu"}
         </div>
       )}
 
-      <PageHeader
-        title="Phân tích & Báo cáo hệ thống"
-        subtitle="Bảng điều khiển AI Forecast, Telemetry, Cảnh báo và Logs"
-      />
-
-      <Section
-        title="Cấu hình & Huấn luyện AI"
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="rounded-md border px-3 py-1.5"
-            />
-            <span className="text-sm text-gray-600">đến</span>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="rounded-md border px-3 py-1.5"
-            />
-            <button
-              onClick={() => setKey((k) => k + 1)}
-              disabled={loadingAnalytics || loadingMonitoring}
-              className={`rounded-md px-3 py-1.5 text-white ${
-                loadingAnalytics || loadingMonitoring
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600"
-              }`}
+      {/* Bộ lọc chính */}
+      <Section title="Bộ lọc dữ liệu">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Lọc doanh thu */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-gray-700">
+              Khoảng thời gian doanh thu
+            </div>
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
-              {loadingAnalytics || loadingMonitoring
-                ? "Đang tải..."
-                : "Áp dụng"}
-            </button>
+              <option value="today">Hôm nay</option>
+              <option value="yesterday">Hôm qua</option>
+              <option value="last_7_days">7 ngày qua</option>
+              <option value="last_30_days">30 ngày qua</option>
+            </select>
             <button
-              disabled={training}
-              onClick={triggerTrain}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-white disabled:opacity-50"
+              onClick={handleRefreshRevenue}
+              disabled={loadingAnalytics}
+              className="mt-2 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {training
-                ? `Đang huấn luyện... ${trainProgress}%`
-                : "Huấn luyện AI"}
+              Làm mới doanh thu
             </button>
           </div>
-        }
-      >
-        {trainMsg && (
-          <p className="mb-2 text-xs text-emerald-600">{trainMsg}</p>
-        )}
-      </Section>
 
-      <Section title="Tổng quan doanh thu & năng lượng">
-        <Chart height={320} data={forecastVM} />
-        <div className="overflow-x-auto mt-3">
-          <table className="min-w-[420px] text-sm border-collapse">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border px-3 py-2 text-left">Chỉ số</th>
-                <th className="border px-3 py-2 text-right">Giá trị</th>
-              </tr>
-            </thead>
-            <tbody>
-              {forecastVM.map((r, i) => (
-                <tr key={i}>
-                  <td className="border px-3 py-2">{r.label}</td>
-                  <td className="border px-3 py-2 text-right">
-                    {r.label.includes("VND")
-                      ? formatVND(r.value)
-                      : r.value?.toLocaleString?.("vi-VN") ?? r.value}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-xs text-gray-500 mt-2 text-right">
-          Cập nhật lúc: {lastUpdated}
-        </p>
-      </Section>
+          {/* Lọc theo trạm */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-gray-700">
+              Thống kê theo trạm
+            </div>
+            <input
+              value={stationId}
+              onChange={(e) => setStationId(e.target.value)}
+              placeholder="Nhập Station ID"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+            <button
+              onClick={handleFetchStationReport}
+              disabled={!stationId || loadingAnalytics}
+              className="mt-2 inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              Xem báo cáo trạm
+            </button>
+          </div>
 
-      <Section title="Dự báo AI theo từng trạm">
-        <Chart height={260} data={stationForecastVM} />
-        <div className="overflow-x-auto mt-3">
-          <table className="min-w-[420px] text-sm border-collapse">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border px-3 py-2 text-left">Trạm</th>
-                <th className="border px-3 py-2 text-right">Giá trị</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(stationForecastVM || []).map((s, i) => (
-                <tr key={i}>
-                  <td className="border px-3 py-2">
-                    {s.label ?? s.station ?? s.station_id}
-                  </td>
-                  <td className="border px-3 py-2 text-right">
-                    {s.value ?? s.forecast ?? 0}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* Lọc theo user */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-gray-700">
+              Thống kê theo người dùng
+            </div>
+            <input
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              placeholder="Nhập User ID"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+            <button
+              onClick={handleFetchUserReport}
+              disabled={!userId || loadingAnalytics}
+              className="mt-2 inline-flex items-center justify-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+            >
+              Xem báo cáo người dùng
+            </button>
+          </div>
         </div>
       </Section>
 
-      <Section title="Thống kê Metrics hệ thống">
-        {metrics && Array.isArray(metrics) && metrics.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-xs">
-              <thead className="bg-gray-100 dark:bg-gray-800">
-                <tr>
-                  <th className="border p-2 text-left">Người dùng</th>
-                  <th className="border p-2 text-right">Phiên sạc</th>
-                  <th className="border p-2 text-right">kWh</th>
-                  <th className="border p-2 text-right">Doanh thu</th>
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.map((m, i) => (
-                  <tr key={i}>
-                    <td className="border p-2">{m.user}</td>
-                    <td className="border p-2 text-right">
-                      {m.sessions}
-                    </td>
-                    <td className="border p-2 text-right">
-                      {m.energy_kwh}
-                    </td>
-                    <td className="border p-2 text-right">
-                      {formatVND(m.total_cost)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500">Không có dữ liệu</div>
-        )}
+      {/* Hàng biểu đồ 1: Doanh thu + Năng lượng theo trạm */}
+      <Section title="Doanh thu & Năng lượng">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Chart
+            title="Doanh thu theo thời gian"
+            data={revenueChartData}
+            yLabel="VNĐ"
+          />
+          <Chart
+            title="Năng lượng theo ngày (Trạm)"
+            data={stationEnergyData}
+            yLabel="kWh"
+          />
+        </div>
       </Section>
 
-      <Section title="Telemetry - Trạng thái trạm (Health)">
-        {telemetryVM && telemetryVM.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-xs">
-              <thead className="bg-gray-100 dark:bg-gray-800">
-                <tr>
-                  <th className="border p-2 text-left">Thời gian</th>
-                  <th className="border p-2 text-left">Trạm</th>
-                  <th className="border p-2 text-right">kWh</th>
-                  <th className="border p-2 text-center">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {telemetryVM.map((t, i) => (
-                  <tr key={i}>
-                    <td className="border p-2">
-                      {t.ts
-                        ? new Date(t.ts).toLocaleTimeString()
-                        : ""}
-                    </td>
-                    <td className="border p-2">{t.station}</td>
-                    <td className="border p-2 text-right">{t.kwh}</td>
-                    <td
-                      className={`border p-2 text-center ${
-                        t.status === "error"
-                          ? "text-red-600"
-                          : t.status === "charging"
-                          ? "text-blue-600"
-                          : t.status === "idle"
-                          ? "text-yellow-600"
-                          : "text-emerald-600"
-                      }`}
-                    >
-                      {t.status}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500">
-            Không có dữ liệu
-          </div>
-        )}
+      {/* Hàng biểu đồ 2: Dự báo + User usage */}
+      <Section title="Dự báo & Thói quen sử dụng">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Chart
+            title="Dự báo tải trạm (forecast)"
+            data={forecastData}
+            yLabel="kWh (dự kiến)"
+          />
+          <Chart
+            title="Sử dụng theo tháng (User)"
+            data={userUsageData}
+            yLabel="kWh / số phiên"
+          />
+        </div>
       </Section>
 
-      <Section title="Cảnh báo hệ thống">
-        {Array.isArray(alerts) && alerts.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            ✅ Không có cảnh báo nào
-          </p>
-        ) : (
-          <ul className="text-sm space-y-2">
-            {(alerts || []).map((a) => (
-              <li
-                key={a.id}
-                className={`p-2 rounded border ${
-                  a.severity === "high"
-                    ? "border-red-400 bg-red-50 text-red-700"
-                    : "border-yellow-400 bg-yellow-50 text-yellow-700"
-                } flex justify-between`}
-              >
-                <span>{a.message}</span>
-                <button
-                  onClick={() => acknowledgeAlert(a.id)}
-                  className="text-xs bg-white/40 px-2 py-0.5 rounded"
-                >
-                  Đã đọc
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <Section title="Nhật ký hệ thống (Logs)">
-        {Array.isArray(logs) && logs.length > 0 ? (
-          <div className="max-h-64 overflow-y-auto text-xs bg-gray-50 p-2 rounded-md border border-gray-200">
-            {logs.map((log, i) => (
-              <div key={i} className="py-0.5">
-                🕒 <b>{log.timestamp}</b>: {log.message}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500">
-            Không có nhật ký
-          </div>
-        )}
-      </Section>
+      {/* Bảng raw – nếu backend trả dạng bảng */}
+      {(revenueReport?.rows || []).length > 0 && (
+        <Section title="Chi tiết doanh thu (raw)">
+          <Table
+            columns={revenueReport.columns || ["Ngày", "Doanh thu (VNĐ)"]}
+            rows={revenueReport.rows}
+          />
+        </Section>
+      )}
     </div>
   );
 }
