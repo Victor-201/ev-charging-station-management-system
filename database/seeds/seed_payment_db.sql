@@ -1,117 +1,131 @@
 -- =====================================================
--- EV_PAYMENT_DB — FULL SAFE SEED (10 users, ~25 transactions)
+-- EV_PAYMENT_DB — Seed Data (Full, constraint-safe, unique reference_code)
 -- Author: Victor
--- Last Updated: 2025-11
+-- Updated: 2025-11
 -- =====================================================
 
--- Xóa dữ liệu cũ
-TRUNCATE TABLE wallet_transactions, wallets, invoices, transactions, subscriptions, plans RESTART IDENTITY CASCADE;
+-- Xoá dữ liệu cũ
+TRUNCATE TABLE wallet_transactions, invoices, transactions, wallets, subscriptions, plans RESTART IDENTITY CASCADE;
 
 -- =====================================================
--- PLANS
+-- Plans
 -- =====================================================
-INSERT INTO plans (id, name, description, type, price, duration_days)
+INSERT INTO plans (name, description, type, price, duration_days)
 VALUES
-  (gen_random_uuid(),'Basic Plan','Gói cơ bản cho người mới bắt đầu','basic',99000,30),
-  (gen_random_uuid(),'Standard Plan','Gói tiêu chuẩn dành cho người dùng thường xuyên','standard',199000,30),
-  (gen_random_uuid(),'Premium Plan','Gói cao cấp với nhiều ưu đãi hơn','premium',299000,30);
+  ('Basic Plan', 'Gói cơ bản cho người dùng mới', 'basic', 100000, 30),
+  ('Standard Plan', 'Gói tiêu chuẩn cho người dùng thường xuyên', 'standard', 250000, 90),
+  ('Premium Plan', 'Gói cao cấp có nhiều ưu đãi', 'premium', 450000, 180);
 
 -- =====================================================
--- WALLETS & USERS (10 users)
+-- Subscriptions (10 users)
 -- =====================================================
-INSERT INTO wallets (id, user_id, balance)
-SELECT gen_random_uuid(), gen_random_uuid(), 0
+INSERT INTO subscriptions (user_id, plan_id, start_date, end_date, status)
+SELECT
+  gen_random_uuid(),
+  (SELECT id FROM plans ORDER BY random() LIMIT 1),
+  NOW() - (random() * INTERVAL '10 days'),
+  NOW() + (random() * INTERVAL '90 days'),
+  (ARRAY['active','cancelled','expired'])[floor(random()*3 + 1)]::subscription_status
 FROM generate_series(1,10);
 
 -- =====================================================
--- SUBSCRIPTIONS (1-2 subscription / user)
+-- Wallets (10 users)
 -- =====================================================
-WITH w AS (SELECT id AS wallet_id, user_id FROM wallets),
-     p AS (SELECT id, type FROM plans)
-INSERT INTO subscriptions (id, user_id, plan_id, start_date, end_date, status)
-SELECT gen_random_uuid(), w.user_id, p.id,
-       NOW(), NOW() + INTERVAL '30 days', 'active'::subscription_status
-FROM w
-JOIN p ON p.type IN ('standard','premium')
-WHERE random() > 0.3;
+INSERT INTO wallets (user_id, balance, status)
+SELECT
+  user_id,
+  round((random() * 900000 + 100000)::numeric, 2),
+  (ARRAY['active','suspended','active','active','active'])[floor(random()*5 + 1)]::wallet_status
+FROM subscriptions;
 
 -- =====================================================
--- 1️⃣ TRANSACTIONS: Topup đảm bảo balance
+-- Transactions (30 rows, constraint-safe, unique reference_code)
 -- =====================================================
-INSERT INTO transactions (id, user_id, type, amount, method, related_type, related_id, status)
-SELECT gen_random_uuid(), w.user_id, 'topup'::tx_type, 500000, 'bank_transfer'::tx_method, NULL, NULL, 'completed'::tx_status
-FROM wallets w;
+WITH tx_seed AS (
+  SELECT
+    s.user_id,
+    CASE
+      WHEN i <= 10 THEN 'topup'::tx_type
+      WHEN i <= 20 THEN 'payment'::tx_type
+      ELSE 'refund'::tx_type
+    END AS tx_type,
+    round((random() * 400000 + 50000)::numeric, 2) AS amount,
+    (ARRAY['subscription','booking','charging_session','guest_charging'])[floor(random()*4 + 1)] AS rtype,
+    s.id AS sid,
+    i
+  FROM subscriptions s, generate_series(1,30) i
+)
+INSERT INTO transactions (user_id, type, amount, method, related_id, related_type, status, reference_code)
+SELECT
+  user_id,
+  tx_type,
+  amount,
+  CASE
+    WHEN tx_type = 'topup' THEN 'bank_transfer'::tx_method
+    WHEN tx_type = 'payment' THEN
+      CASE
+        WHEN rtype IN ('subscription','booking') THEN (ARRAY['wallet','bank_transfer'])[floor(random()*2 + 1)]
+        WHEN rtype = 'charging_session' THEN (ARRAY['wallet','cash','bank_transfer'])[floor(random()*3 + 1)]
+        WHEN rtype = 'guest_charging' THEN (ARRAY['cash','bank_transfer'])[floor(random()*2 + 1)]
+      END::tx_method
+    WHEN tx_type = 'refund' THEN 'wallet'::tx_method
+  END,
+  CASE
+    WHEN tx_type = 'payment' THEN sid
+    ELSE NULL
+  END,
+  CASE
+    WHEN tx_type = 'payment' THEN rtype::tx_related_type
+    ELSE NULL
+  END,
+  (ARRAY['pending','completed','failed','cancelled'])[floor(random()*4 + 1)]::tx_status,
+  'TX-' || gen_random_uuid()::text
+FROM tx_seed;
 
--- WALLET_TRANSACTIONS tương ứng cho topup
-INSERT INTO wallet_transactions (id, wallet_id, transaction_id, amount, type, note)
-SELECT gen_random_uuid(), w.id, t.id, t.amount, t.type::text::wallet_tx_type,
-       'Nạp tiền seed đảm bảo balance'
+-- =====================================================
+-- Invoices (15 rows)
+-- =====================================================
+INSERT INTO invoices (transaction_id, user_id, total_amount, due_date, status)
+SELECT
+  t.id,
+  t.user_id,
+  t.amount,
+  NOW() + (random() * INTERVAL '15 days'),
+  (ARRAY['unpaid','paid','overdue','cancelled'])[floor(random()*4 + 1)]::invoice_status
+FROM transactions t
+ORDER BY random()
+LIMIT 15;
+
+-- =====================================================
+-- Wallet Transactions (20 rows, trigger tự update balance)
+-- =====================================================
+INSERT INTO wallet_transactions (wallet_id, transaction_id, amount, type, note)
+SELECT
+  w.id,
+  t.id,
+  round((random() * 200000 + 20000)::numeric, 2),
+  CASE
+    WHEN t.type = 'topup' THEN 'topup'::wallet_tx_type
+    WHEN t.type = 'payment' THEN 'payment'::wallet_tx_type
+    WHEN t.type = 'refund' THEN 'refund'::wallet_tx_type
+  END,
+  'Auto test transaction #' || gen_random_uuid()::text
 FROM wallets w
 JOIN transactions t ON t.user_id = w.user_id
-WHERE t.type='topup';
-
--- COMMIT để trigger cập nhật balance trước các payment bằng ví
-COMMIT;
+ORDER BY random()
+LIMIT 20;
 
 -- =====================================================
--- 2️⃣ TRANSACTIONS: Các payment / refund tiếp theo (~20-25)
+-- Verify counts
 -- =====================================================
-WITH w AS (SELECT id AS wallet_id, user_id FROM wallets),
-     s AS (SELECT * FROM subscriptions)
-INSERT INTO transactions (id, user_id, type, amount, method, related_type, related_id, status)
-SELECT gen_random_uuid(),
-       w.user_id,
-       v.t_type::tx_type,
-       CASE v.t_type
-         WHEN 'topup' THEN 300000 + round(random()*200000)
-         WHEN 'payment' THEN 80000 + round(random()*250000)
-         WHEN 'refund' THEN 50000 + round(random()*50000)
-       END,
-       v.t_method::tx_method,
-       v.rel_type::tx_related_type,
-       v.rel_id,
-       'completed'::tx_status
-FROM w,
-LATERAL (
-  VALUES
-    ('topup','bank_transfer',NULL,NULL),
-    ('payment','wallet','subscription', (SELECT id FROM s WHERE s.user_id=w.user_id ORDER BY random() LIMIT 1)),
-    ('payment','bank_transfer','booking', gen_random_uuid()),
-    ('payment','cash','charging_session', gen_random_uuid()),
-    ('payment','bank_transfer','guest_charging', gen_random_uuid()),
-    ('refund','wallet',NULL,NULL)
-) AS v(t_type, t_method, rel_type, rel_id)
-WHERE random() > 0.2
-LIMIT 25;
+SELECT COUNT(*) AS plans FROM plans;
+SELECT COUNT(*) AS subscriptions FROM subscriptions;
+SELECT COUNT(*) AS wallets FROM wallets;
+SELECT COUNT(*) AS transactions FROM transactions;
+SELECT COUNT(*) AS invoices FROM invoices;
+SELECT COUNT(*) AS wallet_transactions FROM wallet_transactions;
 
 -- =====================================================
--- WALLET TRANSACTIONS
+-- View tổng hợp ví
 -- =====================================================
-INSERT INTO wallet_transactions (id, wallet_id, transaction_id, amount, type, note)
-SELECT gen_random_uuid(),
-       w.id AS wallet_id,
-       tx.id AS transaction_id,
-       tx.amount,
-       tx.type::text::wallet_tx_type,
-       CASE tx.type
-         WHEN 'topup' THEN 'Nạp tiền seed'
-         WHEN 'payment' THEN 'Thanh toán seed'
-         WHEN 'refund' THEN 'Hoàn tiền seed'
-       END
-FROM wallets w
-JOIN transactions tx 
-  ON tx.user_id = w.user_id
-WHERE tx.type IN ('topup','payment','refund');
-
--- =====================================================
--- INVOICES
--- =====================================================
-INSERT INTO invoices (id, transaction_id, user_id, total_amount, due_date, status)
-SELECT gen_random_uuid(),
-       tx.id,
-       tx.user_id,
-       tx.amount,
-       NOW() + INTERVAL '5 days',
-       'paid'::invoice_status
-FROM transactions tx
-WHERE tx.status='completed';
+SELECT * FROM vw_wallet_balances ORDER BY updated_at DESC;
