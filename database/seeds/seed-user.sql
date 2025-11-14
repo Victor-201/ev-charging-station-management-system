@@ -2,10 +2,11 @@
 -- Database: ev_user_db
 
 -- Insert user profiles (matching users from auth service)
-INSERT INTO user_profiles (user_id, name, phone) VALUES
-('550e8400-e29b-41d4-a716-446655440001', 'Nguyen Van A', '0987654321'),
-('550e8400-e29b-41d4-a716-446655440002', 'Tran Thi B', '0976543210'),
-('550e8400-e29b-41d4-a716-446655440003', 'Admin User', '0965432109');
+-- Note: name and phone are in auth.users table
+INSERT INTO user_profiles (user_id, address, avatar_url) VALUES
+('550e8400-e29b-41d4-a716-446655440001', '123 Nguyen Hue, District 1, HCMC', NULL),
+('550e8400-e29b-41d4-a716-446655440002', '456 Le Loi, District 3, HCMC', NULL),
+('550e8400-e29b-41d4-a716-446655440003', '789 Vo Van Tan, District 3, HCMC', NULL);
 
 -- Insert test vehicles
 INSERT INTO vehicles (user_id, plate_number, brand, model, battery_kwh, color, year, status) VALUES
