@@ -13,17 +13,8 @@ export default class PaymentService {
     this.walletTxRepo = new WalletTransactionRepository();
     this.planRepo = new PlanRepository();
 
-    // Subscribe local events for topup and subscription
     localBus.subscribe('payment.topup.succeeded', payload => this._applyTopup(payload));
     localBus.subscribe('payment.subscription.succeeded', payload => this._applySubscription(payload));
-
-    // Subscribe RabbitMQ events for booking/charging
-    this._subscribeToReservationEvents();
-  }
-
-  async _subscribeToReservationEvents() {
-    await eventBus.connect();
-    await eventBus.subscribe('payment.requested', payload => this._handleReservationPayment(payload));
   }
 
   // ======== Create Transaction ========
@@ -60,13 +51,17 @@ export default class PaymentService {
         wallet_id: wallet.id, transaction_id: transaction.id,
         type: 'payment', amount, note: description
       });
+
       transaction.markSuccess({ paid_at: new Date().toISOString() });
       await this.txRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
-      // Local events only for topup/subscription
       if (['topup', 'subscription'].includes(type)) {
         const eventType = `payment.${type}.succeeded`;
-        localBus.publish(eventType, { user_id, transaction_id: transaction.id, related_id, related_type: type, amount, method, reference_code: referenceCode });
+        localBus.publish(eventType, {
+          user_id, transaction_id: transaction.id,
+          related_id, related_type: type,
+          amount, method, reference_code: referenceCode
+        });
       }
     }
 
@@ -82,7 +77,6 @@ export default class PaymentService {
     transaction.markSuccess({ confirmed_at: new Date().toISOString() });
     await this.txRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
-    // Publish charging event via RabbitMQ (non-blocking)
     await eventBus.connect();
     eventBus.channel.publish(
       eventBus.exchange,
@@ -135,7 +129,11 @@ export default class PaymentService {
         localBus.publish(eventType, eventPayload);
       } else {
         await eventBus.connect();
-        eventBus.channel.publish(eventBus.exchange, eventType, Buffer.from(JSON.stringify(eventPayload)));
+        eventBus.channel.publish(
+          eventBus.exchange,
+          eventType,
+          Buffer.from(JSON.stringify(eventPayload))
+        );
       }
     }
 
@@ -175,42 +173,4 @@ export default class PaymentService {
     if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
     return transaction;
   }
-
-  async _handleReservationPayment(payload) {
-  const { user_id, type, amount, method, related_id, related_type, meta } = payload;
-
-  try {
-    const transaction = await this.createTransaction({
-      user_id,
-      type,
-      amount,
-      method,
-      related_id,
-      related_type,
-      description: meta?.description || ''
-    });
-
-    console.log(`[PaymentService] Transaction created successfully: ${transaction.id}`);
-
-  } catch (err) {
-    console.error(`[PaymentService] Failed to create transaction: ${err.message}`);
-
-    await eventBus.connect();
-    const eventType = `payment.${related_type || type}.failed`;
-    const eventPayload = {
-      user_id,
-      related_id,
-      related_type,
-      amount,
-      method,
-      reason: err.message,
-    };
-
-    eventBus.channel.publish(
-      eventBus.exchange,
-      eventType,
-      Buffer.from(JSON.stringify(eventPayload))
-    );
-  }
-}
 }
