@@ -7,12 +7,14 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 const TRAIN_LOG = "evcs_train_log";
 
 export default function Analytics() {
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(
+    () => new Date().toISOString().slice(0, 10),
+    []
+  );
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [key, setKey] = useState(0);
 
-  // Context data (provider caches)
   const {
     revenueReport,
     forecastByStation,
@@ -20,7 +22,6 @@ export default function Analytics() {
     health,
     alerts,
     logs,
-    // actions
     getRevenueReport,
     getForecastByStation,
     getMetrics,
@@ -29,15 +30,13 @@ export default function Analytics() {
     ackAlert,
     getLogs,
     trainForecastModel,
-    // flags
     loadingAnalytics,
     loadingMonitoring,
   } = useAnalytics();
 
-  // Local mapped view models
-  const [forecastVM, setForecastVM] = useState([]); // mapped from revenueReport
-  const [stationForecastVM, setStationForecastVM] = useState([]); // mapped from forecastByStation
-  const [telemetryVM, setTelemetryVM] = useState([]); // mapped from health/raw telemetry
+  const [forecastVM, setForecastVM] = useState([]);
+  const [stationForecastVM, setStationForecastVM] = useState([]);
+  const [telemetryVM, setTelemetryVM] = useState([]);
 
   const [training, setTraining] = useState(false);
   const [trainProgress, setTrainProgress] = useState(0);
@@ -45,7 +44,6 @@ export default function Analytics() {
   const [toastMsg, setToastMsg] = useState("");
   const [lastUpdated, setLastUpdated] = useState("");
 
-  // ===== Helper =====
   const getJson = (key) => {
     try {
       return JSON.parse(localStorage.getItem(key) || "[]");
@@ -61,16 +59,22 @@ export default function Analytics() {
       maximumFractionDigits: 0,
     }).format(val || 0);
 
-  // Không dùng chọn tháng cho Analytics theo yêu cầu
-
-  // ===== API 1: Tổng quan doanh thu =====
   const loadRevenueReport = async () => {
     const result = await getRevenueReport({ from, to });
     const data = result?.data ?? revenueReport ?? [];
     if (Array.isArray(data) && data.length) {
-      const totalRevenue = data.reduce((s, r) => s + (r.revenue || 0), 0);
-      const totalSessions = data.reduce((s, r) => s + (r.sessions || 0), 0);
-      const totalEnergy = data.reduce((s, r) => s + (r.energy_kwh || 0), 0);
+      const totalRevenue = data.reduce(
+        (s, r) => s + (r.revenue || 0),
+        0
+      );
+      const totalSessions = data.reduce(
+        (s, r) => s + (r.sessions || 0),
+        0
+      );
+      const totalEnergy = data.reduce(
+        (s, r) => s + (r.energy_kwh || 0),
+        0
+      );
       setForecastVM([
         { label: "Doanh thu (VND)", value: totalRevenue },
         { label: "Phiên sạc", value: totalSessions },
@@ -82,22 +86,22 @@ export default function Analytics() {
     setLastUpdated(new Date().toLocaleTimeString("vi-VN"));
   };
 
-  // ===== API 2: Forecast theo trạm =====
   const loadForecastByStation = async () => {
     const result = await getForecastByStation();
     const data = result?.data ?? forecastByStation ?? [];
-    if (Array.isArray(data) && data.length) setStationForecastVM(data);
-    else setStationForecastVM([]);
+    if (Array.isArray(data) && data.length) {
+      const mapped = data.map((r) => ({
+        label: r.station_id || r.station || r.label,
+        value: r.predicted_sessions ?? r.predicted_kwh ?? r.value ?? 0,
+      }));
+      setStationForecastVM(mapped);
+    } else setStationForecastVM([]);
   };
 
-  // ===== API 3: Metrics hệ thống =====
   const loadMetrics = async () => {
-    const result = await getMetrics();
-    const data = result?.data ?? metrics ?? [];
-    // Không dùng mock; nếu rỗng, giữ nguyên trạng thái rỗng
+    await getMetrics();
   };
 
-  // ===== API 4: Telemetry (Health) =====
   const loadTelemetry = async () => {
     const result = await getHealth();
     const data = result?.data ?? health ?? [];
@@ -105,11 +109,8 @@ export default function Analytics() {
     else setTelemetryVM([]);
   };
 
-  // ===== API 5-6: Cảnh báo hệ thống =====
   const loadAlerts = async () => {
-    const result = await getAlerts();
-    const data = result?.data ?? alerts ?? [];
-    // Không dùng fallback
+    await getAlerts();
   };
 
   const acknowledgeAlert = async (id) => {
@@ -120,14 +121,10 @@ export default function Analytics() {
     }
   };
 
-  // ===== API 7: Logs hệ thống =====
   const loadLogs = async () => {
-    const result = await getLogs({ limit: 10 });
-    const data = result?.data ?? logs ?? [];
-    // Không dùng fallback
+    await getLogs({ limit: 10 });
   };
 
-  // ===== API 8: Huấn luyện mô hình dự báo =====
   const triggerTrain = async () => {
     setTraining(true);
     setTrainProgress(0);
@@ -135,7 +132,7 @@ export default function Analytics() {
     try {
       await trainForecastModel({ from, to });
     } catch {
-      console.warn("Fallback training mock");
+      console.warn("Fallback training");
     }
     let progress = 0;
     const interval = setInterval(() => {
@@ -164,13 +161,11 @@ export default function Analytics() {
     loadTelemetry();
     loadAlerts();
     loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-
-  // Giữ nguyên lọc theo from/to, không đồng bộ tháng
 
   return (
     <div className="space-y-6 relative">
-      {/* Toast */}
       {toastMsg && (
         <div className="fixed top-5 right-5 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg animate-fade-in">
           {toastMsg}
@@ -182,7 +177,6 @@ export default function Analytics() {
         subtitle="Bảng điều khiển AI Forecast, Telemetry, Cảnh báo và Logs"
       />
 
-      {/* Bộ lọc thời gian & AI Training */}
       <Section
         title="Cấu hình & Huấn luyện AI"
         actions={
@@ -204,28 +198,34 @@ export default function Analytics() {
               onClick={() => setKey((k) => k + 1)}
               disabled={loadingAnalytics || loadingMonitoring}
               className={`rounded-md px-3 py-1.5 text-white ${
-                loadingAnalytics || loadingMonitoring ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600"
+                loadingAnalytics || loadingMonitoring
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600"
               }`}
             >
-              {loadingAnalytics || loadingMonitoring ? "Đang tải..." : "Áp dụng"}
+              {loadingAnalytics || loadingMonitoring
+                ? "Đang tải..."
+                : "Áp dụng"}
             </button>
             <button
               disabled={training}
               onClick={triggerTrain}
               className="rounded-md bg-emerald-600 px-3 py-1.5 text-white disabled:opacity-50"
             >
-              {training ? `Đang huấn luyện... ${trainProgress}%` : "Huấn luyện AI"}
+              {training
+                ? `Đang huấn luyện... ${trainProgress}%`
+                : "Huấn luyện AI"}
             </button>
           </div>
         }
       >
-        {trainMsg && <p className="mb-2 text-xs text-emerald-600">{trainMsg}</p>}
+        {trainMsg && (
+          <p className="mb-2 text-xs text-emerald-600">{trainMsg}</p>
+        )}
       </Section>
 
-      {/* Tổng quan doanh thu */}
       <Section title="Tổng quan doanh thu & năng lượng">
         <Chart height={320} data={forecastVM} />
-        {/* Bảng tổng quan để xem con số chi tiết */}
         <div className="overflow-x-auto mt-3">
           <table className="min-w-[420px] text-sm border-collapse">
             <thead className="bg-gray-100">
@@ -238,7 +238,11 @@ export default function Analytics() {
               {forecastVM.map((r, i) => (
                 <tr key={i}>
                   <td className="border px-3 py-2">{r.label}</td>
-                  <td className="border px-3 py-2 text-right">{r.label.includes("VND") ? formatVND(r.value) : r.value?.toLocaleString?.("vi-VN") ?? r.value}</td>
+                  <td className="border px-3 py-2 text-right">
+                    {r.label.includes("VND")
+                      ? formatVND(r.value)
+                      : r.value?.toLocaleString?.("vi-VN") ?? r.value}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -249,10 +253,8 @@ export default function Analytics() {
         </p>
       </Section>
 
-      {/* Forecast theo trạm */}
       <Section title="Dự báo AI theo từng trạm">
         <Chart height={260} data={stationForecastVM} />
-        {/* Bảng dự báo theo trạm */}
         <div className="overflow-x-auto mt-3">
           <table className="min-w-[420px] text-sm border-collapse">
             <thead className="bg-gray-100">
@@ -264,8 +266,12 @@ export default function Analytics() {
             <tbody>
               {(stationForecastVM || []).map((s, i) => (
                 <tr key={i}>
-                  <td className="border px-3 py-2">{s.label ?? s.station ?? s.station_id}</td>
-                  <td className="border px-3 py-2 text-right">{s.value ?? s.forecast ?? 0}</td>
+                  <td className="border px-3 py-2">
+                    {s.label ?? s.station ?? s.station_id}
+                  </td>
+                  <td className="border px-3 py-2 text-right">
+                    {s.value ?? s.forecast ?? 0}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -273,9 +279,8 @@ export default function Analytics() {
         </div>
       </Section>
 
-      {/* Metrics hệ thống */}
       <Section title="Thống kê Metrics hệ thống">
-        {(metrics && Array.isArray(metrics) && metrics.length > 0) ? (
+        {metrics && Array.isArray(metrics) && metrics.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-xs">
               <thead className="bg-gray-100 dark:bg-gray-800">
@@ -290,9 +295,15 @@ export default function Analytics() {
                 {metrics.map((m, i) => (
                   <tr key={i}>
                     <td className="border p-2">{m.user}</td>
-                    <td className="border p-2 text-right">{m.sessions}</td>
-                    <td className="border p-2 text-right">{m.energy_kwh}</td>
-                    <td className="border p-2 text-right">{formatVND(m.total_cost)}</td>
+                    <td className="border p-2 text-right">
+                      {m.sessions}
+                    </td>
+                    <td className="border p-2 text-right">
+                      {m.energy_kwh}
+                    </td>
+                    <td className="border p-2 text-right">
+                      {formatVND(m.total_cost)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -303,9 +314,8 @@ export default function Analytics() {
         )}
       </Section>
 
-      {/* Telemetry */}
       <Section title="Telemetry - Trạng thái trạm (Health)">
-        {(telemetryVM && telemetryVM.length > 0) ? (
+        {telemetryVM && telemetryVM.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-xs">
               <thead className="bg-gray-100 dark:bg-gray-800">
@@ -319,7 +329,11 @@ export default function Analytics() {
               <tbody>
                 {telemetryVM.map((t, i) => (
                   <tr key={i}>
-                    <td className="border p-2">{new Date(t.ts).toLocaleTimeString()}</td>
+                    <td className="border p-2">
+                      {t.ts
+                        ? new Date(t.ts).toLocaleTimeString()
+                        : ""}
+                    </td>
                     <td className="border p-2">{t.station}</td>
                     <td className="border p-2 text-right">{t.kwh}</td>
                     <td
@@ -341,17 +355,20 @@ export default function Analytics() {
             </table>
           </div>
         ) : (
-          <div className="text-sm text-gray-500">Không có dữ liệu</div>
+          <div className="text-sm text-gray-500">
+            Không có dữ liệu
+          </div>
         )}
       </Section>
 
-      {/* Cảnh báo hệ thống */}
       <Section title="Cảnh báo hệ thống">
-        {alerts.length === 0 ? (
-          <p className="text-sm text-gray-500">✅ Không có cảnh báo nào</p>
+        {Array.isArray(alerts) && alerts.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            ✅ Không có cảnh báo nào
+          </p>
         ) : (
           <ul className="text-sm space-y-2">
-            {alerts.map((a) => (
+            {(alerts || []).map((a) => (
               <li
                 key={a.id}
                 className={`p-2 rounded border ${
@@ -373,7 +390,6 @@ export default function Analytics() {
         )}
       </Section>
 
-      {/* Logs hệ thống */}
       <Section title="Nhật ký hệ thống (Logs)">
         {Array.isArray(logs) && logs.length > 0 ? (
           <div className="max-h-64 overflow-y-auto text-xs bg-gray-50 p-2 rounded-md border border-gray-200">
@@ -384,7 +400,9 @@ export default function Analytics() {
             ))}
           </div>
         ) : (
-          <div className="text-sm text-gray-500">Không có nhật ký</div>
+          <div className="text-sm text-gray-500">
+            Không có nhật ký
+          </div>
         )}
       </Section>
     </div>

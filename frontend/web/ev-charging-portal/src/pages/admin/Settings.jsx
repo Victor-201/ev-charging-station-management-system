@@ -8,13 +8,19 @@ import * as ThemeModule from "@/contexts/ThemeContext";
 
 export default function Settings() {
   const { alerts, getAlerts, getHealth } = useAnalytics();
-  const AuthContext = AuthModule.AuthContext || AuthModule.default || null;
-  const UserContext = UserModule.UserContext || UserModule.default || null;
-  const ThemeContext = ThemeModule.ThemeContext || ThemeModule.default || null;
 
-  const { user, getMe, logout } = useContext(AuthContext) || {};
+  const AuthContext =
+    AuthModule.AuthContext || AuthModule.default || null;
+  const UserContext =
+    UserModule.UserContext || UserModule.default || null;
+  const ThemeContext =
+    ThemeModule.ThemeContext || ThemeModule.default || null;
+
+  const { user, getMe, logout } =
+    useContext(AuthContext) || {};
   const { update } = useContext(UserContext) || {};
-  const { theme, toggleTheme } = useContext(ThemeContext) || {};
+  const { theme, toggleTheme } =
+    useContext(ThemeContext) || {};
 
   const [profile, setProfile] = useState({
     username: "",
@@ -25,35 +31,43 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
-  const [statusColor, setStatusColor] = useState("bg-blue-600");
+  const [statusColor, setStatusColor] =
+    useState("bg-blue-600");
   const [emailNotif, setEmailNotif] = useState(true);
   const [smsNotif, setSmsNotif] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(
-    JSON.parse(localStorage.getItem("evcs_auto_refresh") || "true")
+    JSON.parse(
+      localStorage.getItem("evcs_auto_refresh") || "true"
+    )
   );
   const [savedInfo, setSavedInfo] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [systemStatus, setSystemStatus] = useState("unknown");
+  const [systemStatus, setSystemStatus] =
+    useState("unknown");
 
-  // 🔹 Refresh health/alerts on mount
   useEffect(() => {
     refreshSystem();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshSystem = async () => {
     try {
-      const [h, a] = await Promise.all([getHealth(), getAlerts()]);
-      const ok = Array.isArray(h?.data) ? h.data.every((x) => x?.status !== "error") : true;
+      const [h] = await Promise.all([getHealth(), getAlerts()]);
+      const ok = Array.isArray(h?.data)
+        ? h.data.every(
+            (x) => x?.status !== "error"
+          )
+        : true;
       setSystemStatus(ok ? "healthy" : "degraded");
     } catch {
       setSystemStatus("unknown");
     }
   };
 
-  // 🔹 Load dữ liệu
   useEffect(() => {
-    const storedProfile = localStorage.getItem("admin_profile");
+    const storedProfile =
+      localStorage.getItem("admin_profile");
     if (storedProfile) {
       const parsed = JSON.parse(storedProfile);
       setProfile(parsed);
@@ -61,9 +75,9 @@ export default function Settings() {
     } else if (getMe) {
       fetchUser();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🔹 Lấy dữ liệu người dùng
   const fetchUser = async () => {
     setLoading(true);
     try {
@@ -75,26 +89,30 @@ export default function Settings() {
         role: data?.role || "admin",
       });
     } catch {
-      showStatus("⚠️ Không thể tải thông tin!", "bg-red-600");
+      showStatus(
+        "⚠️ Không thể tải thông tin!",
+        "bg-red-600"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // 🧠 Validate email
-  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isValidEmail = (email) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  // 🔔 Hiển thị toast
   const showStatus = (msg, color = "bg-blue-600") => {
     setStatusMsg(msg);
     setStatusColor(color);
     setTimeout(() => setStatusMsg(""), 3000);
   };
 
-  // 💾 Lưu thông tin chính
   const handleSaveProfile = async () => {
     if (!profile.username || !profile.email || !profile.role) {
-      showStatus("⚠️ Vui lòng nhập đầy đủ thông tin!", "bg-yellow-600");
+      showStatus(
+        "⚠️ Vui lòng nhập đầy đủ thông tin!",
+        "bg-yellow-600"
+      );
       return;
     }
     if (!isValidEmail(profile.email)) {
@@ -106,30 +124,50 @@ export default function Settings() {
     try {
       if (update && user?.id) {
         await update(user.id, profile);
-        showStatus("✅ Đã lưu thay đổi!", "bg-green-600");
+        showStatus(
+          "✅ Đã lưu thay đổi!",
+          "bg-green-600"
+        );
       } else {
-        localStorage.setItem("admin_profile", JSON.stringify(profile));
-        showStatus("💾 Đã lưu tạm vào trình duyệt!", "bg-green-600");
+        localStorage.setItem(
+          "admin_profile",
+          JSON.stringify(profile)
+        );
+        showStatus(
+          "💾 Đã lưu tạm vào trình duyệt!",
+          "bg-green-600"
+        );
       }
       setSavedInfo(profile);
     } catch {
-      showStatus("❌ Lỗi khi lưu thông tin!", "bg-red-600");
+      showStatus(
+        "❌ Lỗi khi lưu thông tin!",
+        "bg-red-600"
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  // ✏️ Chỉnh sửa
   const handleEditProfile = () => {
     if (!savedInfo) return;
     setEditForm(savedInfo);
-    showStatus("✏️ Đang chỉnh sửa...", "bg-yellow-600");
+    showStatus(
+      "✏️ Đang chỉnh sửa...",
+      "bg-yellow-600"
+    );
   };
 
-  // 💾 Lưu chỉnh sửa
   const handleSaveEdit = () => {
-    if (!editForm.username || !editForm.email || !editForm.role) {
-      showStatus("⚠️ Nhập đủ thông tin trước khi lưu!", "bg-yellow-600");
+    if (
+      !editForm.username ||
+      !editForm.email ||
+      !editForm.role
+    ) {
+      showStatus(
+        "⚠️ Nhập đủ thông tin trước khi lưu!",
+        "bg-yellow-600"
+      );
       return;
     }
     if (!isValidEmail(editForm.email)) {
@@ -137,45 +175,73 @@ export default function Settings() {
       return;
     }
 
-    localStorage.setItem("admin_profile", JSON.stringify(editForm));
+    localStorage.setItem(
+      "admin_profile",
+      JSON.stringify(editForm)
+    );
     setSavedInfo(editForm);
     setProfile(editForm);
     setEditForm(null);
-    showStatus("✅ Cập nhật thành công!", "bg-green-600");
+    showStatus(
+      "✅ Cập nhật thành công!",
+      "bg-green-600"
+    );
   };
 
-  // 🗑️ Xóa
   const handleDeleteProfile = () => {
     localStorage.removeItem("admin_profile");
     setSavedInfo(null);
-    setProfile({ username: "", email: "", password: "", role: "" });
+    setProfile({
+      username: "",
+      email: "",
+      password: "",
+      role: "",
+    });
     setEditForm(null);
-    showStatus("🗑️ Đã xóa thông tin!", "bg-red-600");
+    showStatus(
+      "🗑️ Đã xóa thông tin!",
+      "bg-red-600"
+    );
   };
 
-  // 🚪 Đăng xuất
   const handleLogout = async () => {
     try {
       await logout?.();
       showStatus("👋 Đã đăng xuất!", "bg-blue-600");
-      setTimeout(() => (window.location.href = "/admin/login"), 1000);
+      setTimeout(
+        () => (window.location.href = "/login"),
+        1000
+      );
     } catch {
-      showStatus("⚠️ Lỗi khi đăng xuất!", "bg-red-600");
+      showStatus(
+        "⚠️ Lỗi khi đăng xuất!",
+        "bg-red-600"
+      );
     }
   };
 
-  // 💾 Lưu thông báo
   const saveNotifications = () => {
-    localStorage.setItem("emailNotif", JSON.stringify(emailNotif));
-    localStorage.setItem("smsNotif", JSON.stringify(smsNotif));
-    showStatus("✅ Đã lưu cài đặt thông báo!", "bg-green-600");
+    localStorage.setItem(
+      "emailNotif",
+      JSON.stringify(emailNotif)
+    );
+    localStorage.setItem(
+      "smsNotif",
+      JSON.stringify(smsNotif)
+    );
+    showStatus(
+      "✅ Đã lưu cài đặt thông báo!",
+      "bg-green-600"
+    );
   };
 
-  // 🔄 Auto refresh
   const toggleAutoRefresh = () => {
     const newVal = !autoRefresh;
     setAutoRefresh(newVal);
-    localStorage.setItem("evcs_auto_refresh", JSON.stringify(newVal));
+    localStorage.setItem(
+      "evcs_auto_refresh",
+      JSON.stringify(newVal)
+    );
   };
 
   return (
@@ -193,32 +259,42 @@ export default function Settings() {
         subtitle="Cấu hình tài khoản quản trị, chủ đề giao diện và thông báo"
       />
 
-      {/* === Thông tin quản trị viên === */}
       <Section title="Thông tin quản trị viên">
         {loading ? (
-          <p className="text-sm text-gray-500">Đang tải...</p>
+          <p className="text-sm text-gray-500">
+            Đang tải...
+          </p>
         ) : (
           <div className="max-w-xl space-y-3">
-            {/* Form nhập */}
             <label className="block">
-              <span className="text-sm text-gray-600">Tên người dùng *</span>
+              <span className="text-sm text-gray-600">
+                Tên người dùng *
+              </span>
               <input
                 type="text"
                 value={profile.username}
                 onChange={(e) =>
-                  setProfile({ ...profile, username: e.target.value })
+                  setProfile((p) => ({
+                    ...p,
+                    username: e.target.value,
+                  }))
                 }
                 className="w-full border rounded px-3 py-1.5 mt-1"
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-gray-600">Email *</span>
+              <span className="text-sm text-gray-600">
+                Email *
+              </span>
               <input
                 type="email"
                 value={profile.email}
                 onChange={(e) =>
-                  setProfile({ ...profile, email: e.target.value })
+                  setProfile((p) => ({
+                    ...p,
+                    email: e.target.value,
+                  }))
                 }
                 className="w-full border rounded px-3 py-1.5 mt-1"
                 placeholder="example@gmail.com"
@@ -226,18 +302,25 @@ export default function Settings() {
             </label>
 
             <label className="block relative">
-              <span className="text-sm text-gray-600">Mật khẩu</span>
+              <span className="text-sm text-gray-600">
+                Mật khẩu
+              </span>
               <input
                 type={showPassword ? "text" : "password"}
                 value={profile.password}
                 onChange={(e) =>
-                  setProfile({ ...profile, password: e.target.value })
+                  setProfile((p) => ({
+                    ...p,
+                    password: e.target.value,
+                  }))
                 }
                 className="w-full border rounded px-3 py-1.5 mt-1 pr-10"
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() =>
+                  setShowPassword((v) => !v)
+                }
                 className="absolute right-3 top-8 text-gray-500 hover:text-gray-700"
               >
                 {showPassword ? "🙈" : "👁️"}
@@ -245,22 +328,29 @@ export default function Settings() {
             </label>
 
             <label className="block">
-              <span className="text-sm text-gray-600">Vai trò *</span>
+              <span className="text-sm text-gray-600">
+                Vai trò *
+              </span>
               <select
                 value={profile.role}
                 onChange={(e) =>
-                  setProfile({ ...profile, role: e.target.value })
+                  setProfile((p) => ({
+                    ...p,
+                    role: e.target.value,
+                  }))
                 }
                 className="w-full border rounded px-3 py-1.5 mt-1"
               >
                 <option value="">-- Chọn vai trò --</option>
                 <option value="admin">Quản trị viên</option>
-                <option value="manager">Quản lý trạm</option>
-                <option value="staff">Nhân viên vận hành</option>
+                <option value="station_owner">
+                  Chủ trạm
+                </option>
+                <option value="customer">Khách hàng</option>
               </select>
             </label>
 
-            <div className="flex gap-3 mt-3">
+            <div className="flex gap-3 mt-3 flex-wrap">
               <button
                 onClick={handleSaveProfile}
                 disabled={saving}
@@ -276,28 +366,36 @@ export default function Settings() {
               </button>
             </div>
 
-            {/* === Bảng hiển thị === */}
             {savedInfo && (
               <div className="mt-5 border rounded-lg overflow-hidden shadow-sm">
                 <table className="min-w-full text-sm border-collapse text-left">
                   <thead className="bg-blue-600 text-white">
                     <tr>
-                      <th className="px-4 py-2">Tên người dùng</th>
+                      <th className="px-4 py-2">
+                        Tên người dùng
+                      </th>
                       <th className="px-4 py-2">Email</th>
                       <th className="px-4 py-2">Vai trò</th>
-                      <th className="px-4 py-2 text-center">Hành động</th>
+                      <th className="px-4 py-2 text-center">
+                        Hành động
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr className="bg-white">
-                      <td className="px-4 py-2 border-t">{savedInfo.username}</td>
-                      <td className="px-4 py-2 border-t">{savedInfo.email}</td>
+                      <td className="px-4 py-2 border-t">
+                        {savedInfo.username}
+                      </td>
+                      <td className="px-4 py-2 border-t">
+                        {savedInfo.email}
+                      </td>
                       <td className="px-4 py-2 border-t capitalize">
                         {savedInfo.role === "admin"
                           ? "Quản trị viên"
-                          : savedInfo.role === "manager"
-                          ? "Quản lý trạm"
-                          : "Nhân viên vận hành"}
+                          : savedInfo.role ===
+                            "station_owner"
+                          ? "Chủ trạm"
+                          : "Khách hàng"}
                       </td>
                       <td className="px-4 py-2 border-t text-center space-x-2">
                         <button
@@ -319,7 +417,6 @@ export default function Settings() {
               </div>
             )}
 
-            {/* === Form chỉnh sửa xuất hiện bên dưới bảng === */}
             {editForm && (
               <div className="mt-5 p-4 border rounded-lg bg-gray-50 shadow-sm animate-fadeIn">
                 <h3 className="font-semibold mb-2 text-blue-600">
@@ -330,7 +427,10 @@ export default function Settings() {
                     type="text"
                     value={editForm.username}
                     onChange={(e) =>
-                      setEditForm({ ...editForm, username: e.target.value })
+                      setEditForm((f) => ({
+                        ...f,
+                        username: e.target.value,
+                      }))
                     }
                     placeholder="Tên người dùng"
                     className="w-full border rounded px-3 py-1.5"
@@ -339,7 +439,10 @@ export default function Settings() {
                     type="email"
                     value={editForm.email}
                     onChange={(e) =>
-                      setEditForm({ ...editForm, email: e.target.value })
+                      setEditForm((f) => ({
+                        ...f,
+                        email: e.target.value,
+                      }))
                     }
                     placeholder="Email"
                     className="w-full border rounded px-3 py-1.5"
@@ -348,7 +451,10 @@ export default function Settings() {
                     type="password"
                     value={editForm.password}
                     onChange={(e) =>
-                      setEditForm({ ...editForm, password: e.target.value })
+                      setEditForm((f) => ({
+                        ...f,
+                        password: e.target.value,
+                      }))
                     }
                     placeholder="Mật khẩu"
                     className="w-full border rounded px-3 py-1.5"
@@ -356,13 +462,22 @@ export default function Settings() {
                   <select
                     value={editForm.role}
                     onChange={(e) =>
-                      setEditForm({ ...editForm, role: e.target.value })
+                      setEditForm((f) => ({
+                        ...f,
+                        role: e.target.value,
+                      }))
                     }
                     className="w-full border rounded px-3 py-1.5"
                   >
-                    <option value="admin">Quản trị viên</option>
-                    <option value="manager">Quản lý trạm</option>
-                    <option value="staff">Nhân viên vận hành</option>
+                    <option value="admin">
+                      Quản trị viên
+                    </option>
+                    <option value="station_owner">
+                      Chủ trạm
+                    </option>
+                    <option value="customer">
+                      Khách hàng
+                    </option>
                   </select>
 
                   <div className="flex gap-2 mt-3">
@@ -386,14 +501,14 @@ export default function Settings() {
         )}
       </Section>
 
-      {/* === Hệ thống & Theme === */}
       <Section title="Hệ thống & Theme">
         <div className="flex items-center gap-4 flex-wrap">
           <button
             onClick={toggleTheme}
             className="rounded bg-gray-700 text-white px-4 py-2 hover:bg-gray-800"
           >
-            🌓 Đổi theme ({theme === "dark" ? "Tối" : "Sáng"})
+            🌓 Đổi theme (
+            {theme === "dark" ? "Tối" : "Sáng"})
           </button>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -401,29 +516,38 @@ export default function Settings() {
               checked={autoRefresh}
               onChange={toggleAutoRefresh}
             />
-            <span>Tự động tải lại dữ liệu mỗi 60s</span>
+            <span>
+              Tự động tải lại dữ liệu mỗi 60s
+            </span>
           </label>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span>
               Trạng thái hệ thống:
-              <b className={
-                systemStatus === "healthy"
-                  ? "text-emerald-600 ml-1"
-                  : systemStatus === "degraded"
-                  ? "text-amber-600 ml-1"
-                  : "text-gray-500 ml-1"
-              }>
+              <b
+                className={
+                  systemStatus === "healthy"
+                    ? "text-emerald-600 ml-1"
+                    : systemStatus === "degraded"
+                    ? "text-amber-600 ml-1"
+                    : "text-gray-500 ml-1"
+                }
+              >
                 {systemStatus}
               </b>
             </span>
             <span>•</span>
-            <span>Cảnh báo mở: <b>{Array.isArray(alerts) ? alerts.length : 0}</b></span>
-            {/* Bỏ nút Làm mới theo yêu cầu; vẫn auto cập nhật khi tải trang */}
+            <span>
+              Cảnh báo mở:{" "}
+              <b>
+                {Array.isArray(alerts)
+                  ? alerts.length
+                  : 0}
+              </b>
+            </span>
           </div>
         </div>
       </Section>
 
-      {/* === Thông báo === */}
       <Section title="Thông báo hệ thống">
         <div className="max-w-xl space-y-4">
           <label className="flex items-center justify-between border p-3 rounded">
@@ -431,7 +555,9 @@ export default function Settings() {
             <input
               type="checkbox"
               checked={emailNotif}
-              onChange={(e) => setEmailNotif(e.target.checked)}
+              onChange={(e) =>
+                setEmailNotif(e.target.checked)
+              }
             />
           </label>
           <label className="flex items-center justify-between border p-3 rounded">
@@ -439,7 +565,9 @@ export default function Settings() {
             <input
               type="checkbox"
               checked={smsNotif}
-              onChange={(e) => setSmsNotif(e.target.checked)}
+              onChange={(e) =>
+                setSmsNotif(e.target.checked)
+              }
             />
           </label>
           <button

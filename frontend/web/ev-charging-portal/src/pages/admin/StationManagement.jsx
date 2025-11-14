@@ -3,11 +3,12 @@ import { useStation } from "@/hooks/useStation";
 import Section from "@/components/admin/Section";
 import Table from "@/components/admin/Table";
 import PageHeader from "@/components/admin/PageHeader";
-// Bỏ dữ liệu mô phỏng: dùng hook `useStation` (API thật). Không seed localStorage.
 
 const OVERLAY_KEY_STATIONS = "evcs_overlay_stations";
-const getOverlayStations = () => JSON.parse(localStorage.getItem(OVERLAY_KEY_STATIONS) || "[]");
-const setOverlayStations = (arr) => localStorage.setItem(OVERLAY_KEY_STATIONS, JSON.stringify(arr));
+const getOverlayStations = () =>
+  JSON.parse(localStorage.getItem(OVERLAY_KEY_STATIONS) || "[]");
+const setOverlayStations = (arr) =>
+  localStorage.setItem(OVERLAY_KEY_STATIONS, JSON.stringify(arr));
 
 export default function StationManagement() {
   const {
@@ -17,26 +18,29 @@ export default function StationManagement() {
     remove: removeStation,
     loading: apiLoading,
   } = useStation();
+
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
   const [filter, setFilter] = useState("all");
 
   const [open, setOpen] = useState(false);
   const [editRow, setEditRow] = useState(null);
-  const [deleteRow, setDeleteRow] = useState(null);
-
-  // Đã bỏ Bộ sạc và Giá
+  const [error, setError] = useState("");
 
   const statuses = useMemo(
     () => [
       { value: "active", label: "Hoạt động" },
       { value: "maintenance", label: "Bảo trì" },
-      { value: "offline", label: "Ngoại tuyến" },
+      { value: "closed", label: "Đóng" },
     ],
     []
   );
+
+  const showToast = (msg) => {
+    setStatusMsg(msg);
+    setTimeout(() => setStatusMsg(""), 2500);
+  };
 
   const loadStations = async () => {
     setLoading(true);
@@ -45,13 +49,13 @@ export default function StationManagement() {
       const data = res?.data ?? [];
       const overlay = getOverlayStations();
       const base = Array.isArray(data) ? data : [];
-      const merged = [...base];
+      const map = new Map();
+      base.forEach((s) => map.set(s.id ?? s.station_id, s));
       overlay.forEach((o) => {
-        if (!merged.some((b) => (b.code ?? b.station_code) === (o.code ?? o.station_code))) {
-          merged.push(o);
-        }
+        const key = o.id ?? o.station_id;
+        if (!map.has(key)) map.set(key, o);
       });
-      setStations(merged);
+      setStations(Array.from(map.values()));
     } catch (err) {
       const overlay = getOverlayStations();
       setStations(overlay);
@@ -62,75 +66,76 @@ export default function StationManagement() {
 
   useEffect(() => {
     loadStations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Đã bỏ Thống kê AI
-
-  const showToast = (msg) => {
-    setStatusMsg(msg);
-    setTimeout(() => setStatusMsg(""), 2500);
-  };
-
-  // 💾 Save trạm (tối ưu phản hồi nhanh)
   const handleSave = async (e) => {
     e.preventDefault();
-    const code = e.target.code.value.trim();
     const name = e.target.name.value.trim();
+    const city = e.target.city.value.trim();
     const status = e.target.status.value;
 
-    if (!code || !name) {
-      setError("⚠️ Vui lòng nhập đầy đủ thông tin");
+    if (!name || !city) {
+      setError("⚠️ Vui lòng nhập Tên trạm và Thành phố");
       return;
     }
 
-    // Duplicate code check when creating
-    if (!editRow) {
-      const all = getOverlayStations();
-      if (all.some((s) => String(s.code).toLowerCase() === code.toLowerCase())) {
-        setError("⚠️ Mã trạm đã tồn tại (overlay)");
-        return;
-      }
-    }
-
     const targetId = editRow?.id ?? editRow?.station_id;
+
     if (editRow) {
-      // Cập nhật ngay trên UI + overlay
-      setStations((prev) => prev.map((s) => (s.code === editRow.code ? { ...s, name, status } : s)));
+      setStations((prev) =>
+        prev.map((s) =>
+          (s.id ?? s.station_id) === targetId
+            ? { ...s, name, city, status }
+            : s
+        )
+      );
       const overlay = getOverlayStations();
-      setOverlayStations(overlay.map((s) => (s.code === editRow.code ? { ...s, name, status } : s)));
-      // Gọi API ở nền
-      updateStation(targetId, { name, status, code: editRow.code })
+      setOverlayStations(
+        overlay.map((s) =>
+          (s.id ?? s.station_id) === targetId
+            ? { ...s, name, city, status }
+            : s
+        )
+      );
+      updateStation(targetId, { name, city, status })
         .then(() => showToast("✏️ Đã cập nhật trạm!"))
-        .catch(() => showToast("✏️ Đã cập nhật trạm (bản nháp)"))
+        .catch(() =>
+          showToast("✏️ Đã cập nhật trạm (bản nháp)")
+        )
         .finally(() => {
-          // làm tươi nền để đồng bộ id nếu cần
           loadStations();
         });
     } else {
-      // Tạo nhanh (overlay + UI), gọi API nền
-      const created = { id: Date.now(), code, name, status };
+      const created = { id: Date.now(), name, city, status };
       const overlay = getOverlayStations();
       setOverlayStations([...overlay, created]);
       setStations((prev) => [...prev, created]);
-      createStation({ code, name, status })
+      createStation({ name, city, status })
         .then((res) => {
           const b = res?.data;
-          if (b?.code) {
-            // đồng bộ lại nếu backend trả id khác
+          if (b?.id || b?.station_id) {
             const current = getOverlayStations();
-            const synced = current.map((s) => (s.code === b.code ? {
-              id: b.id ?? b.station_id ?? s.id,
-              code: b.code,
-              name: b.name ?? name,
-              status: b.status ?? status,
-            } : s));
+            const synced = current.map((s) =>
+              s.id === created.id
+                ? {
+                    id: b.id ?? b.station_id,
+                    name: b.name ?? name,
+                    city: b.city ?? city,
+                    status: b.status ?? status,
+                  }
+                : s
+            );
             setOverlayStations(synced);
             loadStations();
           }
           showToast("✅ Đã tạo trạm mới!");
         })
-        .catch(() => showToast("✅ Đã tạo trạm (bản nháp)"));
+        .catch(() =>
+          showToast("✅ Đã tạo trạm (bản nháp)")
+        );
     }
+
     setOpen(false);
     setEditRow(null);
     setError("");
@@ -138,20 +143,25 @@ export default function StationManagement() {
 
   const handleDelete = async (row) => {
     const targetId = row?.id ?? row?.station_id;
-    // Xóa ngay tại chỗ
-    setStations((prev) => prev.filter((s) => s.code !== row.code));
+    setStations((prev) =>
+      prev.filter((s) => (s.id ?? s.station_id) !== targetId)
+    );
     const overlay = getOverlayStations();
-    setOverlayStations(overlay.filter((s) => s.code !== row.code));
-    // Gọi API nền (nếu có id)
+    setOverlayStations(
+      overlay.filter(
+        (s) => (s.id ?? s.station_id) !== targetId
+      )
+    );
     if (targetId) {
-      removeStation(targetId).catch(() => {/* bỏ qua lỗi */});
+      removeStation(targetId).catch(() => {});
     }
-    setDeleteRow(null);
     showToast("🗑️ Đã xóa trạm!");
   };
 
   const filteredRows =
-    filter === "all" ? stations : stations.filter((r) => r.status === filter);
+    filter === "all"
+      ? stations
+      : stations.filter((r) => r.status === filter);
 
   return (
     <div className="space-y-6 relative">
@@ -161,7 +171,10 @@ export default function StationManagement() {
         </div>
       )}
 
-      <PageHeader title="Quản lý trạm sạc" subtitle="Theo dõi trạng thái trạm" />
+      <PageHeader
+        title="Quản lý trạm sạc"
+        subtitle="Theo dõi trạng thái trạm"
+      />
 
       <Section
         title="Danh sách trạm sạc"
@@ -175,7 +188,7 @@ export default function StationManagement() {
               <option value="all">Tất cả</option>
               <option value="active">Hoạt động</option>
               <option value="maintenance">Bảo trì</option>
-              <option value="offline">Ngoại tuyến</option>
+              <option value="closed">Đóng</option>
             </select>
             <button
               onClick={() => {
@@ -187,17 +200,26 @@ export default function StationManagement() {
             >
               + Tạo trạm
             </button>
-            {/* Đã bỏ nút Làm mới và Thống kê AI */}
           </div>
         }
       >
         {(loading || apiLoading) && <p>Đang tải...</p>}
-        {!loading && filteredRows.length === 0 && <p>📭 Không có dữ liệu.</p>}
+        {!loading && filteredRows.length === 0 && (
+          <p>📭 Không có dữ liệu.</p>
+        )}
         {!loading && filteredRows.length > 0 && (
           <Table
             columns={[
-              { key: "code", title: "Mã trạm", dataIndex: "code" },
-              { key: "name", title: "Tên trạm", dataIndex: "name" },
+              {
+                key: "name",
+                title: "Tên trạm",
+                dataIndex: "name",
+              },
+              {
+                key: "city",
+                title: "Thành phố",
+                dataIndex: "city",
+              },
               {
                 key: "status",
                 title: "Trạng thái",
@@ -224,6 +246,7 @@ export default function StationManagement() {
                       onClick={() => {
                         setEditRow(r);
                         setOpen(true);
+                        setError("");
                       }}
                       className="border border-gray-300 px-2 py-1 text-sm rounded"
                     >
@@ -244,7 +267,7 @@ export default function StationManagement() {
           />
         )}
       </Section>
-      {/* Modal tạo / sửa trạm */}
+
       {open && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
@@ -256,19 +279,14 @@ export default function StationManagement() {
                 {error}
               </div>
             )}
-            <form onSubmit={handleSave} className="space-y-4">
+            <form
+              onSubmit={handleSave}
+              className="space-y-4"
+            >
               <div>
-                <label className="text-sm text-gray-600">Mã trạm *</label>
-                <input
-                  name="code"
-                  defaultValue={editRow?.code || ""}
-                  disabled={!!editRow}
-                  className="w-full border rounded px-3 py-1.5 mt-1"
-                  placeholder="VD: ST-01"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-600">Tên trạm *</label>
+                <label className="text-sm text-gray-600">
+                  Tên trạm *
+                </label>
                 <input
                   name="name"
                   defaultValue={editRow?.name || ""}
@@ -277,21 +295,40 @@ export default function StationManagement() {
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-600">Trạng thái *</label>
+                <label className="text-sm text-gray-600">
+                  Thành phố *
+                </label>
+                <input
+                  name="city"
+                  defaultValue={editRow?.city || ""}
+                  className="w-full border rounded px-3 py-1.5 mt-1"
+                  placeholder="VD: Hà Nội"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">
+                  Trạng thái *
+                </label>
                 <select
                   name="status"
                   defaultValue={editRow?.status || "active"}
                   className="w-full border rounded px-3 py-1.5 mt-1"
                 >
                   {statuses.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setOpen(false); setEditRow(null); setError(""); }}
+                  onClick={() => {
+                    setOpen(false);
+                    setEditRow(null);
+                    setError("");
+                  }}
                   className="border border-gray-300 px-4 py-1.5 rounded"
                 >
                   Hủy
