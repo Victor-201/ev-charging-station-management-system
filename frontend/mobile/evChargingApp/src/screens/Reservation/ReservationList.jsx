@@ -187,32 +187,45 @@ export default function ReservationList() {
     }
   };
 
-  const renderReservationItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.reservationCard}
-      onPress={() => navigation.navigate('ReservationDetail', { id: item.id })}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.stationName}>{item.station_name}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+  const renderReservationItem = ({ item }) => {
+    // Format date and time from ISO string
+    const startTime = new Date(item.start_time);
+    const formattedDate = startTime.toLocaleDateString('vi-VN');
+    const formattedTime = startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+    return (
+      <TouchableOpacity
+        style={styles.reservationCard}
+        onPress={() => navigation.navigate('ReservationDetail', {
+          id: item.reservation_id || item.id
+        })}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.stationName}>
+            {item.station_name || `Trạm sạc #${item.station_id}`}
+          </Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+          </View>
         </View>
-      </View>
-      
-      <Text style={styles.address}>{item.address}</Text>
-      
-      <View style={styles.reservationDetails}>
-        <View style={styles.detailRow}>
-          <Icon name="event" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
-          <Text style={styles.detailText}>{item.date} • {item.time}</Text>
+
+        {item.address && <Text style={styles.address}>{item.address}</Text>}
+
+        <View style={styles.reservationDetails}>
+          <View style={styles.detailRow}>
+            <Icon name="event" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
+            <Text style={styles.detailText}>{formattedDate} • {formattedTime}</Text>
+          </View>
+          {item.connector_type && (
+            <View style={styles.detailRow}>
+              <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
+              <Text style={styles.detailText}>Cổng {item.connector_type}</Text>
+            </View>
+          )}
         </View>
-        <View style={styles.detailRow}>
-          <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
-          <Text style={styles.detailText}>Cổng {item.port_type}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   // Show loading state on initial load
   if (loading && !refreshing && reservations.length === 0) {

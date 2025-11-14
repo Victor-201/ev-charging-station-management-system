@@ -316,14 +316,15 @@ export default function ScheduleBooking() {
       return;
     }
 
+    // Format data according to backend API requirements
     const bookingData = {
       user_id: user.id,
-      station_id: stationId,
-      date: selectedDate.date.toISOString().split('T')[0],
-      start_time: selectedTimeSlot.time,
-      duration: selectedTimeSlot.duration,
-      connector_type: selectedConnector,
-      estimated_cost: calculateTotalCost(),
+      station_id: stationId.toString(),
+      point_id: '1', // Default point_id, can be updated when station service is available
+      connector_type: selectedConnector.replace(/\s+/g, ''), // Remove spaces: "Type 2" -> "Type2"
+      start_time: selectedTimeSlot.startTime, // ISO format from slot
+      end_time: selectedTimeSlot.endTime, // ISO format from slot
+      price_per_min: 1000, // Default price per minute
     };
 
     Alert.alert(

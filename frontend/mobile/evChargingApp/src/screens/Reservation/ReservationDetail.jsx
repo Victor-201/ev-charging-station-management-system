@@ -115,6 +115,20 @@ export default function ReservationDetail() {
 
   const statusInfo = getStatusInfo(reservation.status);
 
+  // Format dates and times
+  const startTime = new Date(reservation.start_time);
+  const endTime = new Date(reservation.end_time);
+  const formattedDate = startTime.toLocaleDateString('vi-VN');
+  const formattedStartTime = startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const formattedEndTime = endTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+  // Handle station data (may come from station object or just station_id)
+  const stationName = reservation.station?.name || `Trạm sạc #${reservation.station_id}`;
+  const stationAddress = reservation.station?.address || 'Đang cập nhật địa chỉ';
+
+  // Calculate estimated cost if not provided
+  const estimatedCost = reservation.estimated_cost || reservation.total_cost || 0;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView
@@ -128,30 +142,37 @@ export default function ReservationDetail() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.stationName} numberOfLines={2} ellipsizeMode="tail">{reservation.station.name}</Text>
-        <Text style={styles.address} numberOfLines={2} ellipsizeMode="tail">{reservation.station.address}</Text>
+        <Text style={styles.stationName} numberOfLines={2} ellipsizeMode="tail">{stationName}</Text>
+        <Text style={styles.address} numberOfLines={2} ellipsizeMode="tail">{stationAddress}</Text>
       </View>
 
       <View style={styles.section}>
-        <DetailRow icon="event" label="Ngày" value={new Date(reservation.date).toLocaleDateString('vi-VN')} colors={colors} />
-        <DetailRow icon="schedule" label="Thời gian" value={`${reservation.start_time} - ${reservation.end_time}`} colors={colors} />
-        <DetailRow icon="power" label="Loại cổng sạc" value={reservation.connector_type} colors={colors} />
+        <DetailRow icon="event" label="Ngày" value={formattedDate} colors={colors} />
+        <DetailRow icon="schedule" label="Thời gian" value={`${formattedStartTime} - ${formattedEndTime}`} colors={colors} />
+        <DetailRow icon="power" label="Loại cổng sạc" value={reservation.connector_type || 'N/A'} colors={colors} />
       </View>
 
       <View style={styles.section}>
-        <DetailRow icon="receipt" label="Mã đặt chỗ" value={reservation.id} colors={colors} />
-        <DetailRow icon="attach-money" label="Chi phí ước tính" value={`${reservation.estimated_cost.toLocaleString()} VND`} colors={colors} />
+        <DetailRow icon="receipt" label="Mã đặt chỗ" value={reservation.reservation_id || reservation.id} colors={colors} />
+        <DetailRow icon="attach-money" label="Chi phí ước tính" value={`${estimatedCost.toLocaleString()} VND`} colors={colors} />
         <DetailRow icon="info" label="Trạng thái" value={statusInfo.text} colors={colors} />
       </View>
 
-      {reservation.status === 'confirmed' && (
+      {(reservation.status === 'confirmed' || reservation.status === 'pending') && (
         <View style={styles.actionContainer}>
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={handleCancelReservation}
+            disabled={cancelling}
           >
-            <Icon name="cancel" size={20} color={colors.onPrimary} />
-            <Text style={styles.cancelButtonText}>Hủy đặt chỗ</Text>
+            {cancelling ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <>
+                <Icon name="cancel" size={20} color={colors.onPrimary} />
+                <Text style={styles.cancelButtonText}>Hủy đặt chỗ</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       )}

@@ -3,14 +3,50 @@ import { ENDPOINTS } from '../api/endpoints';
 
 const reservationService = {
   // Get available time slots for a station on a specific date
-  getAvailableSlots: async (stationId, date) => {
-    const response = await apiClient.get(ENDPOINTS.BOOKING.CHECK, {
-      params: {
-        station_id: stationId,
-        date: date
+  // This generates time slots on client-side and checks availability with backend
+  getAvailableSlots: async (stationId, date, pointId = '1') => {
+    try {
+      // Generate time slots (8:00 AM to 8:00 PM, 1-hour intervals)
+      const slots = [];
+      const startHour = 8;
+      const endHour = 20;
+
+      for (let hour = startHour; hour < endHour; hour++) {
+        const startTime = `${date}T${hour.toString().padStart(2, '0')}:00:00`;
+        const endTime = `${date}T${(hour + 1).toString().padStart(2, '0')}:00:00`;
+
+        // Check availability for this time slot
+        let available = false;
+        try {
+          const response = await apiClient.get(ENDPOINTS.BOOKING.CHECK, {
+            params: {
+              station_id: stationId,
+              point_id: pointId,
+              start_time: startTime,
+              end_time: endTime
+            }
+          });
+          available = response.data?.available || false;
+        } catch (error) {
+          console.error(`Error checking slot ${startTime}:`, error);
+          available = false;
+        }
+
+        slots.push({
+          time: `${hour.toString().padStart(2, '0')}:00`,
+          startTime: startTime,
+          endTime: endTime,
+          duration: 60, // minutes
+          available: available,
+          price: 60000 // Default price, can be updated from station data
+        });
       }
-    });
-    return response.data;
+
+      return { slots };
+    } catch (error) {
+      console.error('Error generating available slots:', error);
+      throw error;
+    }
   },
 
   // Create a new reservation
