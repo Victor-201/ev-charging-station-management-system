@@ -28,9 +28,9 @@ export const authenticate = (req, res, next) => {
     }
 
     req.user = decoded;
+    console.log('Authenticated user:', req.user);
     next();
   } catch (err) {
-    console.error('Payment Service JWT error:', err.message);
     if (err.name === 'TokenExpiredError') {
       return res.status(403).json({ message: 'Token expired' });
     } else if (err.name === 'JsonWebTokenError') {
