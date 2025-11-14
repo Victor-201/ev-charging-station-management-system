@@ -1,565 +1,226 @@
-import { useEffect, useMemo, useState } from "react";
-import { useAnalytics } from "@/hooks/useAnalytics";
-import Section from "@/components/admin/Section";
+// pages/admin/UserManagement.jsx
+import React, { useEffect, useState } from "react";
 import PageHeader from "@/components/admin/PageHeader";
+import Section from "@/components/admin/Section";
 import Table from "@/components/admin/Table";
-import userService from "@/services/userService";
+import useApi from "@/hooks/useApi";
 
-const OVERLAY_USERS_KEY = "evcs_overlay_users";
-const OVERLAY_VEHICLES_KEY = "evcs_overlay_user_vehicles";
+/**
+ * Trang Quản lý người dùng:
+ * - Dùng hook useApi() để gọi trực tiếp REST API admin user
+ * - Không dùng localStorage, tất cả thao tác qua backend
+ *
+ * Giả định API gateway:
+ *   GET    /api/v1/admin/users            -> danh sách user
+ *   PUT    /api/v1/admin/users/:id        -> cập nhật user (role, status...)
+ *   DELETE /api/v1/admin/users/:id        -> vô hiệu hoá user
+ *
+ * Nếu backend của bạn khác endpoint -> chỉ cần đổi URL trong hàm fetchUsers / updateUser / deleteUser.
+ */
 
-const getOverlayUsers = () =>
-  JSON.parse(localStorage.getItem(OVERLAY_USERS_KEY) || "[]");
-const setOverlayUsers = (arr) =>
-  localStorage.setItem(OVERLAY_USERS_KEY, JSON.stringify(arr));
+export default function UserManagementPage() {
+  const { loading, get, put, del } = useApi();
 
-const getOverlayVehicles = () =>
-  JSON.parse(localStorage.getItem(OVERLAY_VEHICLES_KEY) || "{}");
-const setOverlayVehicles = (obj) =>
-  localStorage.setItem(
-    OVERLAY_VEHICLES_KEY,
-    JSON.stringify(obj)
-  );
-
-export default function UserManagement() {
-  const { getUserMonthlyReport, userMonthlyReport } =
-    useAnalytics();
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [statusMsg, setStatusMsg] = useState("");
-  const [modal, setModal] = useState({
-    open: false,
-    mode: "create",
-  });
-  const [form, setForm] = useState({
-    id: null,
-    username: "",
-    password: "",
-    role: "customer",
-  });
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [vehicles, setVehicles] = useState([]);
-  const [vehicleForm, setVehicleForm] = useState({
-    plate: "",
-    brand: "",
-    model: "",
-  });
-  const [stats, setStats] = useState(null);
-  const [monthlyReport, setMonthlyReport] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState(null);
 
-  const roles = useMemo(
-    () => [
-      { value: "admin", label: "Admin" },
-      { value: "customer", label: "Customer" },
-      { value: "station_owner", label: "Station owner" },
-    ],
-    []
-  );
-
-  const showToast = (msg) => {
-    setStatusMsg(msg);
-    setTimeout(() => setStatusMsg(""), 2500);
-  };
-
-  const recomputeStats = (list) => {
-    const adminCount = list.filter(
-      (u) => u.role === "admin"
-    ).length;
-    const customerCount = list.filter(
-      (u) => u.role === "customer"
-    ).length;
-    const ownerCount = list.filter(
-      (u) => u.role === "station_owner"
-    ).length;
-    setStats({
-      total: list.length,
-      admin: adminCount,
-      customer: customerCount,
-      station_owner: ownerCount,
-    });
-  };
-
-  const loadUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async () => {
     try {
-      const res = await userService.getProfile();
-      const me = res?.data ?? null;
-      const overlay = getOverlayUsers();
-      const base = me ? [me] : [];
-      const merged = [...base];
-      overlay.forEach((u) => {
-        if (
-          !merged.some(
-            (b) =>
-              String(b.username).toLowerCase() ===
-              String(u.username).toLowerCase()
-          )
-        ) {
-          merged.push(u);
-        }
-      });
-      setUsers(merged);
-      recomputeStats(merged);
-
-      if (me?.id) {
-        try {
-          const rep = await getUserMonthlyReport(me.id);
-          setMonthlyReport(
-            rep?.data ?? userMonthlyReport ?? null
-          );
-        } catch {
-          setMonthlyReport(null);
-        }
-      }
-    } catch {
-      const overlay = getOverlayUsers();
-      setUsers(overlay);
-      recomputeStats(overlay);
-    } finally {
-      setLoading(false);
+      setError(null);
+      const data = await get("/api/v1/admin/users");
+      setUsers(Array.isArray(data) ? data : data?.items || []);
+    } catch (err) {
+      setError(err);
     }
   };
 
   useEffect(() => {
-    loadUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchUsers();
   }, []);
 
-  const handleCreateOrUpdate = async (e) => {
-    e.preventDefault();
-    setError("");
+  const handleSelect = (user) => {
+    setSelected(user);
+    setRole(user.role || "");
+    setStatus(user.status || "");
+  };
 
-    const username = form.username.trim();
-    if (!username) {
-      setError("Vui lòng nhập tài khoản!");
+  const handleSave = async () => {
+    if (!selected) return;
+    try {
+      setError(null);
+      const updated = await put(`/api/v1/admin/users/${selected.id}`, {
+        role,
+        status,
+      });
+      // Cập nhật lại danh sách local
+      setUsers((prev) =>
+        prev.map((u) => (u.id === selected.id ? { ...u, ...updated } : u))
+      );
+      setSelected({ ...selected, ...updated });
+    } catch (err) {
+      setError(err);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    if (!window.confirm("Bạn có chắc muốn vô hiệu hoá / xoá người dùng này?"))
       return;
+    try {
+      setError(null);
+      await del(`/api/v1/admin/users/${selected.id}`);
+      setUsers((prev) => prev.filter((u) => u.id !== selected.id));
+      setSelected(null);
+    } catch (err) {
+      setError(err);
     }
-
-    let updatedUsers = users.slice();
-
-    if (modal.mode === "create") {
-      const exists = users.some(
-        (u) =>
-          String(u.username).toLowerCase() ===
-          username.toLowerCase()
-      );
-      if (exists) {
-        setError("Tài khoản đã tồn tại!");
-        return;
-      }
-      const newUser = {
-        id: Date.now(),
-        username,
-        role: form.role,
-        active: true,
-      };
-      const overlay = getOverlayUsers();
-      setOverlayUsers([...overlay, newUser]);
-      updatedUsers = [...updatedUsers, newUser];
-      setUsers(updatedUsers);
-      showToast("✅ Đã tạo người dùng");
-    } else if (modal.mode === "edit") {
-      const overlay = getOverlayUsers();
-      const updatedOverlay = overlay.map((x) =>
-        x.id === form.id ? { ...x, role: form.role } : x
-      );
-      setOverlayUsers(updatedOverlay);
-      updatedUsers = updatedUsers.map((x) =>
-        x.id === form.id ? { ...x, role: form.role } : x
-      );
-      setUsers(updatedUsers);
-      showToast("✏️ Đã cập nhật người dùng");
-    }
-
-    setModal({ open: false, mode: "create" });
-    setForm({
-      id: null,
-      username: "",
-      password: "",
-      role: "customer",
-    });
-    recomputeStats(getOverlayUsers());
   };
 
-  const handleDeactivate = async (user) => {
-    const nextActive = !user.active;
-    const overlay = getOverlayUsers();
-    const exists = overlay.some((x) => x.id === user.id);
-    const updated = exists
-      ? overlay.map((x) =>
-          x.id === user.id ? { ...x, active: nextActive } : x
-        )
-      : [...overlay, { ...user, active: nextActive }];
-    setOverlayUsers(updated);
-    setUsers((prev) =>
-      prev.map((x) =>
-        x.id === user.id ? { ...x, active: nextActive } : x
-      )
+  // Lọc theo search (email / name / id)
+  const filteredUsers = users.filter((u) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (u.email || "").toLowerCase().includes(q) ||
+      (u.name || "").toLowerCase().includes(q) ||
+      String(u.id || "").toLowerCase().includes(q)
     );
-    recomputeStats(updated);
-    showToast(
-      nextActive ? "✅ Đã kích hoạt" : "🚫 Đã hủy kích hoạt"
-    );
-  };
-
-  const handleDelete = async (user) => {
-    const overlay = getOverlayUsers();
-    const updated = overlay.filter((x) => x.id !== user.id);
-    setOverlayUsers(updated);
-    setUsers(updated);
-    recomputeStats(updated);
-    showToast("🗑️ Đã xóa người dùng");
-  };
-
-  const openVehicles = async (user) => {
-    const overlay = getOverlayVehicles();
-    setSelectedUser(user);
-    setVehicles(overlay[user.id] || []);
-  };
-
-  const handleAddVehicle = async (e) => {
-    e.preventDefault();
-    if (!vehicleForm.plate.trim()) return;
-    const overlay = getOverlayVehicles();
-    const list = overlay[selectedUser.id] || [];
-    const updatedList = [
-      ...list,
-      {
-        plate: vehicleForm.plate,
-        brand: vehicleForm.brand,
-        model: vehicleForm.model,
-      },
-    ];
-    overlay[selectedUser.id] = updatedList;
-    setOverlayVehicles(overlay);
-    setVehicles(updatedList);
-    setVehicleForm({ plate: "", brand: "", model: "" });
-  };
-
-  const handleDeleteVehicle = async (plate) => {
-    const overlay = getOverlayVehicles();
-    const list = overlay[selectedUser.id] || [];
-    const updatedList = list.filter((v) => v.plate !== plate);
-    overlay[selectedUser.id] = updatedList;
-    setOverlayVehicles(overlay);
-    setVehicles(updatedList);
-  };
+  });
 
   return (
-    <div className="space-y-6">
-      {statusMsg && (
-        <div className="fixed top-5 right-5 bg-blue-600 text-white px-4 py-2 rounded shadow z-50">
-          {statusMsg}
-        </div>
-      )}
-
+    <div className="p-6 space-y-6">
       <PageHeader
         title="Quản lý người dùng"
-        subtitle="Quản lý tài khoản, vai trò và phương tiện"
+        subtitle="Xem và quản lý tài khoản người dùng trong hệ thống"
       />
 
-      <Section
-        title="Danh sách người dùng"
-        actions={
-          <button
-            onClick={() => {
-              setForm({
-                id: null,
-                username: "",
-                password: "",
-                role: "customer",
-              });
-              setModal({ open: true, mode: "create" });
-            }}
-            className="rounded-md bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-white"
-          >
-            + Tạo người dùng
-          </button>
-        }
-      >
-        {loading ? (
-          <p className="text-gray-500">
-            ⏳ Đang tải dữ liệu...
-          </p>
-        ) : (
-          <>
-            {stats && (
-              <p className="text-sm text-gray-600 mb-2">
-                👥 Tổng cộng: {stats.total} (Admin:{" "}
-                {stats.admin}, Customer: {stats.customer}, Chủ
-                trạm: {stats.station_owner})
-              </p>
-            )}
-            {monthlyReport && (
-              <p className="text-xs text-indigo-600 mb-2">
-                📈 Báo cáo tháng (user hiện tại):{" "}
-                {JSON.stringify(monthlyReport).slice(0, 120)}...
-              </p>
-            )}
-            <Table
-              columns={[
-                {
-                  key: "username",
-                  title: "Tài khoản",
-                  dataIndex: "username",
-                },
-                {
-                  key: "role",
-                  title: "Vai trò",
-                  dataIndex: "role",
-                },
-                {
-                  key: "status",
-                  title: "Trạng thái",
-                  render: (_, row) =>
-                    row.active ? (
-                      <span className="text-green-600 font-medium">
-                        Hoạt động
-                      </span>
-                    ) : (
-                      <span className="text-red-500 font-medium">
-                        Đã hủy kích hoạt
-                      </span>
-                    ),
-                },
-                {
-                  key: "actions",
-                  title: "Hành động",
-                  render: (_, row) => (
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-sm"
-                        onClick={() => {
-                          setForm({
-                            id: row.id,
-                            username: row.username,
-                            role: row.role,
-                          });
-                          setModal({
-                            open: true,
-                            mode: "edit",
-                          });
-                        }}
-                      >
-                        ✏️ Sửa
-                      </button>
-                      <button
-                        type="button"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-sm"
-                        onClick={() => openVehicles(row)}
-                      >
-                        🚗 Xe
-                      </button>
-                      <button
-                        type="button"
-                        className={
-                          row.active
-                            ? "bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded text-sm"
-                            : "bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-sm"
-                        }
-                        onClick={() => handleDeactivate(row)}
-                      >
-                        {row.active
-                          ? "🚫 Hủy kích hoạt"
-                          : "✅ Kích hoạt"}
-                      </button>
-                      <button
-                        type="button"
-                        className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm"
-                        onClick={() => handleDelete(row)}
-                      >
-                        🗑️ Xóa
-                      </button>
-                    </div>
-                  ),
-                },
-              ]}
-              data={users}
-            />
-          </>
-        )}
-      </Section>
+      {error && (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+          <strong>Lỗi:</strong>{" "}
+          {error.response?.data?.message ||
+            error.message ||
+            "Có lỗi xảy ra khi thao tác với người dùng"}
+        </div>
+      )}
 
-      {modal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-3">
-              {modal.mode === "edit"
-                ? "Chỉnh sửa người dùng"
-                : "Tạo người dùng mới"}
-            </h2>
-            {error && (
-              <div className="mb-3 bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded">
-                {error}
-              </div>
-            )}
-            <form
-              onSubmit={handleCreateOrUpdate}
-              className="space-y-4"
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Danh sách user */}
+        <Section title="Danh sách người dùng" className="lg:col-span-2">
+          <div className="flex justify-between items-center mb-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo email, tên hoặc ID..."
+              className="w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+            <button
+              onClick={fetchUsers}
+              disabled={loading}
+              className="ml-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
             >
+              Làm mới
+            </button>
+          </div>
+
+          <Table
+            columns={["ID", "Email", "Tên", "Vai trò", "Trạng thái"]}
+            rows={filteredUsers.map((u) => [
+              u.id,
+              u.email,
+              u.name || "—",
+              u.role || "user",
+              u.status || "active",
+            ])}
+            // Nếu Table có hỗ trợ onRowClick – tuỳ component của bạn
+            onRowClick={(rowIndex) => handleSelect(filteredUsers[rowIndex])}
+          />
+          <p className="mt-2 text-xs text-gray-400">
+            * Nhấp vào một dòng (row) để xem và chỉnh sửa chi tiết ở panel bên
+            phải (nếu Table hỗ trợ onRowClick).
+          </p>
+        </Section>
+
+        {/* Panel chi tiết user */}
+        <Section title="Chi tiết người dùng" className="lg:col-span-1">
+          {!selected ? (
+            <div className="text-sm text-gray-500">
+              Chọn một người dùng trong bảng để xem chi tiết.
+            </div>
+          ) : (
+            <div className="space-y-4 text-sm">
               <div>
-                <label className="text-sm">
-                  Tài khoản
-                </label>
-                <input
-                  className="w-full border p-2 rounded mt-1"
-                  disabled={modal.mode === "edit"}
-                  value={form.username}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      username: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              {modal.mode === "create" && (
-                <div>
-                  <label className="text-sm">
-                    Mật khẩu
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full border p-2 rounded mt-1"
-                    value={form.password}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        password: e.target.value,
-                      }))
-                    }
-                  />
+                <div className="text-xs text-gray-500 mb-1">ID</div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs font-mono">
+                  {selected.id}
                 </div>
-              )}
+              </div>
+
               <div>
-                <label className="text-sm">Vai trò</label>
+                <div className="text-xs text-gray-500 mb-1">Email</div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                  {selected.email}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Tên hiển thị</div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                  {selected.name || "—"}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Vai trò (Role)</div>
                 <select
-                  className="w-full border p-2 rounded mt-1"
-                  value={form.role}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      role: e.target.value,
-                    }))
-                  }
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
-                  {roles.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
+                  <option value="user">User</option>
+                  <option value="staff">Staff</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="border border-gray-300 px-3 py-1.5 rounded"
-                  onClick={() =>
-                    setModal({ open: false, mode: "create" })
-                  }
+
+              <div>
+                <div className="text-xs text-gray-500 mb-1">
+                  Trạng thái tài khoản
+                </div>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
-                  Hủy
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-3 border-t border-gray-200">
+                <button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  Lưu thay đổi
                 </button>
                 <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-1.5 rounded"
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
                 >
-                  {modal.mode === "edit"
-                    ? "Cập nhật"
-                    : "Tạo"}
+                  Vô hiệu hoá / xoá
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
-            <h2 className="text-lg font-semibold mb-3">
-              🚗 Phương tiện của {selectedUser.username}
-            </h2>
-            <form
-              onSubmit={handleAddVehicle}
-              className="flex gap-2 mb-3 flex-wrap"
-            >
-              <input
-                placeholder="Biển số xe"
-                className="border p-2 rounded flex-1 min-w-[120px]"
-                value={vehicleForm.plate}
-                onChange={(e) =>
-                  setVehicleForm((f) => ({
-                    ...f,
-                    plate: e.target.value,
-                  }))
-                }
-              />
-              <input
-                placeholder="Hãng xe"
-                className="border p-2 rounded flex-1 min-w-[120px]"
-                value={vehicleForm.brand || ""}
-                onChange={(e) =>
-                  setVehicleForm((f) => ({
-                    ...f,
-                    brand: e.target.value,
-                  }))
-                }
-              />
-              <input
-                placeholder="Mẫu xe"
-                className="border p-2 rounded flex-1 min-w-[120px]"
-                value={vehicleForm.model}
-                onChange={(e) =>
-                  setVehicleForm((f) => ({
-                    ...f,
-                    model: e.target.value,
-                  }))
-                }
-              />
-              <button className="bg-green-600 text-white px-3 rounded">
-                Thêm
-              </button>
-            </form>
-            {vehicles.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Chưa có phương tiện nào.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {vehicles.map((v) => (
-                  <li
-                    key={v.plate}
-                    className="border rounded p-2 flex justify-between items-center"
-                  >
-                    <span>
-                      <b>{v.plate}</b> – {v.brand} {v.model}
-                    </span>
-                    <button
-                      className="text-red-600 text-sm"
-                      onClick={() =>
-                        handleDeleteVehicle(v.plate)
-                      }
-                    >
-                      Xóa
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex justify-end mt-4">
-              <button
-                className="border border-gray-300 px-3 py-1.5 rounded"
-                onClick={() => setSelectedUser(null)}
-              >
-                Đóng
-              </button>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </Section>
+      </div>
     </div>
   );
 }
