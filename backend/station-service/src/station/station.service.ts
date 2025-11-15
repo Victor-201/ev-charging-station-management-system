@@ -202,7 +202,7 @@ export class StationService {
             select: {
                 id: true,
                 price_per_kwh: true,
-                price_per_hour: true,
+                price_per_minute: true,
             },
         });
 
@@ -221,11 +221,11 @@ export class StationService {
                     currency: 'USD',
                 });
             }
-            if (point.price_per_hour !== null) {
+            if (point.price_per_minute !== null) {
                 pricing.push({
                     point_id: point.id,
-                    model: 'per_hour',
-                    price: point.price_per_hour.toNumber(),
+                    model: 'per_minute',
+                    price: point.price_per_minute.toNumber(),
                     currency: 'USD',
                 });
             }

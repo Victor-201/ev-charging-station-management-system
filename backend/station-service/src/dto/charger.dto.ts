@@ -14,7 +14,7 @@ export class RegisterChargerDto {
   price_per_kwh: string;
 
   @IsNumberString()
-  price_per_hour: string;
+  price_per_minute: string;
 
   @IsNumberString()
   max_power_kw: string;
@@ -46,7 +46,7 @@ export class ControlChargerDto {
 }
 
 export class ChargerPricingItemDto {
-  model: 'per_kwh' | 'per_hour';
+  model: 'per_kwh' | 'per_minute';
   price: number;
   currency: string;
 }

@@ -21,7 +21,7 @@ export class ChargerService {
                 station_id: body.station_id,
                 connector_type: body.connector_type,
                 price_per_kwh: parseFloat(body.price_per_kwh),
-                price_per_hour: parseFloat(body.price_per_hour),
+                price_per_minute: parseFloat(body.price_per_minute),
                 max_power_kw: parseFloat(body.max_power_kw),
             },
         });
@@ -135,7 +135,7 @@ export class ChargerService {
             where: { id: charger_id },
             select: {
                 price_per_kwh: true,
-                price_per_hour: true,
+                price_per_minute: true,
             },
         });
 
@@ -152,8 +152,8 @@ export class ChargerService {
         });
 
         pricing.push({
-            model: 'per_hour',
-            price: Number(charger.price_per_hour),
+            model: 'per_minute',
+            price: Number(charger.price_per_minute),
             currency: 'VND',
         });
 
