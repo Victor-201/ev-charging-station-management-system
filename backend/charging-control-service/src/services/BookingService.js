@@ -49,7 +49,7 @@ class BookingService {
     });
   }
 
-  async createReservation(data) {
+  async createReservation(data, token) {
     const { user_id, station_id, point_id, connector_type, start_time, end_time, price_per_min, status, payment_method } = data;
 
     if (!user_id || !station_id || !point_id || !connector_type || !start_time || !end_time) {
@@ -99,7 +99,7 @@ class BookingService {
     const payload = {
       user_id: reservation.user_id,
       type: 'payment',
-      method: reservation.payment_method,
+      method: payment_method,
       related_id: reservation.reservation_id,
       related_type: 'booking',
       amount: reservation.price_per_min,
@@ -111,12 +111,13 @@ class BookingService {
     };
 
     try {
+      console.log('Sending REST payment request to payment-service with payload:', reservation.payment_method);
       await axios.post(
         `${config.PAYMENTBASE}/api/v1/payments/transaction`,
         payload,
         {
           headers: {
-            Authorization: `Bearer`,
+            Authorization: token ? `Bearer ${token}` : undefined,
           },
         }
       );
@@ -189,6 +190,31 @@ class BookingService {
     return { reservation_id, cancelled: cancel };
   }
 
+  // ================= GET RESERVATION =================
+  async getReservationById(reservation_id) {
+    if (!reservation_id) throw new Error('Missing reservation_id');
+    return await this.reservationRepo.findById(reservation_id);
+  }
+async getUserReservations(user_id) {
+    if (!user_id) throw new Error('Missing user_id');
+
+    const reservations = await this.reservationRepo.findByUser(user_id);
+    const sorted = reservations.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+
+    return sorted.map(r => ({
+      reservation_id: r.reservation_id,
+      station_id: r.station_id,
+      point_id: r.point_id,
+      connector_type: r.connector_type,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      status: r.status,
+      price_per_min: r.price_per_min,
+      reserved_minutes: r.reserved_minutes,
+      total_cost: r.total_cost
+    }));
+  }
+  // ================= UPDATE RESERVATION =================
   async updateReservation(data) {
     try {
       debug('[updateReservation] input data:', data);

@@ -56,7 +56,8 @@ async startSession({ session_id, start_meter_wh = null }) {
   const started_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
 
   const updated = await SessionRepo.updateStatus(session_id, 'charging', {
-    start_meter_wh: start_meter_wh != null ? start_meter_wh : s.start_meter_wh,
+    // only set start_meter_wh if provided (null means use existing in repo)
+    ...(start_meter_wh != null ? { start_meter_wh } : {}),
     started_at,
   });
 
@@ -64,7 +65,6 @@ async startSession({ session_id, start_meter_wh = null }) {
 
   return { session_id: updated.session_id || session_id, status: updated.status || 'charging', started_at };
 }
-
 async reconcileSessionWithReservation(session_id, { autoSettle = false, threshold = 1000, operator = null } = {}) {
   if (!session_id) throw new Error('session_id is required');
 
