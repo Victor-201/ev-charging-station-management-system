@@ -1,67 +1,53 @@
 const express = require('express');
 const router = express.Router();
 const bookingCtrl = require('../controllers/BookingController');
+const { authenticate, authorize } = require('../middlewares/auth');
 
 // ====================
 // 🚗 RESERVATION APIs
 // ====================
 
-// ⚙️ Auto-cancel job (tự động hủy khi quá hạn)
-router.get('/auto-cancel', bookingCtrl.runAutoCancelJob);
+// Auto-cancel job (internal cron)
+router.get('/auto-cancel', authorize('internal'), bookingCtrl.runAutoCancelJob);
 
-// 🔍 Check availability (kiểm tra trạm sạc trống)
+// Check availability (public)
 router.get('/check', bookingCtrl.checkAvailability);
 
-// ➕ Create new reservation (tạo đặt chỗ mới)
-router.post('/', bookingCtrl.createReservation);
+// Create new reservation (user)
+router.post('/', authenticate, bookingCtrl.createReservation);
 
+// Get reservations by user
+router.get('/user/:user_id', authenticate, bookingCtrl.getUserReservations);
 
+// Get reservation detail
+router.get('/:reservation_id', authenticate, bookingCtrl.getReservationById);
 
+// Update reservation
+router.put('/:reservation_id', authenticate, bookingCtrl.updateReservation);
 
-// 👤 Get reservations by user (lấy danh sách đặt chỗ theo user)
-router.get('/user/:user_id', bookingCtrl.getUserReservations);
-
-// 🔍 Get reservation detail (chi tiết đặt chỗ)
-router.get('/:reservation_id', bookingCtrl.getReservationById);
-
-// ✏️ Update reservation info (cập nhật thông tin đặt chỗ)
-router.put('/:reservation_id', bookingCtrl.updateReservation);
-
-// ❌ Cancel reservation (hủy đặt chỗ)
-router.delete('/:reservation_id', bookingCtrl.cancelReservation);
-
-// ====================
-// 💳 PAYMENT APIs
-// ====================
-
+// Cancel reservation
+router.delete('/:reservation_id', authenticate, bookingCtrl.cancelReservation);
 
 // ====================
 // 🕓 WAITLIST APIs
 // ====================
 
-// ➕ Add to waitlist (thêm vào danh sách chờ)
-router.post('/waitlist', bookingCtrl.addToWaitlist);
-
-// 🔍 Get waitlist by station (lấy danh sách chờ của trạm)
-router.get('/waitlist/:station_id', bookingCtrl.getByStation);
-
-// 🔄 Update waitlist status (cập nhật trạng thái chờ)
-router.patch('/waitlist/:waitlist_id/status', bookingCtrl.updateStatus);
-
-// ❌ Remove from waitlist (xóa khỏi danh sách chờ)
-router.delete('/waitlist/:waitlist_id', bookingCtrl.removeFromWaitlist);
+router.post('/waitlist', authenticate, bookingCtrl.addToWaitlist);
+router.get('/waitlist/:station_id', authenticate, bookingCtrl.getByStation);
+router.patch('/waitlist/:waitlist_id/status', authenticate, bookingCtrl.updateStatus);
+router.delete('/waitlist/:waitlist_id', authenticate, bookingCtrl.removeFromWaitlist);
 
 // ====================
-// 📱 QR Code APIs
+// 📱 QR APIs
 // ====================
 
-// 🎟️ Generate QR (tạo mã QR cho đặt chỗ)
-router.post('/qr/generate', bookingCtrl.createQr);
+// Generate QR
+router.post('/qr/generate', authenticate, bookingCtrl.createQr);
 
-// 🔍 Validate QR (xác thực mã QR)
+// Validate QR (public)
 router.get('/qr/:qr_id/validate', bookingCtrl.validateQr);
 
-// ✅ Mark QR as used (đánh dấu mã QR đã sử dụng)
-router.post('/qr/:qr_id/mark-used', bookingCtrl.markUsed);
+// Mark QR used
+router.post('/qr/:qr_id/mark-used', authenticate, bookingCtrl.markUsed);
 
 module.exports = router;
