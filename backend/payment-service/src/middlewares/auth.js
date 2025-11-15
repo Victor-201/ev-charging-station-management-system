@@ -27,7 +27,7 @@ export const authenticate = (req, res, next) => {
       }
     }
 
-    req.user = decoded;
+    req.user = { ...decoded, token };
     console.log('Authenticated user:', req.user);
     next();
   } catch (err) {
