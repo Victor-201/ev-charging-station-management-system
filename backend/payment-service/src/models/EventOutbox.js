@@ -58,15 +58,6 @@ export default class EventOutbox {
   /** === Tạo instance từ 1 row trong DB === */
   static fromRow(row) {
     if (!row) return null;
-    return new EventOutbox({
-      id: row.id,
-      aggregate_type: row.aggregate_type,
-      aggregate_id: row.aggregate_id,
-      type: row.type,
-      payload: row.payload,
-      status: row.status,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    });
+    return new EventOutbox(row);
   }
 }
