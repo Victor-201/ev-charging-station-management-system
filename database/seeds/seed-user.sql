@@ -1,14 +1,6 @@
 -- Seed data for User Service
 -- Database: ev_user_db
 
-<<<<<<< HEAD
--- Insert user profiles (matching users from auth service)
--- Note: name and phone are in auth.users table
-INSERT INTO user_profiles (user_id, address, avatar_url) VALUES
-('550e8400-e29b-41d4-a716-446655440001', '123 Nguyen Hue, District 1, HCMC', NULL),
-('550e8400-e29b-41d4-a716-446655440002', '456 Le Loi, District 3, HCMC', NULL),
-('550e8400-e29b-41d4-a716-446655440003', '789 Vo Van Tan, District 3, HCMC', NULL);
-=======
 -------------------------------------------------------------
 -- 1. USERS (phải seed trước vì user_profiles phụ thuộc)
 -------------------------------------------------------------
@@ -17,7 +9,6 @@ VALUES
 ('550e8400-e29b-41d4-a716-446655440001', 'a@example.com', 'Nguyen Van A', '0987654321', '2000-01-01', 'user', 'active', TRUE),
 ('550e8400-e29b-41d4-a716-446655440002', 'b@example.com', 'Tran Thi B', '0976543210', '1999-02-01', 'user', 'active', TRUE),
 ('550e8400-e29b-41d4-a716-446655440003', 'admin@example.com', 'Admin User', '0965432109', '1995-03-01', 'admin', 'active', TRUE);
->>>>>>> 7856e3bf403d61ff15b7cb14f3efd2c13ed1d0ae
 
 
 -------------------------------------------------------------
