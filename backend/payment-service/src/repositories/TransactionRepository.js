@@ -106,4 +106,63 @@ export default class TransactionRepository extends BaseRepository {
     );
     return rows.map((r) => Transaction.fromRow(r));
   }
+
+  /** === Tính doanh thu === */
+  async getRevenueSummary() {
+    const query = `
+    SELECT 
+      COALESCE(SUM(amount), 0) AS total_revenue,
+      COUNT(*) AS total_transactions
+    FROM ${this.tableName}
+    WHERE status = 'completed';
+  `;
+    const { rows } = await db.query(query);
+    return rows[0];
+  }
+
+  async getDailyRevenue(days = 30) {
+    const query = `
+    SELECT 
+      DATE(created_at) AS date,
+      SUM(amount) AS total
+    FROM ${this.tableName}
+    WHERE status = 'completed'
+      AND created_at >= NOW() - INTERVAL '${days} days'
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC;
+  `;
+    const { rows } = await db.query(query);
+    return rows;
+  }
+
+  async getMonthlyRevenue(months = 12) {
+    const query = `
+    SELECT 
+      DATE_TRUNC('month', created_at) AS month,
+      SUM(amount) AS total
+    FROM ${this.tableName}
+    WHERE status = 'completed'
+      AND created_at >= NOW() - INTERVAL '${months} months'
+    GROUP BY DATE_TRUNC('month', created_at)
+    ORDER BY month ASC;
+  `;
+    const { rows } = await db.query(query);
+    return rows;
+  }
+
+  async getRevenueByType() {
+    const query = `
+    SELECT 
+      type,
+      related_type,
+      SUM(amount) AS total
+    FROM ${this.tableName}
+    WHERE status = 'completed'
+    GROUP BY type, related_type;
+  `;
+    const { rows } = await db.query(query);
+    return rows;
+  }
+
 }
+
