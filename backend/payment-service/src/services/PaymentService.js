@@ -173,4 +173,22 @@ export default class PaymentService {
     if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
     return transaction;
   }
+
+  // ================= Revenue Service Logic ===================
+  async revenueSummary() {
+    return await this.txRepo.getRevenueSummary();
+  }
+
+  async dailyRevenue(days = 30) {
+    return await this.txRepo.getDailyRevenue(days);
+  }
+
+  async monthlyRevenue(months = 12) {
+    return await this.txRepo.getMonthlyRevenue(months);
+  }
+
+  async revenueByType() {
+    return await this.txRepo.getRevenueByType();
+  }
+
 }
