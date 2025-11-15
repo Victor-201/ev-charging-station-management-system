@@ -120,7 +120,7 @@ services:
     volumes:
       - payment-db-data:/var/lib/postgresql/data
       - ../../database/schema/ev_payment_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ../../database/seeds/seed-payment.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ../../database/seeds/seed_payment_db.sql:/docker-entrypoint-initdb.d/02-seed.sql
     restart: always
     networks:
       - kong-net
