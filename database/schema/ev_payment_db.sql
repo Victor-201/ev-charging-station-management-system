@@ -82,7 +82,7 @@ BEGIN
   -- Gói đăng ký: trạng thái
   PERFORM 1 FROM pg_type WHERE typname = 'subscription_status';
   IF NOT FOUND THEN
-    CREATE TYPE subscription_status AS ENUM ('active', 'cancelled', 'expired');
+    CREATE TYPE subscription_status AS ENUM ('pending', 'active', 'cancelled', 'expired');
   END IF;
 
   -- Outbox: trạng thái
@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   plan_id UUID REFERENCES plans(id) ON DELETE CASCADE,
   start_date TIMESTAMPTZ DEFAULT NOW(),
   end_date TIMESTAMPTZ,
-  status subscription_status DEFAULT 'active',
+  status subscription_status DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CHECK (end_date IS NULL OR end_date > start_date)
