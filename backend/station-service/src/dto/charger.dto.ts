@@ -5,6 +5,9 @@ export class RegisterChargerDto {
   external_id: string;
 
   @IsString()
+  name: string;
+
+  @IsString()
   station_id: string;
 
   @IsString()

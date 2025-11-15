@@ -18,6 +18,7 @@ export class ChargerService {
         const charger = await this.prisma.charging_points.create({
             data: {
                 external_id: body.external_id,
+                name: body.name,
                 station_id: body.station_id,
                 connector_type: body.connector_type,
                 price_per_kwh: parseFloat(body.price_per_kwh),
