@@ -71,16 +71,7 @@ export default class Plan {
   /** Chuyển từ row (PostgreSQL) sang instance Plan */
   static fromRow(row) {
     if (!row) return null;
-    return new Plan({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      type: row.type,
-      price: row.price,
-      duration: row.duration,
-      duration_days: row.duration_days,
-      created_at: row.created_at,
-      updated_at: row.updated_at
-    });
+    return new Plan(row);
   }
 }
+

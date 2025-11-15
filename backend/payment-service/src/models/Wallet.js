@@ -72,14 +72,7 @@ export default class Wallet {
 
   static fromRow(row) {
     if (!row) return null;
-    return new Wallet({
-      id: row.id,
-      user_id: row.user_id,
-      balance: row.balance,
-      status: row.status,
-      suspend_reason: row.suspend_reason,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    });
+    return new Wallet(row);
   }
 }
+
