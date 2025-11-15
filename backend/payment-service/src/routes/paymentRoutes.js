@@ -7,7 +7,7 @@ import { UserRole } from '../constants/roles.js';
 const router = express.Router();
 
 // Webhook (public)
-router.post('/webhook', verifyWebhook, PaymentController.processBankWebhook);
+router.post('/transaction/webhook', verifyWebhook, PaymentController.processBankWebhook);
 
 // Auth required
 router.use(authenticate);
