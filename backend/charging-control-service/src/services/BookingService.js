@@ -111,8 +111,9 @@ class BookingService {
     };
 
     try {
-      console.log('Sending REST payment request to payment-service with payload:', reservation.payment_method);
-      await axios.post(
+      console.log('Sending REST payment request to payment-service with payload:', payload);
+
+      const response = await axios.post(
         `${config.PAYMENTBASE}/api/v1/payments/transaction`,
         payload,
         {
@@ -121,10 +122,18 @@ class BookingService {
           },
         }
       );
-      debug('REST payment request sent to payment-service');
+
+      debug('REST payment request sent successfully');
+      debug('Payment service response:', response.data);
+
     } catch (e) {
-      debug('REST payment request failed:', e.message);
+      if (e.response) {
+        debug('Payment service returned error:', e.response.status, e.response.data);
+      } else {
+        debug('REST payment request failed:', e.message);
+      }
     }
+
     return reservation;
   }
 
@@ -195,7 +204,7 @@ class BookingService {
     if (!reservation_id) throw new Error('Missing reservation_id');
     return await this.reservationRepo.findById(reservation_id);
   }
-async getUserReservations(user_id) {
+  async getUserReservations(user_id) {
     if (!user_id) throw new Error('Missing user_id');
 
     const reservations = await this.reservationRepo.findByUser(user_id);
