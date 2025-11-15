@@ -26,11 +26,6 @@ export default class PaymentService {
     if (Number.isNaN(amount) || amount <= 0) throw new Error('Invalid amount value');
     if (related_id && !related_type) throw new Error('related_type is required when related_id is provided');
 
-    if (related_type === 'subscription' && related_id) {
-      const plan = await this.planRepo.findById(related_id);
-      if (!plan) throw new Error(`Plan not found: ${related_id}`);
-    }
-
     let wallet = await this.walletRepo.findByUserId(user_id);
     if (!wallet) wallet = await this.walletRepo.create(user_id);
     if (method === 'wallet' && !wallet.canSpend(amount)) throw new Error('Insufficient wallet balance');
@@ -55,14 +50,6 @@ export default class PaymentService {
       transaction.markSuccess({ paid_at: new Date().toISOString() });
       await this.txRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
-      if (['topup', 'subscription'].includes(type)) {
-        const eventType = `payment.${type}.succeeded`;
-        localBus.publish(eventType, {
-          user_id, transaction_id: transaction.id,
-          related_id, related_type: type,
-          amount, method, reference_code: referenceCode
-        });
-      }
     }
 
     return transaction;
