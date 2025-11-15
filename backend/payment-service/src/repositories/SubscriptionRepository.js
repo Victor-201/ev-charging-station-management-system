@@ -7,27 +7,32 @@ export default class SubscriptionRepository extends BaseRepository {
     super(Subscription, 'subscriptions');
   }
 
-  /** === Tạo mới subscription === */
-  async create({ user_id, plan_id, start_date = new Date(), end_date = null, status = 'active' }) {
+  async create({ user_id, plan_id, start_date = new Date(), end_date = null, status = 'pending' }) {
     const query = `
       INSERT INTO ${this.tableName} (user_id, plan_id, start_date, end_date, status)
       VALUES ($1, $2, $3, $4, $5::subscription_status)
       RETURNING *;
     `;
-    const { rows } = await db.query(query, [user_id, plan_id, start_date, end_date, status]);
+    const { rows } = await db.query(query, [
+      user_id,
+      plan_id,
+      start_date,
+      end_date,
+      status
+    ]);
     return Subscription.fromRow(rows[0]);
   }
 
-  /** === Cập nhật subscription === */
   async updateById(id, fields) {
     const allowed = ['plan_id', 'start_date', 'end_date', 'status'];
-    const entries = Object.entries(fields).filter(([k, v]) => allowed.includes(k) && v !== undefined);
+    const entries = Object.entries(fields).filter(
+      ([k, v]) => allowed.includes(k) && v !== undefined
+    );
+
     if (entries.length === 0) return this.findById(id);
 
-    const setClause = entries
-      .map(([key], i) => `${key} = $${i + 2}`)
-      .join(', ');
-    const values = entries.map(([, v]) => v);
+    const setClause = entries.map(([key], i) => `${key} = $${i + 2}`).join(', ');
+    const values = entries.map(([_, v]) => v);
 
     const query = `
       UPDATE ${this.tableName}
@@ -35,11 +40,22 @@ export default class SubscriptionRepository extends BaseRepository {
       WHERE id = $1
       RETURNING *;
     `;
+
     const { rows } = await db.query(query, [id, ...values]);
     return rows[0] ? Subscription.fromRow(rows[0]) : null;
   }
 
-  /** === Hủy subscription === */
+  async setActive(id) {
+    const query = `
+      UPDATE ${this.tableName}
+      SET status = 'active', updated_at = NOW()
+      WHERE id = $1 AND status = 'pending'
+      RETURNING *;
+    `;
+    const { rows } = await db.query(query, [id]);
+    return rows[0] ? Subscription.fromRow(rows[0]) : null;
+  }
+
   async cancel(id) {
     const query = `
       UPDATE ${this.tableName}
@@ -51,7 +67,6 @@ export default class SubscriptionRepository extends BaseRepository {
     return rows[0] ? Subscription.fromRow(rows[0]) : null;
   }
 
-  /** === Đánh dấu subscription hết hạn === */
   async expire(id) {
     const query = `
       UPDATE ${this.tableName}
@@ -63,7 +78,28 @@ export default class SubscriptionRepository extends BaseRepository {
     return rows[0] ? Subscription.fromRow(rows[0]) : null;
   }
 
-  /** === Lấy các subscription đang active của user === */
+  /** NEW: Active + Plan */
+  async findActiveByUserAndPlan(user_id, plan_id) {
+    const query = `
+      SELECT * FROM ${this.tableName}
+      WHERE user_id = $1 AND plan_id = $2 AND status = 'active'
+      ORDER BY created_at DESC LIMIT 1;
+    `;
+    const { rows } = await db.query(query, [user_id, plan_id]);
+    return rows[0] ? Subscription.fromRow(rows[0]) : null;
+  }
+
+  /** NEW: Pending + Plan */
+  async findPendingByUserAndPlan(user_id, plan_id) {
+    const query = `
+      SELECT * FROM ${this.tableName}
+      WHERE user_id = $1 AND plan_id = $2 AND status = 'pending'
+      ORDER BY created_at DESC LIMIT 1;
+    `;
+    const { rows } = await db.query(query, [user_id, plan_id]);
+    return rows[0] ? Subscription.fromRow(rows[0]) : null;
+  }
+
   async findActiveByUser(user_id) {
     const query = `
       SELECT * FROM ${this.tableName}
@@ -71,10 +107,19 @@ export default class SubscriptionRepository extends BaseRepository {
       ORDER BY created_at DESC;
     `;
     const { rows } = await db.query(query, [user_id]);
-    return rows.map((r) => Subscription.fromRow(r));
+    return rows.map(Subscription.fromRow);
   }
 
-  /** === Lấy toàn bộ subscription của user === */
+  async findPendingByUser(user_id) {
+    const query = `
+      SELECT * FROM ${this.tableName}
+      WHERE user_id = $1 AND status = 'pending'
+      ORDER BY created_at DESC;
+    `;
+    const { rows } = await db.query(query, [user_id]);
+    return rows.map(Subscription.fromRow);
+  }
+
   async findAllByUser(user_id) {
     const query = `
       SELECT * FROM ${this.tableName}
@@ -82,6 +127,6 @@ export default class SubscriptionRepository extends BaseRepository {
       ORDER BY created_at DESC;
     `;
     const { rows } = await db.query(query, [user_id]);
-    return rows.map((r) => Subscription.fromRow(r));
+    return rows.map(Subscription.fromRow);
   }
 }
