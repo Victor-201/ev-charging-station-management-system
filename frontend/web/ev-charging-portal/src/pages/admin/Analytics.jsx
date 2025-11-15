@@ -1,204 +1,196 @@
 // pages/admin/Analytics.jsx
-import React, { useState, useEffect } from "react";
-import PageHeader from "@/components/admin/PageHeader";
+import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
+import PageHeader from "@/components/admin/PageHeader";
 import Chart from "@/components/admin/Chart";
-import Table from "@/components/admin/Table";
-import { useAnalytics } from "@/hooks/useAnalytics";
+import apiClient from "@/api/apiClient";
 
-/**
- * Trang Analytics:
- * - Dùng useAnalytics để gọi:
- *   + getRevenueReport
- *   + getStationDailyReport
- *   + getUserMonthlyReport
- *   + getForecastByStation
- * - Cho phép admin chọn trạm / user / khoảng thời gian và xem biểu đồ.
- */
-export default function AnalyticsPage() {
-  const {
-    loadingAnalytics,
-    error,
-    revenueReport,
-    stationDailyReport,
-    userMonthlyReport,
-    forecastByStation,
-    getRevenueReport,
-    getStationDailyReport,
-    getUserMonthlyReport,
-    getForecastByStation,
-  } = useAnalytics();
+const DEFAULT_RANGE = "30d";
 
-  // state filter UI
-  const [stationId, setStationId] = useState("");
-  const [userId, setUserId] = useState("");
-  const [range, setRange] = useState("last_7_days");
+export default function Analytics() {
+  // 🔹 Bộ lọc khoảng thời gian
+  const [range, setRange] = useState(DEFAULT_RANGE);
 
-  // Khi vào trang -> load doanh thu mặc định
+  // 🔹 Dữ liệu từ API
+  const [stationUsage, setStationUsage] = useState([]);
+  const [topStations, setTopStations] = useState([]);
+  const [forecast, setForecast] = useState([]);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // =========================
+  // Gọi API analytics mỗi khi thay đổi range
+  // =========================
   useEffect(() => {
-    getRevenueReport({ range: "last_7_days" });
-  }, [getRevenueReport]);
+    let isMounted = true;
 
-  const handleRefreshRevenue = () => {
-    getRevenueReport({ range });
-  };
+    async function fetchAnalytics() {
+      try {
+        setLoading(true);
+        setError("");
 
-  const handleFetchStationReport = () => {
-    if (!stationId) return;
-    getStationDailyReport(stationId);
-    getForecastByStation(stationId);
-  };
+        // 👉 API gợi ý: tổng hợp metrics cho dashboard analytics
+        const res = await apiClient({
+          method: "GET",
+          url: "/api/v1/analytics/admin/stations",
+          params: { range }, // vd: 7d / 30d / 90d
+        });
 
-  const handleFetchUserReport = () => {
-    if (!userId) return;
-    getUserMonthlyReport(userId);
-  };
+        if (!isMounted) return;
+        const data = res.data || {};
 
-  // Chuẩn hoá data cho Chart doanh thu
-  const revenueChartData = (revenueReport?.points || []).map((p) => ({
-    label: p.label || p.date,
-    value: p.total || p.amount || 0,
-  }));
+        setStationUsage(Array.isArray(data.station_usage) ? data.station_usage : []);
+        setTopStations(Array.isArray(data.top_stations) ? data.top_stations : []);
+        setForecast(Array.isArray(data.demand_forecast) ? data.demand_forecast : []);
+      } catch (err) {
+        console.error("Analytics error:", err);
+        if (!isMounted) return;
+        setError("Không tải được dữ liệu phân tích.");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
 
-  const stationEnergyData = (stationDailyReport?.points || []).map((p) => ({
-    label: p.label || p.date,
-    value: p.energy_kwh || 0,
-  }));
-
-  const forecastData = (forecastByStation?.points || []).map((p) => ({
-    label: p.label || p.date,
-    value: p.predicted || p.forecast || 0,
-  }));
-
-  const userUsageData = (userMonthlyReport?.points || []).map((p) => ({
-    label: p.label || p.month,
-    value: p.energy_kwh || p.sessions || 0,
-  }));
+    fetchAnalytics();
+    return () => {
+      isMounted = false;
+    };
+  }, [range]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader
-        title="Phân tích & Thống kê"
-        subtitle="Xem xu hướng sử dụng, doanh thu và dự báo tải trạm"
+        title="Phân tích & thống kê"
+        subtitle="Theo dõi hiệu suất trạm sạc, nhu cầu và dự báo"
       />
 
-      {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-          <strong>Lỗi:</strong>{" "}
-          {error.message || error.toString() || "Có lỗi xảy ra khi lấy dữ liệu"}
-        </div>
-      )}
-
-      {/* Bộ lọc chính */}
+      {/* Bộ lọc phạm vi thời gian */}
       <Section title="Bộ lọc dữ liệu">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Lọc doanh thu */}
-          <div className="space-y-2">
-            <div className="text-sm font-semibold text-gray-700">
-              Khoảng thời gian doanh thu
-            </div>
-            <select
-              value={range}
-              onChange={(e) => setRange(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="today">Hôm nay</option>
-              <option value="yesterday">Hôm qua</option>
-              <option value="last_7_days">7 ngày qua</option>
-              <option value="last_30_days">30 ngày qua</option>
-            </select>
-            <button
-              onClick={handleRefreshRevenue}
-              disabled={loadingAnalytics}
-              className="mt-2 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              Làm mới doanh thu
-            </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-gray-600">Khoảng thời gian:</span>
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            {[
+              { value: "7d", label: "7 ngày" },
+              { value: "30d", label: "30 ngày" },
+              { value: "90d", label: "90 ngày" },
+            ].map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setRange(item.value)}
+                className={`px-3 py-1 text-sm ${
+                  range === item.value
+                    ? "bg-emerald-500 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
-
-          {/* Lọc theo trạm */}
-          <div className="space-y-2">
-            <div className="text-sm font-semibold text-gray-700">
-              Thống kê theo trạm
-            </div>
-            <input
-              value={stationId}
-              onChange={(e) => setStationId(e.target.value)}
-              placeholder="Nhập Station ID"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-            <button
-              onClick={handleFetchStationReport}
-              disabled={!stationId || loadingAnalytics}
-              className="mt-2 inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-            >
-              Xem báo cáo trạm
-            </button>
-          </div>
-
-          {/* Lọc theo user */}
-          <div className="space-y-2">
-            <div className="text-sm font-semibold text-gray-700">
-              Thống kê theo người dùng
-            </div>
-            <input
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="Nhập User ID"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-            <button
-              onClick={handleFetchUserReport}
-              disabled={!userId || loadingAnalytics}
-              className="mt-2 inline-flex items-center justify-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
-            >
-              Xem báo cáo người dùng
-            </button>
-          </div>
+          {loading && (
+            <span className="text-xs text-gray-500">
+              Đang tải dữ liệu...
+            </span>
+          )}
         </div>
       </Section>
 
-      {/* Hàng biểu đồ 1: Doanh thu + Năng lượng theo trạm */}
-      <Section title="Doanh thu & Năng lượng">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Chart
-            title="Doanh thu theo thời gian"
-            data={revenueChartData}
-            yLabel="VNĐ"
-          />
-          <Chart
-            title="Năng lượng theo ngày (Trạm)"
-            data={stationEnergyData}
-            yLabel="kWh"
-          />
+      {error && (
+        <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
+          {error}
         </div>
-      </Section>
-
-      {/* Hàng biểu đồ 2: Dự báo + User usage */}
-      <Section title="Dự báo & Thói quen sử dụng">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Chart
-            title="Dự báo tải trạm (forecast)"
-            data={forecastData}
-            yLabel="kWh (dự kiến)"
-          />
-          <Chart
-            title="Sử dụng theo tháng (User)"
-            data={userUsageData}
-            yLabel="kWh / số phiên"
-          />
-        </div>
-      </Section>
-
-      {/* Bảng raw – nếu backend trả dạng bảng */}
-      {(revenueReport?.rows || []).length > 0 && (
-        <Section title="Chi tiết doanh thu (raw)">
-          <Table
-            columns={revenueReport.columns || ["Ngày", "Doanh thu (VNĐ)"]}
-            rows={revenueReport.rows}
-          />
-        </Section>
       )}
+
+      {/* Biểu đồ sản lượng sạc theo ngày */}
+      <Section title="Sản lượng sạc theo ngày">
+        {loading ? (
+          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
+        ) : stationUsage.length === 0 ? (
+          <div className="text-sm text-gray-500">
+            Chưa có dữ liệu sản lượng để hiển thị.
+          </div>
+        ) : (
+          <Chart
+            type="area"
+            data={stationUsage}
+            xKey="metric_date"
+            yKey="total_kwh"
+            height={260}
+            label="Tổng kWh"
+          />
+        )}
+      </Section>
+
+      {/* Top trạm theo doanh thu / số phiên sạc */}
+      <Section title="Top trạm theo hiệu suất">
+        {loading ? (
+          <div className="h-48 bg-gray-100 animate-pulse rounded-xl" />
+        ) : topStations.length === 0 ? (
+          <div className="text-sm text-gray-500">
+            Chưa có dữ liệu xếp hạng trạm.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b">
+                  <th className="py-2 pr-4">#</th>
+                  <th className="py-2 pr-4">Trạm sạc</th>
+                  <th className="py-2 pr-4">Số phiên sạc</th>
+                  <th className="py-2 pr-4">Tổng kWh</th>
+                  <th className="py-2 pr-4">Doanh thu (VND)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topStations.map((s, idx) => (
+                  <tr
+                    key={s.station_id || idx}
+                    className="border-b last:border-b-0"
+                  >
+                    <td className="py-2 pr-4 text-gray-500">
+                      {idx + 1}
+                    </td>
+                    <td className="py-2 pr-4 font-medium">
+                      {s.station_name || s.station_id}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {s.total_sessions?.toLocaleString("vi-VN") ?? "--"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {s.total_kwh?.toLocaleString("vi-VN") ?? "--"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {s.total_revenue?.toLocaleString("vi-VN") ?? "--"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
+      {/* Dự báo nhu cầu (AI / forecast) */}
+      <Section title="Dự báo nhu cầu sạc (AI)">
+        {loading ? (
+          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
+        ) : forecast.length === 0 ? (
+          <div className="text-sm text-gray-500">
+            Chưa có dữ liệu dự báo. Kiểm tra lại job huấn luyện / ETL.
+          </div>
+        ) : (
+          <Chart
+            type="line"
+            data={forecast}
+            xKey="forecast_date"
+            yKey="predicted_sessions"
+            height={260}
+            label="Số phiên sạc dự kiến"
+          />
+        )}
+      </Section>
     </div>
   );
 }

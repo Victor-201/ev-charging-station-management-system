@@ -1,223 +1,245 @@
 // pages/admin/Dashboard.jsx
-import React, { useEffect, useMemo } from "react";
-import PageHeader from "@/components/admin/PageHeader";
+import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
+import PageHeader from "@/components/admin/PageHeader";
 import Chart from "@/components/admin/Chart";
-import Table from "@/components/admin/Table";
-import { useAnalytics } from "@/hooks/useAnalytics";
-import { useChargingControl } from "@/hooks/useChargingControl";
-import { useStation } from "@/hooks/useStation";
+import apiClient from "@/api/apiClient";
 
-/**
- * Dashboard tổng quan cho Admin:
- * - Lấy dữ liệu từ AnalyticsProvider: overview, revenue, stationStats
- * - Lấy dữ liệu từ ChargingControlProvider: sessions đang chạy
- * - Lấy danh sách trạm từ StationProvider
- */
-export default function AdminDashboard() {
-  const {
-    overview,
-    revenue,
-    stationStats,
-    loadingOverview,
-    loadingAnalytics,
-    getOverview,
-    getRevenue,
-    getStationStats,
-    error,
-  } = useAnalytics();
+// 🔹 Card nhỏ hiển thị số liệu tổng quan
+function StatCard({ label, value, unit, loading }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-1">
+      <span className="text-sm text-gray-500">{label}</span>
+      {loading ? (
+        <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
+      ) : (
+        <span className="text-2xl font-semibold">
+          {value !== null && value !== undefined ? value.toLocaleString("vi-VN") : "--"}
+          {unit ? <span className="text-base text-gray-500 ml-1">{unit}</span> : null}
+        </span>
+      )}
+    </div>
+  );
+}
 
-  const { sessions } = useChargingControl();
-  const { stations, getAll } = useStation();
+export default function Dashboard() {
+  // 🔹 State lưu dữ liệu tổng quan & biểu đồ
+  const [summary, setSummary] = useState(null);
+  const [dailyRevenue, setDailyRevenue] = useState([]);
+  const [health, setHealth] = useState(null);
 
-  // Khi vào trang: gọi API tổng quan
+  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [loadingChart, setLoadingChart] = useState(true);
+  const [loadingHealth, setLoadingHealth] = useState(true);
+
+  const [error, setError] = useState("");
+
+  // =========================
+  // 1. Gọi API tổng quan doanh thu / user / trạm
+  // =========================
   useEffect(() => {
-    // Tổng quan hệ thống (tổng sessions, tổng user, ...)
-    getOverview();
+    let isMounted = true;
 
-    // Doanh thu (ví dụ: 7 ngày gần nhất)
-    getRevenue({ range: "last_7_days" });
+    async function fetchSummary() {
+      try {
+        setLoadingSummary(true);
+        setError("");
 
-    // Thống kê trạm (nếu backend cần id cụ thể có thể truyền sau)
-    getStationStats("all");
+        // 👉 API gợi ý: backend trả tổng quan admin (doanh thu, user, trạm,…)
+        const res = await apiClient({
+          method: "GET",
+          url: "/api/v1/analytics/admin/summary",
+        });
 
-    // Lấy danh sách trạm (gần khu vực chẳng hạn)
-    getAll({ lat: 10.9, lng: 106.8, radius: 50 }); // tuỳ backend
-  }, [getOverview, getRevenue, getStationStats, getAll]);
+        if (!isMounted) return;
+        setSummary(res.data || null);
+      } catch (err) {
+        console.error("Dashboard summary error:", err);
+        if (!isMounted) return;
+        setError("Không tải được dữ liệu tổng quan.");
+      } finally {
+        if (isMounted) setLoadingSummary(false);
+      }
+    }
 
-  // Tính toán metric từ dữ liệu tổng quan
-  const kpi = useMemo(() => {
-    const o = overview || {};
-    return [
-      {
-        key: "stations",
-        title: "Số trạm",
-        value: o.total_stations ?? stations?.length ?? 0,
-        sub: "Trạm sạc đang quản lý",
-      },
-      {
-        key: "active_sessions",
-        title: "Phiên đang sạc",
-        value: o.active_sessions ?? (sessions?.length || 0),
-        sub: "Đang hoạt động",
-      },
-      {
-        key: "energy",
-        title: "Năng lượng hôm nay",
-        value: o.energy_today_kwh ?? 0,
-        sub: "kWh đã tiêu thụ",
-      },
-      {
-        key: "revenue",
-        title: "Doanh thu hôm nay",
-        value: o.revenue_today ?? revenue?.today ?? 0,
-        sub: "VNĐ",
-      },
-    ];
-  }, [overview, revenue, stations, sessions]);
+    fetchSummary();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  // Chuẩn hoá data cho biểu đồ doanh thu
-  const revenueChartData = useMemo(() => {
-    if (!revenue?.series || !Array.isArray(revenue.series)) return [];
-    return revenue.series.map((item) => ({
-      label: item.label || item.date,
-      value: item.total || item.amount || 0,
-    }));
-  }, [revenue]);
+  // =========================
+  // 2. Gọi API doanh thu theo ngày (30 ngày gần nhất)
+  // =========================
+  useEffect(() => {
+    let isMounted = true;
 
-  if (loadingOverview || loadingAnalytics) {
-    return (
-      <div className="p-6">
-        <PageHeader
-          title="Bảng điều khiển Admin"
-          subtitle="Đang tải dữ liệu tổng quan..."
-        />
-        <div className="mt-6 text-gray-500">Đang tải...</div>
-      </div>
-    );
-  }
+    async function fetchDailyRevenue() {
+      try {
+        setLoadingChart(true);
+        setError("");
+
+        // 👉 API gợi ý: trả list { date, total_revenue }
+        const res = await apiClient({
+          method: "GET",
+          url: "/api/v1/payments/revenue/daily?days=30",
+        });
+
+        if (!isMounted) return;
+        setDailyRevenue(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("Daily revenue error:", err);
+        if (!isMounted) return;
+        setError((prev) => prev || "Không tải được biểu đồ doanh thu.");
+      } finally {
+        if (isMounted) setLoadingChart(false);
+      }
+    }
+
+    fetchDailyRevenue();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // =========================
+  // 3. Gọi API health hệ thống
+  // =========================
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchHealth() {
+      try {
+        setLoadingHealth(true);
+        const res = await apiClient({
+          method: "GET",
+          url: "/api/v1/monitoring/health",
+        });
+        if (!isMounted) return;
+        setHealth(res.data || null);
+      } catch (err) {
+        console.error("Health error:", err);
+      } finally {
+        if (isMounted) setLoadingHealth(false);
+      }
+    }
+
+    fetchHealth();
+    // Có thể setup interval nếu muốn realtime
+    const intervalId = setInterval(fetchHealth, 60_000); // 60s
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  const revenueToday = summary?.revenue_today ?? 0;
+  const revenueMonth = summary?.revenue_month ?? 0;
+  const totalUsers = summary?.total_users ?? 0;
+  const totalStations = summary?.total_stations ?? 0;
+  const activeSessions = summary?.active_sessions ?? 0;
+
+  const systemStatus =
+    health?.status || health?.overall_status || "unknown";
+
+  const isSystemOk =
+    systemStatus === "ok" ||
+    systemStatus === "healthy" ||
+    systemStatus === "UP";
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader
-        title="Bảng điều khiển Admin"
-        subtitle="Tổng quan nhanh về hệ thống sạc EV"
+        title="Bảng điều khiển"
+        subtitle="Tổng quan hoạt động hệ thống trạm sạc EV"
       />
 
-      {/* Hiển thị lỗi chung nếu có */}
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-          <strong>Lỗi:</strong>{" "}
-          {error.message || error.toString() || "Có lỗi xảy ra khi tải dữ liệu"}
+        <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
+          {error}
         </div>
       )}
 
-      {/* KPI Cards */}
-      <Section title="Chỉ số chính trong ngày">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {kpi.map((item) => (
-            <div
-              key={item.key}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col gap-1"
-            >
-              <div className="text-xs text-gray-500 uppercase tracking-wide">
-                {item.title}
-              </div>
-              <div className="text-2xl font-bold text-gray-900">
-                {item.key === "revenue"
-                  ? item.value.toLocaleString("vi-VN")
-                  : item.value}
-              </div>
-              <div className="text-xs text-gray-400">{item.sub}</div>
-            </div>
-          ))}
+      {/* ===== Hàng 1: Thống kê nhanh ===== */}
+      <Section title="Thống kê nhanh">
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          <StatCard
+            label="Doanh thu hôm nay"
+            value={revenueToday}
+            unit="VND"
+            loading={loadingSummary}
+          />
+          <StatCard
+            label="Doanh thu tháng này"
+            value={revenueMonth}
+            unit="VND"
+            loading={loadingSummary}
+          />
+          <StatCard
+            label="Tổng người dùng"
+            value={totalUsers}
+            loading={loadingSummary}
+          />
+          <StatCard
+            label="Số trạm đang hoạt động"
+            value={totalStations}
+            loading={loadingSummary}
+          />
+          <StatCard
+            label="Phiên sạc đang diễn ra"
+            value={activeSessions}
+            loading={loadingSummary}
+          />
         </div>
       </Section>
 
-      {/* Biểu đồ doanh thu */}
-      <Section title="Doanh thu gần đây">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            {/* Chart component của bạn – nhận data dạng {label, value} */}
-            <Chart
-              title="Doanh thu theo ngày"
-              data={revenueChartData}
-              yLabel="VNĐ"
-            />
+      {/* ===== Hàng 2: Biểu đồ doanh thu ===== */}
+      <Section title="Biểu đồ doanh thu 30 ngày gần nhất">
+        {loadingChart ? (
+          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
+        ) : dailyRevenue.length === 0 ? (
+          <div className="text-sm text-gray-500">
+            Chưa có dữ liệu doanh thu để hiển thị.
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm text-sm space-y-2">
-            <div className="font-semibold text-gray-900 mb-2">
-              Tóm tắt doanh thu
-            </div>
-            <div className="flex justify-between">
-              <span>Hôm nay</span>
-              <span className="font-bold">
-                {revenue?.today
-                  ? revenue.today.toLocaleString("vi-VN")
-                  : "0"}{" "}
-                VNĐ
+        ) : (
+          <Chart
+            type="line"
+            data={dailyRevenue}
+            xKey="date"
+            yKey="total_revenue"
+            height={260}
+            label="Doanh thu (VND)"
+          />
+        )}
+      </Section>
+
+      {/* ===== Hàng 3: Trạng thái hệ thống ===== */}
+      <Section title="Trạng thái hệ thống">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 bg-white rounded-xl shadow-sm p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">
+                Tình trạng chung
+              </span>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  isSystemOk
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-red-50 text-red-700"
+                }`}
+              >
+                {loadingHealth
+                  ? "Đang kiểm tra..."
+                  : isSystemOk
+                  ? "Hoạt động ổn định"
+                  : "Có cảnh báo"}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span>7 ngày qua</span>
-              <span className="font-bold">
-                {revenue?.last_7_days
-                  ? revenue.last_7_days.toLocaleString("vi-VN")
-                  : "0"}{" "}
-                VNĐ
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>30 ngày qua</span>
-              <span className="font-bold">
-                {revenue?.last_30_days
-                  ? revenue.last_30_days.toLocaleString("vi-VN")
-                  : "0"}{" "}
-                VNĐ
-              </span>
-            </div>
+            <pre className="mt-2 bg-gray-50 text-xs text-gray-700 rounded-lg p-3 max-h-40 overflow-auto">
+{JSON.stringify(health, null, 2)}
+            </pre>
           </div>
         </div>
-      </Section>
-
-      {/* Danh sách phiên đang hoạt động */}
-      <Section title="Phiên sạc đang hoạt động">
-        <Table
-          columns={[
-            "Session ID",
-            "User",
-            "Trạm",
-            "Cổng",
-            "Trạng thái",
-            "Bắt đầu lúc",
-          ]}
-          rows={(sessions || []).map((s) => [
-            s.session_id || s.id,
-            s.user_name || s.user_id || "—",
-            s.station_name || s.station_id || "—",
-            s.connector_id || s.point_id || "—",
-            s.status || "—",
-            s.started_at
-              ? new Date(s.started_at).toLocaleString("vi-VN")
-              : "—",
-          ])}
-        />
-      </Section>
-
-      {/* Danh sách trạm tóm tắt */}
-      <Section title="Danh sách trạm sạc">
-        <Table
-          columns={["ID", "Tên trạm", "Số trụ", "Cập nhật gần nhất"]}
-          rows={(stations || []).map((st) => [
-            st.id || st.station_id,
-            st.name,
-            String(st.chargers?.length || 0),
-            st.lastUpdated ||
-              (st.updated_at
-                ? new Date(st.updated_at).toLocaleString("vi-VN")
-                : "—"),
-          ])}
-        />
       </Section>
     </div>
   );

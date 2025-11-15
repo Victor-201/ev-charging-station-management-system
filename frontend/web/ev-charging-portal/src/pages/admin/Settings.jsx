@@ -1,135 +1,201 @@
 // pages/admin/Settings.jsx
-import React from "react";
-import PageHeader from "@/components/admin/PageHeader";
+import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
-import { useTheme } from "@/hooks/useTheme";
-import { useAuth } from "@/hooks/useAuth";
+import PageHeader from "@/components/admin/PageHeader";
+import apiClient from "@/api/apiClient";
 
-/**
- * Trang Cài đặt hệ thống:
- * - Dùng ThemeProvider để đổi giao diện Sáng/Tối
- * - Dùng AuthProvider để cho phép admin đăng xuất toàn hệ thống
- * - Có thể mở rộng để gọi API cấu hình hệ thống sau này
- */
-export default function AdminSettings() {
-  const { theme, toggleTheme } = useTheme();
-  const { logout, user } = useAuth() || {};
+export default function Settings() {
+  // 🔹 Cấu hình hệ thống lấy từ backend
+  const [settings, setSettings] = useState({
+    maintenance_mode: false,
+    maintenance_message: "",
+    default_timezone: "Asia/Ho_Chi_Minh",
+    currency: "VND",
+    low_balance_threshold: 50000,
+  });
 
-  const handleLogoutAll = async () => {
-    // Tuỳ backend: có thể truyền flag "all_devices: true"
-    await logout({ all_devices: true }).catch(() => {});
-  };
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  // Lấy config từ API
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchSettings() {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await apiClient({
+          method: "GET",
+          url: "/api/v1/system/settings",
+        });
+        if (!isMounted) return;
+        if (res.data) {
+          setSettings((prev) => ({ ...prev, ...res.data }));
+        }
+      } catch (err) {
+        console.error("Settings fetch error:", err);
+        if (!isMounted) return;
+        setError("Không tải được cấu hình hệ thống.");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    fetchSettings();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Lưu config về API
+  async function handleSave() {
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+
+      await apiClient({
+        method: "PUT",
+        url: "/api/v1/system/settings",
+        data: settings,
+      });
+
+      setMessage("Đã lưu cấu hình hệ thống thành công.");
+    } catch (err) {
+      console.error("Settings save error:", err);
+      setError("Lưu cấu hình thất bại. Vui lòng thử lại.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Cài đặt hệ thống"
-        subtitle="Quản lý giao diện, bảo mật và cấu hình chung"
+        subtitle="Quản lý cấu hình chung cho toàn bộ hệ thống EV Charging"
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Giao diện */}
-        <Section title="Giao diện">
-          <div className="space-y-4 text-sm">
-            <div className="font-semibold text-gray-800">
-              Chế độ hiển thị hiện tại
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                {theme === "dark" ? "🌙 Dark Mode" : "☀️ Light Mode"}
-              </span>
-              <button
-                onClick={toggleTheme}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
-              >
-                Chuyển chế độ
-              </button>
-            </div>
+      {error && (
+        <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+      {message && (
+        <div className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 rounded-lg text-sm">
+          {message}
+        </div>
+      )}
+
+      <Section title="Chế độ bảo trì">
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="rounded"
+              checked={settings.maintenance_mode}
+              onChange={(e) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  maintenance_mode: e.target.checked,
+                }))
+              }
+            />
+            Bật chế độ bảo trì toàn hệ thống
+          </label>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-gray-600">
+              Thông báo hiển thị cho người dùng
+            </label>
+            <textarea
+              className="border rounded-lg px-3 py-2 text-sm min-h-[80px]"
+              value={settings.maintenance_message}
+              onChange={(e) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  maintenance_message: e.target.value,
+                }))
+              }
+              placeholder="Ví dụ: Hệ thống đang bảo trì từ 00:00 đến 03:00, vui lòng quay lại sau."
+            />
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Cấu hình chung">
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Múi giờ */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-gray-600">Múi giờ mặc định</label>
+            <input
+              type="text"
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={settings.default_timezone}
+              onChange={(e) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  default_timezone: e.target.value,
+                }))
+              }
+            />
             <p className="text-xs text-gray-500">
-              Theme được lưu trong <code>localStorage("theme")</code> thông qua
-              ThemeProvider.
+              Ví dụ: Asia/Ho_Chi_Minh, UTC, Asia/Tokyo,...
             </p>
           </div>
-        </Section>
 
-        {/* Bảo mật & phiên */}
-        <Section title="Bảo mật & Phiên đăng nhập">
-          <div className="space-y-4 text-sm">
-            <div>
-              <div className="font-semibold text-gray-800 mb-1">
-                Tài khoản đang đăng nhập
-              </div>
-              <div className="text-gray-700">
-                {user?.email || "Không xác định"}{" "}
-                {user?.role ? (
-                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs">
-                    {user.role}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="border-t border-gray-200 pt-3">
-              <div className="font-semibold text-gray-800 mb-1">
-                Đăng xuất toàn bộ thiết bị
-              </div>
-              <p className="text-xs text-gray-500 mb-2">
-                Hữu ích khi nghi ngờ tài khoản bị lộ hoặc sử dụng trên nhiều
-                máy.
-              </p>
-              <button
-                onClick={handleLogoutAll}
-                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700"
-              >
-                Đăng xuất tất cả thiết bị
-              </button>
-            </div>
+          {/* Tiền tệ */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-gray-600">Tiền tệ</label>
+            <select
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={settings.currency}
+              onChange={(e) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  currency: e.target.value,
+                }))
+              }
+            >
+              <option value="VND">VND</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
           </div>
-        </Section>
 
-        {/* Thông tin phiên bản (tĩnh – có thể lấy từ API config sau) */}
-        <Section title="Thông tin phiên bản">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Phiên bản frontend</span>
-              <span className="font-semibold">v1.0.0</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Gateway API</span>
-              <span className="font-semibold">
-                {import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8080"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Build</span>
-              <span className="font-semibold">#2025.11.14</span>
-            </div>
-            <p className="mt-2 text-xs text-gray-400">
-              Có thể thay phần này bằng dữ liệu từ một endpoint cấu hình
-              (config-service) nếu backend cung cấp.
+          {/* Ngưỡng cảnh báo ví */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-gray-600">
+              Ngưỡng cảnh báo số dư ví (VND)
+            </label>
+            <input
+              type="number"
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={settings.low_balance_threshold}
+              onChange={(e) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  low_balance_threshold: Number(e.target.value),
+                }))
+              }
+            />
+            <p className="text-xs text-gray-500">
+              Khi số dư ví nhỏ hơn giá trị này, hệ thống sẽ gửi thông báo cho
+              người dùng.
             </p>
           </div>
-        </Section>
+        </div>
+      </Section>
 
-        {/* Placeholder cho cấu hình nâng cao */}
-        <Section title="Cấu hình nâng cao">
-          <p className="text-sm text-gray-600">
-            Khu vực này dành cho các cấu hình nâng cao (rate limit, threshold
-            cảnh báo, cấu hình analytics...). Bạn có thể:
-          </p>
-          <ul className="mt-2 list-disc pl-5 text-xs text-gray-500 space-y-1">
-            <li>
-              Tạo một service mới (vd: <code>settingsService</code>) và gọi
-              từ đây.
-            </li>
-            <li>
-              Lưu giá trị vào backend thay vì <code>localStorage</code>.
-            </li>
-            <li>
-              Sử dụng form + validation (React Hook Form) nếu cần phức tạp.
-            </li>
-          </ul>
-        </Section>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || loading}
+          className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white text-sm font-medium px-5 py-2 rounded-lg"
+        >
+          {saving ? "Đang lưu..." : "Lưu cấu hình"}
+        </button>
       </div>
     </div>
   );

@@ -1,226 +1,222 @@
 // pages/admin/UserManagement.jsx
-import React, { useEffect, useState } from "react";
-import PageHeader from "@/components/admin/PageHeader";
+import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
-import Table from "@/components/admin/Table";
-import useApi from "@/hooks/useApi";
+import PageHeader from "@/components/admin/PageHeader";
+import apiClient from "@/api/apiClient";
 
-/**
- * Trang Quản lý người dùng:
- * - Dùng hook useApi() để gọi trực tiếp REST API admin user
- * - Không dùng localStorage, tất cả thao tác qua backend
- *
- * Giả định API gateway:
- *   GET    /api/v1/admin/users            -> danh sách user
- *   PUT    /api/v1/admin/users/:id        -> cập nhật user (role, status...)
- *   DELETE /api/v1/admin/users/:id        -> vô hiệu hoá user
- *
- * Nếu backend của bạn khác endpoint -> chỉ cần đổi URL trong hàm fetchUsers / updateUser / deleteUser.
- */
+const ROLE_LABEL = {
+  admin: "Quản trị viên",
+  staff: "Nhân viên trạm",
+  user: "Người dùng",
+};
 
-export default function UserManagementPage() {
-  const { loading, get, put, del } = useApi();
+const STATUS_COLOR = {
+  active: "bg-emerald-50 text-emerald-700",
+  inactive: "bg-gray-50 text-gray-700",
+  suspended: "bg-red-50 text-red-700",
+};
 
+export default function UserManagement() {
   const [users, setUsers] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [search, setSearch] = useState("");
-  const [role, setRole] = useState("");
-  const [status, setStatus] = useState("");
-  const [error, setError] = useState(null);
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState("");
+  const [error, setError] = useState("");
 
-  const fetchUsers = async () => {
+  async function fetchUsers() {
     try {
-      setError(null);
-      const data = await get("/api/v1/admin/users");
-      setUsers(Array.isArray(data) ? data : data?.items || []);
+      setLoading(true);
+      setError("");
+
+      const res = await apiClient({
+        method: "GET",
+        url: "/api/v1/users/admin",
+      });
+
+      setUsers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      setError(err);
+      console.error("User list error:", err);
+      setError("Không tải được danh sách người dùng.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  const handleSelect = (user) => {
-    setSelected(user);
-    setRole(user.role || "");
-    setStatus(user.status || "");
-  };
-
-  const handleSave = async () => {
-    if (!selected) return;
+  // Thay đổi trạng thái user
+  async function updateUserStatus(userId, newStatus) {
     try {
-      setError(null);
-      const updated = await put(`/api/v1/admin/users/${selected.id}`, {
-        role,
-        status,
+      setSavingId(userId);
+      setError("");
+
+      await apiClient({
+        method: "PATCH",
+        url: `/api/v1/users/${userId}/status`,
+        data: { status: newStatus },
       });
-      // Cập nhật lại danh sách local
+
       setUsers((prev) =>
-        prev.map((u) => (u.id === selected.id ? { ...u, ...updated } : u))
+        prev.map((u) =>
+          u.id === userId ? { ...u, status: newStatus } : u
+        )
       );
-      setSelected({ ...selected, ...updated });
     } catch (err) {
-      setError(err);
+      console.error("Update user status error:", err);
+      setError("Không cập nhật được trạng thái người dùng.");
+    } finally {
+      setSavingId("");
     }
-  };
+  }
 
-  const handleDelete = async () => {
-    if (!selected) return;
-    if (!window.confirm("Bạn có chắc muốn vô hiệu hoá / xoá người dùng này?"))
-      return;
-    try {
-      setError(null);
-      await del(`/api/v1/admin/users/${selected.id}`);
-      setUsers((prev) => prev.filter((u) => u.id !== selected.id));
-      setSelected(null);
-    } catch (err) {
-      setError(err);
-    }
-  };
-
-  // Lọc theo search (email / name / id)
+  // Lọc theo role / status
   const filteredUsers = users.filter((u) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (u.email || "").toLowerCase().includes(q) ||
-      (u.name || "").toLowerCase().includes(q) ||
-      String(u.id || "").toLowerCase().includes(q)
-    );
+    if (roleFilter !== "all" && u.role !== roleFilter) return false;
+    if (statusFilter !== "all" && u.status !== statusFilter) return false;
+    return true;
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Quản lý người dùng"
-        subtitle="Xem và quản lý tài khoản người dùng trong hệ thống"
+        subtitle="Xem, lọc và quản lý tài khoản người dùng trong hệ thống"
       />
 
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-          <strong>Lỗi:</strong>{" "}
-          {error.response?.data?.message ||
-            error.message ||
-            "Có lỗi xảy ra khi thao tác với người dùng"}
+        <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
+          {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Danh sách user */}
-        <Section title="Danh sách người dùng" className="lg:col-span-2">
-          <div className="flex justify-between items-center mb-3">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm theo email, tên hoặc ID..."
-              className="w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-            <button
-              onClick={fetchUsers}
-              disabled={loading}
-              className="ml-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+      <Section title="Bộ lọc">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Lọc theo vai trò */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Vai trò:</span>
+            <select
+              className="border rounded-lg px-3 py-1 text-sm"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
             >
-              Làm mới
-            </button>
+              <option value="all">Tất cả</option>
+              <option value="admin">Quản trị viên</option>
+              <option value="staff">Nhân viên</option>
+              <option value="user">Người dùng</option>
+            </select>
           </div>
 
-          <Table
-            columns={["ID", "Email", "Tên", "Vai trò", "Trạng thái"]}
-            rows={filteredUsers.map((u) => [
-              u.id,
-              u.email,
-              u.name || "—",
-              u.role || "user",
-              u.status || "active",
-            ])}
-            // Nếu Table có hỗ trợ onRowClick – tuỳ component của bạn
-            onRowClick={(rowIndex) => handleSelect(filteredUsers[rowIndex])}
-          />
-          <p className="mt-2 text-xs text-gray-400">
-            * Nhấp vào một dòng (row) để xem và chỉnh sửa chi tiết ở panel bên
-            phải (nếu Table hỗ trợ onRowClick).
-          </p>
-        </Section>
+          {/* Lọc theo trạng thái */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Trạng thái:</span>
+            <select
+              className="border rounded-lg px-3 py-1 text-sm"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">Tất cả</option>
+              <option value="active">Đang hoạt động</option>
+              <option value="inactive">Không hoạt động</option>
+              <option value="suspended">Bị khóa</option>
+            </select>
+          </div>
 
-        {/* Panel chi tiết user */}
-        <Section title="Chi tiết người dùng" className="lg:col-span-1">
-          {!selected ? (
-            <div className="text-sm text-gray-500">
-              Chọn một người dùng trong bảng để xem chi tiết.
-            </div>
-          ) : (
-            <div className="space-y-4 text-sm">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">ID</div>
-                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs font-mono">
-                  {selected.id}
-                </div>
-              </div>
+          <button
+            type="button"
+            onClick={fetchUsers}
+            className="text-xs px-3 py-1 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+          >
+            Làm mới
+          </button>
+        </div>
+      </Section>
 
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Email</div>
-                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs">
-                  {selected.email}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Tên hiển thị</div>
-                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs">
-                  {selected.name || "—"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Vai trò (Role)</div>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                >
-                  <option value="user">User</option>
-                  <option value="staff">Staff</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <div>
-                <div className="text-xs text-gray-500 mb-1">
-                  Trạng thái tài khoản
-                </div>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                >
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="disabled">Disabled</option>
-                </select>
-              </div>
-
-              <div className="flex flex-wrap gap-3 pt-3 border-t border-gray-200">
-                <button
-                  onClick={handleSave}
-                  disabled={loading}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                >
-                  Lưu thay đổi
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={loading}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-                >
-                  Vô hiệu hoá / xoá
-                </button>
-              </div>
-            </div>
-          )}
-        </Section>
-      </div>
+      <Section title="Danh sách người dùng">
+        {loading ? (
+          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
+        ) : filteredUsers.length === 0 ? (
+          <div className="text-sm text-gray-500">
+            Không có người dùng phù hợp với bộ lọc hiện tại.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b">
+                  <th className="py-2 pr-4">Họ tên</th>
+                  <th className="py-2 pr-4">Email</th>
+                  <th className="py-2 pr-4">Số điện thoại</th>
+                  <th className="py-2 pr-4">Vai trò</th>
+                  <th className="py-2 pr-4">Trạng thái</th>
+                  <th className="py-2 pr-4 text-right">Hành động</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((u) => (
+                  <tr
+                    key={u.id}
+                    className="border-b last:border-b-0 hover:bg-gray-50"
+                  >
+                    <td className="py-2 pr-4 font-medium">
+                      {u.full_name || u.name || "-"}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-600">
+                      {u.email}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-600">
+                      {u.phone || "-"}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-600">
+                      {ROLE_LABEL[u.role] || u.role}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          STATUS_COLOR[u.status] ||
+                          "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {u.status === "active"
+                          ? "Đang hoạt động"
+                          : u.status === "inactive"
+                          ? "Không hoạt động"
+                          : u.status === "suspended"
+                          ? "Bị khóa"
+                          : u.status}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-right space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => updateUserStatus(u.id, "active")}
+                        disabled={
+                          savingId === u.id || u.status === "active"
+                        }
+                        className="text-xs px-3 py-1 rounded-lg border border-emerald-500 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                      >
+                        Mở khóa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateUserStatus(u.id, "suspended")
+                        }
+                        disabled={savingId === u.id}
+                        className="text-xs px-3 py-1 rounded-lg border border-red-500 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Khóa
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
     </div>
   );
 }
