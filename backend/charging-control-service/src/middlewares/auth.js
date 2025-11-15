@@ -25,7 +25,7 @@ const authenticate = (req, res, next) => {
       }
     }
 
-    req.user = decoded;
+    req.user = { ...decoded, token };
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
