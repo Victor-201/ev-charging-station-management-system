@@ -25,4 +25,11 @@ router.post('/wallet/topup', authorize(UserRole.ADMIN, UserRole.USER), PaymentCo
 // User payment history
 router.get('/user/:user_id/payments', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.listUserPayments);
 
+
+// revenue statistics
+router.get('/revenue/summary', PaymentController.summary);
+router.get('/revenue/daily', PaymentController.daily);
+router.get('/revenue/monthly', PaymentController.monthly);
+router.get('/revenue/by-type', PaymentController.byType);
+
 export default router;
