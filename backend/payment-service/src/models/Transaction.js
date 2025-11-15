@@ -100,23 +100,9 @@ export default class Transaction {
   }
 
   /** Tạo instance từ PostgreSQL row */
-  static fromRow(row) {
+    static fromRow(row) {
     if (!row) return null;
-    return new Transaction({
-      id: row.id,
-      user_id: row.user_id,
-      type: row.type,
-      amount: row.amount,
-      currency: row.currency,
-      method: row.method,
-      related_id: row.related_id,
-      related_type: row.related_type,
-      external_id: row.external_id,
-      reference_code: row.reference_code,
-      status: row.status,
-      meta: row.meta,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    });
+    return new Transaction(row);
   }
 }
+

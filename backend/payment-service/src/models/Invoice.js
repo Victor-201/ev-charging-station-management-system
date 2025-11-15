@@ -82,18 +82,8 @@ export default class Invoice {
   }
 
   /** === Khởi tạo từ row trong database === */
-  static fromRow(row) {
+   static fromRow(row) {
     if (!row) return null;
-    return new Invoice({
-      id: row.id,
-      transaction_id: row.transaction_id,
-      user_id: row.user_id,
-      total_amount: row.total_amount,
-      due_date: row.due_date,
-      status: row.status,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    });
+    return new Invoice(row);
   }
-
 }

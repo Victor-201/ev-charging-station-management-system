@@ -57,15 +57,7 @@ export default class WalletTransaction {
 
   static fromRow(row) {
     if (!row) return null;
-    return new WalletTransaction({
-      id: row.id,
-      wallet_id: row.wallet_id,
-      transaction_id: row.transaction_id,
-      amount: row.amount,
-      type: row.type,
-      note: row.note,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    });
+    return new WalletTransaction(row);
   }
 }
+
