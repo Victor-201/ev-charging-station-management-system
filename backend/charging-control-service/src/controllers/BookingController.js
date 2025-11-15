@@ -14,7 +14,7 @@ exports.createReservation = async (req, res) => {
     debug('➡️ Received body for createReservation:', req.body);
 
     // Service sẽ mặc định tạo pending, chỉ confirmed nếu caller gửi status: 'confirmed'
-    const result = await BookingService.createReservation(req.body);
+    const result = await BookingService.createReservation(req.body, req.user?.token);
 
     return res.status(201).json(result);
   } catch (e) {
@@ -342,7 +342,7 @@ exports.calculateCost = async (req, res) => {
     const roundUp = req.body.roundUp !== undefined ? !!req.body.roundUp : true;
     const payment_method = req.body.payment_method; // ✅ lấy từ body nếu có
 
-    const result = await BookingService.calculateReservationCost(reservation_id, { 
+    const result = await BookingService.calculateReservationCost(reservation_id, {
       roundUp,
       payment_method, // ✅ truyền xuống service
     });
