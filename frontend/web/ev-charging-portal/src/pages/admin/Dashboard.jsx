@@ -1,246 +1,183 @@
-// pages/admin/Dashboard.jsx
 import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Chart from "@/components/admin/Chart";
 import apiClient from "@/api/apiClient";
 
-// 🔹 Card nhỏ hiển thị số liệu tổng quan
-function StatCard({ label, value, unit, loading }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-1">
-      <span className="text-sm text-gray-500">{label}</span>
-      {loading ? (
-        <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
-      ) : (
-        <span className="text-2xl font-semibold">
-          {value !== null && value !== undefined ? value.toLocaleString("vi-VN") : "--"}
-          {unit ? <span className="text-base text-gray-500 ml-1">{unit}</span> : null}
-        </span>
-      )}
-    </div>
-  );
-}
-
+// Dashboard tổng quan cho admin
+// - Lấy health hệ thống
+// - Lấy doanh thu 30 ngày gần nhất
+// - Lấy thống kê station / session / user
 export default function Dashboard() {
-  // 🔹 State lưu dữ liệu tổng quan & biểu đồ
-  const [summary, setSummary] = useState(null);
-  const [dailyRevenue, setDailyRevenue] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState(null);
-
-  const [loadingSummary, setLoadingSummary] = useState(true);
-  const [loadingChart, setLoadingChart] = useState(true);
-  const [loadingHealth, setLoadingHealth] = useState(true);
-
+  const [summary, setSummary] = useState(null);
+  const [revenueSeries, setRevenueSeries] = useState([]);
   const [error, setError] = useState("");
 
-  // =========================
-  // 1. Gọi API tổng quan doanh thu / user / trạm
-  // =========================
+  // Gọi API song song khi vào trang
   useEffect(() => {
-    let isMounted = true;
-
-    async function fetchSummary() {
+    const fetchAll = async () => {
+      setLoading(true);
+      setError("");
       try {
-        setLoadingSummary(true);
-        setError("");
+        // 1) Health tổng thể
+        // GET /api/v1/monitoring/health
+        const [healthRes, summaryRes, revenueRes] = await Promise.all([
+          apiClient.get("/api/v1/monitoring/health"),
+          // 2) Tổng quan analytics (tuỳ backend bạn, có thể đổi URL)
+          apiClient.get("/api/v1/analytics/summary"),
+          // 3) Doanh thu 30 ngày gần nhất
+          // GET /api/v1/analytics/reports/revenue?days=30
+          apiClient.get("/api/v1/analytics/reports/revenue", {
+            params: { days: 30 },
+          }),
+        ]);
 
-        // 👉 API gợi ý: backend trả tổng quan admin (doanh thu, user, trạm,…)
-        const res = await apiClient({
-          method: "GET",
-          url: "/api/v1/analytics/admin/summary",
-        });
+        setHealth(healthRes.data);
+        setSummary(summaryRes.data);
 
-        if (!isMounted) return;
-        setSummary(res.data || null);
+        const daily = revenueRes.data?.daily || [];
+        // Chuẩn hoá data cho Chart: [{label, value}]
+        setRevenueSeries(
+          daily.map((d) => ({
+            label: d.date, // "2025-10-01"
+            value: Number(d.revenue || d.total || 0),
+          }))
+        );
       } catch (err) {
-        console.error("Dashboard summary error:", err);
-        if (!isMounted) return;
-        setError("Không tải được dữ liệu tổng quan.");
+        console.error("[AdminDashboard] error:", err);
+        setError(
+          err?.response?.data?.message ||
+            err?.message ||
+            "Không thể tải dữ liệu dashboard."
+        );
       } finally {
-        if (isMounted) setLoadingSummary(false);
+        setLoading(false);
       }
-    }
-
-    fetchSummary();
-    return () => {
-      isMounted = false;
     };
+
+    fetchAll();
   }, []);
-
-  // =========================
-  // 2. Gọi API doanh thu theo ngày (30 ngày gần nhất)
-  // =========================
-  useEffect(() => {
-    let isMounted = true;
-
-    async function fetchDailyRevenue() {
-      try {
-        setLoadingChart(true);
-        setError("");
-
-        // 👉 API gợi ý: trả list { date, total_revenue }
-        const res = await apiClient({
-          method: "GET",
-          url: "/api/v1/payments/revenue/daily?days=30",
-        });
-
-        if (!isMounted) return;
-        setDailyRevenue(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        console.error("Daily revenue error:", err);
-        if (!isMounted) return;
-        setError((prev) => prev || "Không tải được biểu đồ doanh thu.");
-      } finally {
-        if (isMounted) setLoadingChart(false);
-      }
-    }
-
-    fetchDailyRevenue();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // =========================
-  // 3. Gọi API health hệ thống
-  // =========================
-  useEffect(() => {
-    let isMounted = true;
-
-    async function fetchHealth() {
-      try {
-        setLoadingHealth(true);
-        const res = await apiClient({
-          method: "GET",
-          url: "/api/v1/monitoring/health",
-        });
-        if (!isMounted) return;
-        setHealth(res.data || null);
-      } catch (err) {
-        console.error("Health error:", err);
-      } finally {
-        if (isMounted) setLoadingHealth(false);
-      }
-    }
-
-    fetchHealth();
-    // Có thể setup interval nếu muốn realtime
-    const intervalId = setInterval(fetchHealth, 60_000); // 60s
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  const revenueToday = summary?.revenue_today ?? 0;
-  const revenueMonth = summary?.revenue_month ?? 0;
-  const totalUsers = summary?.total_users ?? 0;
-  const totalStations = summary?.total_stations ?? 0;
-  const activeSessions = summary?.active_sessions ?? 0;
-
-  const systemStatus =
-    health?.status || health?.overall_status || "unknown";
-
-  const isSystemOk =
-    systemStatus === "ok" ||
-    systemStatus === "healthy" ||
-    systemStatus === "UP";
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Bảng điều khiển"
-        subtitle="Tổng quan hoạt động hệ thống trạm sạc EV"
-      />
+    <div className="min-h-screen bg-slate-50 px-6 py-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <PageHeader
+          title="Admin Dashboard"
+          subtitle="Tổng quan hệ thống sạc, doanh thu và sức khoẻ dịch vụ."
+        />
 
-      {error && (
-        <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* ===== Hàng 1: Thống kê nhanh ===== */}
-      <Section title="Thống kê nhanh">
-        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
-          <StatCard
-            label="Doanh thu hôm nay"
-            value={revenueToday}
-            unit="VND"
-            loading={loadingSummary}
-          />
-          <StatCard
-            label="Doanh thu tháng này"
-            value={revenueMonth}
-            unit="VND"
-            loading={loadingSummary}
-          />
-          <StatCard
-            label="Tổng người dùng"
-            value={totalUsers}
-            loading={loadingSummary}
-          />
-          <StatCard
-            label="Số trạm đang hoạt động"
-            value={totalStations}
-            loading={loadingSummary}
-          />
-          <StatCard
-            label="Phiên sạc đang diễn ra"
-            value={activeSessions}
-            loading={loadingSummary}
-          />
-        </div>
-      </Section>
-
-      {/* ===== Hàng 2: Biểu đồ doanh thu ===== */}
-      <Section title="Biểu đồ doanh thu 30 ngày gần nhất">
-        {loadingChart ? (
-          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
-        ) : dailyRevenue.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            Chưa có dữ liệu doanh thu để hiển thị.
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+            {error}
           </div>
-        ) : (
-          <Chart
-            type="line"
-            data={dailyRevenue}
-            xKey="date"
-            yKey="total_revenue"
-            height={260}
-            label="Doanh thu (VND)"
-          />
         )}
-      </Section>
 
-      {/* ===== Hàng 3: Trạng thái hệ thống ===== */}
-      <Section title="Trạng thái hệ thống">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 bg-white rounded-xl shadow-sm p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-500">
-                Tình trạng chung
-              </span>
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  isSystemOk
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
-                {loadingHealth
-                  ? "Đang kiểm tra..."
-                  : isSystemOk
-                  ? "Hoạt động ổn định"
-                  : "Có cảnh báo"}
-              </span>
+        {/* Hàng 1: Health + Counters */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Section title="System Health">
+            <div className="space-y-2 text-sm">
+              <p>
+                <span className="font-semibold">Auth:</span>{" "}
+                <span
+                  className={
+                    health?.services?.auth === "ok"
+                      ? "text-emerald-600 font-semibold"
+                      : "text-red-600 font-semibold"
+                  }
+                >
+                  {health?.services?.auth || "unknown"}
+                </span>
+              </p>
+              <p>
+                <span className="font-semibold">DBs:</span>{" "}
+                <span
+                  className={
+                    health?.services?.db === "ok"
+                      ? "text-emerald-600 font-semibold"
+                      : "text-red-600 font-semibold"
+                  }
+                >
+                  {health?.services?.db || "unknown"}
+                </span>
+              </p>
+              <p>
+                <span className="font-semibold">Payment:</span>{" "}
+                <span
+                  className={
+                    health?.payment === "ok"
+                      ? "text-emerald-600 font-semibold"
+                      : "text-red-600 font-semibold"
+                  }
+                >
+                  {health?.payment || "unknown"}
+                </span>
+              </p>
             </div>
-            <pre className="mt-2 bg-gray-50 text-xs text-gray-700 rounded-lg p-3 max-h-40 overflow-auto">
-{JSON.stringify(health, null, 2)}
-            </pre>
-          </div>
+          </Section>
+
+          <Section title="Tổng quan trạm / phiên">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-white rounded-lg shadow-sm border px-3 py-3">
+                <div className="text-xs text-slate-500">Số trạm</div>
+                <div className="text-xl font-bold">
+                  {summary?.stations_total ?? "--"}
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border px-3 py-3">
+                <div className="text-xs text-slate-500">Phiên đang chạy</div>
+                <div className="text-xl font-bold">
+                  {summary?.sessions_active ?? "--"}
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border px-3 py-3">
+                <div className="text-xs text-slate-500">Người dùng</div>
+                <div className="text-xl font-bold">
+                  {summary?.users_total ?? "--"}
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border px-3 py-3">
+                <div className="text-xs text-slate-500">Doanh thu hôm nay</div>
+                <div className="text-xl font-bold text-emerald-600">
+                  {summary?.revenue_today?.toLocaleString("vi-VN") || 0} đ
+                </div>
+              </div>
+            </div>
+          </Section>
+
+          <Section title="Trạng thái tải dữ liệu">
+            <div className="flex items-center gap-2 text-sm">
+              {loading ? (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span>Đang tải dữ liệu từ API…</span>
+                </>
+              ) : (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>Dữ liệu đã được cập nhật từ backend.</span>
+                </>
+              )}
+            </div>
+          </Section>
         </div>
-      </Section>
+
+        {/* Hàng 2: Biểu đồ doanh thu */}
+        <Section title="Doanh thu 30 ngày gần nhất">
+          <div className="bg-white rounded-xl border shadow-sm p-4">
+            <Chart
+              type="line"
+              data={revenueSeries}
+              xKey="label"
+              yKey="value"
+              height={260}
+              tooltipLabel="Ngày"
+              tooltipValue="Doanh thu (VND)"
+            />
+          </div>
+        </Section>
+      </div>
     </div>
   );
 }
