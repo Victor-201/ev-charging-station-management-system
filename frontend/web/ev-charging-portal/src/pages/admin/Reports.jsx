@@ -1,179 +1,277 @@
-// pages/admin/Reports.jsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
+import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
-// 🔹 Kiểu báo cáo
+// Trang Reports: cho phép admin chọn loại report và tải JSON về bảng.
 const REPORT_TYPES = [
-  { value: "revenue", label: "Báo cáo doanh thu" },
-  { value: "sessions", label: "Báo cáo phiên sạc" },
-  { value: "users", label: "Báo cáo người dùng mới" },
+  {
+    key: "revenue",
+    label: "Doanh thu",
+    description: "Báo cáo doanh thu theo khoảng thời gian / trạm.",
+    endpoint: "/api/v1/analytics/reports/revenue",
+  },
+  {
+    key: "user",
+    label: "Theo người dùng",
+    description: "Báo cáo chi phí & usage theo user.",
+    endpoint: "/api/v1/analytics/reports/user",
+  },
+  {
+    key: "station",
+    label: "Theo trạm",
+    description: "Báo cáo kWh / sessions theo trạm.",
+    endpoint: "/api/v1/analytics/reports/station",
+  },
 ];
 
 export default function Reports() {
   const [reportType, setReportType] = useState("revenue");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [data, setData] = useState([]);
+  const [params, setParams] = useState({
+    userId: "",
+    stationId: "",
+    from: "2025-10-01",
+    to: "2025-10-31",
+    groupBy: "day",
+  });
+
   const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [columns, setColumns] = useState([]);
   const [error, setError] = useState("");
 
-  // =========================
-  // Hàm build URL theo loại báo cáo
-  // =========================
-  function buildReportUrl() {
-    const params = new URLSearchParams();
-    if (fromDate) params.append("from", fromDate);
-    if (toDate) params.append("to", toDate);
+  const currentConfig = REPORT_TYPES.find((r) => r.key === reportType);
 
-    switch (reportType) {
-      case "revenue":
-        return `/api/v1/analytics/reports/revenue?${params.toString()}`;
-      case "sessions":
-        return `/api/v1/analytics/reports/charging-sessions?${params.toString()}`;
-      case "users":
-        return `/api/v1/analytics/reports/new-users?${params.toString()}`;
-      default:
-        return `/api/v1/analytics/reports/revenue?${params.toString()}`;
+  const handleChangeParams = (field, value) => {
+    setParams((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const buildRequest = () => {
+    if (!currentConfig) return null;
+
+    // Xây URL và params tuỳ loại report
+    if (reportType === "revenue") {
+      return {
+        url: currentConfig.endpoint,
+        query: {
+          station_id: params.stationId || undefined,
+          from: params.from,
+          to: params.to,
+          group_by: params.groupBy,
+        },
+      };
     }
-  }
 
-  async function fetchReport() {
+    if (reportType === "user") {
+      if (!params.userId) {
+        throw new Error("Vui lòng nhập User ID.");
+      }
+      return {
+        url: `${currentConfig.endpoint}/${params.userId}/monthly`,
+        query: {
+          month: params.from.slice(0, 7), // yyyy-MM
+        },
+      };
+    }
+
+    if (reportType === "station") {
+      if (!params.stationId) {
+        throw new Error("Vui lòng nhập Station ID.");
+      }
+      return {
+        url: `${currentConfig.endpoint}/${params.stationId}/daily`,
+        query: {
+          date: params.from,
+        },
+      };
+    }
+
+    return null;
+  };
+
+  const fetchReport = async () => {
     try {
       setLoading(true);
       setError("");
-      setData([]);
+      setRows([]);
+      setColumns([]);
 
-      const url = buildReportUrl();
-      const res = await apiClient({ method: "GET", url });
+      const cfg = buildRequest();
+      if (!cfg) return;
 
-      setData(Array.isArray(res.data) ? res.data : []);
+      const res = await apiClient.get(cfg.url, { params: cfg.query });
+      const data = res.data;
+
+      if (reportType === "revenue") {
+        const items = data.items || data.daily || [];
+        setColumns(["Ngày", "Doanh thu"]);
+        setRows(
+          items.map((d) => [
+            d.date,
+            d.total_revenue?.toLocaleString("vi-VN") || 0,
+          ])
+        );
+      } else if (reportType === "user") {
+        setColumns(["User ID", "Tổng phiên", "Tổng kWh", "Tổng chi phí"]);
+        setRows([
+          [
+            data.user_id,
+            data.total_sessions,
+            data.total_kwh,
+            data.total_cost?.toLocaleString("vi-VN") || 0,
+          ],
+        ]);
+      } else if (reportType === "station") {
+        const sessions = data.sessions || [];
+        setColumns(["Session ID", "User", "Bắt đầu", "KWh", "Chi phí"]);
+        setRows(
+          sessions.map((s) => [
+            s.id,
+            s.user_id,
+            s.start_time,
+            s.energy_kwh,
+            s.cost?.toLocaleString("vi-VN") || 0,
+          ])
+        );
+      }
     } catch (err) {
-      console.error("Report error:", err);
-      setError("Không tải được dữ liệu báo cáo.");
+      console.error("[Reports] error:", err);
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không thể tải dữ liệu báo cáo."
+      );
     } finally {
       setLoading(false);
     }
-  }
-
-  // 🔹 Tự tải lần đầu khi mở trang
-  useEffect(() => {
-    fetchReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType]);
+  };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Báo cáo chi tiết"
-        subtitle="Trích xuất và xem dữ liệu chi tiết theo thời gian"
-      />
+    <div className="min-h-screen bg-slate-50 px-6 py-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <PageHeader
+          title="Báo cáo chi tiết"
+          subtitle="Chọn loại report và tham số, dữ liệu sẽ lấy trực tiếp từ API."
+        />
 
-      <Section title="Bộ lọc & điều kiện báo cáo">
-        <div className="grid gap-4 md:grid-cols-4">
-          {/* Loại báo cáo */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-600">Loại báo cáo</label>
-            <select
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={reportType}
-              onChange={(e) => setReportType(e.target.value)}
-            >
-              {REPORT_TYPES.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
+        {/* Chọn loại report */}
+        <Section title="Chọn loại báo cáo">
+          <div className="flex flex-wrap gap-3">
+            {REPORT_TYPES.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setReportType(r.key)}
+                className={`px-4 py-2 rounded-lg border text-sm text-left w-full md:w-auto ${
+                  reportType === r.key
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <div className="font-semibold">{r.label}</div>
+                <div className="text-xs opacity-80">{r.description}</div>
+              </button>
+            ))}
           </div>
+        </Section>
 
-          {/* Từ ngày */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-600">Từ ngày</label>
-            <input
-              type="date"
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-            />
+        {/* Tham số filter */}
+        <Section title="Tham số truy vấn">
+          <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                Từ ngày (yyyy-MM-dd)
+              </label>
+              <input
+                type="date"
+                value={params.from}
+                onChange={(e) => handleChangeParams("from", e.target.value)}
+                className="w-full border rounded-lg px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                Đến ngày (yyyy-MM-dd)
+              </label>
+              <input
+                type="date"
+                value={params.to}
+                onChange={(e) => handleChangeParams("to", e.target.value)}
+                className="w-full border rounded-lg px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                Station ID (tuỳ chọn)
+              </label>
+              <input
+                value={params.stationId}
+                onChange={(e) =>
+                  handleChangeParams("stationId", e.target.value)
+                }
+                className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                placeholder="Lọc theo trạm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                User ID (cho báo cáo User)
+              </label>
+              <input
+                value={params.userId}
+                onChange={(e) => handleChangeParams("userId", e.target.value)}
+                className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                placeholder="UUID user"
+              />
+            </div>
+
+            {reportType === "revenue" && (
+              <div className="md:col-span-4">
+                <label className="block text-xs text-slate-500 mb-1">
+                  Group by
+                </label>
+                <select
+                  value={params.groupBy}
+                  onChange={(e) =>
+                    handleChangeParams("groupBy", e.target.value)
+                  }
+                  className="border rounded-lg px-2 py-1.5 text-sm"
+                >
+                  <option value="day">Day</option>
+                  <option value="month">Month</option>
+                  <option value="station">Station</option>
+                </select>
+              </div>
+            )}
+
+            <div className="md:col-span-4 flex justify-end items-end">
+              <button
+                onClick={fetchReport}
+                disabled={loading}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+              >
+                {loading ? "Đang tải..." : "Lấy dữ liệu"}
+              </button>
+            </div>
           </div>
+        </Section>
 
-          {/* Đến ngày */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-600">Đến ngày</label>
-            <input
-              type="date"
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-            />
-          </div>
-
-          {/* Nút tải */}
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={fetchReport}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
-            >
-              {loading ? "Đang tải..." : "Xem báo cáo"}
-            </button>
-          </div>
-        </div>
-
-        <p className="mt-3 text-xs text-gray-500">
-          * Báo cáo doanh thu và phiên sạc thường được tổng hợp theo ngày.  
-          * Báo cáo người dùng hiển thị số lượng user mới đăng ký trong khoảng thời gian.
-        </p>
-      </Section>
-
-      {error && (
-        <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* Bảng kết quả */}
-      <Section title="Kết quả báo cáo">
-        {loading ? (
-          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
-        ) : data.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            Không có dữ liệu phù hợp với điều kiện lọc.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 border-b">
-                  {Object.keys(data[0]).map((key) => (
-                    <th key={key} className="py-2 pr-4 capitalize">
-                      {key}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-b last:border-b-0 hover:bg-gray-50"
-                  >
-                    {Object.keys(row).map((key) => (
-                      <td key={key} className="py-2 pr-4">
-                        {typeof row[key] === "number"
-                          ? row[key].toLocaleString("vi-VN")
-                          : String(row[key])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
+        {/* Bảng kết quả */}
+        <Section title="Kết quả">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm mb-4">
+              {error}
+            </div>
+          )}
+          {columns.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Chưa có dữ liệu. Hãy chọn tham số và bấm &quot;Lấy dữ liệu&quot;.
+            </p>
+          ) : (
+            <Table columns={columns} rows={rows} />
+          )}
+        </Section>
+      </div>
     </div>
   );
 }

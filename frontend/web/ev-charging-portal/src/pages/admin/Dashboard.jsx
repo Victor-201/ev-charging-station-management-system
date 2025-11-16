@@ -1,4 +1,3 @@
-// pages/admin/Dashboard.jsx
 import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
@@ -99,12 +98,22 @@ export default function Dashboard() {
   // 1. API tổng quan admin (fetch + Authorization header)
   // =========================
   useEffect(() => {
-    let isMounted = true;
-
-    async function fetchSummary() {
+    const fetchAll = async () => {
+      setLoading(true);
+      setError("");
       try {
-        setLoadingSummary(true);
-        setError("");
+        // 1) Health tổng thể
+        // GET /api/v1/monitoring/health
+        const [healthRes, summaryRes, revenueRes] = await Promise.all([
+          apiClient.get("/api/v1/monitoring/health"),
+          // 2) Tổng quan analytics (tuỳ backend bạn, có thể đổi URL)
+          apiClient.get("/api/v1/analytics/summary"),
+          // 3) Doanh thu 30 ngày gần nhất
+          // GET /api/v1/analytics/reports/revenue?days=30
+          apiClient.get("/api/v1/analytics/reports/revenue", {
+            params: { days: 30 },
+          }),
+        ]);
 
         const token = getStoredToken();
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -121,14 +130,11 @@ export default function Dashboard() {
         setError("Không tải được dữ liệu tổng quan.");
         setSummary(null);
       } finally {
-        if (isMounted) setLoadingSummary(false);
+        setLoading(false);
       }
-    }
-
-    fetchSummary();
-    return () => {
-      isMounted = false;
     };
+
+    fetchAll();
   }, []);
 
   // =========================
@@ -276,11 +282,12 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Bảng điều khiển"
-        subtitle="Tổng quan hoạt động hệ thống trạm sạc EV"
-      />
+    <div className="min-h-screen bg-slate-50 px-6 py-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <PageHeader
+          title="Admin Dashboard"
+          subtitle="Tổng quan hệ thống sạc, doanh thu và sức khoẻ dịch vụ."
+        />
 
       {error && (
         <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
@@ -315,7 +322,6 @@ export default function Dashboard() {
             label="Doanh thu (VND)"
           />
         )}
-      </Section>
 
       {/* ===== Hàng 3: Daily List ===== */}
       <Section title="Danh sách doanh thu theo ngày (30 ngày)">
@@ -400,7 +406,22 @@ export default function Dashboard() {
             </pre>
           </div>
         </div>
-      </Section>
+
+        {/* Hàng 2: Biểu đồ doanh thu */}
+        <Section title="Doanh thu 30 ngày gần nhất">
+          <div className="bg-white rounded-xl border shadow-sm p-4">
+            <Chart
+              type="line"
+              data={revenueSeries}
+              xKey="label"
+              yKey="value"
+              height={260}
+              tooltipLabel="Ngày"
+              tooltipValue="Doanh thu (VND)"
+            />
+          </div>
+        </Section>
+      </div>
     </div>
   );
 }
