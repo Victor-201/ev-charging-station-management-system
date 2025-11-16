@@ -322,6 +322,7 @@ export default function Dashboard() {
             label="Doanh thu (VND)"
           />
         )}
+      </Section>
 
       {/* ===== Hàng 3: Daily List ===== */}
       <Section title="Danh sách doanh thu theo ngày (30 ngày)">
@@ -406,21 +407,7 @@ export default function Dashboard() {
             </pre>
           </div>
         </div>
-
-        {/* Hàng 2: Biểu đồ doanh thu */}
-        <Section title="Doanh thu 30 ngày gần nhất">
-          <div className="bg-white rounded-xl border shadow-sm p-4">
-            <Chart
-              type="line"
-              data={revenueSeries}
-              xKey="label"
-              yKey="value"
-              height={260}
-              tooltipLabel="Ngày"
-              tooltipValue="Doanh thu (VND)"
-            />
-          </div>
-        </Section>
+      </Section>
       </div>
     </div>
   );
