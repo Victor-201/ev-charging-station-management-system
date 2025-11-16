@@ -28,6 +28,7 @@ router.get('/user/:user_id/payments', authorize(UserRole.ADMIN, UserRole.USER), 
 
 // revenue statistics
 router.get('/revenue/summary', PaymentController.summary);
+router.get('/revenue/today', PaymentController.today);
 router.get('/revenue/daily', PaymentController.daily);
 router.get('/revenue/monthly', PaymentController.monthly);
 router.get('/revenue/by-type', PaymentController.byType);

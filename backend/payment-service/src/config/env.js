@@ -26,4 +26,7 @@ export default {
 
   WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
   JWT_SECRET: process.env.JWT_SECRET,
+
+  QR_ACCOUNT: process.env.QR_ACCOUNT,
+  QR_BANK: process.env.QR_BANK,
 };
