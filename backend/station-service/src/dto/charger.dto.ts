@@ -25,8 +25,10 @@ export class RegisterChargerDto {
 
 export class ChargerDetailDto {
   charger_id: string;
+  name: string;
   external_id: string;
   status: string;
+  created_at: Date
 }
 
 export class ChargerHealthDto {
