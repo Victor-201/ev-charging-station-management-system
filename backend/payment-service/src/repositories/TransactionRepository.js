@@ -107,62 +107,83 @@ export default class TransactionRepository extends BaseRepository {
     return rows.map((r) => Transaction.fromRow(r));
   }
 
-  /** === Tính doanh thu === */
-  async getRevenueSummary() {
-    const query = `
-    SELECT 
-      COALESCE(SUM(amount), 0) AS total_revenue,
-      COUNT(*) AS total_transactions
+/** === Tính doanh thu === */
+async getRevenueSummary() {
+  const query = `
+    SELECT COALESCE(SUM(amount)::numeric, 0) AS total_revenue
     FROM ${this.tableName}
-    WHERE status = 'completed';
+    WHERE status = $1
+      AND method IN ('bank','cash')
   `;
-    const { rows } = await db.query(query);
-    return rows[0];
-  }
+  const { rows } = await db.query(query, ['completed']);
+  return rows[0].total_revenue;
+}
 
-  async getDailyRevenue(days = 30) {
-    const query = `
-    SELECT 
-      DATE(created_at) AS date,
-      SUM(amount) AS total
+async getTodayRevenue() {
+  const query = `
+    SELECT COALESCE(SUM(amount)::numeric, 0) AS total
     FROM ${this.tableName}
-    WHERE status = 'completed'
-      AND created_at >= NOW() - INTERVAL '${days} days'
+    WHERE status = $1
+      AND DATE(created_at) = CURRENT_DATE
+      AND method IN ('bank','cash')
+  `;
+  const { rows } = await db.query(query, ['completed']);
+  return rows[0].total;
+}
+
+async getDailyRevenue(days = 30) {
+  const query = `
+    SELECT 
+      TO_CHAR(DATE(created_at), 'YYYY-MM-DD') AS date,
+      COALESCE(SUM(amount)::numeric, 0) AS total
+    FROM ${this.tableName}
+    WHERE status = $1
+      AND created_at >= NOW() - INTERVAL $2
+      AND method IN ('bank','cash')
     GROUP BY DATE(created_at)
-    ORDER BY date ASC;
+    ORDER BY date ASC
   `;
-    const { rows } = await db.query(query);
-    return rows;
-  }
+  const { rows } = await db.query(query, ['completed', `${days} days`]);
+  return rows.reduce((acc, r) => {
+    acc[r.date] = Number(r.total);
+    return acc;
+  }, {});
+}
 
-  async getMonthlyRevenue(months = 12) {
-    const query = `
+async getMonthlyRevenue(months = 12) {
+  const query = `
     SELECT 
-      DATE_TRUNC('month', created_at) AS month,
-      SUM(amount) AS total
+      TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+      COALESCE(SUM(amount)::numeric, 0) AS total
     FROM ${this.tableName}
-    WHERE status = 'completed'
-      AND created_at >= NOW() - INTERVAL '${months} months'
+    WHERE status = $1
+      AND created_at >= NOW() - INTERVAL $2
+      AND method IN ('bank','cash')
     GROUP BY DATE_TRUNC('month', created_at)
-    ORDER BY month ASC;
+    ORDER BY month ASC
   `;
-    const { rows } = await db.query(query);
-    return rows;
-  }
+  const { rows } = await db.query(query, ['completed', `${months} months`]);
+  return rows.reduce((acc, r) => {
+    acc[r.month] = Number(r.total);
+    return acc;
+  }, {});
+}
 
-  async getRevenueByType() {
-    const query = `
+async getRevenueByType() {
+  const query = `
     SELECT 
       type,
       related_type,
-      SUM(amount) AS total
+      SUM(amount)::numeric AS total
     FROM ${this.tableName}
     WHERE status = 'completed'
-    GROUP BY type, related_type;
+      AND method IN ('bank','cash')
+    GROUP BY type, related_type
+    ORDER BY type, related_type
   `;
-    const { rows } = await db.query(query);
-    return rows;
-  }
+  const { rows } = await db.query(query);
+  return rows;
+}
 
 }
 
