@@ -1,14 +1,20 @@
+// pages/admin/Dashboard.jsx
 import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Chart from "@/components/admin/Chart";
 import paymentService from "@/services/paymentService";
-import apiClient from "@/api/apiClient"; // để cố gắng set header nếu apiClient là axios
+import apiClient from "@/api/apiClient";
 
 /**
  * 🔹 Card nhỏ hiển thị số liệu tổng quan
  */
 function StatCard({ label, value, unit, loading }) {
+  const formatNumber = (num) =>
+    num !== null && num !== undefined
+      ? Number(num).toLocaleString("vi-VN")
+      : "--";
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-1">
       <span className="text-sm text-gray-500">{label}</span>
@@ -16,7 +22,7 @@ function StatCard({ label, value, unit, loading }) {
         <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
       ) : (
         <span className="text-2xl font-semibold">
-          {value !== null && value !== undefined ? value.toLocaleString("vi-VN") : "--"}
+          {formatNumber(value)}
           {unit ? <span className="text-base text-gray-500 ml-1">{unit}</span> : null}
         </span>
       )}
@@ -25,8 +31,7 @@ function StatCard({ label, value, unit, loading }) {
 }
 
 /**
- * Lấy token từ localStorage / cookie (thử các key phổ biến).
- * Nếu dự án bạn lưu token ở nơi khác, đổi hàm này tương ứng.
+ * Lấy token từ localStorage / cookie
  */
 function getStoredToken() {
   if (typeof window === "undefined") return null;
@@ -35,11 +40,15 @@ function getStoredToken() {
     const v = localStorage.getItem(k);
     if (v) return v;
   }
-  // try cookie (simple parse)
   const cookieMatch = document.cookie
     .split(";")
     .map((c) => c.trim())
-    .find((c) => c.startsWith("access_token=") || c.startsWith("token=") || c.startsWith("authToken="));
+    .find(
+      (c) =>
+        c.startsWith("access_token=") ||
+        c.startsWith("token=") ||
+        c.startsWith("authToken=")
+    );
   if (cookieMatch) {
     const [, cookieVal] = cookieMatch.split("=");
     return cookieVal;
@@ -48,45 +57,29 @@ function getStoredToken() {
 }
 
 /**
- * Cố gắng set header Authorization trên apiClient nếu có (ví dụ axios instance).
- * Nếu apiClient không có cấu trúc đó, chỉ bỏ qua (paymentService có thể tự xử lý).
+ * Cố gắng set header Authorization trên apiClient nếu có
  */
 function setAuthHeaderOnApiClient(token) {
   if (!token || !apiClient) return;
   try {
-    // axios instance common pattern
     if (apiClient.defaults && apiClient.defaults.headers) {
-      // axios: apiClient.defaults.headers.common.Authorization
       if (apiClient.defaults.headers.common) {
         apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
       } else {
-        // fallback
         apiClient.defaults.headers.Authorization = `Bearer ${token}`;
       }
-      return;
     }
-
-    // some projects export a function that accepts config - can't set global header
-    // so do nothing in that case
   } catch (e) {
-    // ignore
-    // console.debug("Cannot set auth header on apiClient:", e);
+    console.debug("Cannot set auth header on apiClient:", e);
   }
 }
 
 export default function Dashboard() {
-  // 🔹 State lưu dữ liệu tổng quan & biểu đồ & lists
-  const [summary, setSummary] = useState(null);
-
-  // revenue
   const [dailyRevenue, setDailyRevenue] = useState([]);
   const [dailyList, setDailyList] = useState([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState([]);
-
   const [health, setHealth] = useState(null);
 
-  // loading flags
-  const [loadingSummary, setLoadingSummary] = useState(true);
   const [loadingChart, setLoadingChart] = useState(true);
   const [loadingDailyList, setLoadingDailyList] = useState(false);
   const [loadingMonthlyList, setLoadingMonthlyList] = useState(false);
@@ -95,50 +88,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   // =========================
-  // 1. API tổng quan admin (fetch + Authorization header)
-  // =========================
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        // 1) Health tổng thể
-        // GET /api/v1/monitoring/health
-        const [healthRes, summaryRes, revenueRes] = await Promise.all([
-          apiClient.get("/api/v1/monitoring/health"),
-          // 2) Tổng quan analytics (tuỳ backend bạn, có thể đổi URL)
-          apiClient.get("/api/v1/analytics/summary"),
-          // 3) Doanh thu 30 ngày gần nhất
-          // GET /api/v1/analytics/reports/revenue?days=30
-          apiClient.get("/api/v1/analytics/reports/revenue", {
-            params: { days: 30 },
-          }),
-        ]);
-
-        const token = getStoredToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-
-        const res = await fetch("/api/v1/analytics/admin/summary", { headers });
-        if (!isMounted) return;
-        if (!res.ok) throw new Error(`Status ${res.status}`);
-
-        const json = await res.json();
-        setSummary(json || null);
-      } catch (err) {
-        console.error("Dashboard summary error:", err);
-        if (!isMounted) return;
-        setError("Không tải được dữ liệu tổng quan.");
-        setSummary(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAll();
-  }, []);
-
-  // =========================
-  // 2. Daily Revenue (Không params) - đảm bảo đặt header trước khi gọi paymentService
+  // 1. Daily Revenue
   // =========================
   useEffect(() => {
     let isMounted = true;
@@ -152,8 +102,6 @@ export default function Dashboard() {
         const token = getStoredToken();
         setAuthHeaderOnApiClient(token);
 
-        // Nếu paymentService dùng apiClient (axios), header đã được gắn.
-        // Nếu không, bạn có thể cập nhật paymentService để nhận headers.
         const res = await paymentService.getDailyRevenue();
         if (!isMounted) return;
 
@@ -165,7 +113,7 @@ export default function Dashboard() {
       } catch (err) {
         console.error("Daily revenue error:", err);
         if (!isMounted) return;
-        setError((prev) => prev || "Không tải được biểu đồ doanh thu.");
+        setError("Không tải được biểu đồ doanh thu.");
         setDailyRevenue([]);
         setDailyList([]);
       } finally {
@@ -181,7 +129,7 @@ export default function Dashboard() {
   }, []);
 
   // =========================
-  // 3. Monthly Revenue (Không params) - đảm bảo đặt header
+  // 2. Monthly Revenue
   // =========================
   useEffect(() => {
     let isMounted = true;
@@ -204,7 +152,7 @@ export default function Dashboard() {
       } catch (err) {
         console.error("Monthly revenue error:", err);
         if (!isMounted) return;
-        setError((prev) => prev || "Không tải được doanh thu theo tháng.");
+        setError("Không tải được doanh thu theo tháng.");
         setMonthlyRevenue([]);
       } finally {
         if (isMounted) setLoadingMonthlyList(false);
@@ -216,7 +164,7 @@ export default function Dashboard() {
   }, []);
 
   // =========================
-  // 4. System Health (fetch + Authorization header)
+  // 3. System Health
   // =========================
   useEffect(() => {
     let isMounted = true;
@@ -244,7 +192,6 @@ export default function Dashboard() {
 
     fetchHealth();
     const intervalId = setInterval(fetchHealth, 60000);
-
     return () => {
       isMounted = false;
       clearInterval(intervalId);
@@ -254,11 +201,14 @@ export default function Dashboard() {
   // =========================
   // Derived values
   // =========================
-  const revenueToday = summary?.revenue_today ?? 0;
-  const revenueMonth = summary?.revenue_month ?? 0;
-  const totalUsers = summary?.total_users ?? 0;
-  const totalStations = summary?.total_stations ?? 0;
-  const activeSessions = summary?.active_sessions ?? 0;
+  const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const revenueToday = dailyRevenue.find((d) => d.date === todayStr)?.total ?? 0;
+  const revenueMonth = dailyRevenue.reduce((sum, d) => sum + Number(d.total ?? 0), 0);
+
+  // Các thông số tạm nếu không có summary
+  const totalUsers = 0;
+  const totalStations = 0;
+  const activeSessions = 0;
 
   const systemStatus = health?.status || health?.overall_status || "unknown";
   const isSystemOk =
@@ -266,28 +216,24 @@ export default function Dashboard() {
 
   const formatDate = (dStr) => {
     if (!dStr) return dStr;
-
     if (/^\d{4}-\d{2}$/.test(dStr)) {
       const [y, m] = dStr.split("-");
       return `${m}/${y}`;
     }
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
+    if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
       const dt = new Date(dStr + "T00:00:00Z");
       if (isNaN(dt)) return dStr;
       return dt.toLocaleDateString("vi-VN");
     }
-
     return dStr;
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <PageHeader
-          title="Admin Dashboard"
-          subtitle="Tổng quan hệ thống sạc, doanh thu và sức khoẻ dịch vụ."
-        />
+    <div className="space-y-6">
+      <PageHeader
+        title="Bảng điều khiển"
+        subtitle="Tổng quan hoạt động hệ thống trạm sạc EV"
+      />
 
       {error && (
         <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
@@ -295,18 +241,18 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ===== Hàng 1: Thống kê nhanh ===== */}
+      {/* Thống kê nhanh */}
       <Section title="Thống kê nhanh">
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
-          <StatCard label="Doanh thu hôm nay" value={revenueToday} unit="VND" loading={loadingSummary} />
-          <StatCard label="Doanh thu tháng này" value={revenueMonth} unit="VND" loading={loadingSummary} />
-          <StatCard label="Tổng người dùng" value={totalUsers} loading={loadingSummary} />
-          <StatCard label="Số trạm đang hoạt động" value={totalStations} loading={loadingSummary} />
-          <StatCard label="Phiên sạc đang diễn ra" value={activeSessions} loading={loadingSummary} />
+          <StatCard label="Doanh thu hôm nay" value={revenueToday} unit="VND" loading={loadingChart} />
+          <StatCard label="Doanh thu tháng này" value={revenueMonth} unit="VND" loading={loadingChart} />
+          <StatCard label="Tổng người dùng" value={totalUsers} loading={false} />
+          <StatCard label="Số trạm đang hoạt động" value={totalStations} loading={false} />
+          <StatCard label="Phiên sạc đang diễn ra" value={activeSessions} loading={false} />
         </div>
       </Section>
 
-      {/* ===== Hàng 2: Biểu đồ doanh thu 30 ngày ===== */}
+      {/* Biểu đồ daily */}
       <Section title="Biểu đồ doanh thu 30 ngày gần nhất">
         {loadingChart ? (
           <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
@@ -317,13 +263,14 @@ export default function Dashboard() {
             type="line"
             data={dailyRevenue}
             xKey="date"
-            yKey="total_revenue"
+            yKey="total"
             height={260}
             label="Doanh thu (VND)"
           />
         )}
+      </Section>
 
-      {/* ===== Hàng 3: Daily List ===== */}
+      {/* Daily List */}
       <Section title="Danh sách doanh thu theo ngày (30 ngày)">
         {loadingDailyList ? (
           <div className="h-40 bg-gray-100 animate-pulse rounded-xl" />
@@ -343,7 +290,7 @@ export default function Dashboard() {
                   <tr key={row.date} className="border-t last:border-b">
                     <td className="py-2">{formatDate(row.date)}</td>
                     <td className="py-2 font-medium">
-                      {(row.total?? 0).toLocaleString("vi-VN")}
+                      {Number(row.total ?? 0).toLocaleString("vi-VN")}
                     </td>
                   </tr>
                 ))}
@@ -353,7 +300,7 @@ export default function Dashboard() {
         )}
       </Section>
 
-      {/* ===== Hàng 4: Monthly List ===== */}
+      {/* Monthly List */}
       <Section title="Doanh thu theo tháng (12 tháng gần nhất)">
         {loadingMonthlyList ? (
           <div className="h-40 bg-gray-100 animate-pulse rounded-xl" />
@@ -370,13 +317,12 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {monthlyRevenue.map((row, idx) => {
-                  const key = row.month ?? row.date ?? String(idx);
-                  const label = row.month ?? row.date ?? "";
+                  const key = row.month ?? String(idx);
                   return (
                     <tr key={key} className="border-t last:border-b">
-                      <td className="py-2">{formatDate(label)}</td>
+                      <td className="py-2">{formatDate(row.month)}</td>
                       <td className="py-2 font-medium">
-                        {(row.total ?? 0).toLocaleString("vi-VN")}
+                        {Number(row.total ?? 0).toLocaleString("vi-VN")}
                       </td>
                     </tr>
                   );
@@ -387,7 +333,7 @@ export default function Dashboard() {
         )}
       </Section>
 
-      {/* ===== Hàng 5: System Health ===== */}
+      {/* System Health */}
       <Section title="Trạng thái hệ thống">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 bg-white rounded-xl shadow-sm p-4">
@@ -406,22 +352,7 @@ export default function Dashboard() {
             </pre>
           </div>
         </div>
-
-        {/* Hàng 2: Biểu đồ doanh thu */}
-        <Section title="Doanh thu 30 ngày gần nhất">
-          <div className="bg-white rounded-xl border shadow-sm p-4">
-            <Chart
-              type="line"
-              data={revenueSeries}
-              xKey="label"
-              yKey="value"
-              height={260}
-              tooltipLabel="Ngày"
-              tooltipValue="Doanh thu (VND)"
-            />
-          </div>
-        </Section>
-      </div>
+      </Section>
     </div>
   );
 }
