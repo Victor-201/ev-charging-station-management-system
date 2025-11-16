@@ -5,18 +5,20 @@ import Chart from "@/components/admin/Chart";
 import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
-// Trang Analytics cho admin
-// - Monitoring: metrics, logs, alerts
-// - Analytics: báo cáo user / station / revenue
+/**
+ * Trang Analytics cho admin
+ * - Tab Monitoring: metrics, logs, alerts (lấy từ monitoring-service)
+ * - Tab Analytics: báo cáo user / station / revenue (lấy từ analytics/payment)
+ */
 export default function Analytics() {
   const [activeTab, setActiveTab] = useState("monitoring");
 
-  // Monitoring state
+  // MONITORING STATE
   const [metrics, setMetrics] = useState(null);
   const [logs, setLogs] = useState([]);
   const [alerts, setAlerts] = useState([]);
 
-  // Analytics state
+  // ANALYTICS STATE
   const [userReport, setUserReport] = useState(null);
   const [stationDaily, setStationDaily] = useState([]);
   const [revenueSummary, setRevenueSummary] = useState(null);
@@ -24,26 +26,30 @@ export default function Analytics() {
   const [filters, setFilters] = useState({
     userId: "",
     stationId: "",
-    month: "2025-10",
-    date: "2025-10-01",
+    month: new Date().toISOString().slice(0, 7), // yyyy-MM
+    date: new Date().toISOString().slice(0, 10), // yyyy-MM-dd
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loadingMonitoring, setLoadingMonitoring] = useState(false);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [error, setError] = useState("");
 
-  // ===== MONITORING =====
+  // ===================== MONITORING =====================
   const loadMonitoring = async () => {
-    setLoading(true);
+    setLoadingMonitoring(true);
     setError("");
     try {
-      // 1) Metrics (Prometheus-like)
-      // GET /api/v1/monitoring/metrics
+      // 1) Metrics (Prometheus-style)
       const metricsRes = await apiClient.get("/api/v1/monitoring/metrics", {
-        params: { metric: "requests_per_sec", from: "-1h", to: "now", step: "60s" },
+        params: {
+          metric: "requests_per_sec",
+          from: "-1h",
+          to: "now",
+          step: "60s",
+        },
       });
 
-      // 2) Logs (ELK)
-      // GET /api/v1/monitoring/logs
+      // 2) Logs gần đây
       const logsRes = await apiClient.get("/api/v1/monitoring/logs", {
         params: {
           q: "error OR warn",
@@ -56,10 +62,9 @@ export default function Analytics() {
       });
 
       // 3) Alerts
-      // GET /api/v1/monitoring/alerts
       const alertsRes = await apiClient.get("/api/v1/monitoring/alerts");
 
-      setMetrics(metricsRes.data);
+      setMetrics(metricsRes.data || null);
       setLogs(logsRes.data?.items || logsRes.data || []);
       setAlerts(alertsRes.data?.alerts || alertsRes.data || []);
     } catch (err) {
@@ -70,18 +75,16 @@ export default function Analytics() {
           "Không thể tải dữ liệu monitoring."
       );
     } finally {
-      setLoading(false);
+      setLoadingMonitoring(false);
     }
   };
 
   const handleAckAlert = async (alertId) => {
     try {
-      // POST /api/v1/monitoring/alerts/ack
       await apiClient.post("/api/v1/monitoring/alerts/ack", {
         alert_id: alertId,
-        user_id: "admin", // tuỳ backend
+        user_id: "admin", // tuỳ backend bạn muốn truyền gì
       });
-      // refresh alert list
       await loadMonitoring();
     } catch (err) {
       console.error("ack alert error:", err);
@@ -92,13 +95,13 @@ export default function Analytics() {
     }
   };
 
-  // ===== ANALYTICS =====
+  // ===================== ANALYTICS =====================
   const loadAnalytics = async () => {
-    setLoading(true);
+    setLoadingAnalytics(true);
     setError("");
     try {
       const [userRes, stationRes, revenueRes] = await Promise.all([
-        // GET /api/v1/analytics/reports/user/{user_id}/monthly
+        // User monthly report
         filters.userId
           ? apiClient.get(
               `/api/v1/analytics/reports/user/${filters.userId}/monthly`,
@@ -107,7 +110,8 @@ export default function Analytics() {
               }
             )
           : Promise.resolve({ data: null }),
-        // GET /api/v1/analytics/reports/station/{station_id}/daily
+
+        // Station daily sessions
         filters.stationId
           ? apiClient.get(
               `/api/v1/analytics/reports/station/${filters.stationId}/daily`,
@@ -116,7 +120,8 @@ export default function Analytics() {
               }
             )
           : Promise.resolve({ data: { sessions: [] } }),
-        // GET /api/v1/analytics/reports/revenue
+
+        // Revenue (group by day trong 1 tháng)
         apiClient.get("/api/v1/analytics/reports/revenue", {
           params: {
             station_id: filters.stationId || undefined,
@@ -127,9 +132,9 @@ export default function Analytics() {
         }),
       ]);
 
-      setUserReport(userRes.data);
+      setUserReport(userRes.data || null);
       setStationDaily(stationRes.data?.sessions || []);
-      setRevenueSummary(revenueRes.data);
+      setRevenueSummary(revenueRes.data || null);
     } catch (err) {
       console.error("[Analytics] analytics error:", err);
       setError(
@@ -138,20 +143,19 @@ export default function Analytics() {
           "Không thể tải dữ liệu analytics."
       );
     } finally {
-      setLoading(false);
+      setLoadingAnalytics(false);
     }
   };
 
+  // Auto load khi đổi tab
   useEffect(() => {
     if (activeTab === "monitoring") {
       loadMonitoring();
-    } else {
-      loadAnalytics();
     }
+    // Tab analytics không auto, user bấm "Lấy dữ liệu"
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // đổi filter nhưng không auto gọi API – để user bấm nút "Lấy dữ liệu"
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
@@ -167,7 +171,7 @@ export default function Analytics() {
       <div className="max-w-7xl mx-auto space-y-6">
         <PageHeader
           title="Monitoring & Analytics"
-          subtitle="Giám sát health, logs, alerts và báo cáo chi phí / doanh thu."
+          subtitle="Giám sát metrics / logs / alerts và phân tích chi phí, doanh thu."
         />
 
         {/* Tabs */}
@@ -201,39 +205,49 @@ export default function Analytics() {
             {/* Metrics */}
             <Section title="Metrics (Prometheus-like)">
               <div className="bg-white rounded-xl border shadow-sm p-4">
-                <Chart
-                  type="line"
-                  data={
-                    metrics?.series?.map((p) => ({
-                      label: p.timestamp,
-                      value: Number(p.value),
-                    })) || []
-                  }
-                  xKey="label"
-                  yKey="value"
-                  height={260}
-                  tooltipLabel="Thời gian"
-                  tooltipValue="Requests / sec"
-                />
+                {loadingMonitoring ? (
+                  <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
+                ) : (
+                  <Chart
+                    type="line"
+                    data={
+                      metrics?.series?.map((p) => ({
+                        label: p.timestamp,
+                        value: Number(p.value),
+                      })) || []
+                    }
+                    xKey="label"
+                    yKey="value"
+                    height={260}
+                    tooltipLabel="Thời gian"
+                    tooltipValue="Requests / sec"
+                  />
+                )}
               </div>
             </Section>
 
             {/* Logs + Alerts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Section title="Logs gần đây (ELK)">
-                <Table
-                  columns={["Time", "Service", "Level", "Message"]}
-                  rows={logs.map((log) => [
-                    log.timestamp,
-                    log.service,
-                    log.level,
-                    log.message,
-                  ])}
-                />
+                {loadingMonitoring ? (
+                  <div className="h-48 bg-slate-100 animate-pulse rounded-xl" />
+                ) : (
+                  <Table
+                    columns={["Time", "Service", "Level", "Message"]}
+                    rows={logs.map((log) => [
+                      log.timestamp,
+                      log.service,
+                      log.level,
+                      log.message,
+                    ])}
+                  />
+                )}
               </Section>
 
               <Section title="Alerts hiện tại">
-                {alerts.length === 0 ? (
+                {loadingMonitoring ? (
+                  <div className="h-48 bg-slate-100 animate-pulse rounded-xl" />
+                ) : alerts.length === 0 ? (
                   <p className="text-sm text-slate-500">
                     Không có alert nào đang firing.
                   </p>
@@ -327,10 +341,10 @@ export default function Analytics() {
                 <div className="md:col-span-4 flex justify-end items-end">
                   <button
                     onClick={loadAnalytics}
-                    disabled={loading}
+                    disabled={loadingAnalytics}
                     className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
                   >
-                    {loading ? "Đang tải..." : "Lấy dữ liệu báo cáo"}
+                    {loadingAnalytics ? "Đang tải..." : "Lấy dữ liệu báo cáo"}
                   </button>
                 </div>
               </div>
@@ -338,7 +352,9 @@ export default function Analytics() {
 
             {/* User monthly */}
             <Section title="Báo cáo tháng theo User">
-              {userReport ? (
+              {loadingAnalytics ? (
+                <div className="h-32 bg-slate-100 animate-pulse rounded-xl" />
+              ) : userReport ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white border rounded-lg p-4">
                     <div className="text-xs text-slate-500 mb-1">
@@ -374,38 +390,46 @@ export default function Analytics() {
 
             {/* Station daily sessions */}
             <Section title="Phiên trong ngày theo trạm">
-              <Table
-                columns={[
-                  "Session ID",
-                  "User",
-                  "Bắt đầu",
-                  "KWh",
-                  "Chi phí (đ)",
-                  "Trạng thái",
-                ]}
-                rows={stationDaily.map((s) => [
-                  s.id,
-                  s.user_id,
-                  s.start_time,
-                  s.energy_kwh,
-                  s.cost?.toLocaleString("vi-VN"),
-                  s.status,
-                ])}
-              />
+              {loadingAnalytics ? (
+                <div className="h-40 bg-slate-100 animate-pulse rounded-xl" />
+              ) : (
+                <Table
+                  columns={[
+                    "Session ID",
+                    "User",
+                    "Bắt đầu",
+                    "KWh",
+                    "Chi phí (đ)",
+                    "Trạng thái",
+                  ]}
+                  rows={stationDaily.map((s) => [
+                    s.id,
+                    s.user_id,
+                    s.start_time,
+                    s.energy_kwh,
+                    s.cost?.toLocaleString("vi-VN"),
+                    s.status,
+                  ])}
+                />
+              )}
             </Section>
 
             {/* Revenue chart */}
             <Section title="Biểu đồ doanh thu (group by day)">
               <div className="bg-white rounded-xl border shadow-sm p-4">
-                <Chart
-                  type="bar"
-                  data={revenueSeries}
-                  xKey="label"
-                  yKey="value"
-                  height={260}
-                  tooltipLabel="Ngày"
-                  tooltipValue="Doanh thu (VND)"
-                />
+                {loadingAnalytics ? (
+                  <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
+                ) : (
+                  <Chart
+                    type="bar"
+                    data={revenueSeries}
+                    xKey="label"
+                    yKey="value"
+                    height={260}
+                    tooltipLabel="Ngày"
+                    tooltipValue="Doanh thu (VND)"
+                  />
+                )}
               </div>
             </Section>
           </>

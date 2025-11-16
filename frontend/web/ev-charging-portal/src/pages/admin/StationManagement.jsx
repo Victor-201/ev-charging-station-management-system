@@ -4,8 +4,11 @@ import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
 import { useStation } from "@/hooks/useStation";
 
-// Trang quản lý trạm cho admin
-// - Dùng lại hook useStation giống staff nhưng ở level admin
+/**
+ * Quản lý trạm cho Admin
+ * - Dùng hook useStation (đã dùng cho staff) nhưng thao tác level admin
+ * - Tất cả đều gọi API thật qua useStation
+ */
 export default function StationManagement() {
   const {
     stations,
@@ -24,9 +27,12 @@ export default function StationManagement() {
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
 
+  // Load danh sách trạm lần đầu
   useEffect(() => {
-    const params = { lat: 10.9, lng: 106.8, radius: 9999 };
-    getAll(params).catch((e) => setError(e?.message || "Không load được trạm"));
+    const params = { lat: 10.9, lng: 106.8, radius: 9999 }; // lấy tất cả trong bán kính rộng
+    getAll(params).catch((e) =>
+      setError(e?.message || "Không load được danh sách trạm.")
+    );
   }, [getAll]);
 
   const selectStation = async (id) => {
@@ -54,7 +60,7 @@ export default function StationManagement() {
   const saveEdit = async () => {
     if (!currentStation || !editing) return;
     try {
-      await update(currentStation.id, editing); // useStation.update sẽ gọi API PATCH/PUT
+      await update(currentStation.id, editing);
       setEditing(null);
     } catch (err) {
       console.error("update station error:", err);
@@ -79,8 +85,9 @@ export default function StationManagement() {
       !window.confirm(
         `Xoá trạm ${currentStation.name}? Thao tác này sẽ ghi xuống DB.`
       )
-    )
+    ) {
       return;
+    }
     try {
       await remove(currentStation.id);
       setSelectedId(null);
@@ -126,12 +133,16 @@ export default function StationManagement() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Danh sách trạm */}
           <Section title="Danh sách trạm" className="lg:col-span-1">
-            <Table
-              columns={["ID", "Tên", "Khu vực", "Số trụ", "Trạng thái"]}
-              rows={stationRows}
-              onRowClick={(row) => selectStation(row[0])}
-              selectedKey={selectedId}
-            />
+            {loading && stations.length === 0 ? (
+              <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
+            ) : (
+              <Table
+                columns={["ID", "Tên", "Khu vực", "Số trụ", "Trạng thái"]}
+                rows={stationRows}
+                onRowClick={(row) => selectStation(row[0])}
+                selectedKey={selectedId}
+              />
+            )}
           </Section>
 
           {/* Chi tiết trạm */}

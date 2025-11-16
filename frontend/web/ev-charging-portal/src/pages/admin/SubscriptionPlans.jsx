@@ -4,12 +4,14 @@ import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
-// Trang quản lý gói subscription / pricing
-// - Lấy danh sách plan từ API
-// - Cho phép thêm / sửa đơn giản
+/**
+ * Quản lý subscription / pricing plans (giao tiếp với payment-service)
+ * - GET /api/v1/payments/plans
+ * - POST / PUT / DELETE plans
+ */
 export default function SubscriptionPlans() {
   const [plans, setPlans] = useState([]);
-  const [editing, setEditing] = useState(null); // {id, name, price, currency, features}
+  const [editing, setEditing] = useState(null); // {id, name, price, currency, description}
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +20,6 @@ export default function SubscriptionPlans() {
     setLoading(true);
     setError("");
     try {
-      // GET /api/v1/payments/plans
       const res = await apiClient.get("/api/v1/payments/plans");
       setPlans(res.data || []);
     } catch (err) {
@@ -63,10 +64,8 @@ export default function SubscriptionPlans() {
     setError("");
     try {
       if (editing.id) {
-        // PUT /api/v1/payments/plans/{id}
         await apiClient.put(`/api/v1/payments/plans/${editing.id}`, editing);
       } else {
-        // POST /api/v1/payments/plans
         await apiClient.post("/api/v1/payments/plans", editing);
       }
       setEditing(null);
@@ -86,7 +85,6 @@ export default function SubscriptionPlans() {
   const deletePlan = async (id) => {
     if (!window.confirm("Xoá gói này? Thao tác sẽ ghi xuống DB.")) return;
     try {
-      // DELETE /api/v1/payments/plans/{id}
       await apiClient.delete(`/api/v1/payments/plans/${id}`);
       await loadPlans();
     } catch (err) {
@@ -100,7 +98,7 @@ export default function SubscriptionPlans() {
       <div className="max-w-6xl mx-auto space-y-6">
         <PageHeader
           title="Subscription Plans"
-          subtitle="Tất cả gói giá / subscription lấy từ API payments, không phải dữ liệu tĩnh."
+          subtitle="Tất cả gói giá / subscription lấy từ API payment-service, không dùng dữ liệu tĩnh."
         />
 
         {error && (
@@ -122,51 +120,57 @@ export default function SubscriptionPlans() {
             </button>
           </div>
 
-          <Table
-            columns={["ID", "Tên gói", "Giá", "Mô tả", ""]}
-            rows={(plans || []).map((p) => [
-              p.id,
-              p.name,
-              `${p.price?.toLocaleString("vi-VN")} ${p.currency || "VND"}`,
-              p.description || "",
-              "actions",
-            ])}
-            renderRow={(row, index) => {
-              const plan = plans[index];
-              return (
-                <tr
-                  key={plan.id}
-                  className="border-b last:border-0 hover:bg-slate-50"
-                >
-                  <td className="px-3 py-2 text-xs text-slate-500">{plan.id}</td>
-                  <td className="px-3 py-2 text-sm font-semibold">
-                    {plan.name}
-                  </td>
-                  <td className="px-3 py-2 text-sm">
-                    {plan.price?.toLocaleString("vi-VN")}{" "}
-                    {plan.currency || "VND"}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-600">
-                    {plan.description}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      onClick={() => startEdit(plan)}
-                      className="text-xs px-2 py-1 rounded border mr-2"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => deletePlan(plan.id)}
-                      className="text-xs px-2 py-1 rounded bg-red-600 text-white"
-                    >
-                      Xoá
-                    </button>
-                  </td>
-                </tr>
-              );
-            }}
-          />
+          {loading ? (
+            <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
+          ) : (
+            <Table
+              columns={["ID", "Tên gói", "Giá", "Mô tả", ""]}
+              rows={(plans || []).map((p) => [
+                p.id,
+                p.name,
+                `${p.price?.toLocaleString("vi-VN")} ${p.currency || "VND"}`,
+                p.description || "",
+                "actions",
+              ])}
+              renderRow={(row, index) => {
+                const plan = plans[index];
+                return (
+                  <tr
+                    key={plan.id}
+                    className="border-b last:border-0 hover:bg-slate-50"
+                  >
+                    <td className="px-3 py-2 text-xs text-slate-500">
+                      {plan.id}
+                    </td>
+                    <td className="px-3 py-2 text-sm font-semibold">
+                      {plan.name}
+                    </td>
+                    <td className="px-3 py-2 text-sm">
+                      {plan.price?.toLocaleString("vi-VN")}{" "}
+                      {plan.currency || "VND"}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-600">
+                      {plan.description}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={() => startEdit(plan)}
+                        className="text-xs px-2 py-1 rounded border mr-2"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => deletePlan(plan.id)}
+                        className="text-xs px-2 py-1 rounded bg-red-600 text-white"
+                      >
+                        Xoá
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }}
+            />
+          )}
         </Section>
 
         {editing && (

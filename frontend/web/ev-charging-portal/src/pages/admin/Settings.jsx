@@ -3,8 +3,10 @@ import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import apiClient from "@/api/apiClient";
 
-// Settings hệ thống cho admin
-// - Cấu hình threshold alert, retention logs, feature flags...
+/**
+ * System Settings cho admin
+ * - Lưu cấu hình global xuống DB (maintenance, alert_email, retention logs, auto reconcile...)
+ */
 export default function AdminSettings() {
   const [settings, setSettings] = useState({
     maintenance_mode: false,
@@ -12,18 +14,18 @@ export default function AdminSettings() {
     log_retention_days: 30,
     auto_reconcile: true,
   });
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Lấy cấu hình hiện tại từ backend
+  // Load settings từ backend
   useEffect(() => {
     const fetchSettings = async () => {
       setLoading(true);
       setError("");
       try {
-        // GET /api/v1/system/settings
         const res = await apiClient.get("/api/v1/system/settings");
         setSettings((prev) => ({ ...prev, ...(res.data || {}) }));
       } catch (err) {
@@ -50,7 +52,6 @@ export default function AdminSettings() {
     setMessage("");
     setError("");
     try {
-      // PUT /api/v1/system/settings
       await apiClient.put("/api/v1/system/settings", settings);
       setMessage("Đã lưu cấu hình hệ thống vào database.");
     } catch (err) {
@@ -70,7 +71,7 @@ export default function AdminSettings() {
       <div className="max-w-4xl mx-auto space-y-6">
         <PageHeader
           title="System Settings"
-          subtitle="Tất cả cài đặt ở đây đều được lưu xuống database (không phải dữ liệu tĩnh)."
+          subtitle="Tất cả cài đặt ở đây đều được lưu xuống database, backend đọc và áp dụng."
         />
 
         {loading && (
@@ -99,7 +100,8 @@ export default function AdminSettings() {
                   Maintenance mode
                 </div>
                 <div className="text-xs text-slate-500">
-                  Khi bật, chỉ admin mới truy cập được hệ thống.
+                  Khi bật, chỉ admin mới truy cập được hệ thống (tuỳ backend xử
+                  lý).
                 </div>
               </div>
               <input

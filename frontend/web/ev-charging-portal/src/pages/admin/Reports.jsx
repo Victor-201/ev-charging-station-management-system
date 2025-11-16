@@ -4,7 +4,7 @@ import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
-// Trang Reports: cho phép admin chọn loại report và tải JSON về bảng.
+// Cấu hình các loại report
 const REPORT_TYPES = [
   {
     key: "revenue",
@@ -15,13 +15,13 @@ const REPORT_TYPES = [
   {
     key: "user",
     label: "Theo người dùng",
-    description: "Báo cáo chi phí & usage theo user.",
+    description: "Báo cáo chi phí & usage theo user (theo tháng).",
     endpoint: "/api/v1/analytics/reports/user",
   },
   {
     key: "station",
     label: "Theo trạm",
-    description: "Báo cáo kWh / sessions theo trạm.",
+    description: "Báo cáo sessions / kWh theo trạm (theo ngày).",
     endpoint: "/api/v1/analytics/reports/station",
   },
 ];
@@ -31,8 +31,8 @@ export default function Reports() {
   const [params, setParams] = useState({
     userId: "",
     stationId: "",
-    from: "2025-10-01",
-    to: "2025-10-31",
+    from: new Date().toISOString().slice(0, 10),
+    to: new Date().toISOString().slice(0, 10),
     groupBy: "day",
   });
 
@@ -50,7 +50,6 @@ export default function Reports() {
   const buildRequest = () => {
     if (!currentConfig) return null;
 
-    // Xây URL và params tuỳ loại report
     if (reportType === "revenue") {
       return {
         url: currentConfig.endpoint,
@@ -105,7 +104,7 @@ export default function Reports() {
 
       if (reportType === "revenue") {
         const items = data.items || data.daily || [];
-        setColumns(["Ngày", "Doanh thu"]);
+        setColumns(["Ngày", "Doanh thu (VND)"]);
         setRows(
           items.map((d) => [
             d.date,
@@ -113,7 +112,7 @@ export default function Reports() {
           ])
         );
       } else if (reportType === "user") {
-        setColumns(["User ID", "Tổng phiên", "Tổng kWh", "Tổng chi phí"]);
+        setColumns(["User ID", "Tổng phiên", "Tổng kWh", "Tổng chi phí (VND)"]);
         setRows([
           [
             data.user_id,
@@ -124,7 +123,7 @@ export default function Reports() {
         ]);
       } else if (reportType === "station") {
         const sessions = data.sessions || [];
-        setColumns(["Session ID", "User", "Bắt đầu", "KWh", "Chi phí"]);
+        setColumns(["Session ID", "User", "Bắt đầu", "KWh", "Chi phí (VND)"]);
         setRows(
           sessions.map((s) => [
             s.id,
@@ -152,7 +151,7 @@ export default function Reports() {
       <div className="max-w-7xl mx-auto space-y-6">
         <PageHeader
           title="Báo cáo chi tiết"
-          subtitle="Chọn loại report và tham số, dữ liệu sẽ lấy trực tiếp từ API."
+          subtitle="Chọn loại report và tham số. Dữ liệu lấy trực tiếp từ API analytics."
         />
 
         {/* Chọn loại report */}
