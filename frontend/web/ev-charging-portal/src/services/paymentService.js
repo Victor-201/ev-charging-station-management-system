@@ -46,6 +46,20 @@ export const paymentService = {
   // ===== LEDGER =====
   exportLedger: (params) =>
     apiClient({ method: "GET", url: "api/v1/ledger/export", params }),
+
+  // ===== REVENUE =====
+  getDailyRevenue: () =>
+    apiClient({
+      method: "GET",
+      url: "api/v1/payments/revenue/daily",
+
+    }),
+
+  getMonthlyRevenue: () =>
+    apiClient({
+      method: "GET",
+      url: "api/v1/payments/revenue/monthly",
+    }),
 };
 
 export default paymentService;
