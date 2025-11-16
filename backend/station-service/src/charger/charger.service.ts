@@ -37,6 +37,8 @@ export class ChargerService {
                 id: true,
                 external_id: true,
                 status: true,
+                name: true,
+                created_at: true
             }
         });
 
@@ -46,8 +48,10 @@ export class ChargerService {
 
         return {
             charger_id: charger.id,
+            name: charger.name,
             external_id: charger.external_id ?? '',
             status: charger.status,
+            created_at: charger.created_at
         }
     }
 
