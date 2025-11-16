@@ -103,6 +103,15 @@ export class PaymentController {
     }
   }
 
+  static async today(req, res, next) {
+    try {
+      const total = await service.todayRevenue();
+      res.json({ total: Number(total) });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async daily(req, res, next) {
     try {
       const days = req.query.days || 30;
