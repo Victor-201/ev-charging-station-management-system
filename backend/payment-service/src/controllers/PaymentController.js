@@ -90,43 +90,54 @@ export class PaymentController {
   }
 
   // =============================== REVENUE / ANALYTICS ===============================
-
-  static async summary(req, res, next) {
+static async summary(req, res, next) {
     try {
-      const data = await service.revenueSummary();
-      res.json({
-        total_revenue: Number(data.total_revenue),
-        total_transactions: Number(data.total_transactions)
-      });
+      const total_revenue = await service.txRepo.getRevenueSummary();
+      const total_transactions = await service.txRepo.getTotalTransactions?.() ?? 0;
+
+      res.json({ total_revenue, total_transactions });
     } catch (err) {
       next(err);
     }
   }
 
+  /** === Doanh thu hôm nay === */
+  static async today(req, res, next) {
+    try {
+      const today_revenue = await service.txRepo.getTodayRevenue();
+      res.json({ today_revenue });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** === Doanh thu theo ngày (30 ngày gần nhất) === */
   static async daily(req, res, next) {
     try {
-      const days = req.query.days || 30;
-      const data = await service.dailyRevenue(days);
-      res.json(data);
+      const days = Number(req.query.days) || 30; // có thể truyền query ?days=10
+      const daily_revenue = await service.txRepo.getDailyRevenue(days);
+      res.json({ daily_revenue });
     } catch (err) {
       next(err);
     }
   }
 
+  /** === Doanh thu theo tháng (12 tháng gần nhất) === */
   static async monthly(req, res, next) {
     try {
-      const months = req.query.months || 12;
-      const data = await service.monthlyRevenue(months);
-      res.json(data);
+      const months = Number(req.query.months) || 12; // có thể truyền query ?months=6
+      const monthly_revenue = await service.txRepo.getMonthlyRevenue(months);
+      res.json({ monthly_revenue });
     } catch (err) {
       next(err);
     }
   }
 
+  /** === Doanh thu theo type/related_type === */
   static async byType(req, res, next) {
     try {
-      const data = await service.revenueByType();
-      res.json(data);
+      const revenue_by_type = await service.txRepo.getRevenueByType();
+      res.json({ revenue_by_type });
     } catch (err) {
       next(err);
     }

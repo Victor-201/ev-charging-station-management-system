@@ -39,7 +39,7 @@ SELECT
 FROM subscriptions;
 
 -- =====================================================
--- Transactions (30 rows, constraint-safe, unique reference_code)
+-- Transactions (30 rows, constraint-safe, unique reference_code, random datetime)
 -- =====================================================
 WITH tx_seed AS (
   SELECT
@@ -55,7 +55,7 @@ WITH tx_seed AS (
     i
   FROM subscriptions s, generate_series(1,30) i
 )
-INSERT INTO transactions (user_id, type, amount, method, related_id, related_type, status, reference_code)
+INSERT INTO transactions (user_id, type, amount, method, related_id, related_type, status, reference_code, created_at, updated_at)
 SELECT
   user_id,
   tx_type,
@@ -79,9 +79,14 @@ SELECT
     ELSE NULL
   END,
   (ARRAY['pending','completed','failed','cancelled'])[floor(random()*4 + 1)]::tx_status,
-  'TX-' || gen_random_uuid()::text
+  'TX-' || gen_random_uuid()::text,
+  NOW() - (random() * INTERVAL '365 days') 
+      - (random() * INTERVAL '30 days') 
+      - (random() * INTERVAL '24 hours') 
+      - (random() * INTERVAL '60 minutes') 
+      - (random() * INTERVAL '60 seconds'),
+  NOW()
 FROM tx_seed;
-
 -- =====================================================
 -- Invoices (15 rows)
 -- =====================================================

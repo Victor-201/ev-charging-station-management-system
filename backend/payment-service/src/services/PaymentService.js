@@ -4,6 +4,7 @@ import WalletTransactionRepository from '../repositories/WalletTransactionReposi
 import PlanRepository from '../repositories/PlanRepository.js';
 import localBus from '../core/LocalEventBus.js';
 import eventBus from '../core/EventBus.js';
+import config from '../config/env.js';
 import { randomUUID } from 'crypto';
 
 export default class PaymentService {
@@ -17,6 +18,7 @@ export default class PaymentService {
     localBus.subscribe('payment.subscription.succeeded', payload => this._applySubscription(payload));
   }
 
+  // ======== Create Transaction ========
   // ======== Create Transaction ========
   async createTransaction({
     user_id, type, amount, currency = 'VND', method,
@@ -35,10 +37,22 @@ export default class PaymentService {
       ? `${prefixMap[related_type] || prefixMap[type] || 'TXN'}${randomUUID().replace(/-/g, '').substring(0, 22).toUpperCase()}`
       : null;
 
+    let qrLink = null;
+
+    if (method === 'bank_transfer') {
+      const accountNumber = config.QR_ACCOUNT;
+      const bankName = config.QR_BANK;
+      if (!accountNumber || !bankName) {
+        throw new Error('QR_ACCOUNT and QR_BANK must be defined in environment variables');
+      }
+
+      qrLink = `https://qr.sepay.vn/img?acc=${accountNumber}&bank=${bankName}&amount=${amount}&des=${referenceCode}`
+    }
+
     const transaction = await this.txRepo.create({
       user_id, type, amount, currency, method,
       related_id, related_type, reference_code: referenceCode,
-      meta: { description }
+      meta: { description, qrLink } 
     });
 
     if (method === 'wallet') {
@@ -49,7 +63,6 @@ export default class PaymentService {
 
       transaction.markSuccess({ paid_at: new Date().toISOString() });
       await this.txRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
-
     }
 
     return transaction;
@@ -160,10 +173,12 @@ export default class PaymentService {
     if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
     return transaction;
   }
-
-  // ================= Revenue Service Logic ===================
-  async revenueSummary() {
+ async revenueSummary() {
     return await this.txRepo.getRevenueSummary();
+  }
+
+  async todayRevenue() {
+    return await this.txRepo.getTodayRevenue();
   }
 
   async dailyRevenue(days = 30) {
@@ -178,4 +193,8 @@ export default class PaymentService {
     return await this.txRepo.getRevenueByType();
   }
 
+  async getTotalTransactions() {
+    // Tổng số transaction completed
+    return await this.txRepo.count({ status: 'completed' });
+  }
 }

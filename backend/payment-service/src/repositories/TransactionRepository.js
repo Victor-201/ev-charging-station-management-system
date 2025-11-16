@@ -93,7 +93,7 @@ export default class TransactionRepository extends BaseRepository {
       `SELECT * FROM ${this.tableName} WHERE related_id = $1 AND related_type = $2`,
       [related_id, related_type]
     );
-    return rows.map((r) => Transaction.fromRow(r));
+    return rows.map(Transaction.fromRow);
   }
 
   /** === Lấy toàn bộ giao dịch của user === */
@@ -104,65 +104,106 @@ export default class TransactionRepository extends BaseRepository {
        ORDER BY created_at DESC`,
       [user_id]
     );
-    return rows.map((r) => Transaction.fromRow(r));
+    return rows.map(Transaction.fromRow);
   }
 
-  /** === Tính doanh thu === */
+  // ================= Revenue / Analytics =================
+
+  /** === Tổng doanh thu === */
   async getRevenueSummary() {
     const query = `
-    SELECT 
-      COALESCE(SUM(amount), 0) AS total_revenue,
-      COUNT(*) AS total_transactions
-    FROM ${this.tableName}
-    WHERE status = 'completed';
-  `;
+      SELECT COALESCE(SUM(amount)::numeric, 0) AS total
+      FROM ${this.tableName}
+      WHERE status = 'completed'
+        AND method IN ('bank_transfer','cash')
+    `;
     const { rows } = await db.query(query);
-    return rows[0];
+    return Number(rows[0]?.total ?? 0);
   }
 
+  /** === Tổng số giao dịch đã hoàn thành === */
+  async getTotalTransactions() {
+    const query = `
+      SELECT COUNT(*) AS total
+      FROM ${this.tableName}
+      WHERE status = 'completed'
+        AND method IN ('bank_transfer','cash')
+    `;
+    const { rows } = await db.query(query);
+    return Number(rows[0]?.total ?? 0);
+  }
+
+  /** === Doanh thu hôm nay === */
+  async getTodayRevenue() {
+    const query = `
+      SELECT COALESCE(SUM(amount)::numeric, 0) AS total
+      FROM ${this.tableName}
+      WHERE status = 'completed'
+        AND DATE(created_at) = CURRENT_DATE
+        AND method IN ('bank_transfer','cash')
+    `;
+    const { rows } = await db.query(query);
+    return Number(rows[0]?.total ?? 0);
+  }
+
+  /** === Doanh thu hàng ngày (mặc định 30 ngày gần nhất) === */
   async getDailyRevenue(days = 30) {
     const query = `
-    SELECT 
-      DATE(created_at) AS date,
-      SUM(amount) AS total
-    FROM ${this.tableName}
-    WHERE status = 'completed'
-      AND created_at >= NOW() - INTERVAL '${days} days'
-    GROUP BY DATE(created_at)
-    ORDER BY date ASC;
-  `;
-    const { rows } = await db.query(query);
-    return rows;
+      SELECT 
+        TO_CHAR(DATE(created_at), 'YYYY-MM-DD') AS date,
+        COALESCE(SUM(amount)::numeric, 0) AS total
+      FROM ${this.tableName}
+      WHERE status = 'completed'
+        AND created_at >= NOW() - make_interval(days => $1)
+        AND method IN ('bank_transfer','cash')
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `;
+    const { rows } = await db.query(query, [days]);
+    return rows.reduce((acc, r) => {
+      acc[r.date] = Number(r.total ?? 0);
+      return acc;
+    }, {});
   }
 
+  /** === Doanh thu theo tháng (mặc định 12 tháng gần nhất) === */
   async getMonthlyRevenue(months = 12) {
     const query = `
-    SELECT 
-      DATE_TRUNC('month', created_at) AS month,
-      SUM(amount) AS total
-    FROM ${this.tableName}
-    WHERE status = 'completed'
-      AND created_at >= NOW() - INTERVAL '${months} months'
-    GROUP BY DATE_TRUNC('month', created_at)
-    ORDER BY month ASC;
-  `;
-    const { rows } = await db.query(query);
-    return rows;
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+        COALESCE(SUM(amount)::numeric, 0) AS total
+      FROM ${this.tableName}
+      WHERE status = 'completed'
+        AND created_at >= NOW() - make_interval(months => $1)
+        AND method IN ('bank_transfer','cash')
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY month ASC
+    `;
+    const { rows } = await db.query(query, [months]);
+    return rows.reduce((acc, r) => {
+      acc[r.month] = Number(r.total ?? 0);
+      return acc;
+    }, {});
   }
 
+  /** === Doanh thu theo type/related_type === */
   async getRevenueByType() {
     const query = `
-    SELECT 
-      type,
-      related_type,
-      SUM(amount) AS total
-    FROM ${this.tableName}
-    WHERE status = 'completed'
-    GROUP BY type, related_type;
-  `;
+      SELECT 
+        type,
+        related_type,
+        COALESCE(SUM(amount)::numeric, 0) AS total
+      FROM ${this.tableName}
+      WHERE status = 'completed'
+        AND method IN ('bank_transfer','cash')
+      GROUP BY type, related_type
+      ORDER BY type, related_type
+    `;
     const { rows } = await db.query(query);
-    return rows;
+    return rows.map(r => ({
+      type: r.type,
+      related_type: r.related_type,
+      total: Number(r.total ?? 0),
+    }));
   }
-
 }
-

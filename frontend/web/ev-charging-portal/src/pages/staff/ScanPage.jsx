@@ -134,7 +134,6 @@ export default function ScanPage() {
           try {
             const match = decodedText.match(/qr\/([^\/?#]+)/i);
             const qr_id = match ? match[1] : decodedText;
-
             // Validate QR
             const validateRes = await apiClient.get(`/api/v1/booking/qr/${qr_id}/validate`);
             const reservation_id = validateRes.data?.reservation_id;

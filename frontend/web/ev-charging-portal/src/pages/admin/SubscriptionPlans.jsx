@@ -1,95 +1,252 @@
-// pages/admin/SubscriptionPlans.jsx
 import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
+import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
+/**
+ * Quản lý subscription / pricing plans (giao tiếp với payment-service)
+ * - GET /api/v1/payments/plans
+ * - POST / PUT / DELETE plans
+ */
 export default function SubscriptionPlans() {
   const [plans, setPlans] = useState([]);
+  const [editing, setEditing] = useState(null); // {id, name, price, currency, description}
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  async function fetchPlans() {
+  const loadPlans = async () => {
+    setLoading(true);
+    setError("");
     try {
-      setLoading(true);
-      setError("");
-      const res = await apiClient({
-        method: "GET",
-        url: "/api/v1/payments/plans",
-      });
-      setPlans(Array.isArray(res.data) ? res.data : []);
+      const res = await apiClient.get("/api/v1/payments/plans");
+      setPlans(res.data || []);
     } catch (err) {
-      console.error("Plans error:", err);
-      setError("Không tải được danh sách gói đăng ký.");
+      console.error("[SubscriptionPlans] load error:", err);
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không thể tải danh sách gói."
+      );
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchPlans();
+    loadPlans();
   }, []);
 
+  const startCreate = () => {
+    setEditing({
+      id: null,
+      name: "",
+      price: 0,
+      currency: "VND",
+      description: "",
+    });
+  };
+
+  const startEdit = (plan) => {
+    setEditing({
+      id: plan.id,
+      name: plan.name,
+      price: plan.price,
+      currency: plan.currency || "VND",
+      description: plan.description || "",
+    });
+  };
+
+  const savePlan = async () => {
+    if (!editing) return;
+    setSaving(true);
+    setError("");
+    try {
+      if (editing.id) {
+        await apiClient.put(`/api/v1/payments/plans/${editing.id}`, editing);
+      } else {
+        await apiClient.post("/api/v1/payments/plans", editing);
+      }
+      setEditing(null);
+      await loadPlans();
+    } catch (err) {
+      console.error("save plan error:", err);
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không thể lưu gói subscription."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deletePlan = async (id) => {
+    if (!window.confirm("Xoá gói này? Thao tác sẽ ghi xuống DB.")) return;
+    try {
+      await apiClient.delete(`/api/v1/payments/plans/${id}`);
+      await loadPlans();
+    } catch (err) {
+      console.error("delete plan error:", err);
+      alert("Không thể xoá gói.");
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Gói đăng ký"
-        subtitle="Quản lý các gói dịch vụ sạc và đăng ký theo tháng/năm"
-      />
+    <div className="min-h-screen bg-slate-50 px-6 py-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <PageHeader
+          title="Subscription Plans"
+          subtitle="Tất cả gói giá / subscription lấy từ API payment-service, không dùng dữ liệu tĩnh."
+        />
 
-      {error && (
-        <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      <Section title="Danh sách gói">
-        {loading ? (
-          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
-        ) : plans.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            Chưa có gói đăng ký nào trong hệ thống.
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-3">
-            {plans.map((plan) => (
-              <div
-                key={plan.id}
-                className="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-2"
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-800">
-                    {plan.name}
-                  </h3>
-                  <span className="text-xs uppercase text-gray-500">
-                    {plan.type}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 min-h-[40px]">
-                  {plan.description || "Không có mô tả."}
-                </p>
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-xl font-semibold text-emerald-600">
-                    {plan.price?.toLocaleString("vi-VN") ?? 0}
-                  </span>
-                  <span className="text-xs text-gray-500">VND</span>
-                </div>
-                {plan.duration_days && (
-                  <p className="text-xs text-gray-500">
-                    Thời hạn: {plan.duration_days} ngày
-                  </p>
-                )}
-                <button
-                  type="button"
-                  className="mt-3 text-xs px-3 py-1 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Chỉnh sửa (TODO – gọi API PUT)
-                </button>
-              </div>
-            ))}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+            {error}
           </div>
         )}
-      </Section>
+
+        <Section title="Danh sách gói">
+          <div className="flex justify-between items-center mb-3">
+            <div className="text-sm text-slate-500">
+              {(plans || []).length} gói đang hoạt động
+            </div>
+            <button
+              onClick={startCreate}
+              className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold"
+            >
+              + Tạo gói mới
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
+          ) : (
+            <Table
+              columns={["ID", "Tên gói", "Giá", "Mô tả", ""]}
+              rows={(plans || []).map((p) => [
+                p.id,
+                p.name,
+                `${p.price?.toLocaleString("vi-VN")} ${p.currency || "VND"}`,
+                p.description || "",
+                "actions",
+              ])}
+              renderRow={(row, index) => {
+                const plan = plans[index];
+                return (
+                  <tr
+                    key={plan.id}
+                    className="border-b last:border-0 hover:bg-slate-50"
+                  >
+                    <td className="px-3 py-2 text-xs text-slate-500">
+                      {plan.id}
+                    </td>
+                    <td className="px-3 py-2 text-sm font-semibold">
+                      {plan.name}
+                    </td>
+                    <td className="px-3 py-2 text-sm">
+                      {plan.price?.toLocaleString("vi-VN")}{" "}
+                      {plan.currency || "VND"}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-600">
+                      {plan.description}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={() => startEdit(plan)}
+                        className="text-xs px-2 py-1 rounded border mr-2"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => deletePlan(plan.id)}
+                        className="text-xs px-2 py-1 rounded bg-red-600 text-white"
+                      >
+                        Xoá
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }}
+            />
+          )}
+        </Section>
+
+        {editing && (
+          <Section title={editing.id ? "Sửa gói" : "Tạo gói mới"}>
+            <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Tên gói</div>
+                <input
+                  value={editing.name}
+                  onChange={(e) =>
+                    setEditing((p) => ({ ...p, name: e.target.value }))
+                  }
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Giá</div>
+                <input
+                  type="number"
+                  min={0}
+                  value={editing.price}
+                  onChange={(e) =>
+                    setEditing((p) => ({
+                      ...p,
+                      price: Number(e.target.value) || 0,
+                    }))
+                  }
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Đơn vị tiền</div>
+                <select
+                  value={editing.currency}
+                  onChange={(e) =>
+                    setEditing((p) => ({ ...p, currency: e.target.value }))
+                  }
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="VND">VND</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <div className="text-xs text-slate-500 mb-1">Mô tả</div>
+                <textarea
+                  rows={3}
+                  value={editing.description}
+                  onChange={(e) =>
+                    setEditing((p) => ({
+                      ...p,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="md:col-span-2 flex justify-end gap-2">
+                <button
+                  onClick={() => setEditing(null)}
+                  className="px-3 py-2 rounded-lg border text-sm"
+                >
+                  Huỷ
+                </button>
+                <button
+                  onClick={savePlan}
+                  disabled={saving}
+                  className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
+                >
+                  {saving ? "Đang lưu..." : "Lưu gói"}
+                </button>
+              </div>
+            </div>
+          </Section>
+        )}
+      </div>
     </div>
   );
 }

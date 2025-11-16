@@ -1,196 +1,440 @@
-// pages/admin/Analytics.jsx
 import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Chart from "@/components/admin/Chart";
+import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
-const DEFAULT_RANGE = "30d";
-
+/**
+ * Trang Analytics cho admin
+ * - Tab Monitoring: metrics, logs, alerts (lấy từ monitoring-service)
+ * - Tab Analytics: báo cáo user / station / revenue (lấy từ analytics/payment)
+ */
 export default function Analytics() {
-  // 🔹 Bộ lọc khoảng thời gian
-  const [range, setRange] = useState(DEFAULT_RANGE);
+  const [activeTab, setActiveTab] = useState("monitoring");
 
-  // 🔹 Dữ liệu từ API
-  const [stationUsage, setStationUsage] = useState([]);
-  const [topStations, setTopStations] = useState([]);
-  const [forecast, setForecast] = useState([]);
+  // MONITORING STATE
+  const [metrics, setMetrics] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [alerts, setAlerts] = useState([]);
 
-  const [loading, setLoading] = useState(false);
+  // ANALYTICS STATE
+  const [userReport, setUserReport] = useState(null);
+  const [stationDaily, setStationDaily] = useState([]);
+  const [revenueSummary, setRevenueSummary] = useState(null);
+
+  const [filters, setFilters] = useState({
+    userId: "",
+    stationId: "",
+    month: new Date().toISOString().slice(0, 7), // yyyy-MM
+    date: new Date().toISOString().slice(0, 10), // yyyy-MM-dd
+  });
+
+  const [loadingMonitoring, setLoadingMonitoring] = useState(false);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [error, setError] = useState("");
 
-  // =========================
-  // Gọi API analytics mỗi khi thay đổi range
-  // =========================
-  useEffect(() => {
-    let isMounted = true;
+  // ===================== MONITORING =====================
+  const loadMonitoring = async () => {
+    setLoadingMonitoring(true);
+    setError("");
+    try {
+      // 1) Metrics (Prometheus-style)
+      const metricsRes = await apiClient.get("/api/v1/monitoring/metrics", {
+        params: {
+          metric: "requests_per_sec",
+          from: "-1h",
+          to: "now",
+          step: "60s",
+        },
+      });
 
-    async function fetchAnalytics() {
-      try {
-        setLoading(true);
-        setError("");
+      // 2) Logs gần đây
+      const logsRes = await apiClient.get("/api/v1/monitoring/logs", {
+        params: {
+          q: "error OR warn",
+          from: "-1h",
+          to: "now",
+          level: "error",
+          page: 1,
+          pageSize: 20,
+        },
+      });
 
-        // 👉 API gợi ý: tổng hợp metrics cho dashboard analytics
-        const res = await apiClient({
-          method: "GET",
-          url: "/api/v1/analytics/admin/stations",
-          params: { range }, // vd: 7d / 30d / 90d
-        });
+      // 3) Alerts
+      const alertsRes = await apiClient.get("/api/v1/monitoring/alerts");
 
-        if (!isMounted) return;
-        const data = res.data || {};
-
-        setStationUsage(Array.isArray(data.station_usage) ? data.station_usage : []);
-        setTopStations(Array.isArray(data.top_stations) ? data.top_stations : []);
-        setForecast(Array.isArray(data.demand_forecast) ? data.demand_forecast : []);
-      } catch (err) {
-        console.error("Analytics error:", err);
-        if (!isMounted) return;
-        setError("Không tải được dữ liệu phân tích.");
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+      setMetrics(metricsRes.data || null);
+      setLogs(logsRes.data?.items || logsRes.data || []);
+      setAlerts(alertsRes.data?.alerts || alertsRes.data || []);
+    } catch (err) {
+      console.error("[Analytics] monitoring error:", err);
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không thể tải dữ liệu monitoring."
+      );
+    } finally {
+      setLoadingMonitoring(false);
     }
+  };
 
-    fetchAnalytics();
-    return () => {
-      isMounted = false;
-    };
-  }, [range]);
+  const handleAckAlert = async (alertId) => {
+    try {
+      await apiClient.post("/api/v1/monitoring/alerts/ack", {
+        alert_id: alertId,
+        user_id: "admin", // tuỳ backend bạn muốn truyền gì
+      });
+      await loadMonitoring();
+    } catch (err) {
+      console.error("ack alert error:", err);
+      alert(
+        err?.response?.data?.message ||
+          "Không thể ack alert, vui lòng thử lại sau."
+      );
+    }
+  };
+
+  // ===================== ANALYTICS =====================
+  const loadAnalytics = async () => {
+    setLoadingAnalytics(true);
+    setError("");
+    try {
+      const [userRes, stationRes, revenueRes] = await Promise.all([
+        // User monthly report
+        filters.userId
+          ? apiClient.get(
+              `/api/v1/analytics/reports/user/${filters.userId}/monthly`,
+              {
+                params: { month: filters.month },
+              }
+            )
+          : Promise.resolve({ data: null }),
+
+        // Station daily sessions
+        filters.stationId
+          ? apiClient.get(
+              `/api/v1/analytics/reports/station/${filters.stationId}/daily`,
+              {
+                params: { date: filters.date },
+              }
+            )
+          : Promise.resolve({ data: { sessions: [] } }),
+
+        // Revenue (group by day trong 1 tháng)
+        apiClient.get("/api/v1/analytics/reports/revenue", {
+          params: {
+            station_id: filters.stationId || undefined,
+            from: `${filters.month}-01`,
+            to: `${filters.month}-31`,
+            group_by: "day",
+          },
+        }),
+      ]);
+
+      setUserReport(userRes.data || null);
+      setStationDaily(stationRes.data?.sessions || []);
+      setRevenueSummary(revenueRes.data || null);
+    } catch (err) {
+      console.error("[Analytics] analytics error:", err);
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không thể tải dữ liệu analytics."
+      );
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
+  // Auto load khi đổi tab
+  useEffect(() => {
+    if (activeTab === "monitoring") {
+      loadMonitoring();
+    }
+    // Tab analytics không auto, user bấm "Lấy dữ liệu"
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const revenueSeries =
+    revenueSummary?.items?.map((d) => ({
+      label: d.date,
+      value: Number(d.total_revenue || 0),
+    })) || [];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Phân tích & thống kê"
-        subtitle="Theo dõi hiệu suất trạm sạc, nhu cầu và dự báo"
-      />
+    <div className="min-h-screen bg-slate-50 px-6 py-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <PageHeader
+          title="Monitoring & Analytics"
+          subtitle="Giám sát metrics / logs / alerts và phân tích chi phí, doanh thu."
+        />
 
-      {/* Bộ lọc phạm vi thời gian */}
-      <Section title="Bộ lọc dữ liệu">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-gray-600">Khoảng thời gian:</span>
-          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-            {[
-              { value: "7d", label: "7 ngày" },
-              { value: "30d", label: "30 ngày" },
-              { value: "90d", label: "90 ngày" },
-            ].map((item) => (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => setRange(item.value)}
-                className={`px-3 py-1 text-sm ${
-                  range === item.value
-                    ? "bg-emerald-500 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          {loading && (
-            <span className="text-xs text-gray-500">
-              Đang tải dữ liệu...
-            </span>
-          )}
+        {/* Tabs */}
+        <div className="flex gap-2">
+          {[
+            { key: "monitoring", label: "Monitoring" },
+            { key: "analytics", label: "Analytics" },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold border transition ${
+                activeTab === tab.key
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      </Section>
 
-      {error && (
-        <div className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* Biểu đồ sản lượng sạc theo ngày */}
-      <Section title="Sản lượng sạc theo ngày">
-        {loading ? (
-          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
-        ) : stationUsage.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            Chưa có dữ liệu sản lượng để hiển thị.
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+            {error}
           </div>
-        ) : (
-          <Chart
-            type="area"
-            data={stationUsage}
-            xKey="metric_date"
-            yKey="total_kwh"
-            height={260}
-            label="Tổng kWh"
-          />
         )}
-      </Section>
 
-      {/* Top trạm theo doanh thu / số phiên sạc */}
-      <Section title="Top trạm theo hiệu suất">
-        {loading ? (
-          <div className="h-48 bg-gray-100 animate-pulse rounded-xl" />
-        ) : topStations.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            Chưa có dữ liệu xếp hạng trạm.
-          </div>
+        {activeTab === "monitoring" ? (
+          <>
+            {/* Metrics */}
+            <Section title="Metrics (Prometheus-like)">
+              <div className="bg-white rounded-xl border shadow-sm p-4">
+                {loadingMonitoring ? (
+                  <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
+                ) : (
+                  <Chart
+                    type="line"
+                    data={
+                      metrics?.series?.map((p) => ({
+                        label: p.timestamp,
+                        value: Number(p.value),
+                      })) || []
+                    }
+                    xKey="label"
+                    yKey="value"
+                    height={260}
+                    tooltipLabel="Thời gian"
+                    tooltipValue="Requests / sec"
+                  />
+                )}
+              </div>
+            </Section>
+
+            {/* Logs + Alerts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Section title="Logs gần đây (ELK)">
+                {loadingMonitoring ? (
+                  <div className="h-48 bg-slate-100 animate-pulse rounded-xl" />
+                ) : (
+                  <Table
+                    columns={["Time", "Service", "Level", "Message"]}
+                    rows={logs.map((log) => [
+                      log.timestamp,
+                      log.service,
+                      log.level,
+                      log.message,
+                    ])}
+                  />
+                )}
+              </Section>
+
+              <Section title="Alerts hiện tại">
+                {loadingMonitoring ? (
+                  <div className="h-48 bg-slate-100 animate-pulse rounded-xl" />
+                ) : alerts.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    Không có alert nào đang firing.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {alerts.map((a) => (
+                      <div
+                        key={a.id}
+                        className="border rounded-lg bg-white px-3 py-2 flex items-center justify-between gap-3"
+                      >
+                        <div className="text-sm">
+                          <div className="font-semibold">
+                            [{a.type}] {a.summary}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            status: {a.status} • since: {a.startsAt}
+                          </div>
+                        </div>
+                        {a.status !== "acknowledged" && (
+                          <button
+                            onClick={() => handleAckAlert(a.id)}
+                            className="text-xs px-3 py-1 rounded-full bg-emerald-600 text-white font-semibold hover:bg-emerald-700"
+                          >
+                            ACK
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            </div>
+          </>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 border-b">
-                  <th className="py-2 pr-4">#</th>
-                  <th className="py-2 pr-4">Trạm sạc</th>
-                  <th className="py-2 pr-4">Số phiên sạc</th>
-                  <th className="py-2 pr-4">Tổng kWh</th>
-                  <th className="py-2 pr-4">Doanh thu (VND)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topStations.map((s, idx) => (
-                  <tr
-                    key={s.station_id || idx}
-                    className="border-b last:border-b-0"
+          <>
+            {/* Bộ lọc analytics */}
+            <Section title="Bộ lọc báo cáo">
+              <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">
+                    User ID (báo cáo tháng)
+                  </label>
+                  <input
+                    value={filters.userId}
+                    onChange={(e) =>
+                      handleFilterChange("userId", e.target.value)
+                    }
+                    placeholder="UUID hoặc mã user"
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">
+                    Station ID (báo cáo ngày)
+                  </label>
+                  <input
+                    value={filters.stationId}
+                    onChange={(e) =>
+                      handleFilterChange("stationId", e.target.value)
+                    }
+                    placeholder="UUID trạm"
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">
+                    Tháng (yyyy-MM)
+                  </label>
+                  <input
+                    type="month"
+                    value={filters.month}
+                    onChange={(e) =>
+                      handleFilterChange("month", e.target.value)
+                    }
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">
+                    Ngày (yyyy-MM-dd)
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.date}
+                    onChange={(e) =>
+                      handleFilterChange("date", e.target.value)
+                    }
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div className="md:col-span-4 flex justify-end items-end">
+                  <button
+                    onClick={loadAnalytics}
+                    disabled={loadingAnalytics}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
                   >
-                    <td className="py-2 pr-4 text-gray-500">
-                      {idx + 1}
-                    </td>
-                    <td className="py-2 pr-4 font-medium">
-                      {s.station_name || s.station_id}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {s.total_sessions?.toLocaleString("vi-VN") ?? "--"}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {s.total_kwh?.toLocaleString("vi-VN") ?? "--"}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {s.total_revenue?.toLocaleString("vi-VN") ?? "--"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
+                    {loadingAnalytics ? "Đang tải..." : "Lấy dữ liệu báo cáo"}
+                  </button>
+                </div>
+              </div>
+            </Section>
 
-      {/* Dự báo nhu cầu (AI / forecast) */}
-      <Section title="Dự báo nhu cầu sạc (AI)">
-        {loading ? (
-          <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
-        ) : forecast.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            Chưa có dữ liệu dự báo. Kiểm tra lại job huấn luyện / ETL.
-          </div>
-        ) : (
-          <Chart
-            type="line"
-            data={forecast}
-            xKey="forecast_date"
-            yKey="predicted_sessions"
-            height={260}
-            label="Số phiên sạc dự kiến"
-          />
+            {/* User monthly */}
+            <Section title="Báo cáo tháng theo User">
+              {loadingAnalytics ? (
+                <div className="h-32 bg-slate-100 animate-pulse rounded-xl" />
+              ) : userReport ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white border rounded-lg p-4">
+                    <div className="text-xs text-slate-500 mb-1">
+                      Tổng số phiên
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {userReport.total_sessions}
+                    </div>
+                  </div>
+                  <div className="bg-white border rounded-lg p-4">
+                    <div className="text-xs text-slate-500 mb-1">
+                      Tổng kWh sử dụng
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {userReport.total_kwh}
+                    </div>
+                  </div>
+                  <div className="bg-white border rounded-lg p-4">
+                    <div className="text-xs text-slate-500 mb-1">
+                      Tổng chi phí
+                    </div>
+                    <div className="text-2xl font-bold text-emerald-600">
+                      {userReport.total_cost?.toLocaleString("vi-VN") || 0} đ
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  Nhập User ID và bấm &quot;Lấy dữ liệu&quot; để xem báo cáo.
+                </p>
+              )}
+            </Section>
+
+            {/* Station daily sessions */}
+            <Section title="Phiên trong ngày theo trạm">
+              {loadingAnalytics ? (
+                <div className="h-40 bg-slate-100 animate-pulse rounded-xl" />
+              ) : (
+                <Table
+                  columns={[
+                    "Session ID",
+                    "User",
+                    "Bắt đầu",
+                    "KWh",
+                    "Chi phí (đ)",
+                    "Trạng thái",
+                  ]}
+                  rows={stationDaily.map((s) => [
+                    s.id,
+                    s.user_id,
+                    s.start_time,
+                    s.energy_kwh,
+                    s.cost?.toLocaleString("vi-VN"),
+                    s.status,
+                  ])}
+                />
+              )}
+            </Section>
+
+            {/* Revenue chart */}
+            <Section title="Biểu đồ doanh thu (group by day)">
+              <div className="bg-white rounded-xl border shadow-sm p-4">
+                {loadingAnalytics ? (
+                  <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
+                ) : (
+                  <Chart
+                    type="bar"
+                    data={revenueSeries}
+                    xKey="label"
+                    yKey="value"
+                    height={260}
+                    tooltipLabel="Ngày"
+                    tooltipValue="Doanh thu (VND)"
+                  />
+                )}
+              </div>
+            </Section>
+          </>
         )}
-      </Section>
+      </div>
     </div>
   );
 }
