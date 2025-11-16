@@ -173,25 +173,28 @@ export default class PaymentService {
     if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
     return transaction;
   }
-
-  // ================= Revenue Service Logic ===================
  async revenueSummary() {
-  return await this.txRepo.getRevenueSummary();
-}
+    return await this.txRepo.getRevenueSummary();
+  }
 
-async todayRevenue() {
-  return await this.txRepo.getTodayRevenue();
-}
+  async todayRevenue() {
+    return await this.txRepo.getTodayRevenue();
+  }
 
-async dailyRevenue(days = 30) {
-  return await this.txRepo.getDailyRevenue(days);
-}
+  async dailyRevenue(days = 30) {
+    return await this.txRepo.getDailyRevenue(days);
+  }
 
-async monthlyRevenue(months = 12) {
-  return await this.txRepo.getMonthlyRevenue(months);
-}
+  async monthlyRevenue(months = 12) {
+    return await this.txRepo.getMonthlyRevenue(months);
+  }
 
-async revenueByType() {
-  return await this.txRepo.getRevenueByType();
-}
+  async revenueByType() {
+    return await this.txRepo.getRevenueByType();
+  }
+
+  async getTotalTransactions() {
+    // Tổng số transaction completed
+    return await this.txRepo.count({ status: 'completed' });
+  }
 }
