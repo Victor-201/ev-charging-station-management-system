@@ -4,7 +4,7 @@ import Card from "../../components/staff/Card/index";
 import Table from "../../components/staff/Table/index";
 
 export default function Stations() {
-  const managedStationId = "22222222-2222-2222-2222-222222222222";
+  const managedStationId = "550e8400-e29b-41d4-a716-446655440001";
 
   const {
     stations,
