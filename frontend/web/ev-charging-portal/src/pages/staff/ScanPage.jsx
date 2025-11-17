@@ -17,7 +17,7 @@ export default function ScanPage() {
   const tempStreamRef = useRef(null);
   const mountedRef = useRef(false);
   const confirmLockRef = useRef(false);
-  const scanLockRef = useRef(false); // ✅ lock callback scan
+  const scanLockRef = useRef(false);
 
   // ================= Dọn dẹp camera =================
   const stopTempStream = () => {
@@ -119,7 +119,7 @@ export default function ScanPage() {
         { facingMode: 'environment' },
         config,
         async (decodedText) => {
-          if (!mountedRef.current || scanLockRef.current) return; // ✅ chỉ scan 1 lần
+          if (!mountedRef.current || scanLockRef.current) return;
           scanLockRef.current = true;
           setScanned(true);
 
@@ -134,6 +134,7 @@ export default function ScanPage() {
           try {
             const match = decodedText.match(/qr\/([^\/?#]+)/i);
             const qr_id = match ? match[1] : decodedText;
+            
             // Validate QR
             const validateRes = await apiClient.get(`/api/v1/booking/qr/${qr_id}/validate`);
             const reservation_id = validateRes.data?.reservation_id;
@@ -144,8 +145,9 @@ export default function ScanPage() {
             const resData = resDetail.data;
             setReservation(resData);
 
-            // Tạo phiên sạc
+            // ✅ Tạo phiên sạc - ĐÃ THÊM reservation_id vào payload
             const initPayload = {
+              reservation_id: reservation_id,  // ✅ THÊM reservation_id
               station_id: resData.station_id,
               point_id: resData.point_id,
               user_id: resData.user_id
@@ -212,7 +214,7 @@ export default function ScanPage() {
   }, [sessionData, navigate]);
 
   const handleScanAgain = () => {
-    scanLockRef.current = false; // ✅ reset lock
+    scanLockRef.current = false;
     setScanned(false);
     setReservation(null);
     setSessionData(null);
