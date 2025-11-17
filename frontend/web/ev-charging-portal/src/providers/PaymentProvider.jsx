@@ -1,7 +1,7 @@
 // contexts/PaymentProvider.jsx
 import React, { useState, useCallback, useMemo } from "react";
 import { PaymentContext } from "@/contexts/PaymentContext";
-import paymentService from "@/services/paymentService"; 
+import paymentService from "@/services/paymentService";
 
 export const PaymentProvider = ({ children }) => {
   // Generic error state
@@ -9,7 +9,7 @@ export const PaymentProvider = ({ children }) => {
 
   // Loading flags grouped by responsibility
   const [loadingPayments, setLoadingPayments] = useState(false);
-  const [loadingTransactions, setLoadingTransactions] = useState(false); // NEW: transactions
+  const [loadingTransactions, setLoadingTransactions] = useState(false); // transactions
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
@@ -26,23 +26,135 @@ export const PaymentProvider = ({ children }) => {
   const [monthlyRevenue, setMonthlyRevenue] = useState(null);
   const [todayRevenue, setTodayRevenue] = useState(null);
 
+  // QR and transaction specific state
+  const [qrCodeUrl, setQrCodeUrl] = useState(null);
+  const [transactionPolling, setTransactionPolling] = useState(false);
+
   // ===== TRANSACTIONS =====
   const createTransaction = useCallback(async (payload) => {
-    // Separate loading flag for transactions so UI can react differently
     setLoadingTransactions(true);
     setError(null);
+
     try {
       const res = await paymentService.createTransaction(payload);
       const data = res?.data ?? res;
-      // Optionally keep lastPayment in sync if transaction returns a payment object
-      setLastPayment((prev) => data ?? prev);
+
+      // Lấy QR link (thường nằm trong data.meta.qrLink)
+      const qr = data?.meta?.qrLink || data?.data?.meta?.qrLink || null;
+      if (qr) setQrCodeUrl(qr);
+
+      // Lưu lastPayment
+      setLastPayment(data ?? null);
+
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally {
       setLoadingTransactions(false);
     }
+  }, []);
+
+  const confirmCashTransaction = useCallback(async (transactionId, payload) => {
+    setLoadingTransactions(true);
+    setError(null);
+    try {
+      const res = await paymentService.confirmCashTransaction(transactionId, payload);
+      const data = res?.data ?? res;
+      setLastPayment(data);
+      return { success: true, data };
+    } catch (err) {
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
+    } finally {
+      setLoadingTransactions(false);
+    }
+  }, []);
+
+  // Lấy transaction bằng id (useful để check status)
+  const getTransaction = useCallback(async (transactionId) => {
+    if (!transactionId) return { success: false, error: "transactionId is required" };
+    setLoadingTransactions(true);
+    setError(null);
+    try {
+      if (typeof paymentService.getTransaction !== "function") {
+        return { success: false, error: "paymentService.getTransaction not implemented" };
+      }
+      const res = await paymentService.getTransaction(transactionId);
+      const data = res?.data ?? res;
+      // Nếu backend trả qrLink ở getTransaction, update lại qrCodeUrl
+      const qr = data?.meta?.qrLink || data?.data?.meta?.qrLink || null;
+      if (qr) setQrCodeUrl(qr);
+      setLastPayment(data ?? null);
+      return { success: true, data };
+    } catch (err) {
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
+    } finally {
+      setLoadingTransactions(false);
+    }
+  }, []);
+
+  // Poll transaction status until completed/failed or timeout
+  const pollTransactionStatus = useCallback((transactionId, {
+    intervalMs = 3000,
+    timeoutMs = 2 * 60 * 1000,
+  } = {}) => {
+    if (!transactionId) return Promise.resolve({ success: false, error: "transactionId is required" });
+
+    setTransactionPolling(true);
+
+    return new Promise((resolve) => {
+      const startedAt = Date.now();
+
+      const tick = async () => {
+        // stop if timed out
+        if (Date.now() - startedAt > timeoutMs) {
+          setTransactionPolling(false);
+          resolve({ success: false, error: "timeout" });
+          return;
+        }
+
+        try {
+          // nếu paymentService có getTransaction -> gọi
+          if (typeof paymentService.getTransaction === "function") {
+            const r = await paymentService.getTransaction(transactionId);
+            const tx = r?.data ?? r;
+
+            // normalize status check
+            const status =
+              (tx?.status) ||
+              (tx?.data?.status) ||
+              (tx?.payment_status) ||
+              (tx?.data?.payment_status) ||
+              null;
+
+            if (status && ["completed", "success", "paid"].includes(String(status).toLowerCase())) {
+              setTransactionPolling(false);
+              setLastPayment(tx);
+              resolve({ success: true, data: tx });
+              return;
+            }
+
+            if (status && ["failed", "cancelled", "error"].includes(String(status).toLowerCase())) {
+              setTransactionPolling(false);
+              setLastPayment(tx);
+              resolve({ success: false, error: "transaction_failed", data: tx });
+              return;
+            }
+          }
+        } catch (e) {
+          // ignore transient error, continue polling
+        }
+
+        setTimeout(tick, intervalMs);
+      };
+
+      tick();
+    });
   }, []);
 
   // ===== PAYMENTS =====
@@ -54,8 +166,9 @@ export const PaymentProvider = ({ children }) => {
       setLastPayment(data);
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingPayments(false); }
   }, []);
 
@@ -67,8 +180,9 @@ export const PaymentProvider = ({ children }) => {
       setLastPayment(data);
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingPayments(false); }
   }, []);
 
@@ -80,8 +194,9 @@ export const PaymentProvider = ({ children }) => {
       setLastPayment(data);
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingPayments(false); }
   }, []);
 
@@ -92,8 +207,9 @@ export const PaymentProvider = ({ children }) => {
       const data = res?.data ?? res;
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingPayments(false); }
   }, []);
 
@@ -104,8 +220,9 @@ export const PaymentProvider = ({ children }) => {
       const data = res?.data ?? res;
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingPayments(false); }
   }, []);
 
@@ -118,8 +235,9 @@ export const PaymentProvider = ({ children }) => {
       setLastInvoice(data);
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingInvoice(false); }
   }, []);
 
@@ -130,8 +248,9 @@ export const PaymentProvider = ({ children }) => {
       const data = res?.data ?? res;
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingInvoice(false); }
   }, []);
 
@@ -144,8 +263,9 @@ export const PaymentProvider = ({ children }) => {
       setWalletBalance(data);
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingWallet(false); }
   }, []);
 
@@ -156,8 +276,9 @@ export const PaymentProvider = ({ children }) => {
       const data = res?.data ?? res;
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingWallet(false); }
   }, []);
 
@@ -169,8 +290,9 @@ export const PaymentProvider = ({ children }) => {
       const data = res?.data ?? res;
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingSubscription(false); }
   }, []);
 
@@ -181,8 +303,9 @@ export const PaymentProvider = ({ children }) => {
       const data = res?.data ?? res;
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingSubscription(false); }
   }, []);
 
@@ -194,8 +317,9 @@ export const PaymentProvider = ({ children }) => {
       const data = res?.data ?? res;
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingPayments(false); }
   }, []);
 
@@ -207,13 +331,13 @@ export const PaymentProvider = ({ children }) => {
       const data = res?.data ?? res;
       return { success: true, data };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally { setLoadingLedger(false); }
   }, []);
 
   // ===== REVENUE =====
-
   const getTodayRevenue = useCallback(async () => {
     setLoadingRevenue((s) => ({ ...s, today: true }));
     setError(null);
@@ -223,9 +347,10 @@ export const PaymentProvider = ({ children }) => {
       setTodayRevenue(data);
       return { success: true, data };
     } catch (err) {
-      setError(err);
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
       setTodayRevenue(null);
-      return { success: false, error: err };
+      return { success: false, error: errObj };
     } finally {
       setLoadingRevenue((s) => ({ ...s, today: false }));
     }
@@ -238,9 +363,10 @@ export const PaymentProvider = ({ children }) => {
       setDailyRevenue(data);
       return { success: true, data };
     } catch (err) {
-      setError(err);
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
       setDailyRevenue(null);
-      return { success: false, error: err };
+      return { success: false, error: errObj };
     } finally {
       setLoadingRevenue((s) => ({ ...s, daily: false }));
     }
@@ -254,9 +380,10 @@ export const PaymentProvider = ({ children }) => {
       setMonthlyRevenue(data);
       return { success: true, data };
     } catch (err) {
-      setError(err);
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
       setMonthlyRevenue(null);
-      return { success: false, error: err };
+      return { success: false, error: errObj };
     } finally {
       setLoadingRevenue((s) => ({ ...s, monthly: false }));
     }
@@ -285,19 +412,19 @@ export const PaymentProvider = ({ children }) => {
 
       return { success: true, daily: dailyResult, monthly: monthlyResult };
     } catch (err) {
-      setError(err);
-      return { success: false, error: err };
+      const errObj = err?.response?.data ?? err;
+      setError(errObj);
+      return { success: false, error: errObj };
     } finally {
       setLoadingRevenue({ daily: false, monthly: false, all: false });
     }
   }, []);
-  
 
   // Memoize context value
   const value = useMemo(() => ({
     error,
     loadingPayments,
-    loadingTransactions, // exposed
+    loadingTransactions,
     loadingInvoice,
     loadingWallet,
     loadingSubscription,
@@ -312,6 +439,9 @@ export const PaymentProvider = ({ children }) => {
 
     // TRANSACTIONS
     createTransaction,
+    confirmCashTransaction,
+    getTransaction,
+    pollTransactionStatus,
 
     // PAYMENTS
     createIntent,
@@ -344,6 +474,11 @@ export const PaymentProvider = ({ children }) => {
     getMonthlyRevenue,
     fetchAllRevenue,
 
+    // QR & helpers
+    qrCodeUrl,
+    setQrCodeUrl,
+    transactionPolling,
+
     // setters (optional)
     setLastPayment,
     setLastInvoice,
@@ -352,6 +487,7 @@ export const PaymentProvider = ({ children }) => {
     setMonthlyRevenue,
   }), [
     error,
+    qrCodeUrl,
     loadingPayments,
     loadingTransactions,
     loadingInvoice,
@@ -366,6 +502,9 @@ export const PaymentProvider = ({ children }) => {
     monthlyRevenue,
     todayRevenue,
     createTransaction,
+    confirmCashTransaction,
+    getTransaction,
+    pollTransactionStatus,
     createIntent,
     confirmIntent,
     getPaymentById,

@@ -71,6 +71,8 @@ export const paymentService = {
     url: "api/v1/payments/transaction",
     data: payload,
   }),
+  confirmCashTransaction: (transaction_id, payload) =>
+apiClient({ method: "POST", url: `api/v1/payments/transaction/${transaction_id}/confirm`, data: payload }),
 
 };
 
