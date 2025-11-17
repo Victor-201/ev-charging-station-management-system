@@ -110,6 +110,8 @@ class BookingService {
       },
     };
 
+    let paymentResponse = null;
+
     try {
       console.log('Sending REST payment request to payment-service with payload:', payload);
 
@@ -126,16 +128,21 @@ class BookingService {
       debug('REST payment request sent successfully');
       debug('Payment service response:', response.data);
 
+      paymentResponse = response.data;
+
     } catch (e) {
       if (e.response) {
         debug('Payment service returned error:', e.response.status, e.response.data);
+        paymentResponse = { error: e.response.data, status: e.response.status };
       } else {
         debug('REST payment request failed:', e.message);
+        paymentResponse = { error: e.message };
       }
     }
 
-    return reservation;
+    return { reservation, payment: paymentResponse };
   }
+
 
   async confirmReservation(reservation_id, { payment_info = null } = {}) {
     if (!reservation_id) throw new Error('reservation_id is required');

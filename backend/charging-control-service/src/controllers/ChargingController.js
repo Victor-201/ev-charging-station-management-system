@@ -238,21 +238,46 @@ exports.resumeSession = async (req, res) => {
 exports.stopSession = async (req, res) => {
   try {
     const session_id = req.params.session_id;
-    if (!session_id) return res.status(400).json({ error: 'session_id is required' });
+    if (!session_id) 
+      return res.status(400).json({ error: 'session_id is required' });
 
     const stop_reason = req.body.stop_reason || 'user_stop';
     const end_meter_wh = req.body.end_meter_wh != null ? req.body.end_meter_wh : null;
-    const payment_method = req.body.payment_method || null; // optional: 'wallet'|'bank_transfer'|'cash'
+    const payment_method = req.body.payment_method || null;
 
-    const result = await ChargingService.stopSession({ session_id, stop_reason, end_meter_wh, payment_method });
-    // status 'pending' and include payment options & selected method
-    return res.status(200).json(result);
+    // --- 1) STOP SESSION ---
+    const stopped = await ChargingService.stopSession({
+      session_id,
+      stop_reason,
+      end_meter_wh,
+      payment_method
+    });
+
+    // --- 2) GỌI RECONCILE TỰ ĐỘNG ---
+    // mặc định auto_settle = true để tính tiền & chốt hoá đơn
+    const autoSettle = req.body.auto_settle !== undefined ? Boolean(req.body.auto_settle) : true;
+    const threshold  = req.body.threshold != null ? Number(req.body.threshold) : 1000;
+    const operator   = req.body.operator || null;
+
+    const reconcileResult = await ChargingService.reconcileSessionWithReservation(
+      session_id,
+      { autoSettle, threshold, operator }
+    );
+
+    // --- 3) TRẢ VỀ KẾT QUẢ CUỐI CÙNG ---
+    return res.status(200).json({
+      ok: true,
+      stop_result: stopped,
+      settle_result: reconcileResult
+    });
+
   } catch (err) {
     console.error('[ChargingController.stopSession] error:', err);
     const status = mapErrorToStatus(err.message);
     return res.status(status).json({ error: err.message || 'Internal server error' });
   }
 };
+
 
 
 // GET /api/v1/sessions/:session_id

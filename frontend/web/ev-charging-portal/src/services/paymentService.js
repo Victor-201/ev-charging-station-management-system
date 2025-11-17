@@ -3,7 +3,7 @@ import apiClient from "@/api/apiClient";
 export const paymentService = {
   // ===== PAYMENTS =====
   createIntent: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/payments/create-intent", data: payload }),
+    apiClient({ method: "POST", url: "api/v1/payments/transaction", data: payload }),
 
   confirmIntent: (payload) =>
     apiClient({ method: "POST", url: "api/v1/payments/confirm", data: payload }),
@@ -60,6 +60,19 @@ export const paymentService = {
       method: "GET",
       url: "api/v1/payments/revenue/monthly",
     }),
+   getTodayRevenue: () =>
+    apiClient({
+      method: "GET",
+      url: "api/v1/payments/revenue/today",
+    }), 
+    createTransaction: (payload) =>
+  apiClient({
+    method: "POST",
+    url: "api/v1/payments/transaction",
+    data: payload,
+  }),
+
 };
+
 
 export default paymentService;

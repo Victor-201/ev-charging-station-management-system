@@ -9,6 +9,7 @@ export const PaymentProvider = ({ children }) => {
 
   // Loading flags grouped by responsibility
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const [loadingTransactions, setLoadingTransactions] = useState(false); // NEW: transactions
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
@@ -23,6 +24,26 @@ export const PaymentProvider = ({ children }) => {
   // Revenue caches
   const [dailyRevenue, setDailyRevenue] = useState(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState(null);
+  const [todayRevenue, setTodayRevenue] = useState(null);
+
+  // ===== TRANSACTIONS =====
+  const createTransaction = useCallback(async (payload) => {
+    // Separate loading flag for transactions so UI can react differently
+    setLoadingTransactions(true);
+    setError(null);
+    try {
+      const res = await paymentService.createTransaction(payload);
+      const data = res?.data ?? res;
+      // Optionally keep lastPayment in sync if transaction returns a payment object
+      setLastPayment((prev) => data ?? prev);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setLoadingTransactions(false);
+    }
+  }, []);
 
   // ===== PAYMENTS =====
   const createIntent = useCallback(async (payload) => {
@@ -192,6 +213,23 @@ export const PaymentProvider = ({ children }) => {
   }, []);
 
   // ===== REVENUE =====
+
+  const getTodayRevenue = useCallback(async () => {
+    setLoadingRevenue((s) => ({ ...s, today: true }));
+    setError(null);
+    try {
+      const res = await paymentService.getTodayRevenue();
+      const data = res?.data ?? res;
+      setTodayRevenue(data);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setTodayRevenue(null);
+      return { success: false, error: err };
+    } finally {
+      setLoadingRevenue((s) => ({ ...s, today: false }));
+    }
+  }, []);
   const getDailyRevenue = useCallback(async () => {
     setLoadingRevenue((s) => ({ ...s, daily: true })); setError(null);
     try {
@@ -253,11 +291,13 @@ export const PaymentProvider = ({ children }) => {
       setLoadingRevenue({ daily: false, monthly: false, all: false });
     }
   }, []);
+  
 
   // Memoize context value
   const value = useMemo(() => ({
     error,
     loadingPayments,
+    loadingTransactions, // exposed
     loadingInvoice,
     loadingWallet,
     loadingSubscription,
@@ -268,22 +308,43 @@ export const PaymentProvider = ({ children }) => {
     walletBalance,
     dailyRevenue,
     monthlyRevenue,
+    todayRevenue,
+
+    // TRANSACTIONS
+    createTransaction,
+
+    // PAYMENTS
     createIntent,
     confirmIntent,
     getPaymentById,
     webhook,
     refundPayment,
+
+    // INVOICE
     getInvoiceById,
     generateBilling,
+
+    // WALLET
     getWalletBalance,
     transferWallet,
+
+    // SUBSCRIPTION
     createSubscription,
     cancelSubscription,
+
+    // COUPON
     createCoupon,
+
+    // LEDGER
     exportLedger,
+
+    // REVENUE
+    getTodayRevenue,
     getDailyRevenue,
     getMonthlyRevenue,
     fetchAllRevenue,
+
+    // setters (optional)
     setLastPayment,
     setLastInvoice,
     setWalletBalance,
@@ -292,6 +353,7 @@ export const PaymentProvider = ({ children }) => {
   }), [
     error,
     loadingPayments,
+    loadingTransactions,
     loadingInvoice,
     loadingWallet,
     loadingSubscription,
@@ -302,6 +364,8 @@ export const PaymentProvider = ({ children }) => {
     walletBalance,
     dailyRevenue,
     monthlyRevenue,
+    todayRevenue,
+    createTransaction,
     createIntent,
     confirmIntent,
     getPaymentById,
@@ -315,6 +379,7 @@ export const PaymentProvider = ({ children }) => {
     cancelSubscription,
     createCoupon,
     exportLedger,
+    getTodayRevenue,
     getDailyRevenue,
     getMonthlyRevenue,
     fetchAllRevenue,

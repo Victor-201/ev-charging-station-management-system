@@ -263,89 +263,37 @@ async reconcileSessionWithReservation(session_id, { autoSettle = false, threshol
    * body: { stop_reason, end_meter_wh }
    * Trả về: { session_id, status: 'finished', kwh, cost }
    */
-  async stopSession({ session_id, stop_reason = 'user_stop', end_meter_wh = null, payment_method = null } = {}) {
+ async stopSession({ session_id, end_meter_wh = null, stop_reason = 'user_stop' } = {}) {
+
   const s = await SessionRepo.getById(session_id);
   if (!s) throw new Error('Charging session not found');
 
-  if (!['charging','paused','active','ACTIVE'].includes((s.status || '').toLowerCase())) {
+  // Chỉ cho phép dừng nếu đang chạy
+  if (!['charging', 'paused', 'active', 'ACTIVE'].includes((s.status || '').toLowerCase())) {
     throw new Error('Invalid session state for stopping');
   }
 
-  // ended_at now
   const ended_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
 
-  // compute cost based on time difference: minutes * 1000
-  let cost = null;
-  let duration_minutes = 0;
-  try {
-    const startAt = s.started_at ? dayjs(s.started_at) : null;
-    const endAt = dayjs(ended_at);
-    if (startAt) {
-      const diffMs = endAt.valueOf() - startAt.valueOf();
-      let minutes = Math.ceil(diffMs / 60000); // charge per started minute
-      if (minutes < 0) minutes = 0;
-      duration_minutes = minutes;
-      cost = minutes * 1000; // 1000 đồng per minute
-    } else {
-      // nếu không có started_at thì tính 0 phút
-      duration_minutes = 0;
-      cost = 0;
-    }
-  } catch (err) {
-    // fallback
-    duration_minutes = 0;
-    cost = 0;
-  }
+  const endMeterValue =
+    end_meter_wh != null
+      ? end_meter_wh
+      : (s.end_meter_wh != null ? s.end_meter_wh : null);
 
-  const endMeterValue = end_meter_wh != null ? end_meter_wh : (s.end_meter_wh != null ? s.end_meter_wh : null);
-
-  // set default payment method if none provided
-  const AVAILABLE_METHODS = ['wallet', 'bank_transfer', 'cash'];
-  const normalized = (typeof payment_method === 'string' && payment_method.length) ? String(payment_method).toLowerCase() : null;
-  const selected_method = AVAILABLE_METHODS.includes(normalized) ? normalized : 'bank_transfer';
-
-  // update status -> pending and set end_meter_wh, ended_at, cost
+  // ❗ Chỉ update 3 trường: status, end_meter_wh, ended_at
   const updated = await SessionRepo.updateStatus(session_id, 'pending', {
     end_meter_wh: endMeterValue,
     ended_at,
-    cost,
   });
-
-  // attach payment info into metadata JSON column (merge with existing metadata if any)
-  try {
-    const existingMeta = updated.metadata && typeof updated.metadata === 'object'
-      ? updated.metadata
-      : (updated.metadata ? JSON.parse(updated.metadata) : {});
-
-    existingMeta.payment = existingMeta.payment || {};
-    existingMeta.payment.method = selected_method;
-    existingMeta.payment.status = 'pending';
-    existingMeta.payment.amount = cost;
-    existingMeta.payment.created_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
-    existingMeta.payment.stop_reason = stop_reason;
-
-    // persist metadata
-    await pool.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [
-      JSON.stringify(existingMeta),
-      dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
-      session_id,
-    ]);
-  } catch (err) {
-    // non-fatal: log and continue
-    console.error('[stopSession] failed to persist metadata.payment', err);
-  }
-
-  await publish('charging_events', { type: 'SESSION_PENDING_PAYMENT', data: { session_id, ended_at, cost, stop_reason, payment_method: selected_method } });
 
   return {
     session_id: updated.session_id || session_id,
     status: 'pending',
-    cost,
-    duration_minutes,
-
-    selected_payment_method: selected_method
+    message: 'Session stopped and moved to pending',
+    stop_reason,
   };
 }
+
   /**
    * Trả về lịch sử session của 1 user (delegates to repo)
    * opts: { from, to, limit, offset, status }
