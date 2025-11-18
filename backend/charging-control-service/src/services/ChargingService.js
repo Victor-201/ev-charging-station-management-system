@@ -14,25 +14,42 @@ class ChargingService {
    */
 
   _subscribePaymentEvents() {
-  // ===== SESSION PAYMENT =====
-  EventBus.subscribe('payment.session.succeeded', async (payload) => {
-    debug('⚡ Session Payment succeeded:', payload.related_id);
-    try {
-      await this.confirmPayment(payload.related_id, { payment_info: payload });
-    } catch (e) {
-      debug('confirmPayment error:', e.message);
-    }
-  });
+    EventBus.subscribe('payment.charging_session.succeeded', async (payload) => {
+      debug('💰 Payment succeeded:', payload.related_id);
+      try {
+        await this.confirmSession(payload.related_id, { payment_info: payload });
+      } catch (e) {
+        debug('confirmReservation error:', e.message);
+      }
+    });
 
-  EventBus.subscribe('payment.session.failed', async (payload) => {
-    debug('❌ Session Payment failed:', payload.related_id);
-    try {
-      await this.failPayment(payload.related_id, { reason: payload.reason });
-    } catch (e) {
-      debug('failPayment error:', e.message);
-    }
-  });
-}
+    EventBus.subscribe('payment.charging_session.failed', async (payload) => {
+      debug('💸 Payment failed:', payload.related_id);
+      try {
+        await this.markSessionFailed(payload.related_id, { cancel: true, reason: payload.reason });
+      } catch (e) {
+        debug('markPaymentFailed error:', e.message);
+      }
+    });
+
+        EventBus.subscribe('payment.guest_charging.succeeded', async (payload) => {
+      debug('💰 Payment succeeded:', payload.related_id);
+      try {
+        await this.confirmSession(payload.related_id, { payment_info: payload });
+      } catch (e) {
+        debug('confirmReservation error:', e.message);
+      }
+    });
+
+    EventBus.subscribe('payment.guest_charging.failed', async (payload) => {
+      debug('💸 Payment failed:', payload.related_id);
+      try {
+        await this.markSessionFailed(payload.related_id, { cancel: true, reason: payload.reason });
+      } catch (e) {
+        debug('markPaymentFailed error:', e.message);
+      }
+    });
+  }
 
   async initiateSession({ reservation_id = null, station_id = null, point_id, user_id, connector_type = null } = {}) {
     // VALIDATION
@@ -483,16 +500,19 @@ async reconcileSessionWithReservation(
     return await SessionRepo.getActiveByStationId(station_id);
   }
 
-async confirmPayment(session_id, { paid_amount = null, payment_method = null, payment_ref = null } = {}) {
+async confirmSession(session_id) {
   if (!session_id) throw new Error('session_id is required');
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // lock session row for update
-    const [rows] = await conn.query('SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE', [session_id]);
-    const s = rows && rows[0];
+    // lock row
+    const [rows] = await conn.query(
+      'SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE',
+      [session_id]
+    );
+    const s = rows?.[0];
     if (!s) {
       await conn.rollback();
       throw new Error('Charging session not found');
@@ -503,71 +523,43 @@ async confirmPayment(session_id, { paid_amount = null, payment_method = null, pa
       throw new Error('Session is not pending payment');
     }
 
-    // parse existing metadata
-    let metadata = {};
-    try { metadata = s.metadata ? JSON.parse(s.metadata) : {}; } catch (e) { metadata = {}; }
-
-    // attach payment info
-    metadata.payment = metadata.payment || {};
-    metadata.payment.status = 'succeeded';
-    metadata.payment.paid_amount = paid_amount;
-    metadata.payment.payment_method = payment_method;
-    metadata.payment.payment_ref = payment_ref;
-    metadata.payment.paid_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
-
     const updated_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
 
-    // update session: status -> confirmed (or paid), update metadata and updated_at
-    // you can adjust the target status string to fit your domain ('confirmed' / 'paid' etc.)
+    // chỉ đánh dấu confirmed
     await conn.query(
-      'UPDATE sessions SET status = ?, metadata = ?, updated_at = ? WHERE session_id = ?',
-      ['confirmed', JSON.stringify(metadata), updated_at, session_id]
+      'UPDATE sessions SET status = ?, updated_at = ? WHERE session_id = ?',
+      ['confirmed', updated_at, session_id]
     );
-
-    // Optional: insert a payment record into payments table if you have one.
-    // await conn.query('INSERT INTO payments (...) VALUES (...)', [...]);
 
     await conn.commit();
     conn.release();
 
-    // refetch using repository (non-transactional read)
     const refreshed = await SessionRepo.getById(session_id);
 
-    // publish events (external payment system listeners + internal charging events)
-    // payload shapes are suggestions — adapt to your existing consumers
-    const paymentPayload = {
-      related_id: session_id,
-      amount: paid_amount,
-      method: payment_method,
-      ref: payment_ref,
-      paid_at: metadata.payment.paid_at
-    };
-
-    // Event for other services (e.g., billing) — consistent with your EventBus naming
-    await publish('payment.session.succeeded', paymentPayload);
-    // Internal charging event channel
-    await publish('charging_events', { type: 'SESSION_PAYMENT_CONFIRMED', data: { session_id, paid_amount, payment_method, payment_ref } });
-
-    debug('confirmPayment: success for session', session_id);
+    debug('confirmSession: marked confirmed', session_id);
     return refreshed;
+
   } catch (err) {
-    try { await conn.rollback(); } catch (e) { /* ignore */ }
-    try { conn.release(); } catch (e) { /* ignore */ }
-    debug('confirmPayment error:', err.message);
+    try { await conn.rollback(); } catch {}
+    try { conn.release(); } catch {}
+    debug('confirmSession error:', err.message);
     throw err;
   }
 }
 
-async failPayment(session_id, { reason = null, cancel = false } = {}) {
+async markSessionFailed(session_id, { reason = null, cancel = false } = {}) {
   if (!session_id) throw new Error('session_id is required');
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // lock session
-    const [rows] = await conn.query('SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE', [session_id]);
-    const s = rows && rows[0];
+    // lock row
+    const [rows] = await conn.query(
+      'SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE',
+      [session_id]
+    );
+    const s = rows?.[0];
     if (!s) {
       await conn.rollback();
       throw new Error('Charging session not found');
@@ -578,22 +570,13 @@ async failPayment(session_id, { reason = null, cancel = false } = {}) {
       throw new Error('Session is not pending payment');
     }
 
-    // parse existing metadata
-    let metadata = {};
-    try { metadata = s.metadata ? JSON.parse(s.metadata) : {}; } catch (e) { metadata = {}; }
-
-    metadata.payment = metadata.payment || {};
-    metadata.payment.status = 'failed';
-    metadata.payment.reason = reason;
-    metadata.payment.failed_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
-
-    // decide new status
-    const newStatus = cancel ? 'cancelled' : 'payment_failed';
     const updated_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+    const newStatus = cancel ? 'cancelled' : 'payment_failed';
 
+    // chỉ update trạng thái, không metadata
     await conn.query(
-      'UPDATE sessions SET status = ?, metadata = ?, updated_at = ? WHERE session_id = ?',
-      [newStatus, JSON.stringify(metadata), updated_at, session_id]
+      'UPDATE sessions SET status = ?, updated_at = ? WHERE session_id = ?',
+      [newStatus, updated_at, session_id]
     );
 
     await conn.commit();
@@ -601,23 +584,13 @@ async failPayment(session_id, { reason = null, cancel = false } = {}) {
 
     const refreshed = await SessionRepo.getById(session_id);
 
-    // publish failure events
-    const failPayload = {
-      related_id: session_id,
-      reason,
-      cancelled: !!cancel,
-      failed_at: metadata.payment.failed_at
-    };
-
-    await publish('payment.session.failed', failPayload);
-    await publish('charging_events', { type: 'SESSION_PAYMENT_FAILED', data: { session_id, reason, cancelled: !!cancel } });
-
-    debug('failPayment: processed for session', session_id);
+    debug('markSessionFailed: marked', newStatus, 'for session', session_id);
     return refreshed;
+
   } catch (err) {
-    try { await conn.rollback(); } catch (e) { /* ignore */ }
-    try { conn.release(); } catch (e) { /* ignore */ }
-    debug('failPayment error:', err.message);
+    try { await conn.rollback(); } catch {}
+    try { conn.release(); } catch {}
+    debug('markSessionFailed error:', err.message);
     throw err;
   }
 }

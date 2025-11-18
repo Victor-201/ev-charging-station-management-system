@@ -56,14 +56,22 @@ export default class PaymentService {
     let wallet = await this.walletRepo.findByUserId(user_id);
     if (!wallet) wallet = await this.walletRepo.create(user_id);
 
-    // giả sử Wallet model có các method canSpend, decrease, increase
+    amount = Number(amount);
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error('Amount must be a positive number');
+    }
+
     if (action === 'payment') {
-      if (!wallet.canSpend(amount)) throw new Error('Insufficient wallet balance');
+      if (wallet.balance < amount) {
+        throw new Error('Insufficient wallet balance');
+      }
       wallet.decrease(amount);
       await this.walletRepo.updateBalance(wallet.id, wallet.balance);
+
     } else if (['topup', 'refund'].includes(action)) {
       wallet.increase(amount);
       await this.walletRepo.updateBalance(wallet.id, wallet.balance);
+
     } else {
       throw new Error('Invalid wallet action');
     }
@@ -81,7 +89,7 @@ export default class PaymentService {
     let wallet = await this.walletRepo.findByUserId(user_id);
     if (!wallet) wallet = await this.walletRepo.create(user_id);
 
-    const prefixMap = { topup: 'TOP', subscription: 'SUB', booking: 'BKG', charging: 'CHG' };
+    const prefixMap = { topup: 'TOP', subscription: 'SUB', booking: 'BKG', charging_session: 'CHG', guest_charging: 'CHG' };
     const referenceCode = method === 'bank_transfer'
       ? `${prefixMap[related_type] || prefixMap[type] || 'TXN'}${randomUUID().replace(/-/g, '').substring(0, 22).toUpperCase()}`
       : null;
@@ -106,7 +114,7 @@ export default class PaymentService {
         wallet = await this.walletRepo.findByUserId(user_id);
         if (!wallet) throw new Error('Wallet not found');
 
-        await this._handleWalletInternal(user_id, amount, 'payment', transaction.id);
+        await this._handleWalletInternal(user_id, amount, type, transaction.id);
         await this.walletTxRepo.addTransaction({
           wallet_id: wallet.id,
           transaction_id: transaction.id,
@@ -315,7 +323,6 @@ export default class PaymentService {
 
     if (category) {
       const eventType = `payment.${category}.succeeded`;
-      // tạo outbox đã processed (hoặc pending tuỳ business requirement) — ở đây đánh dấu 'processed' vì webhook là nguồn authoritive
       await this._createOutbox(eventType, transaction.id, {
         user_id: transaction.user_id,
         transaction_id: transaction.id,
