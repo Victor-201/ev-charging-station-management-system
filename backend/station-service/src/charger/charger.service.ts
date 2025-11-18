@@ -116,6 +116,11 @@ export class ChargerService {
             throw new ConflictException('Charger with this ID does not exist');
         }
 
+        await this.prisma.charging_points.update({
+            where: {id: charger_id},
+            data: {status: body.status}
+        });
+
         await this.prisma.outbox_events.create({
             data: {
                 aggregate_type: 'charger',
@@ -123,14 +128,14 @@ export class ChargerService {
                 event_type: 'charger_control',
                 payload: {
                     charger_id: charger_id,
-                    action: body.action,
+                    action: body.status,
                 },
             },
         });
 
         return {
             charger_id: charger_id,
-            action: body.action,
+            action: body.status,
             status: 'ok',
         };
     }
@@ -164,37 +169,4 @@ export class ChargerService {
 
         return { pricing };
     }
-
-    chargerInUse = async (charger_id: string): Promise<any> => {
-        await this.prisma.charging_points.update({
-            where: { id: charger_id },
-            data: {
-                status: 'in_use'
-            }
-        }
-        );
-        return { status: 'in_use' }
-    }
-
-    chargerAvailable = async (charger_id: string): Promise<any> => {
-        const charger = await this.prisma.charging_points.findUnique({
-            where: { id: charger_id }
-        });
-
-        if (charger?.status !== 'in_use') {
-            throw new ConflictException('Charger with this ID cannot do this action');
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 180000));
-
-        await this.prisma.charging_points.update({
-            where: { id: charger_id },
-            data: {
-                status: 'available'
-            }
-        });
-
-        return { status: 'available' };
-    }
-
 }

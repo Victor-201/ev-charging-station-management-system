@@ -130,9 +130,23 @@ export class StationService {
         if (!existing) {
             throw new NotFoundException('Station not found');
         }
-        return await this.prisma.stations.delete({
-            where: { id },
+        const result = await this.prisma.$transaction(async (tx) => {
+
+            await tx.outbox_events.create({
+                data: {
+                    aggregate_type: 'stations',
+                    aggregate_id: id,
+                    event_type: 'station.deleted',
+                    payload: { station_id: id }
+                }
+            });
+
+            return await tx.stations.delete({
+                where: { id },
+            });
         });
+
+        return result;
     }
 
     getConnectorByStationId = async (id: string): Promise<ConnectorDto[]> => {

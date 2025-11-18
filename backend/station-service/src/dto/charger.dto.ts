@@ -1,4 +1,4 @@
-import { IsString, IsNumberString, IsIn, } from 'class-validator';
+import { IsString, IsNumberString, IsIn, IsEnum} from 'class-validator';
 
 export class RegisterChargerDto {
   @IsString()
@@ -45,9 +45,17 @@ export class UpdateFirmwareDto {
   url: string;
 }
 
+export enum ChargerStatus {
+    available = 'available',
+    in_use = 'in_use',
+    offline = 'offline',
+    faulted = 'faulted',
+    reserved = 'reserved'
+}
+
 export class ControlChargerDto {
- @IsIn(['lock', 'unlock', 'enable', 'disable', 'reset'])
-  action: string;
+  @IsEnum(ChargerStatus)
+  status: ChargerStatus
 }
 
 export class ChargerPricingItemDto {
@@ -59,4 +67,3 @@ export class ChargerPricingItemDto {
 export class ChargerPricingResponseDto {
   pricing: ChargerPricingItemDto[];
 }
-

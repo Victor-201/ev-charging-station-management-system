@@ -1,4 +1,4 @@
-import { Controller, Param, Post, Get, UseGuards, Body } from '@nestjs/common';
+import { Controller, Param, Post, Get, UseGuards, Body, Put } from '@nestjs/common';
 import { ChargerService } from './charger.service';
 import { RegisterChargerDto, UpdateFirmwareDto, ControlChargerDto, ChargerPricingResponseDto } from 'src/dto/charger.dto';
 
@@ -17,11 +17,15 @@ export class ChargerController {
         return this.chargerService.deviceRegistration( body );
     }
 
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('user','admin','staff')
     @Get(':charger_id')
     async getChargerDetail(@Param('charger_id') charger_id: string): Promise<any> {
         return this.chargerService.detailOfChargingPoint( charger_id );
     }
 
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('user','admin','staff')
     @Get(':charger_id/health')
     async getChargerHealth(@Param('charger_id') charger_id: string): Promise<any> {
         return this.chargerService.getChargerHealth( charger_id );
@@ -36,25 +40,15 @@ export class ChargerController {
 
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin','staff')
-    @Post(':charger_id/control')
+    @Put(':charger_id/control')
     async controlCharger(@Param('charger_id') charger_id: string, @Body() body: ControlChargerDto): Promise<any> {
         return this.chargerService.controlCharger( charger_id, body );
     }
 
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('user','admin','staff')
     @Get(':charger_id/pricing')
     async getChargerPricing(@Param('charger_id') charger_id: string): Promise<ChargerPricingResponseDto> {
         return this.chargerService.getChargerPricing( charger_id );
     }
-
-    @Post(':charger_id/in_use')
-    async chargerInUse(@Param('charger_id') charger_id: string): Promise<any> {
-        return this.chargerService.chargerInUse(charger_id);
-    }
-    
-
-    @Post(':charger_id/available')
-    async chargerAvailable(@Param('charger_id') charger_id: string): Promise<any> {
-        return this.chargerService.chargerAvailable(charger_id);
-    }
-    
 }
