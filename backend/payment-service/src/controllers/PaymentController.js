@@ -1,24 +1,26 @@
 import PaymentService from '../services/PaymentService.js';
+import InvoiceService from '../services/InvoiceService.js'
 
 const service = new PaymentService();
+const invoiceService = new InvoiceService();
 
 export class PaymentController {
 
   // =============================== TRANSACTION ===============================
-
-  static async createTransaction(req, res, next) {
-    try {
-      const tx = await service.createTransaction(req.body);
-      res.status(201).json({ success: true, data: tx.toJSON?.() || tx });
-    } catch (err) {
-      next(err);
-    }
+static async createTransaction(req, res, next) {
+  try {
+    const transaction = await service.createTransaction(req.body);
+    const invoice = await invoiceService.generateFromTransaction(transaction.id);
+    res.status(201).json({ transaction: transaction.toJSON?.() || transaction, invoice: invoice.toJSON?.() || invoice});
+  } catch (err) {
+    next(err);
   }
+}
 
   static async confirmCashPayment(req, res, next) {
     try {
-      const tx = await service.confirmCashPayment(req.params.id);
-      res.json({ success: true, data: tx.toJSON?.() || tx });
+      const transaction = await service.confirmCashPayment(req.params.id);
+      res.json({ success: true, data: transaction.toJSON?.() || transaction });
     } catch (err) {
       next(err);
     }
@@ -65,7 +67,7 @@ export class PaymentController {
   static async listUserPayments(req, res, next) {
     try {
       const list = await service.listUserPayments(req.params.user_id);
-      res.json({ success: true, data: list.map(tx => tx.toJSON?.() || tx) });
+      res.json({ success: true, data: list.map(transaction => transaction.toJSON?.() || transaction) });
     } catch (err) {
       next(err);
     }
@@ -73,8 +75,8 @@ export class PaymentController {
 
   static async getPaymentById(req, res, next) {
     try {
-      const tx = await service.getPaymentById(req.params.id);
-      res.json({ success: true, data: tx.toJSON?.() || tx });
+      const transaction = await service.getPaymentById(req.params.id);
+      res.json({ success: true, data: transaction.toJSON?.() || transaction });
     } catch (err) {
       next(err);
     }
@@ -83,8 +85,8 @@ export class PaymentController {
   // =============================== REVENUE / ANALYTICS ===============================
 static async summary(req, res, next) {
     try {
-      const total_revenue = await service.txRepo.getRevenueSummary();
-      const total_transactions = await service.txRepo.getTotalTransactions?.() ?? 0;
+      const total_revenue = await service.transactionRepo.getRevenueSummary();
+      const total_transactions = await service.transactionRepo.getTotalTransactions?.() ?? 0;
 
       res.json({ total_revenue, total_transactions });
     } catch (err) {
@@ -95,7 +97,7 @@ static async summary(req, res, next) {
   /** === Doanh thu hôm nay === */
   static async today(req, res, next) {
     try {
-      const today_revenue = await service.txRepo.getTodayRevenue();
+      const today_revenue = await service.transactionRepo.getTodayRevenue();
       res.json({ today_revenue });
     } catch (err) {
       next(err);
@@ -106,7 +108,7 @@ static async summary(req, res, next) {
   static async daily(req, res, next) {
     try {
       const days = Number(req.query.days) || 30; // có thể truyền query ?days=10
-      const daily_revenue = await service.txRepo.getDailyRevenue(days);
+      const daily_revenue = await service.transactionRepo.getDailyRevenue(days);
       res.json({ daily_revenue });
     } catch (err) {
       next(err);
@@ -117,7 +119,7 @@ static async summary(req, res, next) {
   static async monthly(req, res, next) {
     try {
       const months = Number(req.query.months) || 12; // có thể truyền query ?months=6
-      const monthly_revenue = await service.txRepo.getMonthlyRevenue(months);
+      const monthly_revenue = await service.transactionRepo.getMonthlyRevenue(months);
       res.json({ monthly_revenue });
     } catch (err) {
       next(err);
@@ -127,7 +129,7 @@ static async summary(req, res, next) {
   /** === Doanh thu theo type/related_type === */
   static async byType(req, res, next) {
     try {
-      const revenue_by_type = await service.txRepo.getRevenueByType();
+      const revenue_by_type = await service.transactionRepo.getRevenueByType();
       res.json({ revenue_by_type });
     } catch (err) {
       next(err);
