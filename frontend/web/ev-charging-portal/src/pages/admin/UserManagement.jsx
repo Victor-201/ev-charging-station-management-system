@@ -5,17 +5,23 @@ import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
 /**
- * Quản lý user cho admin
- * - GET /api/v1/admin/users
- * - PUT / DELETE / set role / active
+ * Admin – Quản lý User
+ * - GET    /api/v1/admin/users
+ * - PUT    /api/v1/admin/users/:id
+ * - DELETE /api/v1/admin/users/:id
+ * - Các thao tác: đổi role, active/block user, xoá user
  */
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [filter, setFilter] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // ============================
+  // LOAD USER LIST
+  // ============================
   const loadUsers = async () => {
     setLoading(true);
     setError("");
@@ -27,7 +33,7 @@ export default function UserManagement() {
       setError(
         err?.response?.data?.message ||
           err?.message ||
-          "Không thể tải danh sách user."
+          "Không thể tải danh sách người dùng."
       );
     } finally {
       setLoading(false);
@@ -38,6 +44,9 @@ export default function UserManagement() {
     loadUsers();
   }, []);
 
+  // ============================
+  // FILTER CLIENT SIDE
+  // ============================
   const filteredUsers = users.filter((u) => {
     const q = filter.trim().toLowerCase();
     if (!q) return true;
@@ -48,6 +57,9 @@ export default function UserManagement() {
     );
   });
 
+  // ============================
+  // UPDATE USER
+  // ============================
   const updateUser = async (id, patch) => {
     setSaving(true);
     try {
@@ -75,11 +87,12 @@ export default function UserManagement() {
   const deleteUser = async (id) => {
     if (
       !window.confirm(
-        "Xoá user này? Dữ liệu login / session liên quan có thể không dùng được nữa."
+        "Xoá người dùng này? Tất cả session/token liên quan sẽ bị vô hiệu."
       )
     ) {
       return;
     }
+
     try {
       await apiClient.delete(`/api/v1/admin/users/${id}`);
       await loadUsers();
@@ -89,12 +102,15 @@ export default function UserManagement() {
     }
   };
 
+  // ============================
+  // UI RENDER
+  // ============================
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="max-w-7xl mx-auto space-y-6">
         <PageHeader
           title="User Management"
-          subtitle="Quản lý tài khoản driver / staff / admin – tất cả thao tác đều qua API gateway."
+          subtitle="Quản lý tài khoản Driver / Staff / Admin qua API gateway."
         />
 
         {error && (
@@ -106,11 +122,12 @@ export default function UserManagement() {
         <Section title="Danh sách người dùng">
           <div className="flex justify-between items-center mb-3">
             <input
-              placeholder="Tìm theo email, tên hoặc ID..."
+              placeholder="Tìm theo email, tên, ID..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm"
             />
+
             <button
               onClick={loadUsers}
               disabled={loading}
@@ -130,7 +147,7 @@ export default function UserManagement() {
                 "Email",
                 "Role",
                 "Active",
-                "Created At",
+                "Tạo lúc",
                 "",
               ]}
               rows={filteredUsers.map((u) => [
@@ -149,12 +166,12 @@ export default function UserManagement() {
                     key={u.id}
                     className="border-b last:border-0 hover:bg-slate-50"
                   >
-                    <td className="px-3 py-2 text-xs text-slate-500">
-                      {u.id}
-                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-500">{u.id}</td>
                     <td className="px-3 py-2 text-sm">{u.name}</td>
                     <td className="px-3 py-2 text-sm">{u.email}</td>
-                    <td className="px-3 py-2 text-sm">
+
+                    {/* ROLE */}
+                    <td className="px-3 py-2">
                       <select
                         value={u.role}
                         onChange={(e) => changeRole(u, e.target.value)}
@@ -166,7 +183,9 @@ export default function UserManagement() {
                         <option value="admin">admin</option>
                       </select>
                     </td>
-                    <td className="px-3 py-2 text-sm">
+
+                    {/* ACTIVE */}
+                    <td className="px-3 py-2">
                       <button
                         onClick={() => toggleActive(u)}
                         disabled={saving}
@@ -179,9 +198,12 @@ export default function UserManagement() {
                         {u.active ? "Active" : "Blocked"}
                       </button>
                     </td>
+
                     <td className="px-3 py-2 text-xs text-slate-500">
                       {u.created_at}
                     </td>
+
+                    {/* DELETE */}
                     <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => deleteUser(u.id)}

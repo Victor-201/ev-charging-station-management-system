@@ -4,30 +4,33 @@ import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
-// Cấu hình các loại report
+// =============================
+// REPORT TYPE CONFIG
+// =============================
 const REPORT_TYPES = [
   {
     key: "revenue",
     label: "Doanh thu",
-    description: "Báo cáo doanh thu theo khoảng thời gian / trạm.",
+    desc: "Báo cáo doanh thu theo khoảng thời gian / trạm.",
     endpoint: "/api/v1/analytics/reports/revenue",
   },
   {
     key: "user",
     label: "Theo người dùng",
-    description: "Báo cáo chi phí & usage theo user (theo tháng).",
+    desc: "Báo cáo chi phí & usage theo user (theo tháng).",
     endpoint: "/api/v1/analytics/reports/user",
   },
   {
     key: "station",
     label: "Theo trạm",
-    description: "Báo cáo sessions / kWh theo trạm (theo ngày).",
+    desc: "Báo cáo sessions / kWh theo trạm (theo ngày).",
     endpoint: "/api/v1/analytics/reports/station",
   },
 ];
 
 export default function Reports() {
   const [reportType, setReportType] = useState("revenue");
+
   const [params, setParams] = useState({
     userId: "",
     stationId: "",
@@ -36,23 +39,26 @@ export default function Reports() {
     groupBy: "day",
   });
 
-  const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [columns, setColumns] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const currentConfig = REPORT_TYPES.find((r) => r.key === reportType);
+  const cfg = REPORT_TYPES.find((r) => r.key === reportType);
 
-  const handleChangeParams = (field, value) => {
-    setParams((prev) => ({ ...prev, [field]: value }));
-  };
+  const setParam = (key, value) =>
+    setParams((p) => ({
+      ...p,
+      [key]: value,
+    }));
 
+  // =============================
+  // BUILD API REQUEST
+  // =============================
   const buildRequest = () => {
-    if (!currentConfig) return null;
-
     if (reportType === "revenue") {
       return {
-        url: currentConfig.endpoint,
+        url: cfg.endpoint,
         query: {
           station_id: params.stationId || undefined,
           from: params.from,
@@ -63,11 +69,10 @@ export default function Reports() {
     }
 
     if (reportType === "user") {
-      if (!params.userId) {
-        throw new Error("Vui lòng nhập User ID.");
-      }
+      if (!params.userId) throw new Error("Vui lòng nhập User ID.");
+
       return {
-        url: `${currentConfig.endpoint}/${params.userId}/monthly`,
+        url: `${cfg.endpoint}/${params.userId}/monthly`,
         query: {
           month: params.from.slice(0, 7), // yyyy-MM
         },
@@ -75,44 +80,49 @@ export default function Reports() {
     }
 
     if (reportType === "station") {
-      if (!params.stationId) {
-        throw new Error("Vui lòng nhập Station ID.");
-      }
+      if (!params.stationId) throw new Error("Vui lòng nhập Station ID.");
+
       return {
-        url: `${currentConfig.endpoint}/${params.stationId}/daily`,
+        url: `${cfg.endpoint}/${params.stationId}/daily`,
         query: {
           date: params.from,
         },
       };
     }
-
-    return null;
   };
 
+  // =============================
+  // FETCH REPORT
+  // =============================
   const fetchReport = async () => {
     try {
-      setLoading(true);
       setError("");
+      setLoading(true);
       setRows([]);
       setColumns([]);
 
-      const cfg = buildRequest();
-      if (!cfg) return;
-
-      const res = await apiClient.get(cfg.url, { params: cfg.query });
+      const req = buildRequest();
+      const res = await apiClient.get(req.url, { params: req.query });
       const data = res.data;
 
+      // ===== REVENUE =====
       if (reportType === "revenue") {
         const items = data.items || data.daily || [];
+
         setColumns(["Ngày", "Doanh thu (VND)"]);
         setRows(
-          items.map((d) => [
-            d.date,
-            d.total_revenue?.toLocaleString("vi-VN") || 0,
+          items.map((i) => [
+            i.date,
+            i.total_revenue?.toLocaleString("vi-VN") || 0,
           ])
         );
-      } else if (reportType === "user") {
+        return;
+      }
+
+      // ===== USER REPORT =====
+      if (reportType === "user") {
         setColumns(["User ID", "Tổng phiên", "Tổng kWh", "Tổng chi phí (VND)"]);
+
         setRows([
           [
             data.user_id,
@@ -121,9 +131,21 @@ export default function Reports() {
             data.total_cost?.toLocaleString("vi-VN") || 0,
           ],
         ]);
-      } else if (reportType === "station") {
+        return;
+      }
+
+      // ===== STATION DAILY REPORT =====
+      if (reportType === "station") {
         const sessions = data.sessions || [];
-        setColumns(["Session ID", "User", "Bắt đầu", "KWh", "Chi phí (VND)"]);
+
+        setColumns([
+          "Session ID",
+          "User",
+          "Bắt đầu",
+          "KWh",
+          "Chi phí (VND)",
+        ]);
+
         setRows(
           sessions.map((s) => [
             s.id,
@@ -133,50 +155,56 @@ export default function Reports() {
             s.cost?.toLocaleString("vi-VN") || 0,
           ])
         );
+        return;
       }
     } catch (err) {
-      console.error("[Reports] error:", err);
       setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Không thể tải dữ liệu báo cáo."
+        err?.response?.data?.message || err?.message || "Không thể tải báo cáo."
       );
     } finally {
       setLoading(false);
     }
   };
 
+  // =============================
+  // RENDER
+  // =============================
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         <PageHeader
           title="Báo cáo chi tiết"
-          subtitle="Chọn loại report và tham số. Dữ liệu lấy trực tiếp từ API analytics."
+          subtitle="Dữ liệu lấy trực tiếp từ analytics-service & payment-service"
         />
 
-        {/* Chọn loại report */}
+        {/* =====================
+            CHỌN LOẠI BÁO CÁO
+        ====================== */}
         <Section title="Chọn loại báo cáo">
           <div className="flex flex-wrap gap-3">
             {REPORT_TYPES.map((r) => (
               <button
                 key={r.key}
                 onClick={() => setReportType(r.key)}
-                className={`px-4 py-2 rounded-lg border text-sm text-left w-full md:w-auto ${
+                className={`px-4 py-2 rounded-lg border text-sm w-full md:w-auto transition ${
                   reportType === r.key
                     ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 <div className="font-semibold">{r.label}</div>
-                <div className="text-xs opacity-80">{r.description}</div>
+                <div className="text-xs opacity-80">{r.desc}</div>
               </button>
             ))}
           </div>
         </Section>
 
-        {/* Tham số filter */}
+        {/* =====================
+            THAM SỐ TRUY VẤN
+        ====================== */}
         <Section title="Tham số truy vấn">
           <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+            {/* FROM */}
             <div>
               <label className="block text-xs text-slate-500 mb-1">
                 Từ ngày (yyyy-MM-dd)
@@ -184,10 +212,12 @@ export default function Reports() {
               <input
                 type="date"
                 value={params.from}
-                onChange={(e) => handleChangeParams("from", e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                onChange={(e) => setParam("from", e.target.value)}
+                className="w-full border rounded-lg px-2 py-1.5"
               />
             </div>
+
+            {/* TO */}
             <div>
               <label className="block text-xs text-slate-500 mb-1">
                 Đến ngày (yyyy-MM-dd)
@@ -195,32 +225,34 @@ export default function Reports() {
               <input
                 type="date"
                 value={params.to}
-                onChange={(e) => handleChangeParams("to", e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                onChange={(e) => setParam("to", e.target.value)}
+                className="w-full border rounded-lg px-2 py-1.5"
               />
             </div>
+
+            {/* Station ID */}
             <div>
               <label className="block text-xs text-slate-500 mb-1">
-                Station ID (tuỳ chọn)
+                Station ID (optional)
               </label>
               <input
                 value={params.stationId}
-                onChange={(e) =>
-                  handleChangeParams("stationId", e.target.value)
-                }
-                className="w-full border rounded-lg px-2 py-1.5 text-sm"
-                placeholder="Lọc theo trạm"
+                onChange={(e) => setParam("stationId", e.target.value)}
+                placeholder="UUID trạm"
+                className="w-full border rounded-lg px-2 py-1.5"
               />
             </div>
+
+            {/* User ID */}
             <div>
               <label className="block text-xs text-slate-500 mb-1">
                 User ID (cho báo cáo User)
               </label>
               <input
                 value={params.userId}
-                onChange={(e) => handleChangeParams("userId", e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                onChange={(e) => setParam("userId", e.target.value)}
                 placeholder="UUID user"
+                className="w-full border rounded-lg px-2 py-1.5"
               />
             </div>
 
@@ -231,9 +263,7 @@ export default function Reports() {
                 </label>
                 <select
                   value={params.groupBy}
-                  onChange={(e) =>
-                    handleChangeParams("groupBy", e.target.value)
-                  }
+                  onChange={(e) => setParam("groupBy", e.target.value)}
                   className="border rounded-lg px-2 py-1.5 text-sm"
                 >
                   <option value="day">Day</option>
@@ -243,11 +273,11 @@ export default function Reports() {
               </div>
             )}
 
-            <div className="md:col-span-4 flex justify-end items-end">
+            <div className="md:col-span-4 flex justify-end">
               <button
                 onClick={fetchReport}
                 disabled={loading}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? "Đang tải..." : "Lấy dữ liệu"}
               </button>
@@ -255,16 +285,19 @@ export default function Reports() {
           </div>
         </Section>
 
-        {/* Bảng kết quả */}
+        {/* =====================
+            BẢNG KẾT QUẢ
+        ====================== */}
         <Section title="Kết quả">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm mb-4">
               {error}
             </div>
           )}
+
           {columns.length === 0 ? (
             <p className="text-sm text-slate-500">
-              Chưa có dữ liệu. Hãy chọn tham số và bấm &quot;Lấy dữ liệu&quot;.
+              Chưa có dữ liệu. Chọn tham số và bấm “Lấy dữ liệu”.
             </p>
           ) : (
             <Table columns={columns} rows={rows} />
