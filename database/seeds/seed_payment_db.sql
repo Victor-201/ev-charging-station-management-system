@@ -12,9 +12,9 @@ TRUNCATE TABLE wallet_transactions, invoices, transactions, wallets, subscriptio
 -- =====================================================
 INSERT INTO plans (name, description, type, price, duration_days)
 VALUES
-  ('Basic Plan', 'Gói cơ bản cho người dùng mới', 'basic', 100000, 30),
-  ('Standard Plan', 'Gói tiêu chuẩn cho người dùng thường xuyên', 'standard', 250000, 90),
-  ('Premium Plan', 'Gói cao cấp có nhiều ưu đãi', 'premium', 450000, 180);
+  ('Basic Plan', 'Gói cơ bản cho người dùng mới', 'basic', 10000, 30),
+  ('Standard Plan', 'Gói tiêu chuẩn cho người dùng thường xuyên', 'standard', 15000, 90),
+  ('Premium Plan', 'Gói cao cấp có nhiều ưu đãi', 'premium', 20000, 180);
 
 -- =====================================================
 -- Subscriptions (10 users)

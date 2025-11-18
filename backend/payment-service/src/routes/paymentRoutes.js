@@ -13,10 +13,9 @@ router.post('/transaction/webhook', verifyWebhook, PaymentController.processBank
 router.use(authenticate);
 
 // Transaction routes
-router.post('/transaction', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.createTransaction);
+router.post('/transaction', PaymentController.createTransaction);
 router.post('/transaction/:id/confirm', authorize(UserRole.ADMIN), PaymentController.confirmCashPayment);
 router.get('/transaction/:id', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getPaymentById);
-router.post('/transaction/:id/refund', authorize(UserRole.ADMIN), PaymentController.refundPayment);
 
 // Wallet routes
 router.get('/wallet/:user_id', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getWallet);

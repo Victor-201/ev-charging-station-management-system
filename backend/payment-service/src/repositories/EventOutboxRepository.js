@@ -41,6 +41,25 @@ export default class EventOutboxRepository extends BaseRepository {
     return rows.map((r) => new this.model(r));
   }
 
+    /** === Lấy danh sách event failed theo type để retry === */
+  async findFailed(type, limit = 50) {
+    const query = `
+      SELECT * FROM ${this.tableName}
+      WHERE status = 'failed' AND type = $1
+      ORDER BY updated_at ASC
+      LIMIT $2;
+    `;
+    const { rows } = await db.query(query, [type, limit]);
+    return rows.map((r) => new this.model(r));
+  }
+
+  /** === Tìm event theo id (helper) === */
+  async findById(id) {
+    const query = `SELECT * FROM ${this.tableName} WHERE id = $1 LIMIT 1;`;
+    const { rows } = await db.query(query, [id]);
+    return rows[0] ? new this.model(rows[0]) : null;
+  }
+
   /** === Cập nhật trạng thái event === */
   async updateStatus(id, status) {
     const query = `
@@ -54,8 +73,8 @@ export default class EventOutboxRepository extends BaseRepository {
   }
 
   /** === Đánh dấu đã publish thành công === */
-  async markAsPublished(id) {
-    return this.updateStatus(id, 'published');
+  async markAsProcessed(id) {
+    return this.updateStatus(id, 'processed');
   }
 
   /** === Đánh dấu publish thất bại === */
@@ -64,10 +83,10 @@ export default class EventOutboxRepository extends BaseRepository {
   }
 
   /** === Xóa event đã publish lâu hơn N ngày === */
-  async cleanupPublished(olderThanDays = 7) {
+  async cleanupProcessed(olderThanDays = 7) {
     const query = `
       DELETE FROM ${this.tableName}
-      WHERE status = 'published'
+      WHERE status = 'processed'
       AND created_at < NOW() - INTERVAL '${olderThanDays} days';
     `;
     await db.query(query);

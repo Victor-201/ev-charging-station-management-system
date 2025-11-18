@@ -34,15 +34,6 @@ export class PaymentController {
     }
   }
 
-  static async refundPayment(req, res, next) {
-    try {
-      const tx = await service.refundPayment(req.params.id, req.body);
-      res.json({ success: true, data: tx.toJSON?.() || tx });
-    } catch (err) {
-      next(err);
-    }
-  }
-
   // =============================== WALLET ===============================
 
   static async getWallet(req, res, next) {

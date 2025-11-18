@@ -4,10 +4,13 @@ import PageHeader from "@/components/admin/PageHeader";
 import apiClient from "@/api/apiClient";
 
 /**
- * System Settings cho admin
- * - Lưu cấu hình global xuống DB (maintenance, alert_email, retention logs, auto reconcile...)
+ * Admin – System Settings
+ * Lưu toàn bộ cấu hình hệ thống xuống DB.
+ * API backend:
+ *   GET  /api/v1/system/settings
+ *   PUT  /api/v1/system/settings
  */
-export default function AdminSettings() {
+export default function Settings() {
   const [settings, setSettings] = useState({
     maintenance_mode: false,
     alert_email: "",
@@ -17,19 +20,26 @@ export default function AdminSettings() {
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  // Load settings từ backend
+  // =========================================
+  // LOAD SETTINGS TỪ BACKEND
+  // =========================================
   useEffect(() => {
-    const fetchSettings = async () => {
+    const loadSettings = async () => {
       setLoading(true);
       setError("");
       try {
         const res = await apiClient.get("/api/v1/system/settings");
-        setSettings((prev) => ({ ...prev, ...(res.data || {}) }));
+        const data = res?.data || {};
+
+        setSettings((prev) => ({
+          ...prev,
+          ...data,
+        }));
       } catch (err) {
-        console.error("[AdminSettings] load error:", err);
+        console.error("[Settings] load error:", err);
         setError(
           err?.response?.data?.message ||
             err?.message ||
@@ -40,38 +50,48 @@ export default function AdminSettings() {
       }
     };
 
-    fetchSettings();
+    loadSettings();
   }, []);
 
-  const onChangeField = (field, value) => {
+  // =========================================
+  // HANDLE CHANGE FIELD
+  // =========================================
+  const updateField = (field, value) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
+  // =========================================
+  // SAVE SETTINGS
+  // =========================================
+  const saveSettings = async () => {
     setSaving(true);
-    setMessage("");
     setError("");
+    setMessage("");
+
     try {
       await apiClient.put("/api/v1/system/settings", settings);
-      setMessage("Đã lưu cấu hình hệ thống vào database.");
+      setMessage("Đã lưu cấu hình xuống database.");
     } catch (err) {
-      console.error("[AdminSettings] save error:", err);
+      console.error("[Settings] save error:", err);
       setError(
         err?.response?.data?.message ||
           err?.message ||
-          "Không thể lưu cấu hình."
+          "Không thể lưu cấu hình hệ thống."
       );
     } finally {
       setSaving(false);
     }
   };
 
+  // =========================================
+  // RENDER UI
+  // =========================================
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <PageHeader
           title="System Settings"
-          subtitle="Tất cả cài đặt ở đây đều được lưu xuống database, backend đọc và áp dụng."
+          subtitle="Các cài đặt này được lưu trực tiếp xuống DB, backend sẽ đọc và áp dụng."
         />
 
         {loading && (
@@ -92,90 +112,87 @@ export default function AdminSettings() {
           </div>
         )}
 
-        <Section title="Chế độ hệ thống">
-          <div className="bg-white rounded-xl border shadow-sm p-4 space-y-4 text-sm">
-            <label className="flex items-center justify-between gap-4">
+        <Section title="Cấu hình hệ thống">
+          <div className="bg-white rounded-xl border shadow-sm p-4 space-y-6 text-sm">
+            {/* Maintenance Mode */}
+            <label className="flex items-center justify-between">
               <div>
-                <div className="font-semibold text-slate-900">
-                  Maintenance mode
-                </div>
+                <div className="font-semibold">Maintenance Mode</div>
                 <div className="text-xs text-slate-500">
-                  Khi bật, chỉ admin mới truy cập được hệ thống (tuỳ backend xử
-                  lý).
+                  Khi bật, chỉ admin được vào hệ thống.
                 </div>
               </div>
               <input
                 type="checkbox"
-                checked={!!settings.maintenance_mode}
+                checked={settings.maintenance_mode}
                 onChange={(e) =>
-                  onChangeField("maintenance_mode", e.target.checked)
+                  updateField("maintenance_mode", e.target.checked)
                 }
                 className="w-5 h-5"
               />
             </label>
 
+            {/* Alert Email */}
             <label className="block">
-              <div className="font-semibold text-slate-900 text-sm mb-1">
-                Email nhận alert
-              </div>
+              <div className="font-semibold mb-1">Alert Email</div>
               <input
                 type="email"
-                value={settings.alert_email || ""}
-                onChange={(e) => onChangeField("alert_email", e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                value={settings.alert_email}
+                onChange={(e) => updateField("alert_email", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
                 placeholder="ops@example.com"
               />
               <p className="text-xs text-slate-500 mt-1">
-                Dùng để gửi alert từ /api/v1/monitoring/alerts.
+                Email dùng để nhận alert từ hệ thống monitoring.
               </p>
             </label>
 
+            {/* Log Retention */}
             <label className="block">
-              <div className="font-semibold text-slate-900 text-sm mb-1">
-                Thời gian giữ log (ngày)
-              </div>
+              <div className="font-semibold mb-1">Thời gian giữ log (ngày)</div>
               <input
                 type="number"
                 min={1}
-                value={settings.log_retention_days || 30}
+                value={settings.log_retention_days}
                 onChange={(e) =>
-                  onChangeField(
+                  updateField(
                     "log_retention_days",
                     Number(e.target.value) || 1
                   )
                 }
-                className="w-32 border rounded-lg px-3 py-2 text-sm"
+                className="w-32 border rounded-lg px-3 py-2"
               />
               <p className="text-xs text-slate-500 mt-1">
-                Backend sẽ dùng giá trị này để xoá log cũ.
+                Backend sẽ tự động xoá log cũ theo số ngày này.
               </p>
             </label>
 
-            <label className="flex items-center justify-between gap-4 pt-2 border-t">
+            {/* Auto Reconcile */}
+            <label className="flex items-center justify-between pt-2 border-t">
               <div>
-                <div className="font-semibold text-slate-900">
-                  Tự động reconcile phiên có đặt trước
+                <div className="font-semibold">
+                  Tự động reconcile phiên đặt trước
                 </div>
                 <div className="text-xs text-slate-500">
-                  Nếu bật, backend sẽ cân đối tiền đặt trước và tiền thực tế
-                  ngay khi phiên kết thúc.
+                  Backend sẽ cân đối tiền đặt trước & tiền thực tế khi phiên
+                  sạc kết thúc.
                 </div>
               </div>
               <input
                 type="checkbox"
-                checked={!!settings.auto_reconcile}
+                checked={settings.auto_reconcile}
                 onChange={(e) =>
-                  onChangeField("auto_reconcile", e.target.checked)
+                  updateField("auto_reconcile", e.target.checked)
                 }
                 className="w-5 h-5"
               />
             </label>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end">
               <button
-                onClick={handleSave}
+                onClick={saveSettings}
                 disabled={saving}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving ? "Đang lưu..." : "Lưu cấu hình"}
               </button>

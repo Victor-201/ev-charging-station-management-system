@@ -2,35 +2,41 @@ import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
-import apiClient from "@/api/apiClient";
+import { usePayment } from "@/hooks/usePayment";
 
 /**
- * Quản lý subscription / pricing plans (giao tiếp với payment-service)
- * - GET /api/v1/payments/plans
- * - POST / PUT / DELETE plans
+ * Subscription Plans (Pricing Plans)
+ * API thật lấy từ payment-service:
+ *  GET    /api/v1/payments/plans
+ *  POST   /api/v1/payments/plans
+ *  PUT    /api/v1/payments/plans/:id
+ *  DELETE /api/v1/payments/plans/:id
  */
 export default function SubscriptionPlans() {
-  const [plans, setPlans] = useState([]);
-  const [editing, setEditing] = useState(null); // {id, name, price, currency, description}
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const {
+    loadingPayments,
+    error,
+    setError,
 
+    // Actions
+    getPlans,
+    createPlan,
+    updatePlan,
+    deletePlan,
+  } = usePayment();
+
+  const [plans, setPlans] = useState([]);
+  const [editing, setEditing] = useState(null); // { id, name, price, currency, description }
+  const [saving, setSaving] = useState(false);
+
+  // ================================
+  // LOAD ALL PLANS
+  // ================================
   const loadPlans = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await apiClient.get("/api/v1/payments/plans");
-      setPlans(res.data || []);
-    } catch (err) {
-      console.error("[SubscriptionPlans] load error:", err);
-      setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Không thể tải danh sách gói."
-      );
-    } finally {
-      setLoading(false);
+    setError(null);
+    const res = await getPlans();
+    if (res.success) {
+      setPlans(res.data ?? []);
     }
   };
 
@@ -38,6 +44,9 @@ export default function SubscriptionPlans() {
     loadPlans();
   }, []);
 
+  // ================================
+  // START CREATE
+  // ================================
   const startCreate = () => {
     setEditing({
       id: null,
@@ -48,48 +57,53 @@ export default function SubscriptionPlans() {
     });
   };
 
-  const startEdit = (plan) => {
+  // ================================
+  // START EDIT
+  // ================================
+  const startEdit = (p) => {
     setEditing({
-      id: plan.id,
-      name: plan.name,
-      price: plan.price,
-      currency: plan.currency || "VND",
-      description: plan.description || "",
+      id: p.id,
+      name: p.name,
+      price: Number(p.price) || 0,
+      currency: p.currency || "VND",
+      description: p.description || "",
     });
   };
 
+  // ================================
+  // SAVE PLAN (POST / PUT)
+  // ================================
   const savePlan = async () => {
     if (!editing) return;
     setSaving(true);
-    setError("");
-    try {
-      if (editing.id) {
-        await apiClient.put(`/api/v1/payments/plans/${editing.id}`, editing);
-      } else {
-        await apiClient.post("/api/v1/payments/plans", editing);
-      }
-      setEditing(null);
-      await loadPlans();
-    } catch (err) {
-      console.error("save plan error:", err);
-      setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Không thể lưu gói subscription."
-      );
-    } finally {
-      setSaving(false);
+    setError(null);
+
+    let res;
+    if (editing.id) {
+      res = await updatePlan(editing.id, editing);
+    } else {
+      res = await createPlan(editing);
     }
+
+    setSaving(false);
+
+    if (!res.success) {
+      return;
+    }
+
+    setEditing(null);
+    await loadPlans();
   };
 
-  const deletePlan = async (id) => {
-    if (!window.confirm("Xoá gói này? Thao tác sẽ ghi xuống DB.")) return;
-    try {
-      await apiClient.delete(`/api/v1/payments/plans/${id}`);
+  // ================================
+  // DELETE PLAN
+  // ================================
+  const handleDelete = async (id) => {
+    if (!window.confirm("Bạn chắc chắn muốn xoá gói này?")) return;
+
+    const res = await deletePlan(id);
+    if (res.success) {
       await loadPlans();
-    } catch (err) {
-      console.error("delete plan error:", err);
-      alert("Không thể xoá gói.");
     }
   };
 
@@ -98,16 +112,17 @@ export default function SubscriptionPlans() {
       <div className="max-w-6xl mx-auto space-y-6">
         <PageHeader
           title="Subscription Plans"
-          subtitle="Tất cả gói giá / subscription lấy từ API payment-service, không dùng dữ liệu tĩnh."
+          subtitle="Quản lý bảng giá từ payment-service (API thật)."
         />
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
-            {error}
+            {JSON.stringify(error)}
           </div>
         )}
 
-        <Section title="Danh sách gói">
+        {/* Danh sách gói */}
+        <Section title="Danh sách gói subscription">
           <div className="flex justify-between items-center mb-3">
             <div className="text-sm text-slate-500">
               {(plans || []).length} gói đang hoạt động
@@ -120,7 +135,7 @@ export default function SubscriptionPlans() {
             </button>
           </div>
 
-          {loading ? (
+          {loadingPayments ? (
             <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
           ) : (
             <Table
@@ -133,34 +148,33 @@ export default function SubscriptionPlans() {
                 "actions",
               ])}
               renderRow={(row, index) => {
-                const plan = plans[index];
+                const p = plans[index];
                 return (
                   <tr
-                    key={plan.id}
+                    key={p.id}
                     className="border-b last:border-0 hover:bg-slate-50"
                   >
                     <td className="px-3 py-2 text-xs text-slate-500">
-                      {plan.id}
+                      {p.id}
                     </td>
                     <td className="px-3 py-2 text-sm font-semibold">
-                      {plan.name}
+                      {p.name}
                     </td>
                     <td className="px-3 py-2 text-sm">
-                      {plan.price?.toLocaleString("vi-VN")}{" "}
-                      {plan.currency || "VND"}
+                      {p.price?.toLocaleString("vi-VN")} {p.currency}
                     </td>
                     <td className="px-3 py-2 text-xs text-slate-600">
-                      {plan.description}
+                      {p.description}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <button
-                        onClick={() => startEdit(plan)}
+                        onClick={() => startEdit(p)}
                         className="text-xs px-2 py-1 rounded border mr-2"
                       >
                         Sửa
                       </button>
                       <button
-                        onClick={() => deletePlan(plan.id)}
+                        onClick={() => handleDelete(p.id)}
                         className="text-xs px-2 py-1 rounded bg-red-600 text-white"
                       >
                         Xoá
@@ -173,11 +187,14 @@ export default function SubscriptionPlans() {
           )}
         </Section>
 
+        {/* FORM EDIT / CREATE */}
         {editing && (
           <Section title={editing.id ? "Sửa gói" : "Tạo gói mới"}>
             <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="text-xs text-slate-500 mb-1">Tên gói</div>
+                <label className="text-xs text-slate-500 mb-1 block">
+                  Tên gói
+                </label>
                 <input
                   value={editing.name}
                   onChange={(e) =>
@@ -186,8 +203,11 @@ export default function SubscriptionPlans() {
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+
               <div>
-                <div className="text-xs text-slate-500 mb-1">Giá</div>
+                <label className="text-xs text-slate-500 mb-1 block">
+                  Giá
+                </label>
                 <input
                   type="number"
                   min={0}
@@ -201,8 +221,11 @@ export default function SubscriptionPlans() {
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+
               <div>
-                <div className="text-xs text-slate-500 mb-1">Đơn vị tiền</div>
+                <label className="text-xs text-slate-500 mb-1 block">
+                  Đơn vị tiền
+                </label>
                 <select
                   value={editing.currency}
                   onChange={(e) =>
@@ -214,8 +237,11 @@ export default function SubscriptionPlans() {
                   <option value="USD">USD</option>
                 </select>
               </div>
+
               <div className="md:col-span-2">
-                <div className="text-xs text-slate-500 mb-1">Mô tả</div>
+                <label className="text-xs text-slate-500 mb-1 block">
+                  Mô tả
+                </label>
                 <textarea
                   rows={3}
                   value={editing.description}
@@ -228,6 +254,7 @@ export default function SubscriptionPlans() {
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+
               <div className="md:col-span-2 flex justify-end gap-2">
                 <button
                   onClick={() => setEditing(null)}
@@ -235,6 +262,7 @@ export default function SubscriptionPlans() {
                 >
                   Huỷ
                 </button>
+
                 <button
                   onClick={savePlan}
                   disabled={saving}

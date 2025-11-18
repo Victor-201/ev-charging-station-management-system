@@ -42,9 +42,9 @@ class BookingService {
     EventBus.subscribe('payment.booking.failed', async (payload) => {
       debug('💸 Payment failed:', payload.related_id);
       try {
-        await this.markPaymentFailed(payload.related_id, { cancel: true, reason: payload.reason });
+        await this.markReservationFailed(payload.related_id, { cancel: true, reason: payload.reason });
       } catch (e) {
-        debug('markPaymentFailed error:', e.message);
+        debug('markReservationFailed error:', e.message);
       }
     });
   }
@@ -187,7 +187,7 @@ class BookingService {
     return updated;
   }
 
-  async markPaymentFailed(reservation_id, { cancel = true, reason = null } = {}) {
+  async markReservationFailed(reservation_id, { cancel = true, reason = null } = {}) {
     const reservation = await this.reservationRepo.findById(reservation_id);
     if (!reservation) throw new Error('Reservation not found');
 

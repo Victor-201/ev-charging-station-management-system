@@ -33,16 +33,6 @@ export default class SubscriptionService {
       }
     });
 
-    // UNDERPAID
-    localBus.subscribe('payment.subscription.underpaid', async (payload) => {
-      console.log('[SubscriptionService] Received payment.subscription.underpaid:', payload);
-      try {
-        await this.handleUnderpaidPayment(payload);
-      } catch (err) {
-        console.error('[SubscriptionService] Error handling underpaid subscription:', err);
-      }
-    });
-
     // CANCELLED
     localBus.subscribe('payment.subscription.cancelled', async (payload) => {
       console.log('[SubscriptionService] Received payment.subscription.cancelled:', payload);
@@ -54,24 +44,24 @@ export default class SubscriptionService {
     });
   }
 
-  async handleFailedPayment({ related_id }) {
-    const sub = await this.subRepo.findById(related_id);
+  async handleFailedPayment({ subscription_id }) {
+    const sub = await this.subRepo.findById(subscription_id);
     if (sub && sub.status === 'pending') {
       await this.subRepo.cancel(sub.id);
       console.log(`[SubscriptionService] Subscription ${sub.id} cancelled due to failed payment`);
     }
   }
 
-  async handleUnderpaidPayment({ related_id }) {
-    const sub = await this.subRepo.findById(related_id);
+  async handleUnderpaidPayment({ subscription_id }) {
+    const sub = await this.subRepo.findById(subscription_id);
     if (sub && sub.status === 'pending') {
       await this.subRepo.cancel(sub.id);
       console.log(`[SubscriptionService] Subscription ${sub.id} cancelled due to underpaid`);
     }
   }
 
-  async handleCancelledPayment({ related_id }) {
-    const sub = await this.subRepo.findById(related_id);
+  async handleCancelledPayment({ subscription_id }) {
+    const sub = await this.subRepo.findById(subscription_id);
     if (sub && sub.status === 'pending') {
       await this.subRepo.cancel(sub.id);
       console.log(`[SubscriptionService] Subscription ${sub.id} cancelled by user`);
@@ -91,8 +81,8 @@ export default class SubscriptionService {
     return newSub;
   }
 
-  async activateOrExtendSubscription({ related_id }) {
-    const subscription = await this.subRepo.findById(related_id);
+  async activateOrExtendSubscription({ subscription_id }) {
+    const subscription = await this.subRepo.findById(subscription_id);
     if (!subscription) return null;
 
     const plan = await this.planRepo.findById(subscription.plan_id);

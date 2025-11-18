@@ -14,7 +14,7 @@ export default class EventOutbox {
     if (!type) throw new Error('type is required');
     if (!payload) throw new Error('payload is required');
 
-    const validStatuses = ['pending', 'published', 'failed'];
+    const validStatuses = ['pending', 'processed', 'failed'];
     if (!validStatuses.includes(status)) {
       throw new Error(`Invalid outbox status: ${status}`);
     }
@@ -30,8 +30,8 @@ export default class EventOutbox {
   }
 
   /** === Đánh dấu event đã được publish thành công === */
-  markAsPublished() {
-    this.status = 'published';
+  markAsProcessed() {
+    this.status = 'processed';
     this.updated_at = new Date();
   }
 
