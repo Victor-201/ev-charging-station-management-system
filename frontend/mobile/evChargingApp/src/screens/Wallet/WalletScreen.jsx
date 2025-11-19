@@ -37,11 +37,16 @@ const WalletScreen = () => {
   const { wallet, transactions, loading, error } = useSelector((state) => state.wallet || {});
 
   const loadWalletData = useCallback(() => {
-    if (user?.user_id) {
-      dispatch(getWallet(user.user_id));
-      dispatch(getTransactions({ userId: user.user_id, limit: 5 })); // Fetch recent transactions
+    const userId = user?.user_id || user?.id;
+    if (userId) {
+      // Try to get wallet info (may fail if wallet doesn't exist yet)
+      dispatch(getWallet(userId)).catch(err => {
+        console.log('Wallet not created yet:', err);
+      });
+      // Get transaction history (this should work even without wallet)
+      dispatch(getTransactions({ userId, params: { limit: 5 } }));
     }
-  }, [dispatch, user?.user_id]);
+  }, [dispatch, user]);
 
   useFocusEffect(loadWalletData);
 
@@ -68,14 +73,33 @@ const WalletScreen = () => {
       <Card style={styles.balanceCard}>
         <Card.Content>
           <Text style={styles.balanceLabel}>Số dư hiện tại</Text>
-          <Text style={styles.balanceAmount}>{wallet?.balance?.toLocaleString('vi-VN') || 0} ₫</Text>
+          <Text style={styles.balanceAmount}>
+            {wallet?.balance !== undefined ? wallet.balance.toLocaleString('vi-VN') : '0'} ₫
+          </Text>
+          {!wallet && (
+            <Text style={{ color: colors.onPrimary, opacity: 0.7, fontSize: 12, marginTop: 4 }}>
+              Ví chưa được kích hoạt. Nạp tiền để kích hoạt.
+            </Text>
+          )}
           <View style={styles.actionsContainer}>
-            <Button mode="contained" icon="plus-circle" onPress={() => navigation.navigate('TopupScreen')}>
+            <Button 
+              mode="contained" 
+              icon="plus-circle" 
+              onPress={() => navigation.navigate('TopupScreen')}
+              style={{ flex: 1, marginRight: 8 }}
+            >
               Nạp tiền
             </Button>
-            <Button mode="outlined" icon="arrow-down-bold-circle" onPress={() => navigation.navigate('WithdrawScreen')} theme={{ colors: { primary: colors.onPrimary } }}>
+            {/* Withdraw feature not implemented in backend yet */}
+            {/* <Button 
+              mode="outlined" 
+              icon="arrow-down-bold-circle" 
+              onPress={() => navigation.navigate('WithdrawScreen')} 
+              theme={{ colors: { primary: colors.onPrimary } }}
+              style={{ flex: 1, marginLeft: 8 }}
+            >
               Rút tiền
-            </Button>
+            </Button> */}
           </View>
         </Card.Content>
       </Card>

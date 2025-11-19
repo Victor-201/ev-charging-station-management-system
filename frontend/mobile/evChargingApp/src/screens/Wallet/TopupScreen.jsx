@@ -87,8 +87,14 @@ const TopupScreen = ({ navigation }) => {
       return;
     }
 
+    const userId = user?.user_id || user?.id;
+    if (!userId) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+      return;
+    }
+
     const result = await dispatch(topupWallet({
-      user_id: user.id,
+      user_id: userId,
       amount: Number(amount),
       method: paymentMethod,
     }));

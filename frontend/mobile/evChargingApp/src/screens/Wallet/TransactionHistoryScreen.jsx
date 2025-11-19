@@ -70,11 +70,12 @@ const TransactionHistoryScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadTransactions = useCallback(() => {
-    if (user?.id) {
+    const userId = user?.user_id || user?.id;
+    if (userId) {
       const params = filter === 'all' ? {} : { type: filter };
-      dispatch(getTransactions({ userId: user.id, params }));
+      dispatch(getTransactions({ userId, params }));
     }
-  }, [dispatch, user?.id, filter]);
+  }, [dispatch, user, filter]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

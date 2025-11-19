@@ -39,13 +39,21 @@ const WithdrawScreen = ({ navigation }) => {
   });
 
   const handleWithdraw = async (data) => {
-    const result = await dispatch(withdrawFromWallet({ userId: user.id, ...data }));
-
-    if (result.type === 'wallet/withdraw/fulfilled') {
-      Alert.alert('Thành công', 'Yêu cầu rút tiền đã được gửi đi.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
-    }
+    // TODO: Backend withdraw endpoint not yet implemented
+    Alert.alert(
+      'Chức năng đang phát triển',
+      'Tính năng rút tiền đang được phát triển. Vui lòng liên hệ bộ phận hỗ trợ để được trợ giúp.',
+      [{ text: 'Đã hiểu' }]
+    );
+    
+    // Uncomment when backend endpoint is ready:
+    // const userId = user?.user_id || user?.id;
+    // const result = await dispatch(withdrawFromWallet({ userId, ...data }));
+    // if (result.type === 'wallet/withdraw/fulfilled') {
+    //   Alert.alert('Thành công', 'Yêu cầu rút tiền đã được gửi đi.', [
+    //     { text: 'OK', onPress: () => navigation.goBack() },
+    //   ]);
+    // }
   };
 
   return (
