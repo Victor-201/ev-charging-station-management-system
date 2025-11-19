@@ -35,7 +35,7 @@ export class RabbitMQService implements OnModuleInit {
       this.configService.get<string>('EXCHANGE_NAME') ||
       'ev_charging_exchange';
 
-    await this.channel.assertExchange(RMQ_EXCHANGE, 'topic', { durable: true });
+    await this.channel.assertExchange(RMQ_EXCHANGE, 'direct', { durable: true });
 
     const bindings = [
       { queue: RMQ_QUEUES.CHARGER, key: RMQ_ROUTING_KEYS.CHARGER },
