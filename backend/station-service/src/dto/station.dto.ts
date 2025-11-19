@@ -144,22 +144,22 @@ export class StationPricingDto {
 }
 
 export class GetListOfStation {
-  id: string;
-  name: string;
-  address: string | null;
-  city: string | null;
-  region: string | null;
-  lat: number | undefined;
-  lng: number | undefined;
-  status: StationStatus;
+    id: string;
+    name: string;
+    address: string | null;
+    city: string | null;
+    region: string | null;
+    lat: number | undefined;
+    lng: number | undefined;
+    status: StationStatus;
 }
 
 export class UpdataStatusDto {
-  @IsEnum(StationStatus)
-  status: StationStatus;
+    @IsEnum(StationStatus)
+    status: StationStatus;
 }
 
-export class StationAbilityDto {
+export class StationAbilityItemDto {
     @IsString()
     station_id: string;
 
@@ -169,6 +169,11 @@ export class StationAbilityDto {
     @IsISO8601()
     end: string;
 
+    @IsOptional()
     @IsString()
-    connector_type: string;
+    connector_type?: string;
+}
+
+export class StationAbilityDto {
+    availability: StationAbilityItemDto[];
 }
