@@ -58,7 +58,7 @@ const userSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(updateProfile.fulfilled, (state, action) => {
+      .addCase(updateProfile.fulfilled, (state, _action) => {
         state.loading = false;
         // API returns { status: "updated" }, so we need to refetch profile
         // The profile will be updated when getMe is called after this
@@ -71,5 +71,4 @@ const userSlice = createSlice({
 });
 
 export const { clearProfile } = userSlice.actions;
-export { getMe, updateProfile };
 export default userSlice.reducer;

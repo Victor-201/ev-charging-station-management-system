@@ -33,15 +33,15 @@ const WalletScreen = () => {
   const styles = getStyles(colors);
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+  const { profile: user } = useSelector((state) => state.user);
   const { wallet, transactions, loading, error } = useSelector((state) => state.wallet || {});
 
   const loadWalletData = useCallback(() => {
-    if (user?.id) {
-      dispatch(getWallet(user.id));
-      dispatch(getTransactions({ userId: user.id, limit: 5 })); // Fetch recent transactions
+    if (user?.user_id) {
+      dispatch(getWallet(user.user_id));
+      dispatch(getTransactions({ userId: user.user_id, limit: 5 })); // Fetch recent transactions
     }
-  }, [dispatch, user?.id]);
+  }, [dispatch, user?.user_id]);
 
   useFocusEffect(loadWalletData);
 

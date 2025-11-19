@@ -86,6 +86,6 @@ const stationSlice = createSlice({
   },
 });
 
-export const { clearSelectedStation } = stationSlice.actions;
+export const { clearSelectedStation, setSelectedStation } = stationSlice.actions;
 export default stationSlice.reducer;
 

@@ -1,12 +1,13 @@
-import React, { useEffect } from 'react';
-import { ScrollView, View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { useEffect } from 'react';
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
-import { logoutAsync, fetchUserProfile } from '../../store/slices/authSlice';
+
+import { getMe } from '../../store/slices/userSlice';
 import { getWallet } from '../../store/slices/walletSlice';
-import useWallet from '../../hooks/useWallet';
+
 
 import Header from '../../components/layout/Header';
 import QuickActionCard from '../../components/cards/QuickActionCard';
@@ -18,8 +19,8 @@ export default function HomeScreen() {
   const dispatch = useDispatch();
 
   // Get user from Redux store
-  const userProfile = useSelector((state) => state.auth.userProfile);
-  const authLoading = useSelector((state) => state.auth.loading);
+  const userProfile = useSelector((state) => state.user.profile);
+  const authLoading = useSelector((state) => state.user.loading);
   const accessToken = useSelector((state) => state.auth.accessToken);
 
   // Get wallet data from Redux store
@@ -28,7 +29,7 @@ export default function HomeScreen() {
   // Fetch user profile and wallet data
   useEffect(() => {
     if (accessToken && !userProfile) {
-      dispatch(fetchUserProfile());
+      dispatch(getMe());
     }
   }, [accessToken, userProfile, dispatch]);
 
@@ -44,18 +45,7 @@ export default function HomeScreen() {
     totalEnergy: 350,
   };
 
-  const handleLogout = () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đăng xuất',
-        style: 'destructive',
-        onPress: () => {
-          dispatch(logoutAsync());
-        },
-      },
-    ]);
-  };
+  
 
   const quickActions = [
     { id: 'find-station', title: 'Tìm trạm sạc', subtitle: 'Tìm trạm sạc gần nhất', onPress: () => navigation.navigate('Map') },
