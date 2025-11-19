@@ -1,4 +1,4 @@
-import { IsOptional, IsNumberString, IsString, IsNumber, ValidateNested, IsISO8601, IsEnum } from 'class-validator';
+import { IsOptional, IsNumberString, IsString, IsNumber, ValidateNested, IsISO8601, IsEnum, IsDecimal } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum StationStatus {
@@ -91,6 +91,14 @@ export class UpdateStationDto {
     @IsOptional()
     @IsEnum(StationStatus)
     status?: StationStatus;
+
+    @IsOptional()
+    @IsDecimal()
+    lat?: number;
+
+    @IsOptional()
+    @IsDecimal()
+    lng?: number;
 }
 
 export class ConnectorDto {
