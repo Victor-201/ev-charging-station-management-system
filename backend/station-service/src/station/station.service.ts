@@ -33,8 +33,8 @@ export class StationService {
 
     searchStations = async (query: SearchStationDto): Promise<any[]> => {
         const {
-            lat,
-            lng,
+            latitude,
+            longitude,
             radius,
             connector_type,
             power_min,
@@ -43,8 +43,8 @@ export class StationService {
             size = '10',
         } = query;
 
-        if (!lat || !lng || !radius) {
-            throw new BadRequestException('lat, lng and radius is required');
+        if (!latitude || !longitude || !radius) {
+            throw new BadRequestException('latitude, longitude and radius is required');
         }
 
         const take = parseInt(size);
@@ -75,8 +75,8 @@ export class StationService {
             if (!station.latitude || !station.longitude) return false;
 
             const distance = getDistanceKm(
-                lat,
-                lng,
+                latitude,
+                longitude,
                 Number(station.latitude),
                 Number(station.longitude),
             );
@@ -95,8 +95,8 @@ export class StationService {
                     address: body.address,
                     city: body.city,
                     region: body.region,
-                    latitude: body.location.lat,
-                    longitude: body.location.lng,
+                    latitude: body.location.latitude,
+                    longitude: body.location.longitude,
                     status: body.status,
                 },
             });
@@ -283,8 +283,8 @@ export class StationService {
             address: station.address,
             city: station.city,
             region: station.region,
-            lat: station.latitude?.toNumber(),
-            lng: station.longitude?.toNumber(),
+            latitude: station.latitude?.toNumber(),
+            longitude: station.longitude?.toNumber(),
             status: station.status as StationStatus,
         }));
     }
