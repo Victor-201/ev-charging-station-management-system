@@ -27,7 +27,7 @@ export class ChargerService {
             },
         });
 
-        return { charger_id: charger.id, status: 'registered' }
+        return { point_id: charger.id, status: 'registered' }
     }
 
     detailOfChargingPoint = async (charger_id: string): Promise<ChargerDetailDto> => {
