@@ -10,10 +10,10 @@ export enum StationStatus {
 
 export class SearchStationDto {
     @IsNumberString()
-    lat: number;
+    latitude: number;
 
     @IsNumberString()
-    lng: number;
+    longitude: number;
 
     @IsNumberString()
     radius: number;
@@ -41,10 +41,10 @@ export class SearchStationDto {
 
 class LocationDto {
     @IsNumber()
-    lat: number;
+    latitude: number;
 
     @IsNumber()
-    lng: number;
+    longitude: number;
 }
 
 
@@ -94,11 +94,11 @@ export class UpdateStationDto {
 
     @IsOptional()
     @IsDecimal()
-    lat?: number;
+    latitude?: number;
 
     @IsOptional()
     @IsDecimal()
-    lng?: number;
+    longitude?: number;
 }
 
 export class ConnectorDto {
@@ -157,8 +157,8 @@ export class GetListOfStation {
     address: string | null;
     city: string | null;
     region: string | null;
-    lat: number | undefined;
-    lng: number | undefined;
+    latitude: number | undefined;
+    longitude: number | undefined;
     status: StationStatus;
 }
 
