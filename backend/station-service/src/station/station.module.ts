@@ -8,8 +8,7 @@ import { RmqModule } from 'src/rmq/rmq.module';
 @Module({
   imports: [
     ConfigModule, 
-    RmqModule.register({ name: 'STATION' }), 
-    RmqModule.register({ name: 'CHARGER' })
+    RmqModule.register({ name: 'STATION' })
   ],
   controllers: [StationController],
   providers: [StationService, PrismaService]
