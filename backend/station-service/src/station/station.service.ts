@@ -265,7 +265,22 @@ export class StationService {
             lng: station.longitude?.toNumber(),
             status: station.status as StationStatus,
         }));
-    };
+    }
+
+    updateStatus = async (station_id: string, status: StationStatus): Promise<any> => {
+        const station = await this.prisma.stations.findUnique({
+            where: { id: station_id },
+        });
+
+        if (!station) {
+            throw new NotFoundException('Station not found');
+        }
+        
+        return await this.prisma.stations.update({
+            where: { id: station_id },
+            data: { status: status },
+        });
+    }
 }
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

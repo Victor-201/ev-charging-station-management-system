@@ -3,22 +3,27 @@ import { StationService } from './station.service';
 
 import type { Request } from 'express';
 
-import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto, GetListOfStation } from 'src/dto/station.dto';
+import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto, GetListOfStation, StationStatus } from 'src/dto/station.dto';
 
 import { JwtAuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
+import { stationStatus } from '@prisma/client';
 
 
 @Controller('stations')
 export class StationController {
     constructor(private stationService: StationService) {}
     
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff', 'user')
     @Get('/search')
     async searchStations(@Query() query: SearchStationDto) {
         return this.stationService.searchStations(query);
     }
     
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff', 'user')
     @Get()
     async getListOfStation(): Promise<GetListOfStation[]> {
         return this.stationService.getListOfStation();
@@ -50,13 +55,16 @@ export class StationController {
         return this.stationService.deleteStation(id);
     }
 
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff', 'user')
     @Get(':id/connectors')
     async getConnectorByStationId(@Param('id') id: string) {
         console.log('Fetching connectors for station ID:', id);
         return this.stationService.getConnectorByStationId(id);
     }
 
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff', 'user')
     @Post(':id/report-issue')
     async reportIssue(@Param('id') id: string, @Req() req: any, @Body() body: ReportIssueDto) {
         const userId = req.user?.id;
@@ -76,9 +84,17 @@ export class StationController {
         return this.stationService.scheduleMaintenance(station_id, scheduled_by, data);
     }
 
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff', 'user')
     @Get(':id/pricing')
     async getPricingByStation(@Param('id') id: string) : Promise<StationPricingDto> {
         return this.stationService.getPricingByStation(id);
     }
 
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff')
+    @Put(':id/status')
+    async updateStationStatus(@Param('id') id: string, @Body() body: { status: StationStatus }): Promise<any> {
+        return this.stationService.updateStatus(id, body.status);
+    }
 }

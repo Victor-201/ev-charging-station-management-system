@@ -153,3 +153,8 @@ export class GetListOfStation {
   lng: number | undefined;
   status: StationStatus;
 }
+
+export class UpdataStatusDto {
+  @IsEnum(StationStatus)
+  status: StationStatus;
+}
