@@ -1,19 +1,22 @@
-// src/contexts/AuthProvider.jsx
 import React, { useState, useEffect, useCallback } from "react";
-import { AuthContext } from "@/contexts/AuthContext"; // đường dẫn đến file bạn đã tạo
-import authService from "@/services/authService"; // đường dẫn tới file service của bạn
-import apiClient from "@/api/apiClient"; // axios instance
+import { AuthContext } from "@/contexts/AuthContext";
+import authService from "@/services/authService";
+import apiClient from "@/api/apiClient";
 
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 
-/**
- * AuthProvider
- * Cách dùng:
- *  <AuthProvider>
- *    <App />
- *  </AuthProvider>
- */
+// ===== JWT Decode =====
+const decodeJWT = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload;
+  } catch (err) {
+    console.error("Decode JWT error:", err);
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(
@@ -23,9 +26,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.getItem(REFRESH_TOKEN_KEY) || null
   );
   const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false); // tránh multi refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Lưu token vào state + localStorage
+  // ===== Persist Tokens =====
   const persistTokens = (access, refresh) => {
     if (access) {
       localStorage.setItem(ACCESS_TOKEN_KEY, access);
@@ -44,11 +47,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Gọi API /auth/me để lấy thông tin user hiện tại
+  // ===== Optional: GET /me =====
   const getMe = useCallback(async () => {
     try {
       const res = await authService.me();
-      // tuỳ backend, có thể res.data hoặc res.data.user
       const payload = res?.data ?? res;
       setUser(payload?.user ?? payload);
       return payload;
@@ -58,74 +60,96 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Refresh token
+  // ===== Refresh Tokens =====
   const refreshTokens = useCallback(async () => {
     if (!refreshToken || isRefreshing) return null;
+
     try {
       setIsRefreshing(true);
-      const res = await authService.refreshToken({ refresh_token: refreshToken });
+
+      const res = await authService.refreshToken({
+        refresh_token: refreshToken,
+      });
+
       const data = res?.data ?? res;
-      // Giả sử backend trả { access_token, refresh_token, user? }
-      const newAccess = data?.access_token ?? data?.accessToken ?? null;
-      const newRefresh = data?.refresh_token ?? data?.refreshToken ?? null;
+
+      const newAccess = data?.access_token ?? data?.accessToken;
+      const newRefresh = data?.refresh_token ?? data?.refreshToken;
 
       if (newAccess || newRefresh) {
-        persistTokens(newAccess ?? accessToken, newRefresh ?? refreshToken);
+        persistTokens(newAccess, newRefresh);
       }
+
+      // auto decode again
+      if (newAccess) {
+        const decoded = decodeJWT(newAccess);
+        if (decoded) {
+          setUser({
+            user_id: decoded.user_id,
+            email: decoded.email,
+            role: decoded.role,
+          });
+        }
+      }
+
       setIsRefreshing(false);
-      return { access: newAccess, refresh: newRefresh, raw: data };
+      return data;
     } catch (err) {
       setIsRefreshing(false);
-      // không thể refresh -> logout local
+
+      // refresh failed → logout
       persistTokens(null, null);
       setUser(null);
       return null;
     }
-  }, [refreshToken, isRefreshing, accessToken]);
+  }, [refreshToken, isRefreshing]);
 
-  // Login
+  // ===== Login =====
   const login = async (payload) => {
     const res = await authService.login(payload);
     const data = res?.data ?? res;
-    // tùy trả về của backend
-    const newAccess = data?.access_token ?? data?.accessToken ?? data?.token ?? null;
+
+    const newAccess = data?.access_token ?? data?.accessToken ?? null;
     const newRefresh = data?.refresh_token ?? data?.refreshToken ?? null;
-    const me = data?.user ?? null;
 
     persistTokens(newAccess, newRefresh);
-    if (me) setUser(me);
-    else await getMe(); // nếu backend không trả user, gọi /me
+
+    // Decode token to user
+    const decoded = decodeJWT(newAccess);
+    if (decoded) {
+      setUser({
+        user_id: decoded.user_id,
+        email: decoded.email,
+        role: decoded.role,
+      });
+    }
+
     return data;
   };
 
-  // Logout
-  const logout = async (payload) => {
+  // ===== Logout =====
+  const logout = async () => {
     try {
-      // Gọi backend revoke nếu cần
-      await authService.logout(payload).catch(() => {});
-    } catch (err) {
-      // ignore
+      await authService.logout().catch(() => {});
     } finally {
       persistTokens(null, null);
       setUser(null);
     }
   };
 
-  // Register
+  // ===== Register & Verify =====
   const register = async (payload) => {
     const res = await authService.register(payload);
     return res?.data ?? res;
   };
 
-  // Verify OTP
   const verify = async (payload) => {
     const res = await authService.verify(payload);
     return res?.data ?? res;
   };
 
-  // Thiết lập interceptor axios để gắn token và xử lý 401
+  // ===== Axios Interceptors =====
   useEffect(() => {
-    // request interceptor: attach token
     const reqInterceptor = apiClient.interceptors.request.use(
       (config) => {
         if (!config.headers) config.headers = {};
@@ -137,14 +161,12 @@ export const AuthProvider = ({ children }) => {
       (error) => Promise.reject(error)
     );
 
-    // response interceptor: handle 401 -> try refresh once
     const resInterceptor = apiClient.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
         if (!originalRequest) return Promise.reject(error);
 
-        // tránh loop: thêm flag _retry
         if (
           error.response &&
           error.response.status === 401 &&
@@ -152,13 +174,16 @@ export const AuthProvider = ({ children }) => {
         ) {
           originalRequest._retry = true;
           const refreshed = await refreshTokens();
-          if (refreshed && (refreshed.access || accessToken)) {
-            const newAccess = refreshed.access ?? accessToken;
-            if (!originalRequest.headers) originalRequest.headers = {};
+
+          if (refreshed?.access_token || refreshed?.accessToken) {
+            const newAccess =
+              refreshed.access_token ?? refreshed.accessToken ?? accessToken;
+
             originalRequest.headers["Authorization"] = `Bearer ${newAccess}`;
             return apiClient(originalRequest);
           }
         }
+
         return Promise.reject(error);
       }
     );
@@ -169,34 +194,23 @@ export const AuthProvider = ({ children }) => {
     };
   }, [accessToken, refreshTokens]);
 
-  // khi mount: nếu có accessToken -> gọi getMe
+  // ===== Init User on Page Reload =====
   useEffect(() => {
-    let mounted = true;
-    const init = async () => {
-      if (accessToken) {
-        try {
-          await getMe();
-        } catch (err) {
-          // nếu token lỗi -> thử refresh
-          const r = await refreshTokens();
-          if (r?.access) {
-            try {
-              await getMe();
-            } catch {
-              // ignore
-            }
-          }
-        }
+    if (accessToken) {
+      const decoded = decodeJWT(accessToken);
+      if (decoded) {
+        setUser({
+          user_id: decoded.user_id,
+          email: decoded.email,
+          role: decoded.role,
+        });
       }
-      if (mounted) setLoading(false);
-    };
-    init();
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // chạy 1 lần khi mount
+    }
 
+    setLoading(false);
+  }, []);
+
+  // ===== Provider Value =====
   const value = {
     user,
     accessToken,
@@ -208,7 +222,7 @@ export const AuthProvider = ({ children }) => {
     verify,
     refreshTokens,
     getMe,
-    setUser, // có thể dùng để cập nhật profile local
+    setUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

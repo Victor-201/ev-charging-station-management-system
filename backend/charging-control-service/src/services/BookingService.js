@@ -92,7 +92,7 @@ class BookingService {
       start_time,
       end_time,
       status: finalStatus,
-      price_per_min: typeof price_per_min === 'number' ? price_per_min : 1000,
+      price_per_min: typeof price_per_min === 'number' ? price_per_min : 10000,
       expires_at,
     });
 

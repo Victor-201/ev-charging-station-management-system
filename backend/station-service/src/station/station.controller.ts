@@ -8,7 +8,6 @@ import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, S
 import { JwtAuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
-import { stationStatus } from '@prisma/client';
 
 
 @Controller('stations')
