@@ -8,14 +8,14 @@ export class RmqService {
 
   getOptions(queue: string, noAck = false): RmqOptions {
     const url = this.configService.get<string>('RABBITMQ_URL');
-    const queueName = this.configService.get<string>(`RABBIT_MQ_${queue}_QUEUE`);
+    const queueName = this.configService.get<string>(`RABBITMQ_${queue}_QUEUE`);
 
     if (!url) {
       throw new Error('Missing environment variable: RABBITMQ_URL');
     }
 
     if (!queueName) {
-      throw new Error(`Missing environment variable: RABBIT_MQ_${queue}_QUEUE`);
+      throw new Error(`Missing environment variable: RABBITMQ_${queue}_QUEUE`);
     }
 
     return {

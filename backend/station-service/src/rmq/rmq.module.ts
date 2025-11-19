@@ -21,7 +21,7 @@ export class RmqModule {
             name,
             inject: [ConfigService],
             useFactory: (configService: ConfigService) => {
-              const url = configService.getOrThrow<string>('RABBITMQ_URI');
+              const url = configService.getOrThrow<string>('RABBITMQ_URL');
               const queue = configService.getOrThrow<string>(`RABBITMQ_${name}_QUEUE`);
 
               return {
