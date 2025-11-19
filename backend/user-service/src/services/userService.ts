@@ -8,10 +8,10 @@ export class UserService {
   // Get user profile (from token - used by /api/v1/auth/me)
   async getUserById(userId: string): Promise<User | null> {
     try {
-      // Get basic user info from user_profiles
+      // Get basic user info from users table
       const result = await pool.query(
-        `SELECT user_id AS id, name AS name, phone
-         FROM user_profiles WHERE user_id = $1`,
+        `SELECT id, email, full_name, phone, date_of_birth, role, status, email_verified, created_at
+         FROM users WHERE id = $1`,
         [userId]
       );
 
@@ -19,16 +19,17 @@ export class UserService {
         return null;
       }
 
-      // Return user profile data with id from user_id
+      // Return user profile data
       return {
         id: result.rows[0].id,
-        email: '', // Email is in auth DB, not available here
+        email: result.rows[0].email,
         full_name: result.rows[0].full_name,
         phone: result.rows[0].phone,
-        role: '', // Role is in auth DB, will be from JWT token
-        status: 'active',
-        email_verified: false,
-        created_at: new Date(),
+        date_of_birth: result.rows[0].date_of_birth,
+        role: result.rows[0].role,
+        status: result.rows[0].status,
+        email_verified: result.rows[0].email_verified,
+        created_at: result.rows[0].created_at,
       };
     } catch (error) {
       logger.error('Error getting user by ID:', error);
@@ -39,9 +40,14 @@ export class UserService {
   // Get user details including vehicles
   async getUserDetails(userId: string): Promise<any> {
     try {
+      // Get user info from users table
       const userResult = await pool.query(
-        `SELECT user_id AS id, name, phone, avatar_url, address, created_at, updated_at
-         FROM user_profiles WHERE user_id = $1`,
+        `SELECT u.id, u.email, u.full_name, u.phone, u.date_of_birth, u.role, u.status,
+                u.email_verified, u.created_at, u.updated_at,
+                up.avatar_url, up.address
+         FROM users u
+         LEFT JOIN user_profiles up ON u.id = up.user_id
+         WHERE u.id = $1`,
         [userId]
       );
 
@@ -83,21 +89,21 @@ export class UserService {
       const userIds = authServiceData.users.map((user: any) => user.user_id);
       let profilesMap = new Map();
 
-      // Get names from user_profiles in our database
+      // Get full names from users table in our database
       if (userIds.length > 0) {
         const profilesResult = await pool.query(
-          `SELECT user_id, name FROM user_profiles WHERE user_id = ANY($1)`,
+          `SELECT id AS user_id, full_name FROM users WHERE id = ANY($1)`,
           [userIds]
         );
         profilesResult.rows.forEach((row: any) => {
-          profilesMap.set(row.user_id, row.name);
+          profilesMap.set(row.user_id, row.full_name);
         });
       }
 
       // Combine data from auth service and user profiles
       const users = authServiceData.users.map((user: any) => ({
         ...user,
-        name: profilesMap.get(user.user_id) || null,
+        full_name: profilesMap.get(user.user_id) || null,
       }));
 
       return {
@@ -221,7 +227,13 @@ export class UserService {
   // GDPR: Export user data
   async exportUserData(userId: string): Promise<any> {
     try {
-      // Get user profile
+      // Get user basic info from users table
+      const userResult = await pool.query(
+        'SELECT id, email, full_name, phone, date_of_birth, role, status, email_verified, created_at, updated_at FROM users WHERE id = $1',
+        [userId]
+      );
+
+      // Get user profile (avatar, address)
       const userProfileResult = await pool.query(
         'SELECT * FROM user_profiles WHERE user_id = $1',
         [userId]
@@ -252,14 +264,15 @@ export class UserService {
       );
 
       return {
+        user: userResult.rows[0] || null,
         user_profile: userProfileResult.rows[0] || null,
         vehicles: vehiclesResult.rows,
         subscriptions: subscriptionsResult.rows,
         notifications: notificationsResult.rows,
         wallet_transactions: walletResult.rows,
         exported_at: new Date().toISOString(),
-        data_sources: ['user_profiles', 'vehicles', 'subscriptions', 'notifications', 'wallet_transactions'],
-        note: 'Authentication data (email, role, auth history) is stored separately in auth-service database'
+        data_sources: ['users', 'user_profiles', 'vehicles', 'subscriptions', 'notifications', 'wallet_transactions'],
+        note: 'Authentication data (password hash, sessions, auth history) is stored separately in auth-service database'
       };
     } catch (error) {
       logger.error('Error exporting user data:', error);

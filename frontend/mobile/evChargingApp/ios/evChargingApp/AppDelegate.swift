@@ -3,7 +3,6 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import GoogleSignIn
-import FBSDKCoreKit
 import Firebase
 
 @main
@@ -19,12 +18,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   ) -> Bool {
 
     FirebaseApp.configure()
-
-    // Configure Facebook SDK
-    ApplicationDelegate.shared.application(
-      application,
-      didFinishLaunchingWithOptions: launchOptions
-    )
 
     // Google Sign-In is now configured in the JavaScript code (OAuthButtons.jsx).
     // No native configuration is needed here.
@@ -57,17 +50,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey : Any] = [:]
   ) -> Bool {
-    
-    // Handle Facebook URL
-    if ApplicationDelegate.shared.application(app, open: url, options: options) {
-      return true
-    }
-    
+
     // Handle Google Sign-In URL
     if GIDSignIn.sharedInstance.handle(url) {
       return true
     }
-    
+
     return false
   }
 }

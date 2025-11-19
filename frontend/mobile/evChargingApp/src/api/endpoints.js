@@ -144,4 +144,17 @@ export const ENDPOINTS = {
     // Webhook
     BANK_WEBHOOK: '/payments/webhook',
   },
+
+  // ==================== ANALYTICS SERVICE (Port 3006) ====================
+  ANALYTICS: {
+    // User Analytics
+    USER_STATS: '/analytics/user/:user_id/stats',
+    USER_CHARGING_HISTORY: '/analytics/user/:user_id/charging-history',
+    USER_SPENDING: '/analytics/user/:user_id/spending',
+    // Station Analytics
+    STATION_STATS: '/analytics/station/:station_id/stats',
+    // System Analytics (Admin)
+    SYSTEM_STATS: '/analytics/system/stats',
+    REVENUE_REPORT: '/analytics/system/revenue',
+  },
 };

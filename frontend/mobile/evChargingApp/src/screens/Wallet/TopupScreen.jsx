@@ -119,8 +119,32 @@ const TopupScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Text style={styles.title}>Nạp tiền vào ví</Text>
 
+      {/* Sepay Quick Top-up Button */}
+      <Card style={[styles.card, { backgroundColor: '#E8F5E9' }]}>
+        <Card.Content>
+          <Text style={[styles.methodTitle, { color: '#2E7D32' }]}>
+            🚀 Nạp tiền nhanh qua Sepay
+          </Text>
+          <Text style={{ marginBottom: 12, color: '#555' }}>
+            Quét mã QR hoặc chuyển khoản ngân hàng. Tiền được cập nhật tự động!
+          </Text>
+          <Button
+            mode="contained"
+            onPress={() => navigation.navigate('SepayTopUp')}
+            style={{ backgroundColor: '#4CAF50' }}
+          >
+            Nạp tiền qua Sepay
+          </Button>
+        </Card.Content>
+      </Card>
+
+      {/* Traditional Top-up Method */}
       <Card style={styles.card}>
         <Card.Content>
+          <Text style={[styles.methodTitle, { marginBottom: 12 }]}>
+            Hoặc sử dụng phương thức truyền thống
+          </Text>
+
           <TextInput
             label="Số tiền (VND)"
             value={amount}
