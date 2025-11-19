@@ -71,4 +71,5 @@ const userSlice = createSlice({
 });
 
 export const { clearProfile } = userSlice.actions;
+export { getMe, updateProfile };
 export default userSlice.reducer;

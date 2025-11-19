@@ -5,6 +5,8 @@ import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { logoutAsync, fetchUserProfile } from '../../store/slices/authSlice';
+import { getWallet } from '../../store/slices/walletSlice';
+import useWallet from '../../hooks/useWallet';
 
 import Header from '../../components/layout/Header';
 import QuickActionCard from '../../components/cards/QuickActionCard';
@@ -17,15 +19,24 @@ export default function HomeScreen() {
 
   // Get user from Redux store
   const userProfile = useSelector((state) => state.auth.userProfile);
-  const loading = useSelector((state) => state.auth.loading);
+  const authLoading = useSelector((state) => state.auth.loading);
   const accessToken = useSelector((state) => state.auth.accessToken);
 
-  // Fetch user profile when component mounts if we have a token but no profile
+  // Get wallet data from Redux store
+  const { wallet, loading: walletLoading } = useSelector((state) => state.wallet);
+
+  // Fetch user profile and wallet data
   useEffect(() => {
     if (accessToken && !userProfile) {
       dispatch(fetchUserProfile());
     }
   }, [accessToken, userProfile, dispatch]);
+
+  useEffect(() => {
+    if (userProfile?.user_id) {
+      dispatch(getWallet(userProfile.user_id));
+    }
+  }, [userProfile, dispatch]);
 
   // Mock stats - TODO: fetch from analytics API
   const stats = {
@@ -49,12 +60,17 @@ export default function HomeScreen() {
   const quickActions = [
     { id: 'find-station', title: 'Tìm trạm sạc', subtitle: 'Tìm trạm sạc gần nhất', onPress: () => navigation.navigate('Map') },
     { id: 'charging-history', title: 'Lịch sử sạc', subtitle: 'Xem lịch sử sạc xe', onPress: () => navigation.navigate('Charging', { screen: 'ChargingHistory' }) },
-    { id: 'wallet', title: 'Ví của tôi', subtitle: 'Quản lý số dư và giao dịch', onPress: () => navigation.navigate('Wallet') },
+    {
+      id: 'wallet',
+      title: 'Ví của tôi',
+      subtitle: walletLoading ? 'Đang tải...' : `${(wallet?.balance || 0).toLocaleString()} VND`,
+      onPress: () => navigation.navigate('Wallet'),
+    },
     { id: 'profile', title: 'Hồ sơ', subtitle: 'Quản lý thông tin cá nhân', onPress: () => navigation.navigate('Profile') },
   ];
 
   // Show loading state while fetching user profile
-  if (loading && !userProfile) {
+  if ((authLoading || (userProfile && walletLoading)) && !wallet) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />

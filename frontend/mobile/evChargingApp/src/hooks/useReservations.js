@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   getAvailableSlots,
@@ -11,6 +11,7 @@ import {
   clearReservationState,
   clearCurrentReservation,
   clearAvailableSlots,
+  setAvailableSlots,
 } from '../store/slices/reservationSlice';
 
 /**
@@ -19,6 +20,7 @@ import {
  */
 export default function useReservations() {
   const dispatch = useDispatch();
+  const slotsCache = useRef({}); // Cache for available slots
   const {
     reservations,
     currentReservation,
@@ -36,7 +38,29 @@ export default function useReservations() {
 
   const fetchAvailableSlots = useCallback(
     (stationId, date) => {
-      return dispatch(getAvailableSlots({ stationId, date })).unwrap();
+      const cacheKey = `${stationId}-${date}`;
+      const cachedData = slotsCache.current[cacheKey];
+      const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
+      // Check if valid cache exists
+      if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
+        console.log('✅ Using cached slots for', cacheKey);
+        dispatch(setAvailableSlots(cachedData.slots));
+        return Promise.resolve(cachedData.slots);
+      }
+
+      console.log('⬇️ Fetching new slots for', cacheKey);
+      // No valid cache, fetch from network
+      return dispatch(getAvailableSlots({ stationId, date }))
+        .unwrap()
+        .then((slots) => {
+          // Update cache on successful fetch
+          slotsCache.current[cacheKey] = {
+            slots,
+            timestamp: Date.now(),
+          };
+          return slots;
+        });
     },
     [dispatch]
   );

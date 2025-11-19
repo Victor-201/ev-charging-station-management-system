@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../../config/constants';
 import { useNavigation } from '@react-navigation/native';
 import AuthWrapper from './AuthWrapper';
-import logger from '../../utils/logger';
+import { logger } from '../../utils/logger';
 
 export default function Login() {
   const navigation = useNavigation();
@@ -47,13 +47,21 @@ export default function Login() {
   // The useEffect that was here caused a race condition.
 
   const onSubmit = async (data) => {
-    console.log('🔐 Login attempt:', data.email);
-    const result = await doLogin({
-      email: data.email,
-      password: data.password,
-      remember: rememberChecked
-    });
-    console.log('🔐 Login result:', result);
+    logger.info('🔐 Login attempt:', data.email);
+    try {
+      const result = await doLogin({
+        email: data.email,
+        password: data.password,
+        remember: rememberChecked
+      });
+
+      if (result.meta.requestStatus === 'rejected') {
+        logger.error('Login failed:', result.payload?.message || 'An unknown error occurred.');
+      }
+    } catch (err) {
+      // This will catch any unexpected errors during the dispatch process itself.
+      logger.error('An unexpected error occurred during login:', err);
+    }
   };
 
   return (

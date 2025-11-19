@@ -9,16 +9,16 @@ export const emailSchema = yup
 
 export const passwordSchema = yup
   .string()
-  .min(6, 'Mật khẩu ít nhất 6 ký tự')
+  .min(8, 'Mật khẩu ít nhất 8 ký tự')
   .matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-    'Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường và 1 số'
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+    'Mật khẩu phải chứa ít nhất 8 ký tự, 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt (@$!%*?&)'
   )
   .required('Mật khẩu là bắt buộc');
 
 export const phoneSchema = yup
   .string()
-  .matches(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ (10-11 số)')
+  .matches(/^[0-9]{10,15}$/, 'Số điện thoại không hợp lệ (10-15 số)')
   .nullable();
 
 // Login schema

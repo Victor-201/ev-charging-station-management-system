@@ -104,15 +104,7 @@ export const logoutAsync = createAsyncThunk('auth/logoutAsync', async (_, { getS
   }
 });
 
-// Fetch user profile from API
-export const fetchUserProfile = createAsyncThunk('auth/fetchUserProfile', async (_, { rejectWithValue }) => {
-  try {
-    const data = await profileService.getMe();
-    return data;
-  } catch (err) {
-    return rejectWithValue(err.response?.data || { message: err.message });
-  }
-});
+
 
 const initialState = {
   user: null,
@@ -238,15 +230,7 @@ const authSlice = createSlice({
         s.refreshToken = null;
       })
 
-      .addCase(fetchUserProfile.pending, (s) => { s.loading = true; s.error = null; })
-      .addCase(fetchUserProfile.fulfilled, (s, a) => {
-        s.loading = false;
-        s.userProfile = a.payload;
-      })
-      .addCase(fetchUserProfile.rejected, (s, a) => {
-        s.loading = false;
-        s.error = a.payload?.message || 'Failed to fetch profile';
-      });
+      
   },
 });
 
