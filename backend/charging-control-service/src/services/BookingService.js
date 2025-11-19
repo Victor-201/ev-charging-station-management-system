@@ -48,100 +48,158 @@ class BookingService {
       }
     });
   }
+async createReservation(data, token) {
+  const {
+    user_id,
+    station_id,
+    point_id,       // <-- chính là charger_id từ FE
+    connector_type,
+    start_time,
+    end_time,
+    status,
+    payment_method
+  } = data;
 
-  async createReservation(data, token) {
-    const { user_id, station_id, point_id, connector_type, start_time, end_time, price_per_min, status, payment_method } = data;
+  // ===== VALIDATION =====
+  if (!user_id || !station_id || !point_id || !connector_type || !start_time || !end_time) {
+    const e = new Error('Missing required reservation fields');
+    e.status = 400;
+    throw e;
+  }
 
-    if (!user_id || !station_id || !point_id || !connector_type || !start_time || !end_time) {
-      const e = new Error('Missing required reservation fields');
-      e.status = 400;
-      throw e;
-    }
+  if (!['wallet', 'bank_transfer'].includes(payment_method)) {
+    const e = new Error('Invalid payment_method');
+    e.status = 400;
+    throw e;
+  }
 
-    if (!['wallet', 'bank_transfer'].includes(payment_method)) {
-      const e = new Error('Invalid payment_method');
-      e.status = 400;
-      throw e;
-    }
+  if (dayjs(end_time).isBefore(dayjs(start_time))) {
+    const e = new Error('Invalid time range');
+    e.status = 400;
+    throw e;
+  }
 
-    if (dayjs(end_time).isBefore(dayjs(start_time))) {
-      const e = new Error('Invalid time range');
-      e.status = 400;
-      throw e;
-    }
+  // ===== CHECK AVAILABILITY =====
+  const available = await this.reservationRepo.checkAvailability(
+    station_id,
+    point_id,
+    start_time,
+    end_time
+  );
 
-    const available = await this.reservationRepo.checkAvailability(station_id, point_id, start_time, end_time);
-    if (!available) {
-      const e = new Error('Charging point is already reserved');
-      e.status = 409;
-      throw e;
-    }
+  if (!available) {
+    const e = new Error('Charging point is already reserved');
+    e.status = 409;
+    throw e;
+  }
 
-    const finalStatus = status || 'pending';
-    const expires_at =
-      data.expires_at ??
-      (finalStatus === 'pending'
-        ? dayjs.utc(start_time).subtract(5, 'minute').toISOString()
-        : null);
+  // ===== GET PRICING DIRECTLY USING point_id AS CHARGER_ID =====
+  let pricingList = [];
+  try {
+    const res = await axios.get(
+      `${config.STATIONBASE}/api/v1/chargers/${point_id}/pricing`,
+      { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
+    );
 
-    const reservation = await this.reservationRepo.create({
-      user_id,
-      station_id,
+    console.log('đâsdsadada', res.data?.pricing)
+    pricingList = res.data?.pricing || [];
+  } catch (err) {
+    console.error("Pricing API error:", err.response?.data || err);
+    const e = new Error("Failed to fetch pricing for charger");
+    e.status = 500;
+    throw e;
+  }
+
+  // ===== FIND per_minute MODEL =====
+  const perMin = pricingList.find((p) => p.model === "per_minute");
+
+  if (!perMin) {
+    const e = new Error("per_minute pricing model not found");
+    e.status = 400;
+    throw e;
+  }
+
+  const price_per_min = Number(perMin.price);
+
+  // ===== CALCULATE TOTAL MINUTES =====
+  const minutes = dayjs(end_time).diff(dayjs(start_time), "minute");
+
+  // ===== CALCULATE TOTAL AMOUNT =====
+  const total_amount = minutes * price_per_min;
+
+  console.log("⏱ Minutes:", minutes);
+  console.log("💵 Price per min:", price_per_min);
+  console.log("💰 Total amount:", total_amount);
+
+  const finalStatus = status || "pending";
+
+  const expires_at =
+    data.expires_at ??
+    (finalStatus === "pending"
+      ? dayjs.utc(start_time).subtract(5, "minute").toISOString()
+      : null);
+
+  // ===== CREATE RESERVATION WITH REAL PRICING =====
+  const reservation = await this.reservationRepo.create({
+    user_id,
+    station_id,
+    point_id,
+    connector_type,
+    start_time,
+    end_time,
+    status: finalStatus,
+    price_per_min,
+    total_amount,
+    expires_at,
+  });
+
+  // ===== PREPARE PAYMENT PAYLOAD =====
+  const payload = {
+    user_id: reservation.user_id,
+    type: "payment",
+    method: payment_method,
+    related_id: reservation.reservation_id,
+    related_type: "booking",
+    amount: total_amount,
+
+    meta: {
       point_id,
-      connector_type,
+      station_id,
+      minutes,
+      price_per_min,
+      description: `Thanh toán đặt sạc tại trạm ${station_id}`,
       start_time,
       end_time,
-      status: finalStatus,
-      price_per_min: typeof price_per_min === 'number' ? price_per_min : 10000,
-      expires_at,
-    });
+    },
+  };
 
-    const payload = {
-      user_id: reservation.user_id,
-      type: 'payment',
-      method: payment_method,
-      related_id: reservation.reservation_id,
-      related_type: 'booking',
-      amount: reservation.price_per_min,
-      meta: {
-        description: `Thanh toán đặt sạc tại trạm ${reservation.station_id}`,
-        start_time: reservation.start_time,
-        end_time: reservation.end_time,
-      },
-    };
+  let paymentResponse = null;
 
-    let paymentResponse = null;
+  // ===== CALL PAYMENT SERVICE =====
+  try {
+    console.log("Sending payment payload:", payload);
 
-    try {
-      console.log('Sending REST payment request to payment-service with payload:', payload);
+    const res = await axios.post(
+      `${config.PAYMENTBASE}/api/v1/payments/transaction`,
+      payload,
+      { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
+    );
 
-      const response = await axios.post(
-        `${config.PAYMENTBASE}/api/v1/payments/transaction`,
-        payload,
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : undefined,
-          },
-        }
-      );
-
-      debug('REST payment request sent successfully');
-      debug('Payment service response:', response.data);
-
-      paymentResponse = response.data;
-
-    } catch (e) {
-      if (e.response) {
-        debug('Payment service returned error:', e.response.status, e.response.data);
-        paymentResponse = { error: e.response.data, status: e.response.status };
-      } else {
-        debug('REST payment request failed:', e.message);
-        paymentResponse = { error: e.message };
-      }
-    }
-
-    return { reservation, payment: paymentResponse };
+    paymentResponse = res.data;
+  } catch (err) {
+    paymentResponse = err.response
+      ? { error: err.response.data, status: err.response.status }
+      : { error: err.message };
   }
+
+  return {
+    reservation,
+    payment: paymentResponse,
+    pricing: pricingList,
+    minutes,
+    total_amount,
+  };
+}
 
 
   async confirmReservation(reservation_id, { payment_info = null } = {}) {

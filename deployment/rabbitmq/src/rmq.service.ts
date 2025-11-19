@@ -40,14 +40,16 @@ export class RabbitMQService implements OnModuleInit {
     const bindings = [
       { queue: RMQ_QUEUES.CHARGER, key: RMQ_ROUTING_KEYS.CHARGER },
       { queue: RMQ_QUEUES.STATION, key: RMQ_ROUTING_KEYS.STATION },
+      { queue: RMQ_QUEUES.PAYMENT, key: RMQ_ROUTING_KEYS.PAYMENT }
     ];
 
     for (const b of bindings) {
       await this.channel.assertQueue(b.queue, { durable: true });
-      await this.channel.bindQueue(b.queue, RMQ_EXCHANGE, b.key);
-      console.log(`Queue "${b.queue}" bound using key "${b.key}"`);
+      for (const key of b.key) {
+        await this.channel.bindQueue(b.queue, RMQ_EXCHANGE, key);
+        console.log(`Queue "${b.queue}" bound to "${key}"`);
+      }
     }
-
     console.log('All queues and routing key have been setup successfully!');
   }
 
