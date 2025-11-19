@@ -169,6 +169,7 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
+        s.userProfile = a.payload?.userProfile ?? null; // Set user profile
         // Decode JWT to get user info
         if (a.payload?.accessToken) {
           try {

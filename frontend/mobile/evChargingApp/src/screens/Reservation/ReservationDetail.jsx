@@ -14,6 +14,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
 import useReservations from '../../hooks/useReservations';
+import reservationService from '../../services/reservationService';
 
 export default function ReservationDetail() {
   const { colors } = useTheme();
@@ -24,6 +25,7 @@ export default function ReservationDetail() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
 
   const {
     currentReservation: reservation,
@@ -81,6 +83,26 @@ export default function ReservationDetail() {
         },
       ]
     );
+  };
+
+  const handleStartCharging = async () => {
+    if (!reservation?.reservation_id) return;
+
+    setQrLoading(true);
+    try {
+      const response = await reservationService.generateQR(reservation.reservation_id);
+      navigation.navigate('QRCodeScreen', {
+        qrData: response.qr_code,
+        reservationId: reservation.reservation_id,
+        stationName: reservation.station?.name || `Trạm sạc #${reservation.station_id}`,
+        expiresAt: response.expires_at,
+      });
+    } catch (err) {
+      console.error('Failed to generate QR code:', err);
+      Alert.alert('Lỗi', 'Không thể tạo mã QR để bắt đầu sạc. Vui lòng thử lại.');
+    } finally {
+      setQrLoading(false);
+    }
   };
 
   if (loading && !refreshing) {
@@ -160,6 +182,22 @@ export default function ReservationDetail() {
 
       {(reservation.status === 'confirmed' || reservation.status === 'pending') && (
         <View style={styles.actionContainer}>
+          {reservation.status === 'confirmed' && (
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={handleStartCharging}
+              disabled={qrLoading}
+            >
+              {qrLoading ? (
+                <ActivityIndicator size="small" color={colors.onPrimary} />
+              ) : (
+                <>
+                  <Icon name="qr-code-scanner" size={20} color={colors.onPrimary} />
+                  <Text style={styles.startButtonText}>Bắt đầu sạc</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={handleCancelReservation}
@@ -270,6 +308,22 @@ const getStyles = (colors) => StyleSheet.create({
     padding: 20,
     marginTop: 12,
     backgroundColor: colors.surface,
+    gap: 12,
+  },
+  startButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 14,
+    flex: 1,
+  },
+  startButtonText: {
+    color: colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   cancelButton: {
     flexDirection: 'row',
