@@ -1,11 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useStation } from "@/hooks/useStation"; // hook lấy từ context
 import Card from "../../components/staff/Card/index";
 import Table from "../../components/staff/Table/index";
+import chargingControlService from "@/services/chargingControlService"; // Giả sử import từ services, điều chỉnh nếu cần
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Stations() {
   const managedStationId = "550e8400-e29b-41d4-a716-446655440001";
-
+  const {user} = useAuth(); // Thay bằng ID thực tế của nhân viên, có thể lấy từ context/auth nếu có
+  const user_id = user?.user_id;
   const {
     stations,
     currentStation,
@@ -15,25 +18,25 @@ export default function Stations() {
     getById,
     getConnectors,
     update,
-    getChargerById,    // <- ensure exported by useStation
+    getChargerById, // <- ensure exported by useStation
     getChargerPricing, // <- ensure exported by useStation
   } = useStation();
-
   const [selectedChargerId, setSelectedChargerId] = useState(null);
   const [selectedChargerDetails, setSelectedChargerDetails] = useState(null);
-
   const [loadingCharger, setLoadingCharger] = useState(false);
   const [loadingPricing, setLoadingPricing] = useState(false);
-
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentSession, setCurrentSession] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [loadingSession, setLoadingSession] = useState(false);
+  const [error, setError] = useState(null);
 
   // ===== Lấy dữ liệu =====
   useEffect(() => {
     const params = { lat: 10.9, lng: 106.8, radius: 10 };
     getAll(params);
   }, [getAll]);
-
   useEffect(() => {
     if (managedStationId) {
       getById(managedStationId);
@@ -71,7 +74,7 @@ export default function Stations() {
   }, [connectors, currentStation, query, statusFilter]);
 
   // helper: chọn id ưu tiên để gọi API
-  const chooseChargerId = (ch) => ch?.external_id || ch?.connector_id || ch?.id || null;
+  const chooseChargerId = (ch) => ch?.external_id || ch?.point_id || ch?.id || null;
 
   // ===== Xử lý chọn charger (lấy details + pricing) =====
   async function handleSelectCharger(ch) {
@@ -81,10 +84,8 @@ export default function Stations() {
       setSelectedChargerDetails(null);
       return;
     }
-
     setSelectedChargerId(chargerId);
     setSelectedChargerDetails(null);
-
     // ---------- load details ----------
     setLoadingCharger(true);
     try {
@@ -104,7 +105,6 @@ export default function Stations() {
     } finally {
       setLoadingCharger(false);
     }
-
     // ---------- load pricing and MERGE into selectedChargerDetails ----------
     setLoadingPricing(true);
     try {
@@ -121,10 +121,8 @@ export default function Stations() {
             : payload?.pricing
             ? [payload.pricing]
             : null;
-
           // Nếu payload là object chứa price_per_kwh, ... thì lưu nguyên
           const pricingObj = pricingArray ? { pricing: pricingArray } : payload;
-
           // Merge vào details (nếu details chưa có vì load details bị chậm, dùng fallback ch)
           setSelectedChargerDetails((prev) => {
             const base = prev || ch || {};
@@ -165,11 +163,10 @@ export default function Stations() {
         : c
     );
     if (currentStation?.id) update(currentStation.id, { chargers: updatedChargers });
-
     if (
       selectedChargerDetails &&
       (selectedChargerDetails.id === chargerId ||
-        selectedChargerDetails.connector_id === chargerId ||
+        selectedChargerDetails.point_id === chargerId ||
         selectedChargerDetails.external_id === chargerId)
     ) {
       setSelectedChargerDetails({
@@ -194,11 +191,10 @@ export default function Stations() {
         : c
     );
     if (currentStation?.id) update(currentStation.id, { chargers: updatedChargers });
-
     if (
       selectedChargerDetails &&
       (selectedChargerDetails.id === chargerId ||
-        selectedChargerDetails.connector_id === chargerId ||
+        selectedChargerDetails.point_id === chargerId ||
         selectedChargerDetails.external_id === chargerId)
     ) {
       setSelectedChargerDetails({
@@ -209,6 +205,79 @@ export default function Stations() {
     }
   }
 
+  const initiateSession = useCallback(async (payload) => {
+    setLoadingSession(true);
+    setError(null);
+    try {
+      const res = await chargingControlService.initiateSession(payload);
+      const data = res?.data ?? res;
+     
+      setCurrentSession(data);
+      setSessions(prev => [data, ...prev]);
+     
+      setLoadingSession(false);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setLoadingSession(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  const startSession = useCallback(async (payload) => {
+    setLoadingSession(true);
+    setError(null);
+    try {
+      const res = await chargingControlService.startSession(payload);
+      const data = res?.data ?? res;
+     
+      setCurrentSession(data);
+      setSessions(prev =>
+        prev.map(s =>
+          (s.id === data.id || s.session_id === data.session_id) ? data : s
+        )
+      );
+     
+      setLoadingSession(false);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setLoadingSession(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  // ===== Xử lý bắt đầu sạc (initiate rồi start) =====
+  async function handleStartCharging() {
+    if (loadingSession) return; // Ngăn click liên tục
+
+    const point_id = chooseChargerId(selectedCharger);
+    if (!point_id) return;
+
+    const payload = {
+      station_id: managedStationId,
+      point_id,
+      user_id,
+    };
+
+    const initRes = await initiateSession(payload);
+    if (initRes.success) {
+      const sessionId = initRes.data?.id || initRes.data?.session_id;
+      if (sessionId) {
+        const startPayload = {
+          ...payload,
+          session_id: sessionId,
+        };
+        const startRes = await startSession(startPayload);
+        if (startRes.success) {
+          setChargerStatus(point_id, "charging");
+          addChargerHistory(point_id, "Bắt đầu phiên sạc bởi nhân viên");
+        }
+      }
+    }
+    // Xử lý error nếu cần (ví dụ: alert(error?.message))
+  }
+
   // ===== Giao diện =====
   if (loading)
     return (
@@ -216,24 +285,21 @@ export default function Stations() {
         Đang tải dữ liệu trạm...
       </div>
     );
-
   const selectedCharger =
     (selectedChargerDetails &&
       (selectedChargerDetails.id === selectedChargerId ||
-        selectedChargerDetails.connector_id === selectedChargerId ||
+        selectedChargerDetails.point_id === selectedChargerId ||
         selectedChargerDetails.external_id === selectedChargerId)
       ? selectedChargerDetails
       : filteredChargers.find((c) => chooseChargerId(c) === selectedChargerId)) || null;
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 px-6 py-8 font-inter">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-extrabold mb-6">Quản lý trạm — Nhân viên</h1>
-
         {/* Bộ thống kê */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
           {[
-            { key: "all", label: "Trạm", value: currentStation?.name  },
+            { key: "all", label: "Trạm", value: currentStation?.name },
             { key: "available", label: "Sẵn sàng", value: stats.available, sub: "trụ" },
             { key: "in_use", label: "Đang dùng", value: stats.in_use, sub: "trụ" },
             { key: "fault", label: "Lỗi", value: stats.fault, sub: "trụ" },
@@ -245,7 +311,7 @@ export default function Stations() {
                 setSelectedChargerId(null);
                 setSelectedChargerDetails(null);
               }}
-              className={`cursor-pointer select-none flex flex-col gap-1 rounded-xl border px-4 py-3 shadow-sm transition-all 
+              className={`cursor-pointer select-none flex flex-col gap-1 rounded-xl border px-4 py-3 shadow-sm transition-all
               ${statusFilter === stat.key ? "bg-blue-50 border-blue-300 shadow-md -translate-y-1" : "bg-white border-gray-200 hover:shadow-md"}
               ${
                 stat.key === "available"
@@ -262,7 +328,6 @@ export default function Stations() {
               {stat.sub && <span className="text-xs text-gray-500">{stat.sub}</span>}
             </div>
           ))}
-
           <div className="ml-auto min-w-[260px]">
             <input
               placeholder="Tìm trụ theo ID, tên, ghi chú..."
@@ -272,7 +337,6 @@ export default function Stations() {
             />
           </div>
         </div>
-
         {/* Lưới trụ sạc */}
         <div className="flex flex-col md:flex-row gap-6">
           <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -283,7 +347,7 @@ export default function Stations() {
                   <div
                     key={visibleId || ch.id}
                     onClick={() => handleSelectCharger(ch)}
-                    className={`rounded-xl border p-4 shadow-md transition-all cursor-pointer 
+                    className={`rounded-xl border p-4 shadow-md transition-all cursor-pointer
                     ${selectedChargerId === visibleId ? "border-blue-400 shadow-lg -translate-y-1" : "border-gray-200 hover:-translate-y-0.5 hover:shadow-lg"}
                     ${
                       ch.status === "available"
@@ -317,7 +381,6 @@ export default function Stations() {
                         {ch.status}
                       </span>
                     </div>
-
                     <div className="mt-3 text-lg font-semibold text-gray-900">{ch.label || ch.name || "—"}</div>
                     <div className="text-xs text-gray-500 mt-1 flex gap-2 flex-wrap">
                       <span>{ch.powerPoint || ch.max_power_kw || "—"} kW</span>
@@ -333,7 +396,6 @@ export default function Stations() {
               </div>
             )}
           </div>
-
           {/* Panel chi tiết */}
           {currentStation && (
             <aside className="w-full md:w-96 flex flex-col gap-4">
@@ -346,29 +408,23 @@ export default function Stations() {
                   {stats.totalChargers} trụ • {stats.available} sẵn sàng • {stats.in_use} đang dùng • {stats.fault} lỗi
                 </div>
               </div>
-
               {selectedCharger ? (
                 <>
                   {/* CHI TIẾT chính (đã gộp pricing vào đây) */}
                   <div className="bg-white rounded-xl border p-4 shadow">
                     <h3 className="font-semibold mb-2">{loadingCharger ? "Đang tải chi tiết..." : `Chi tiết ${selectedCharger.label || selectedCharger.name || selectedCharger.id}`}</h3>
-
                     <div className="text-sm border-b py-2">
-                      <strong>ID:</strong> {selectedCharger.id || selectedCharger.connector_id || selectedCharger.external_id}
+                      <strong>ID:</strong> {selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id}
                     </div>
-
                     <div className="text-sm border-b py-2">
                       <strong>Tên / Label:</strong> {selectedChargerDetails?.name || selectedCharger.label || selectedCharger.name || "—"}
                     </div>
-
                     <div className="text-sm border-b py-2">
                       <strong>Connector type:</strong> {selectedChargerDetails?.connector_type || selectedCharger.connector_type || selectedCharger.type || "—"}
                     </div>
-
                     <div className="text-sm border-b py-2">
                       <strong>Công suất tối đa:</strong> {selectedChargerDetails?.max_power_kw || selectedCharger.powerPoint || selectedCharger.max_power_kw || "—"} kW
                     </div>
-
                     <div className="text-sm border-b py-2">
                       <strong>Trạng thái:</strong>{" "}
                       <span
@@ -385,7 +441,6 @@ export default function Stations() {
                         {selectedChargerDetails?.status || selectedCharger.status || "—"}
                       </span>
                     </div>
-
                     {/* ====== GỘP: Hiển thị BẢNG GIÁ tại đây ====== */}
                     <div className="text-sm border-b py-2">
                       <strong>Bảng giá:</strong>
@@ -420,35 +475,34 @@ export default function Stations() {
                         )}
                       </div>
                     </div>
-
                     <div className="flex gap-2 mt-3 flex-wrap">
                       <button
-                        onClick={() => setChargerStatus(selectedCharger.id || selectedCharger.connector_id || selectedCharger.external_id, "available")}
+                        onClick={() => setChargerStatus(selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id, "available")}
                         className="px-3 py-1 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
                       >
                         Đặt Sẵn sàng
                       </button>
                       <button
-                        onClick={() => setChargerStatus(selectedCharger.id || selectedCharger.connector_id || selectedCharger.external_id, "charging")}
-                        className="px-3 py-1 text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
+                        onClick={handleStartCharging}
+                        disabled={loadingSession}
+                        className={`px-3 py-1 text-sm rounded-lg ${loadingSession ? "bg-indigo-300 cursor-not-allowed" : "bg-indigo-500 hover:bg-indigo-600"} text-white`}
                       >
-                        Đặt Đang sạc
+                        {loadingSession ? "Đang xử lý..." : "Đặt Đang sạc"}
                       </button>
                       <button
-                        onClick={() => setChargerStatus(selectedCharger.id || selectedCharger.connector_id || selectedCharger.external_id, "fault")}
+                        onClick={() => setChargerStatus(selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id, "fault")}
                         className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
                       >
                         Đặt Lỗi
                       </button>
                       <button
-                        onClick={() => addChargerHistory(selectedCharger.id || selectedCharger.connector_id || selectedCharger.external_id, "Kiểm tra nhanh bởi kỹ thuật viên")}
+                        onClick={() => addChargerHistory(selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id, "Kiểm tra nhanh bởi kỹ thuật viên")}
                         className="px-3 py-1 text-sm bg-gray-200 rounded-lg hover:bg-gray-300"
                       >
                         Thêm lịch sử
                       </button>
                     </div>
                   </div>
-
                   {/* Lịch sử */}
                   <div className="bg-white rounded-xl border p-4 shadow">
                     <h3 className="font-semibold mb-2">Lịch sử trụ</h3>
@@ -473,7 +527,6 @@ export default function Stations() {
             </aside>
           )}
         </div>
-
         {/* Debug table */}
         <div className="mt-6">
           <Card title="Stations list (raw)">
