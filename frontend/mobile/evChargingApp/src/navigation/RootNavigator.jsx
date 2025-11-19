@@ -1,5 +1,5 @@
 // src/navigation/RootNavigator.jsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import AuthStack from './stacks/AuthStack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -7,7 +7,8 @@ import MainTabs from './stacks/MainTabs';
 import ChargingStack from './stacks/ChargingStack';
 import CompleteProfile from '../screens/Auth/CompleteProfile';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { restoreSession, fetchUserProfile, setIsNewUser } from '../store/slices/authSlice';
+import { restoreSession, setIsNewUser } from '../store/slices/authSlice';
+import { getMe } from '../store/slices/userSlice';
 import { STORAGE_KEYS } from '../config/constants';
 import Loading from '../components/common/Loading';
 
@@ -37,7 +38,7 @@ export default function RootNavigator() {
         if (accessToken && refreshToken) {
           dispatch(restoreSession({ accessToken, refreshToken }));
           // Fetch user profile after restoring session
-          const profileResult = await dispatch(fetchUserProfile());
+          const profileResult = await dispatch(getMe());
 
           // Check if profile is incomplete (no full_name)
           if (profileResult.payload && !profileResult.payload.full_name) {

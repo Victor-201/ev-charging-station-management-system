@@ -3,7 +3,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config/env';
 import store from '../store/store';
-import { setAccessToken, logout } from '../store/slices/authSlice';
+import { setAccessToken, logoutAsync } from '../store/slices/authSlice';
 import { STORAGE_KEYS } from '../config/constants';
 
 const apiClient = axios.create({
@@ -52,7 +52,7 @@ apiClient.interceptors.response.use(
           return apiClient(original);
         }
       } catch (err) {
-        store.dispatch(logout());
+                store.dispatch(logoutAsync());
         return Promise.reject(error);
       }
     }
