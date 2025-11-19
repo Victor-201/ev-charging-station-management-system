@@ -94,7 +94,7 @@ export class UpdateStationDto {
 }
 
 export class ConnectorDto {
-    connector_id: string;
+    point_id: string;
     type: string;
     max_power_kw: number;
     status: string;

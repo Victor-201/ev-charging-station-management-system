@@ -163,7 +163,7 @@ export class StationService {
             return [];
         }
         return station.charging_points.map((cp) => ({
-            connector_id: cp.id,
+            point_id: cp.id,
             type: cp.connector_type ?? 'unknown',
             max_power_kw: Number(cp.max_power_kw ?? 0),
             status: cp.status ?? 'unknown',

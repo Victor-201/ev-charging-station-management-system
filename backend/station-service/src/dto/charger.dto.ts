@@ -24,7 +24,7 @@ export class RegisterChargerDto {
 }
 
 export class ChargerDetailDto {
-  charger_id: string;
+  point_id: string;
   name: string;
   external_id: string;
   status: string;
@@ -32,7 +32,7 @@ export class ChargerDetailDto {
 }
 
 export class ChargerHealthDto {
-  charger_id: string;
+  point_id: string;
   health: string;
   errors: string[];
 }

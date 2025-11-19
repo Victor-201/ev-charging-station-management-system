@@ -47,7 +47,7 @@ export class ChargerService {
         }
 
         return {
-            charger_id: charger.id,
+            point_id: charger.id,
             name: charger.name,
             external_id: charger.external_id ?? '',
             status: charger.status,
@@ -76,7 +76,7 @@ export class ChargerService {
         const errors = charger.station_incidents.map((i) => i.description ?? 'Unknown error');
 
         return {
-            charger_id: charger.id,
+            point_id: charger.id,
             health,
             errors,
         };
@@ -134,7 +134,7 @@ export class ChargerService {
         });
 
         return {
-            charger_id: charger_id,
+            point_id: charger_id,
             action: body.status,
             status: 'ok',
         };
