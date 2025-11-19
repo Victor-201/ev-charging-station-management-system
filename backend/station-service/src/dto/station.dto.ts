@@ -158,3 +158,17 @@ export class UpdataStatusDto {
   @IsEnum(StationStatus)
   status: StationStatus;
 }
+
+export class StationAbilityDto {
+    @IsString()
+    station_id: string;
+
+    @IsISO8601()
+    start: string;
+
+    @IsISO8601()
+    end: string;
+
+    @IsString()
+    connector_type: string;
+}
