@@ -1,10 +1,10 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet, Alert } from 'react-native';
+import React, { useEffect } from 'react';
+import { ScrollView, View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
-import { logoutAsync } from '../../store/slices/authSlice';
+import { logoutAsync, fetchUserProfile } from '../../store/slices/authSlice';
 
 import Header from '../../components/layout/Header';
 import QuickActionCard from '../../components/cards/QuickActionCard';
@@ -14,20 +14,20 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const realUser = useSelector((state) => state.auth.user);
 
-  // Use the wallet hook (auto-fetches the wallet using the mock service)
-  
-  // Mock data for frontend development without backend
-  const mockUser = {
-    info: {
-      name: 'John Doe',
-      avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-    },
-  };
-  
-  const user = realUser || mockUser;
-  
+  // Get user from Redux store
+  const userProfile = useSelector((state) => state.auth.userProfile);
+  const loading = useSelector((state) => state.auth.loading);
+  const accessToken = useSelector((state) => state.auth.accessToken);
+
+  // Fetch user profile when component mounts if we have a token but no profile
+  useEffect(() => {
+    if (accessToken && !userProfile) {
+      dispatch(fetchUserProfile());
+    }
+  }, [accessToken, userProfile, dispatch]);
+
+  // Mock stats - TODO: fetch from analytics API
   const stats = {
     totalCharges: 15,
     totalEnergy: 350,
@@ -53,10 +53,20 @@ export default function HomeScreen() {
     { id: 'profile', title: 'Hồ sơ', subtitle: 'Quản lý thông tin cá nhân', onPress: () => navigation.navigate('Profile') },
   ];
 
+  // Show loading state while fetching user profile
+  if (loading && !userProfile) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 10, color: colors.text }}>Đang tải thông tin...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView>
-      <Header user={user} />
+      <Header user={userProfile} />
 
       {/* Thao tác nhanh */}
       <View style={styles.section}>

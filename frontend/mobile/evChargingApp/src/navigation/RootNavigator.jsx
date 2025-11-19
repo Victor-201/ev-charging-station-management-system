@@ -6,7 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MainTabs from './stacks/MainTabs';
 import ChargingStack from './stacks/ChargingStack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { restoreSession } from '../store/slices/authSlice';
+import { restoreSession, fetchUserProfile } from '../store/slices/authSlice';
 import { STORAGE_KEYS } from '../config/constants';
 import Loading from '../components/common/Loading';
 
@@ -35,6 +35,8 @@ export default function RootNavigator() {
         const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
         if (accessToken && refreshToken) {
           dispatch(restoreSession({ accessToken, refreshToken }));
+          // Fetch user profile after restoring session
+          dispatch(fetchUserProfile());
         }
       } catch (e) {
         // ignore
