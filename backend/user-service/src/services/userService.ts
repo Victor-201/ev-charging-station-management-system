@@ -135,6 +135,12 @@ export class UserService {
         paramIndex++;
       }
 
+      if (updates.date_of_birth !== undefined) {
+        setClauses.push(`date_of_birth = $${paramIndex}`);
+        params.push(updates.date_of_birth);
+        paramIndex++;
+      }
+
       if (updates.address !== undefined) {
         // Update user_profiles table for address
         await pool.query(

@@ -53,7 +53,14 @@ export default function CompleteProfile() {
   const onSubmit = async (data) => {
     try {
       setLoading(true);
-      logger.info('Completing profile for user:', user?.user_id);
+
+      // Get user ID from different possible sources
+      const userId = user?.user_id || user?.id || user?.userId;
+      logger.info('Completing profile for user:', userId, 'User object:', user);
+
+      if (!userId) {
+        throw new Error('Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.');
+      }
 
       // Prepare profile data (remove empty fields)
       const profileData = {};
@@ -61,11 +68,13 @@ export default function CompleteProfile() {
       if (data.phone) profileData.phone = data.phone;
       if (data.date_of_birth) profileData.date_of_birth = data.date_of_birth;
 
+      logger.info('Updating profile with data:', profileData);
+
       // Update profile
-      await profileService.updateProfile(user?.user_id, profileData);
+      await profileService.updateProfile(userId, profileData);
 
       // Refresh user profile
-      dispatch(fetchUserProfile());
+      await dispatch(fetchUserProfile()).unwrap();
 
       // Mark user as no longer new
       dispatch(setIsNewUser(false));
@@ -85,13 +94,19 @@ export default function CompleteProfile() {
       // Better error handling - safely access nested properties
       let errorMessage = 'Không thể cập nhật hồ sơ. Vui lòng thử lại.';
 
-      if (error && typeof error === 'object') {
-        if (error.response && error.response.data) {
-          // Try to get error message from response
-          errorMessage = error.response.data.message || error.response.data.error || errorMessage;
-        } else if (error.message) {
+      // Safely extract error message
+      try {
+        if (error?.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error?.response?.data?.error) {
+          errorMessage = typeof error.response.data.error === 'string'
+            ? error.response.data.error
+            : JSON.stringify(error.response.data.error);
+        } else if (error?.message) {
           errorMessage = error.message;
         }
+      } catch (parseError) {
+        logger.error('Error parsing error message:', parseError);
       }
 
       Alert.alert('Lỗi', errorMessage);
