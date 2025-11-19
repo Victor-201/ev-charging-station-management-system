@@ -124,6 +124,11 @@ const reservationSlice = createSlice({
     clearAvailableSlots(state) {
       state.availableSlots = [];
     },
+    setAvailableSlots(state, action) {
+      state.availableSlots = action.payload;
+      state.slotsLoading = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -255,6 +260,11 @@ const reservationSlice = createSlice({
   },
 });
 
-export const { clearReservationState, clearCurrentReservation, clearAvailableSlots } = reservationSlice.actions;
+export const {
+  clearReservationState,
+  clearCurrentReservation,
+  clearAvailableSlots,
+  setAvailableSlots
+} = reservationSlice.actions;
 
 export default reservationSlice.reducer;

@@ -22,7 +22,7 @@ export const ENDPOINTS = {
 
   // ==================== USER SERVICE (Port 3002) ====================
   USER: {
-    ME: '/auth/me',
+    
     PROFILE: '/users/profile',
     GET_USER: '/users/:user_id',
     UPDATE_USER: '/users/:user_id',
@@ -41,7 +41,7 @@ export const ENDPOINTS = {
   VEHICLE: {
     ADD: '/users/:user_id/vehicles',
     LIST: '/users/:user_id/vehicles',
-    CURRENT_USER_VEHICLES: '/users/vehicles',
+    
     DETAIL: '/vehicles/:vehicle_id',
     UPDATE: '/vehicles/:vehicle_id',
     DELETE: '/vehicles/:vehicle_id',
@@ -143,5 +143,18 @@ export const ENDPOINTS = {
     USER_PAYMENTS: '/payments/user/:user_id/payments',
     // Webhook
     BANK_WEBHOOK: '/payments/webhook',
+  },
+
+  // ==================== ANALYTICS SERVICE (Port 3006) ====================
+  ANALYTICS: {
+    // User Analytics
+    USER_STATS: '/analytics/user/:user_id/stats',
+    USER_CHARGING_HISTORY: '/analytics/user/:user_id/charging-history',
+    USER_SPENDING: '/analytics/user/:user_id/spending',
+    // Station Analytics
+    STATION_STATS: '/analytics/station/:station_id/stats',
+    // System Analytics (Admin)
+    SYSTEM_STATS: '/analytics/system/stats',
+    REVENUE_REPORT: '/analytics/system/revenue',
   },
 };

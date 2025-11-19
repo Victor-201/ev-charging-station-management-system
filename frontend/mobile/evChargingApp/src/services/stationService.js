@@ -36,40 +36,33 @@ const fixTextEncoding = (text) => {
  * - Fix text encoding issues (workaround for backend bug)
  * - Ensure proper data types for all fields
  */
+
 const transformStationData = (station) => {
   if (!station) return null;
 
-  // Parse connector_types - can be array, string, or null
-  let connectorTypes = [];
-  if (station.connector_types) {
-    if (Array.isArray(station.connector_types)) {
-      connectorTypes = station.connector_types;
-    } else if (typeof station.connector_types === 'string') {
-      try {
-        // Try to parse as JSON array
-        connectorTypes = JSON.parse(station.connector_types);
-      } catch (e) {
-        // If not JSON, split by comma
-        connectorTypes = station.connector_types.split(',').map(s => s.trim()).filter(Boolean);
-      }
-    }
-  }
+  const safeParseFloat = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  };
 
-  // Parse amenities - can be array, string, or null
-  let amenities = [];
-  if (station.amenities) {
-    if (Array.isArray(station.amenities)) {
-      amenities = station.amenities;
-    } else if (typeof station.amenities === 'string') {
+  const safeParseInt = (value) => {
+    const num = parseInt(value, 10);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const parseStringArray = (arr) => {
+    if (!arr) return [];
+    if (Array.isArray(arr)) return arr;
+    if (typeof arr === 'string') {
       try {
-        // Try to parse as JSON array
-        amenities = JSON.parse(station.amenities);
+        const parsed = JSON.parse(arr);
+        return Array.isArray(parsed) ? parsed : [];
       } catch (e) {
-        // If not JSON, split by comma
-        amenities = station.amenities.split(',').map(s => s.trim()).filter(Boolean);
+        return arr.split(',').map(s => s.trim()).filter(Boolean);
       }
     }
-  }
+    return [];
+  };
 
   return {
     ...station,
@@ -78,26 +71,24 @@ const transformStationData = (station) => {
     address: fixTextEncoding(station.address),
     city: fixTextEncoding(station.city),
     region: fixTextEncoding(station.region),
-    // Parse coordinates to numbers (API returns strings)
-    latitude: parseFloat(station.latitude),
-    longitude: parseFloat(station.longitude),
-    // Parse numeric fields
-    available_ports: parseInt(station.available_ports || 0, 10),
-    total_ports: parseInt(station.total_ports || 0, 10),
-    // Parse rating
-    rating: parseFloat(station.rating || 0),
-    // Parse price
-    price_per_kwh: parseFloat(station.price_per_kwh || 0),
-    // Parse arrays
-    connector_types: connectorTypes,
-    amenities: amenities,
+    // Safely parse coordinates to numbers
+    latitude: safeParseFloat(station.latitude),
+    longitude: safeParseFloat(station.longitude),
+    // Safely parse numeric fields
+    available_ports: safeParseInt(station.available_ports),
+    total_ports: safeParseInt(station.total_ports),
+    rating: safeParseFloat(station.rating),
+    price_per_kwh: safeParseFloat(station.price_per_kwh),
+    // Safely parse arrays
+    connector_types: parseStringArray(station.connector_types),
+    amenities: parseStringArray(station.amenities),
     // Transform charging_points if present
-    charging_points: station.charging_points?.map(point => ({
+    charging_points: (station.charging_points || []).map(point => ({
       ...point,
-      max_power_kw: parseFloat(point.max_power_kw || 0),
-      price_per_kwh: parseFloat(point.price_per_kwh || 0),
-      price_per_hour: point.price_per_hour ? parseFloat(point.price_per_hour) : null,
-    })) || [],
+      max_power_kw: safeParseFloat(point.max_power_kw),
+      price_per_kwh: safeParseFloat(point.price_per_kwh),
+      price_per_hour: point.price_per_hour ? safeParseFloat(point.price_per_hour) : null,
+    })),
   };
 };
 

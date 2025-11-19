@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -140,7 +140,7 @@ export default function Register({ navigation }) {
   });
 
   // Handle date picker change
-  const handleDateChange = (event, date) => {
+    const handleDateChange = (_, date) => {
     setShowDatePicker(Platform.OS === 'ios'); // Keep open on iOS
 
     if (date) {
@@ -173,14 +173,18 @@ export default function Register({ navigation }) {
         password_confirmation: data.confirmPassword
       });
 
-      // Check if registration was successful
-      if (result.type === 'auth/register/fulfilled') {
-        setSuccessMessage('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
+      // Check if registration was successful by inspecting the payload
+      if (result.type === 'auth/register/fulfilled' && result.payload) {
+        // Use the message from the backend if available
+        const message = result.payload.message || 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.';
+        setSuccessMessage(message);
 
-        // Navigate to verify email screen after 2 seconds
-        setTimeout(() => {
-          navigation.navigate('VerifyEmail', { email: data.email });
-        }, 2000);
+        // Navigate to verify email screen if required by the backend
+        if (result.payload.verification_required) {
+          setTimeout(() => {
+            navigation.navigate('VerifyEmail', { email: data.email });
+          }, 2000);
+        }
       }
     } catch (err) {
       console.error('Registration error:', err);

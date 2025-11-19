@@ -20,6 +20,7 @@ const config = {
   DB_NAME: process.env.DB_NAME,
 
   PAYMENTBASE: process.env.PAYMENT_SERVICE_URL,
+  STATIONBASE: process.env.STATION_SERVICE_URL,
 
   RABBITMQ_URL:
     process.env.RABBITMQ_URL ||

@@ -7,10 +7,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- ⚙️ Cho phép mở app Facebook hoặc Google -->
+    <!-- ⚙️ Cho phép mở app Google -->
     <queries>
-        <!-- Facebook -->
-        <package android:name="com.facebook.katana" />
         <!-- Google Sign-in -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -35,11 +33,6 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyDummy_Key_For_Development_Only" />
 
-        <!-- 🌐 Facebook SDK -->
-        <meta-data
-            android:name="com.facebook.sdk.ApplicationId"
-            android:value="@string/facebook_app_id" />
-
         <!-- 🔧 Main Activity -->
         <activity
             android:name=".MainActivity"
@@ -53,14 +46,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-            <!-- Facebook Login Callback -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="@string/fb_login_protocol_scheme" />
             </intent-filter>
 
             <!-- Google Sign-In Redirect -->

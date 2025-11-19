@@ -2,16 +2,25 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '../../services/authService';
+import profileService from '../../services/profileService';
 import { jwtDecode } from 'jwt-decode';
 import { STORAGE_KEYS } from '../../config/constants';
 
-export const login = createAsyncThunk('auth/login', async ({ email, password, remember }, { rejectWithValue }) => {
+export const login = createAsyncThunk('auth/login', async ({ email, password, remember }, { rejectWithValue, dispatch }) => {
   try {
     const data = await authService.login({ email, password });
     if (data?.accessToken) {
       await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
       if (data.refreshToken) await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
       if (remember) await AsyncStorage.setItem(STORAGE_KEYS.REMEMBER_EMAIL, email);
+
+      // Fetch user profile after successful login
+      try {
+        const profile = await profileService.getMe();
+        dispatch(setUserProfile(profile));
+      } catch (profileErr) {
+        console.warn('Failed to fetch user profile after login:', profileErr);
+      }
     }
     return data;
   } catch (err) {
@@ -53,7 +62,7 @@ export const refreshToken = createAsyncThunk('auth/refreshToken', async (_, { ge
   }
 });
 
-export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provider, token }, { rejectWithValue }) => {
+export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provider, token }, { rejectWithValue, dispatch }) => {
   try {
     const data = await authService.socialLogin({ provider, provider_token: token });
     if (data?.accessToken) {
@@ -61,8 +70,25 @@ export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provide
       if (data.refreshToken) {
         await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
       }
+
+      // Fetch user profile after successful social login
+      try {
+        const profile = await profileService.getMe();
+        dispatch(setUserProfile(profile));
+      } catch (profileErr) {
+        console.warn('Failed to fetch user profile after social login:', profileErr);
+      }
     }
     return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
+export const fetchUserProfile = createAsyncThunk('auth/fetchUserProfile', async (_, { rejectWithValue }) => {
+  try {
+    const profile = await profileService.getMe();
+    return profile;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
   }
@@ -87,10 +113,14 @@ export const logoutAsync = createAsyncThunk('auth/logoutAsync', async (_, { getS
   }
 });
 
+
+
 const initialState = {
   user: null,
+  userProfile: null, // Full user profile from API
   accessToken: null,
   refreshToken: null,
+  isNewUser: false, // Flag to indicate if user needs to complete profile
   loading: false,
   error: null,
 };
@@ -109,10 +139,18 @@ const authSlice = createSlice({
     },
     logout(state) {
       state.user = null;
+      state.userProfile = null;
       state.accessToken = null;
       state.refreshToken = null;
+      state.isNewUser = false;
       AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
       AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    },
+    setUserProfile(state, action) {
+      state.userProfile = action.payload;
+    },
+    setIsNewUser(state, action) {
+      state.isNewUser = action.payload;
     },
     restoreSession(state, action) {
       state.accessToken = action.payload.accessToken;
@@ -131,6 +169,7 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
+        s.userProfile = a.payload?.userProfile ?? null; // Set user profile
         // Decode JWT to get user info
         if (a.payload?.accessToken) {
           try {
@@ -169,6 +208,8 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
+        // Check if this is a new user
+        s.isNewUser = a.payload?.is_new_user ?? false;
         // Decode JWT to get user info
         if (a.payload?.accessToken) {
           try {
@@ -190,15 +231,31 @@ const authSlice = createSlice({
         s.accessToken = null;
         s.refreshToken = null;
       })
+      .addCase(fetchUserProfile.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchUserProfile.fulfilled, (s, a) => {
+        s.loading = false;
+        s.userProfile = a.payload;
+      })
+      .addCase(fetchUserProfile.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload?.message || 'Failed to fetch profile';
+      })
+
       .addCase(logoutAsync.rejected, (s) => {
         s.loading = false;
         // Even if logout fails, clear the state
         s.user = null;
+        s.userProfile = null;
         s.accessToken = null;
         s.refreshToken = null;
-      });
+      })
+
+      
   },
 });
 
-export const { setAccessToken, logout, restoreSession } = authSlice.actions;
+export const { setAccessToken, logout, restoreSession, setUserProfile, setIsNewUser } = authSlice.actions;
 export default authSlice.reducer;

@@ -1,322 +1,234 @@
-import { useEffect, useState } from "react";
-import Section from "@/components/admin/Section";
+// pages/admin/StationManagement.jsx
+import React, { useEffect, useState, useMemo } from "react";
 import PageHeader from "@/components/admin/PageHeader";
+import Section from "@/components/admin/Section";
 import Table from "@/components/admin/Table";
 import { useStation } from "@/hooks/useStation";
 
-/**
- * Admin – Quản lý trạm sạc
- * Sử dụng API thật từ stationService:
- *  GET    /api/v1/stations
- *  GET    /api/v1/stations/:id
- *  GET    /api/v1/stations/:id/connectors
- *  PUT    /api/v1/stations/:id
- *  DELETE /api/v1/stations/:id
- *  POST   /api/v1/stations/:id/maintenance
- */
-export default function StationManagement() {
+export default function StationManagementPage() {
   const {
     stations,
     currentStation,
     connectors,
     loading,
+    error,
     getAll,
     getById,
     getConnectors,
     update,
     remove,
+    reportIssue,
     setMaintenance,
   } = useStation();
 
   const [selectedId, setSelectedId] = useState(null);
-  const [editing, setEditing] = useState(null);
-  const [error, setError] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editNote, setEditNote] = useState("");
 
-  // ========================================================
-  // LOAD DANH SÁCH TRẠM – API THẬT
-  // ========================================================
+  // Load danh sách trạm
   useEffect(() => {
-    getAll({})
-      .catch((err) =>
-        setError(err?.response?.data?.message || "Không tải được danh sách trạm.")
-      );
+    getAll({ lat: 10.9, lng: 106.8, radius: 50 });
   }, [getAll]);
 
-  // ========================================================
-  // CHỌN TRẠM
-  // ========================================================
-  const selectStation = async (id) => {
-    setSelectedId(id);
-    setEditing(null);
-    setError("");
+  // Khi chọn 1 trạm → load chi tiết + connectors
+  useEffect(() => {
+    if (!selectedId) return;
+    getById(selectedId);
+    getConnectors(selectedId);
+  }, [selectedId, getById, getConnectors]);
 
-    try {
-      await Promise.all([getById(id), getConnectors(id)]);
-    } catch (err) {
-      setError("Không tải được chi tiết trạm.");
-    }
-  };
-
-  // ========================================================
-  // BẮT ĐẦU CHỈNH SỬA
-  // ========================================================
-  const startEdit = () => {
+  // Đồng bộ form với dữ liệu
+  useEffect(() => {
     if (!currentStation) return;
-    setEditing({
-      name: currentStation.name || "",
-      address: currentStation.address || "",
-      city: currentStation.city || "",
-      region: currentStation.region || "",
-    });
+    setEditName(currentStation.name || "");
+    setEditNote(currentStation.description || currentStation.notes || "");
+  }, [currentStation]);
+
+  const handleSelectStation = (id) => setSelectedId(id);
+
+  const handleSaveBasicInfo = async () => {
+    const id = currentStation?.id || currentStation?.station_id;
+    if (!id) return;
+
+    await update(id, { name: editName, description: editNote });
   };
 
-  // ========================================================
-  // LƯU CHỈNH SỬA – API THẬT
-  // ========================================================
-  const saveEdit = async () => {
-    if (!editing || !currentStation) return;
+  const handleToggleMaintenance = async () => {
+    const id = currentStation?.id || currentStation?.station_id;
+    if (!id) return;
 
-    try {
-      await update(currentStation.id, editing);
-      setEditing(null);
-      await getById(currentStation.id);
-    } catch (err) {
-      alert("Không thể lưu thay đổi.");
-    }
+    await setMaintenance(id, { maintenance: !currentStation.maintenance });
   };
 
-  // ========================================================
-  // BẬT / TẮT BẢO TRÌ (POST /maintenance)
-  // ========================================================
-  const toggleMaintenance = async () => {
-    if (!currentStation) return;
+  const handleDeleteStation = async () => {
+    const id = currentStation?.id || currentStation?.station_id;
+    if (!id) return;
 
-    const newStatus = currentStation.status === "maintenance" ? "active" : "maintenance";
-
-    try {
-      await setMaintenance(currentStation.id, { status: newStatus });
-      await getById(currentStation.id);
-    } catch (err) {
-      alert("Không thể đổi trạng thái bảo trì.");
-    }
+    if (!window.confirm("Bạn có chắc muốn xoá trạm này?")) return;
+    await remove(id);
+    setSelectedId(null);
   };
 
-  // ========================================================
-  // XOÁ TRẠM – DELETE API
-  // ========================================================
-  const deleteStation = async () => {
-    if (!currentStation) return;
-    if (!window.confirm("Xoá trạm này?")) return;
+  const handleReportIssue = async () => {
+    const id = currentStation?.id || currentStation?.station_id;
+    if (!id) return;
 
-    try {
-      await remove(currentStation.id);
-      setSelectedId(null);
-      await getAll({});
-    } catch {
-      alert("Không thể xoá trạm.");
-    }
+    const desc = window.prompt("Nhập mô tả sự cố:");
+    if (!desc) return;
+
+    await reportIssue(id, { description: desc });
   };
 
-  // ========================================================
-  // TABLE ROWS – MATCH 100% API TRẢ VỀ
-  // ========================================================
-  const stationRows =
-    stations?.map((s) => [
-      s.id,
-      s.name,
-      s.city,
-      s.region,
-      s.status === "maintenance" ? "Bảo trì" : "Hoạt động",
-    ]) ?? [];
+  // =====================================
+  // 🔥 CHUẨN HOÁ CONNECTORS – FIX CHÍNH
+  // =====================================
+  const connectorList = useMemo(() => {
+    if (!connectors) return [];
 
-  const connectorsRows =
-    connectors?.map((c) => [
-      c.id,
-      c.label,
-      c.type,
-      c.powerPoint,
-      c.status,
-      c.lastUpdated,
-    ]) ?? [];
+    if (Array.isArray(connectors)) return connectors;
+
+    const raw =
+      connectors.points ||
+      connectors.connectors ||
+      connectors.chargers ||
+      connectors.data?.points ||
+      connectors.data?.connectors ||
+      connectors.data?.chargers;
+
+    return Array.isArray(raw) ? raw : [];
+  }, [connectors]);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <PageHeader
-          title="Quản lý trạm sạc"
-          subtitle="Dữ liệu được lấy trực tiếp từ API station-service."
-        />
+    <div className="p-6 space-y-6">
+      <PageHeader title="Quản lý trạm sạc" subtitle="Xem, chỉnh sửa và theo dõi tình trạng trạm" />
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+          <strong>Lỗi:</strong> {error.message || String(error)}
+        </div>
+      )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ========================================================
-              DANH SÁCH TRẠM
-          ======================================================== */}
-          <Section title="Danh sách trạm">
-            {loading && stations.length === 0 ? (
-              <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* ================================= */}
+        {/* CỘT TRÁI: DANH SÁCH TRẠM */}
+        {/* ================================= */}
+        <Section title="Danh sách trạm" className="lg:col-span-1">
+          {loading && !stations?.length ? (
+            <div className="text-sm text-gray-500">Đang tải danh sách trạm...</div>
+          ) : (stations || []).length === 0 ? (
+            <div className="text-sm text-gray-500">Chưa có trạm nào.</div>
+          ) : (
+            <div className="space-y-2 max-h-[520px] overflow-y-auto">
+              {stations.map((st) => {
+                const id = st.id || st.station_id;
+                const isSelected = id === selectedId;
+
+                return (
+                  <button
+                    key={id}
+                    onClick={() => handleSelectStation(id)}
+                    className={`w-full text-left rounded-lg border px-3 py-2 text-sm transition-all
+                      ${isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:border-blue-300"}`}
+                  >
+                    <div className="font-semibold text-gray-900">{st.name}</div>
+                    <div className="text-xs text-gray-500 truncate">ID: {id}</div>
+                    <div className="text-xs mt-1 text-gray-500">
+                      {st.chargers?.length || 0} trụ • {st.maintenance ? "Bảo trì" : "Hoạt động"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </Section>
+
+        {/* ================================= */}
+        {/* CỘT PHẢI: CHI TIẾT TRẠM + CONNECTORS */}
+        {/* ================================= */}
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* ====================== */}
+          {/* CHI TIẾT TRẠM */}
+          {/* ====================== */}
+          <Section title="Chi tiết trạm">
+            {!currentStation ? (
+              <div className="text-sm text-gray-500">Chọn trạm để xem chi tiết.</div>
+            ) : (
+              <div className="space-y-4 text-sm">
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">ID trạm</div>
+                    <div className="rounded-lg bg-gray-50 px-3 py-2 font-mono text-xs">
+                      {currentStation.id || currentStation.station_id}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Tên trạm</div>
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Địa chỉ</div>
+                    <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                      {currentStation.address}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Ghi chú</div>
+                    <textarea
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
+                      rows={3}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-3 border-t">
+                  <button onClick={handleSaveBasicInfo} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white">Lưu thay đổi</button>
+                  <button onClick={handleToggleMaintenance} className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white">
+                    {currentStation.maintenance ? "Bỏ bảo trì" : "Đặt bảo trì"}
+                  </button>
+                  <button onClick={handleReportIssue} className="rounded-lg bg-red-500 px-4 py-2 text-xs font-semibold text-white">Báo cáo sự cố</button>
+                  <button onClick={handleDeleteStation} className="rounded-lg bg-gray-200 px-4 py-2 text-xs font-semibold text-gray-800">Xoá trạm</button>
+                </div>
+
+              </div>
+            )}
+          </Section>
+
+          {/* ====================== */}
+          {/* DANH SÁCH CONNECTOR */}
+          {/* ====================== */}
+          <Section title="Danh sách trụ / Connector">
+            {!currentStation ? (
+              <div className="text-sm text-gray-500">Chọn trạm để xem danh sách connector.</div>
+            ) : connectorList.length === 0 ? (
+              <div className="text-sm text-gray-500">Không có dữ liệu.</div>
             ) : (
               <Table
-                columns={["ID", "Tên", "Thành phố", "Khu vực", "Trạng thái"]}
-                rows={stationRows}
-                onRowClick={(row) => selectStation(row[0])}
-                selectedKey={selectedId}
+                columns={["ID", "Loại", "Công suất (kW)", "Trạng thái"]}
+                rows={connectorList.map((c, idx) => ({
+                  key: c.point_id || idx,
+                  columns: [
+                    c.point_id,
+                    c.type,
+                    c.max_power_kw,
+                    c.status,
+                  ],
+                }))}
               />
             )}
           </Section>
 
-          {/* ========================================================
-              CHI TIẾT / CHỈNH SỬA TRẠM
-          ======================================================== */}
-          <Section title="Chi tiết / chỉnh sửa" className="lg:col-span-2">
-            {!currentStation ? (
-              <p className="text-sm text-slate-500">Chọn một trạm để xem chi tiết.</p>
-            ) : (
-              <div className="bg-white rounded-xl border shadow-sm p-4 space-y-4 text-sm">
-
-                {/* ========== FORM EDIT ========== */}
-                {editing ? (
-                  <>
-                    <div>
-                      <div className="text-xs text-slate-500">Tên trạm</div>
-                      <input
-                        value={editing.name}
-                        onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                        className="w-full border px-3 py-2 rounded-lg"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-slate-500">Địa chỉ</div>
-                      <input
-                        value={editing.address}
-                        onChange={(e) =>
-                          setEditing({ ...editing, address: e.target.value })
-                        }
-                        className="w-full border px-3 py-2 rounded-lg"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="text-xs text-slate-500">Thành phố</div>
-                        <input
-                          value={editing.city}
-                          onChange={(e) => setEditing({ ...editing, city: e.target.value })}
-                          className="w-full border px-3 py-2 rounded-lg"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">Khu vực</div>
-                        <input
-                          value={editing.region}
-                          onChange={(e) =>
-                            setEditing({ ...editing, region: e.target.value })
-                          }
-                          className="w-full border px-3 py-2 rounded-lg"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 mt-4">
-                      <button
-                        onClick={() => setEditing(null)}
-                        className="px-3 py-2 border rounded-lg"
-                      >
-                        Huỷ
-                      </button>
-                      <button
-                        onClick={saveEdit}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg"
-                      >
-                        Lưu
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between">
-                      <div>
-                        <div className="text-xs text-slate-500">Tên trạm</div>
-                        <div className="text-xl font-bold">{currentStation.name}</div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          ID: {currentStation.id}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={startEdit}
-                        className="px-3 py-2 border rounded-lg text-sm"
-                      >
-                        Chỉnh sửa
-                      </button>
-                    </div>
-
-                    <div className="mt-3 space-y-1 text-sm text-slate-700">
-                      <div>Địa chỉ: {currentStation.address}</div>
-                      <div>Thành phố: {currentStation.city}</div>
-                      <div>Khu vực: {currentStation.region}</div>
-                      <div>
-                        Trạng thái:{" "}
-                        <span
-                          className={
-                            currentStation.status === "maintenance"
-                              ? "text-amber-600"
-                              : "text-green-600"
-                          }
-                        >
-                          {currentStation.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 mt-4">
-                      <button
-                        onClick={toggleMaintenance}
-                        className="px-3 py-2 rounded-lg bg-slate-200"
-                      >
-                        {currentStation.status === "maintenance"
-                          ? "Tắt bảo trì"
-                          : "Bật bảo trì"}
-                      </button>
-
-                      <button
-                        onClick={deleteStation}
-                        className="px-3 py-2 rounded-lg bg-red-600 text-white"
-                      >
-                        Xoá trạm
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                <hr />
-
-                {/* CONNECTORS */}
-                <div>
-                  <div className="font-semibold mb-2">
-                    Danh sách connectors trong trạm
-                  </div>
-                  <Table
-                    columns={[
-                      "ID",
-                      "Label",
-                      "Type",
-                      "Power (kW)",
-                      "Status",
-                      "Last Updated",
-                    ]}
-                    rows={connectorsRows}
-                  />
-                </div>
-              </div>
-            )}
-          </Section>
         </div>
       </div>
     </div>

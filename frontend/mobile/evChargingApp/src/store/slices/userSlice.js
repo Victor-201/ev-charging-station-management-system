@@ -4,7 +4,7 @@ import profileService from '../../services/profileService';
 // Async thunk for fetching user profile
 export const getMe = createAsyncThunk('user/getMe', async (_, { rejectWithValue }) => {
   try {
-    const { data } = await profileService.getMe();
+    const data = await profileService.getMe();
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
@@ -58,7 +58,7 @@ const userSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(updateProfile.fulfilled, (state, action) => {
+      .addCase(updateProfile.fulfilled, (state, _action) => {
         state.loading = false;
         // API returns { status: "updated" }, so we need to refetch profile
         // The profile will be updated when getMe is called after this

@@ -12,21 +12,7 @@ PODS:
   - boost (1.84.0)
   - DoubleConversion (1.1.6)
   - fast_float (8.0.0)
-  - FBAEMKit (18.0.1):
-    - FBSDKCoreKit_Basics (= 18.0.1)
   - FBLazyVector (0.82.1)
-  - FBSDKCoreKit (18.0.1):
-    - FBAEMKit (= 18.0.1)
-    - FBSDKCoreKit_Basics (= 18.0.1)
-  - FBSDKCoreKit_Basics (18.0.1)
-  - FBSDKGamingServicesKit (18.0.1):
-    - FBSDKCoreKit (= 18.0.1)
-    - FBSDKCoreKit_Basics (= 18.0.1)
-    - FBSDKShareKit (= 18.0.1)
-  - FBSDKLoginKit (18.0.1):
-    - FBSDKCoreKit (= 18.0.1)
-  - FBSDKShareKit (18.0.1):
-    - FBSDKCoreKit (= 18.0.1)
   - Firebase/CoreOnly (12.4.0):
     - FirebaseCore (~> 12.4.0)
   - Firebase/Messaging (12.4.0):
@@ -1875,21 +1861,6 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - SocketRocket
-  - react-native-fbsdk-next (13.4.1):
-    - React-Core
-    - react-native-fbsdk-next/Core (= 13.4.1)
-    - react-native-fbsdk-next/Login (= 13.4.1)
-    - react-native-fbsdk-next/Share (= 13.4.1)
-  - react-native-fbsdk-next/Core (13.4.1):
-    - FBSDKCoreKit (~> 18.0)
-    - React-Core
-  - react-native-fbsdk-next/Login (13.4.1):
-    - FBSDKLoginKit (~> 18.0)
-    - React-Core
-  - react-native-fbsdk-next/Share (13.4.1):
-    - FBSDKGamingServicesKit (~> 18.0)
-    - FBSDKShareKit (~> 18.0)
-    - React-Core
   - react-native-geolocation (3.4.0):
     - boost
     - DoubleConversion
@@ -2631,6 +2602,62 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - RNCClipboard (1.16.3):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
+  - RNDateTimePicker (8.5.0):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - RNFBApp (23.5.0):
     - Firebase/CoreOnly (= 12.4.0)
     - React-Core
@@ -2789,7 +2816,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNSVG (15.14.0):
+  - RNSVG (15.15.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2815,10 +2842,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNSVG/common (= 15.14.0)
+    - RNSVG/common (= 15.15.0)
     - SocketRocket
     - Yoga
-  - RNSVG/common (15.14.0):
+  - RNSVG/common (15.15.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2919,7 +2946,6 @@ DEPENDENCIES:
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
-  - react-native-fbsdk-next (from `../node_modules/react-native-fbsdk-next`)
   - "react-native-geolocation (from `../node_modules/@react-native-community/geolocation`)"
   - react-native-maps (from `../node_modules/react-native-maps`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
@@ -2956,6 +2982,8 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
+  - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
+  - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
   - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
@@ -2972,12 +3000,6 @@ SPEC REPOS:
   trunk:
     - AppAuth
     - AppCheckCore
-    - FBAEMKit
-    - FBSDKCoreKit
-    - FBSDKCoreKit_Basics
-    - FBSDKGamingServicesKit
-    - FBSDKLoginKit
-    - FBSDKShareKit
     - Firebase
     - FirebaseCore
     - FirebaseCoreExtension
@@ -3075,8 +3097,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
-  react-native-fbsdk-next:
-    :path: "../node_modules/react-native-fbsdk-next"
   react-native-geolocation:
     :path: "../node_modules/@react-native-community/geolocation"
   react-native-maps:
@@ -3149,6 +3169,10 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
+  RNCClipboard:
+    :path: "../node_modules/@react-native-clipboard/clipboard"
+  RNDateTimePicker:
+    :path: "../node_modules/@react-native-community/datetimepicker"
   RNFBApp:
     :path: "../node_modules/@react-native-firebase/app"
   RNFBMessaging:
@@ -3176,13 +3200,7 @@ SPEC CHECKSUMS:
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6
-  FBAEMKit: b2ed182002dbcb65d5a60059c9693d322186cd00
   FBLazyVector: 0aa6183b9afe3c31fc65b5d1eeef1f3c19b63bfa
-  FBSDKCoreKit: 7f96852f2539bdb88ba8d47e5ab4ae70a6f8d691
-  FBSDKCoreKit_Basics: 22d4c1a509ded4e45116f3bb167a14907550f62e
-  FBSDKGamingServicesKit: acde62310212678446f81b0a14da88231b918feb
-  FBSDKLoginKit: f48c06446995cd209332831f692cea28b26e51da
-  FBSDKShareKit: d3fef7f6690e173369134beb5f43983d7338e933
   Firebase: f07b15ae5a6ec0f93713e30b923d9970d144af3e
   FirebaseCore: bb595f3114953664e3c1dc032f008a244147cfd3
   FirebaseCoreExtension: 7e1f7118ee970e001a8013719fb90950ee5e0018
@@ -3232,7 +3250,6 @@ SPEC CHECKSUMS:
   React-logger: 500f2fa5697d224e63c33d913c8a4765319e19bf
   React-Mapbuffer: 4c50cf6af44286015a20a5995d5321f625c93459
   React-microtasksnativemodule: a84b9331106616ab1fa36de9ae555718d4bbdcf5
-  react-native-fbsdk-next: 52f81e60eb3e8e0e06cf9728b4572d3509ca9d01
   react-native-geolocation: 49d39b53dfeb6c22ff1ad69e71ac9c7981affdaa
   react-native-maps: c260b41fe6587fac00f9bec84755b5e6a77e99af
   react-native-safe-area-context: 0a3b034bb63a5b684dd2f5fffd3c90ef6ed41ee8
@@ -3269,6 +3286,8 @@ SPEC CHECKSUMS:
   ReactCodegen: 0bce2d209e2e802589f4c5ff76d21618200e74cb
   ReactCommon: 801eff8cb9c940c04d3a89ce399c343ee3eff654
   RNCAsyncStorage: fd44f4b03e007e642e98df6726737bc66e9ba609
+  RNCClipboard: e560338bf6cc4656a09ff90610b62ddc0dbdad65
+  RNDateTimePicker: 8247b87ac4e5225c54de856ff29b7f51538b80ad
   RNFBApp: 255fa19a91d6c1309e021ee75d5d209754e5961b
   RNFBMessaging: c304c1d8949f996d3eed1cf4eeba33148d13b4ea
   RNGestureHandler: 332c71177cd5c856673c7e7875fa3f92ba5a5cc2
@@ -3276,7 +3295,7 @@ SPEC CHECKSUMS:
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: 34c560930b059f10beb51348ee8d10fe83f63328
   RNScreens: 98771ad898d1c0528fc8139606bbacf5a2e9d237
-  RNSVG: 82979f324e1cbf99f558a04e66f574a568ed54c0
+  RNSVG: 6765c72b6cc74f8e475fabcdc3040b934c786d9d
   RNVectorIcons: e355dd0998d6b9020e560922a66614eb9636501b
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 526f25666395d30c297d53154398ffd249eaf9e1

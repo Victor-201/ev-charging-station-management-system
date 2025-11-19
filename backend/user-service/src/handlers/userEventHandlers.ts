@@ -105,7 +105,7 @@ export async function handleUserCreated(event: DomainEvent): Promise<void> {
       return;
     }
 
-    // Create user profile
+    // Create user in users table
     const { email, full_name, phone, date_of_birth, role, status, email_verified } = payload;
 
     await client.query(
@@ -122,8 +122,14 @@ export async function handleUserCreated(event: DomainEvent): Promise<void> {
         email_verified || false
       ]
     );
+    logger.info(`Created user record for: ${aggregateId}`);
 
-    logger.info(`Created user profile for user: ${aggregateId}`);
+    // Also create a corresponding user_profiles entry
+    await client.query(
+      `INSERT INTO user_profiles (user_id, created_at) VALUES ($1, NOW()) ON CONFLICT (user_id) DO NOTHING`,
+      [aggregateId]
+    );
+    logger.info(`Created blank user_profiles record for: ${aggregateId}`);
 
     // Mark event as processed
     await markEventProcessedInDb(client, eventId, event.eventType);

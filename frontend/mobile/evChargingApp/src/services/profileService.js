@@ -16,8 +16,9 @@ const profileService = {
   },
 
   // Update current user profile
-  updateProfile: async (profileData) => {
-    const response = await apiClient.put(ENDPOINTS.USER.PROFILE, profileData);
+  updateProfile: async (userId, profileData) => {
+    const url = ENDPOINTS.USER.UPDATE_USER.replace(':user_id', userId);
+    const response = await apiClient.put(url, profileData);
     return response.data;
   },
 

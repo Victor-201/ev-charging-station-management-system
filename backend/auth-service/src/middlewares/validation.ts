@@ -39,9 +39,23 @@ export const registerSchema = Joi.object({
       'any.required': 'Full name is required'
     }),
   date_of_birth: Joi.date().max('now').required()
+    .custom((value, helpers) => {
+      const birthDate = new Date(value);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        return helpers.error('any.invalid', { message: 'User must be at least 18 years old' });
+      }
+      return value;
+    })
     .messages({
       'date.max': 'Date of birth cannot be in the future',
-      'any.required': 'Date of birth is required'
+      'any.required': 'Date of birth is required',
+      'any.invalid': 'User must be at least 18 years old'
     }),
   role: Joi.string().valid('user', 'staff', 'admin').default('user'),
 });

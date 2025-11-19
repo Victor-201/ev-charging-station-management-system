@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, Alert, Platform, StyleSheet } from 'react-native';
+import { View, Alert, StyleSheet } from 'react-native';
 import { Button } from 'react-native-paper';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { AccessToken, LoginManager, Settings } from 'react-native-fbsdk-next';
 import { GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID } from '../../config/env';
 import useAuth from '../../hooks/useAuth';
 import { logger } from '../../utils/logger';
@@ -11,22 +10,14 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
   const { doSocialLogin, loading } = useAuth();
 
   useEffect(() => {
-    // Configure Facebook SDK
-    if (Platform.OS === 'ios') {
-      Settings.setAdvertiserTrackingEnabled(true);
-      Settings.setAutoLogAppEventsEnabled(false);
-    }
-
     // Configure Google Sign-In
     if (GOOGLE_WEB_CLIENT_ID) {
       const config = {
         webClientId: GOOGLE_WEB_CLIENT_ID,
         offlineAccess: true,
         scopes: ['profile', 'email'],
-        iosClientId: GOOGLE_IOS_CLIENT_ID, // Thêm dòng này để chỉ định iOS Client ID
+        iosClientId: GOOGLE_IOS_CLIENT_ID,
       };
-
-
 
       GoogleSignin.configure(config);
     } else {
@@ -78,31 +69,6 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
     }
   };
 
-  const signInWithFacebook = async () => {
-    try {
-      // Logout first to ensure a fresh login attempt
-      LoginManager.logOut();
-
-      const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
-
-      if (result.isCancelled) {
-        logger.info('User cancelled Facebook login');
-        return;
-      }
-
-      const data = await AccessToken.getCurrentAccessToken();
-      if (data?.accessToken) {
-        await handleSocialLogin('facebook', data.accessToken.toString());
-      } else {
-        throw new Error('Không nhận được access token từ Facebook.');
-      }
-    } catch (error) {
-      logger.error('Facebook Login Error:', error);
-      Alert.alert('Lỗi Facebook Login', 'Đã xảy ra lỗi trong quá trình đăng nhập. Vui lòng thử lại.');
-      onError?.(error);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <Button
@@ -117,19 +83,6 @@ export default function OAuthButtons({ onSuccess, onError, mode = 'login' }) {
         contentStyle={styles.content}
       >
         {mode === 'login' ? 'Đăng nhập với Google' : 'Đăng ký với Google'}
-      </Button>
-      <Button
-        icon="facebook"
-        mode="outlined"
-        onPress={signInWithFacebook}
-        loading={loading}
-        disabled={loading}
-        uppercase={false}
-        style={styles.button}
-        labelStyle={styles.label}
-        contentStyle={styles.content}
-      >
-        {mode === 'login' ? 'Đăng nhập với Facebook' : 'Đăng ký với Facebook'}
       </Button>
     </View>
   );
