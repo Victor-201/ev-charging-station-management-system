@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { X } from "lucide-react";
 import paymentService from "@/services/paymentService";
 
@@ -23,6 +23,8 @@ const PaymentModal = ({
   loadActivePoints,
   STATION_ID,
 }) => {
+  const [pendingCashTransactionId, setPendingCashTransactionId] = useState(null);
+
   const formatMoney = (v) => {
     if (v === null || v === undefined || v === "") return "N/A";
     const n = Number(v) ?? 0;
@@ -69,6 +71,25 @@ const PaymentModal = ({
       setLoadingTransactions(false);
     }
   }, [setLoadingTransactions, setTransactionError, setQrCodeUrl]);
+
+  const confirmCashTransaction = useCallback(async (transactionId, payload) => {
+    setLoadingTransactions(true);
+    setTransactionError(null);
+    try {
+      const res = await paymentService.confirmCashTransaction(transactionId, payload);
+      const data = res?.data ?? res;
+      return { success: true, data };
+    } catch (err) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Xác nhận giao dịch thất bại";
+      setTransactionError(errorMsg);
+      return { success: false, error: errorMsg };
+    } finally {
+      setLoadingTransactions(false);
+    }
+  }, [setLoadingTransactions, setTransactionError]);
 
   const pollWalletPayment = useCallback(() => {
     const interval = setInterval(async () => {
@@ -229,8 +250,36 @@ const PaymentModal = ({
       },
     };
 
-    const result = await createTransaction(payload);
-    if (result.success) {
+    // Bước 1: Tạo transaction
+    const createResult = await createTransaction(payload);
+    if (!createResult.success) {
+      alert(`Lỗi tạo giao dịch: ${createResult.error}`);
+      return;
+    }
+
+    const createdTransaction = createResult.data;
+    const transactionId = createdTransaction?.id || createdTransaction?.transaction_id;
+
+    if (!transactionId) {
+      alert("Không tìm thấy transaction ID");
+      return;
+    }
+
+    // Lưu transaction ID để hiển thị loading
+    setPendingCashTransactionId(transactionId);
+
+    // Bước 2: Confirm transaction
+    const confirmPayload = {
+      confirmed_at: new Date().toISOString(),
+      confirmed_by: "staff", // Có thể thêm thông tin nhân viên nếu có
+      notes: "Xác nhận thu tiền mặt tại trạm"
+    };
+
+    const confirmResult = await confirmCashTransaction(transactionId, confirmPayload);
+    
+    setPendingCashTransactionId(null);
+
+    if (confirmResult.success) {
       setReconcileResult((prev) => ({ 
         ...prev, 
         payment_status: "completed" 
@@ -242,11 +291,11 @@ const PaymentModal = ({
       await refreshCurrentSession();
       await loadActivePoints();
     } else {
-      alert(`Lỗi xác nhận thanh toán: ${result.error}`);
+      alert(`Lỗi xác nhận thanh toán: ${confirmResult.error}`);
     }
   };
 
-  // Auto-proceed payment when modal opens
+  // Auto-proceed payment when modal opens (for non-cash methods)
   React.useEffect(() => {
     if (showPaymentModal && selectedPaymentMethod && selectedPaymentMethod !== "cash") {
       handleProceedPayment();
@@ -299,6 +348,13 @@ const PaymentModal = ({
                 Vui lòng thu tiền mặt từ khách hàng và xác nhận bên dưới
               </p>
             </div>
+            {pendingCashTransactionId && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-blue-800 text-sm">
+                  Đang xử lý giao dịch ID: {pendingCashTransactionId}
+                </p>
+              </div>
+            )}
             <button
               onClick={handleConfirmCashPayment}
               disabled={loadingTransactions}
