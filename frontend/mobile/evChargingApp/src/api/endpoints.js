@@ -50,7 +50,7 @@ export const ENDPOINTS = {
 
   // Wallet Management
   WALLET: {
-    TRANSACTIONS: '/payments/wallet/:user_id/transactions',
+    TRANSACTIONS: '/payments/user/:user_id/payments',
     WITHDRAW: '/payments/wallet/:user_id/withdraw',
     TOPUP_CALLBACK: '/payments/wallet/topup/callback',
   },
