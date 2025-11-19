@@ -197,18 +197,27 @@ export default function VerifyEmail({ navigation, route }) {
         <Controller
           control={control}
           name="token"
-          render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput
-              label="Token xác thực *"
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              error={errors.token?.message}
-              placeholder="Nhập token từ email"
-              autoCapitalize="none"
-              style={styles.input}
-            />
-          )}
+          render={({ field: { onChange, value, onBlur } }) => {
+            const handleTokenChange = (text) => {
+              if (errorMessage) {
+                setErrorMessage('');
+              }
+              onChange(text);
+            };
+
+            return (
+              <AppInput
+                label="Token xác thực *"
+                value={value}
+                onChangeText={handleTokenChange}
+                onBlur={onBlur}
+                error={errors.token?.message}
+                placeholder="Nhập token từ email"
+                autoCapitalize="none"
+                style={styles.input}
+              />
+            );
+          }}
         />
 
         {/* Verify Button */}
