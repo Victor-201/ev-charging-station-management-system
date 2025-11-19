@@ -14,23 +14,34 @@ export const sepayService = {
   /**
    * Create a top-up request
    * @param {number} amount - Amount to top up (VND)
+   * @param {string} userId - User ID
    * @returns {Promise<Object>} Payment data including QR code info
    */
-  async createTopUpRequest(amount) {
+  async createTopUpRequest(amount, userId) {
     try {
-      logger.info('Creating Sepay top-up request', { amount });
+      logger.info('Creating Sepay top-up request', { amount, userId });
 
-      const response = await apiClient.post(ENDPOINTS.PAYMENT.TOPUP_WALLET, {
+      // Create transaction with bank_transfer method
+      const response = await apiClient.post(ENDPOINTS.PAYMENT.CREATE_TRANSACTION, {
+        user_id: userId,
+        type: 'topup',
+        method: 'bank_transfer',
         amount,
-        payment_method: 'bank_transfer',
-        provider: 'sepay'
+        currency: 'VND',
+        meta: {
+          description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng',
+          provider: 'sepay'
+        }
       });
 
-      logger.info('Sepay top-up request created', { 
-        transaction_id: response.data.transaction_id 
+      const transaction = response.data?.transaction || response.data;
+
+      logger.info('Sepay top-up request created', {
+        transaction_id: transaction.id,
+        qrLink: transaction.meta?.qrLink
       });
 
-      return response.data;
+      return transaction;
     } catch (error) {
       logger.error('Failed to create Sepay top-up request', error);
       throw error;
@@ -58,22 +69,21 @@ export const sepayService = {
   },
 
   /**
-   * Generate QR code URL for bank transfer
-   * @param {Object} paymentData - Payment information
-   * @returns {string} QR code image URL
+   * Get QR code URL from transaction data
+   * @param {Object} transaction - Transaction data from backend
+   * @returns {string|null} QR code image URL
    */
-  generateQRCodeUrl(paymentData) {
-    const { account_number, bank_code, amount, transfer_content } = paymentData;
+  getQRCodeUrl(transaction) {
+    // Backend returns QR link in meta.qrLink (Sepay format)
+    const qrLink = transaction?.meta?.qrLink || transaction?.meta?.qrlink;
 
-    // VietQR standard format
-    // Format: https://img.vietqr.io/image/{bank_code}-{account_number}-{template}.jpg?amount={amount}&addInfo={content}
-    const baseUrl = 'https://img.vietqr.io/image';
-    const template = 'compact2'; // or 'compact', 'print', 'qr_only'
-    
-    const qrUrl = `${baseUrl}/${bank_code}-${account_number}-${template}.jpg?amount=${amount}&addInfo=${encodeURIComponent(transfer_content)}`;
+    if (qrLink) {
+      logger.debug('Using QR code URL from backend', { qrLink });
+      return qrLink;
+    }
 
-    logger.debug('Generated QR code URL', { qrUrl });
-    return qrUrl;
+    logger.warn('No QR link found in transaction data');
+    return null;
   },
 
   /**
@@ -138,12 +148,10 @@ export const sepayService = {
 
   /**
    * Calculate transaction fee
-   * @param {number} amount - Transaction amount
-   * @returns {number} Fee amount
+   * @returns {number} Fee amount (always 0 for Sepay)
    */
-  calculateFee(amount) {
+  calculateFee() {
     // Sepay typically has no fee for bank transfer
-    // But you can implement fee logic here if needed
     return 0;
   },
 

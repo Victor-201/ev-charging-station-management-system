@@ -12,7 +12,7 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -24,7 +24,7 @@ import { logger } from '../../utils/logger';
 const SepayTopUpScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  
+
   const [amount, setAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,7 @@ const SepayTopUpScreen = () => {
   /**
    * Handle amount selection
    */
-  const handleAmountSelect = (selectedAmount) => {
+  const handleAmountSelect = selectedAmount => {
     setAmount(selectedAmount);
     setCustomAmount('');
     setError('');
@@ -44,7 +44,7 @@ const SepayTopUpScreen = () => {
   /**
    * Handle custom amount input
    */
-  const handleCustomAmountChange = (text) => {
+  const handleCustomAmountChange = text => {
     // Remove non-numeric characters
     const numericValue = text.replace(/[^0-9]/g, '');
     setCustomAmount(numericValue);
@@ -66,23 +66,33 @@ const SepayTopUpScreen = () => {
         return;
       }
 
+      // Get user ID from Redux store
+      const currentUserId = useSelector(state => state.auth.user?.id);
+      if (!currentUserId) {
+        Alert.alert('Lỗi', 'Vui lòng đăng nhập để nạp tiền');
+        return;
+      }
+
       setLoading(true);
       setError('');
 
-      // Create top-up request
-      const paymentData = await sepayService.createTopUpRequest(finalAmount);
+      // Create top-up request with userId
+      const transaction = await sepayService.createTopUpRequest(
+        finalAmount,
+        currentUserId,
+      );
 
-      // Navigate to QR code screen
+      // Navigate to QR code screen with transaction data
       navigation.navigate('SepayQRCode', {
-        paymentData,
-        amount: finalAmount
+        transaction,
+        amount: finalAmount,
       });
-
     } catch (err) {
       logger.error('Failed to create top-up request', err);
       Alert.alert(
         'Lỗi',
-        err.response?.data?.message || 'Không thể tạo yêu cầu nạp tiền. Vui lòng thử lại.'
+        err.response?.data?.message ||
+          'Không thể tạo yêu cầu nạp tiền. Vui lòng thử lại.',
       );
     } finally {
       setLoading(false);
@@ -92,16 +102,18 @@ const SepayTopUpScreen = () => {
   /**
    * Render predefined amount button
    */
-  const renderAmountButton = (value) => {
+  const renderAmountButton = value => {
     const isSelected = amount === value;
-    
+
     return (
       <TouchableOpacity
         key={value}
         style={[styles.amountButton, isSelected && styles.amountButtonSelected]}
         onPress={() => handleAmountSelect(value)}
       >
-        <Text style={[styles.amountText, isSelected && styles.amountTextSelected]}>
+        <Text
+          style={[styles.amountText, isSelected && styles.amountTextSelected]}
+        >
           {sepayService.formatAmount(value)}
         </Text>
       </TouchableOpacity>
@@ -124,7 +136,8 @@ const SepayTopUpScreen = () => {
         <View style={styles.infoCard}>
           <Icon name="information" size={24} color="#2196F3" />
           <Text style={styles.infoText}>
-            Nạp tiền vào ví qua chuyển khoản ngân hàng. Tiền sẽ được cập nhật tự động sau khi chuyển khoản thành công.
+            Nạp tiền vào ví qua chuyển khoản ngân hàng. Tiền sẽ được cập nhật tự
+            động sau khi chuyển khoản thành công.
           </Text>
         </View>
 
@@ -163,7 +176,10 @@ const SepayTopUpScreen = () => {
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={[styles.continueButton, (!amount && !customAmount) && styles.continueButtonDisabled]}
+          style={[
+            styles.continueButton,
+            !amount && !customAmount && styles.continueButtonDisabled,
+          ]}
           onPress={handleContinue}
           disabled={loading || (!amount && !customAmount)}
         >
@@ -319,4 +335,3 @@ const styles = StyleSheet.create({
 });
 
 export default SepayTopUpScreen;
-

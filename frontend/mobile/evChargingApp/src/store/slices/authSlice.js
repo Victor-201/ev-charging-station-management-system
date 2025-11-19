@@ -85,6 +85,15 @@ export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provide
   }
 });
 
+export const fetchUserProfile = createAsyncThunk('auth/fetchUserProfile', async (_, { rejectWithValue }) => {
+  try {
+    const profile = await profileService.getMe();
+    return profile;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
 export const logoutAsync = createAsyncThunk('auth/logoutAsync', async (_, { getState, rejectWithValue }) => {
   try {
     const state = getState();
@@ -221,6 +230,19 @@ const authSlice = createSlice({
         s.accessToken = null;
         s.refreshToken = null;
       })
+      .addCase(fetchUserProfile.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchUserProfile.fulfilled, (s, a) => {
+        s.loading = false;
+        s.userProfile = a.payload;
+      })
+      .addCase(fetchUserProfile.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload?.message || 'Failed to fetch profile';
+      })
+
       .addCase(logoutAsync.rejected, (s) => {
         s.loading = false;
         // Even if logout fails, clear the state

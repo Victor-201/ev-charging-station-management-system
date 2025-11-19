@@ -12,7 +12,7 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -28,17 +28,24 @@ const SepayQRCodeScreen = () => {
   const route = useRoute();
   const dispatch = useDispatch();
 
-  const { paymentData, amount } = route.params;
-  const userId = useSelector((state) => state.auth.user?.id);
+  const { transaction, amount } = route.params;
+  const userId = useSelector(state => state.auth.user?.id);
 
   const [status, setStatus] = useState('pending'); // pending, checking, completed, failed
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const pollingInterval = useRef(null);
 
   useEffect(() => {
-    // Generate QR code URL
-    const url = sepayService.generateQRCodeUrl(paymentData);
-    setQrCodeUrl(url);
+    // Get QR code URL from backend response
+    const url = sepayService.getQRCodeUrl(transaction);
+    if (url) {
+      setQrCodeUrl(url);
+    } else {
+      logger.error('No QR code URL found in transaction data');
+      Alert.alert('Lỗi', 'Không thể tạo mã QR. Vui lòng thử lại.');
+      navigation.goBack();
+      return;
+    }
 
     // Start polling for payment status
     startPolling();
@@ -46,7 +53,7 @@ const SepayQRCodeScreen = () => {
     return () => {
       stopPolling();
     };
-  }, []);
+  }, [transaction]);
 
   /**
    * Start polling for payment status
@@ -73,9 +80,11 @@ const SepayQRCodeScreen = () => {
   const checkPaymentStatus = async () => {
     try {
       setStatus('checking');
-      
-      const result = await sepayService.checkPaymentStatus(paymentData.transaction_id);
-      
+
+      const result = await sepayService.checkPaymentStatus(
+        paymentData.transaction_id,
+      );
+
       if (result.status === 'completed') {
         stopPolling();
         setStatus('completed');
@@ -92,23 +101,23 @@ const SepayQRCodeScreen = () => {
           [
             {
               text: 'OK',
-              onPress: () => navigation.navigate('WalletMain')
-            }
-          ]
+              onPress: () => navigation.navigate('WalletMain'),
+            },
+          ],
         );
       } else if (result.status === 'failed') {
         stopPolling();
         setStatus('failed');
-        
+
         Alert.alert(
           'Thất bại',
           'Giao dịch không thành công. Vui lòng thử lại.',
           [
             {
               text: 'OK',
-              onPress: () => navigation.goBack()
-            }
-          ]
+              onPress: () => navigation.goBack(),
+            },
+          ],
         );
       } else {
         setStatus('pending');
@@ -151,10 +160,12 @@ const SepayQRCodeScreen = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => {
-          stopPolling();
-          navigation.goBack();
-        }}>
+        <TouchableOpacity
+          onPress={() => {
+            stopPolling();
+            navigation.goBack();
+          }}
+        >
           <Icon name="close" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chuyển khoản</Text>
@@ -202,7 +213,7 @@ const SepayQRCodeScreen = () => {
         {/* Bank Information */}
         <View style={styles.bankInfoCard}>
           <Text style={styles.cardTitle}>Thông tin chuyển khoản</Text>
-          
+
           {renderInfoRow('Ngân hàng', paymentData.bank_name)}
           {renderInfoRow('Số tài khoản', paymentData.account_number, true)}
           {renderInfoRow('Tên tài khoản', paymentData.account_name)}
@@ -335,4 +346,3 @@ const styles = StyleSheet.create({
 });
 
 export default SepayQRCodeScreen;
-

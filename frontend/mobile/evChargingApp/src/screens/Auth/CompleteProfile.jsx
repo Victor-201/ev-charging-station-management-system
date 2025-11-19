@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform, Modal, Text } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -161,37 +161,66 @@ export default function CompleteProfile() {
         <Controller
           control={control}
           name="date_of_birth"
-          render={({ field: { onChange, value } }) => (
-            <View>
-              <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                <AppInput
-                  label="Ngày sinh"
-                  value={value}
-                  error={errors.date_of_birth?.message}
-                  placeholder="YYYY-MM-DD (VD: 1990-01-15)"
-                  style={styles.input}
-                  editable={false}
-                  pointerEvents="none"
-                />
-              </TouchableOpacity>
+          render={({ field: { onChange, value } }) => {
+            const onDateChange = (_event, selectedDate) => {
+              setShowDatePicker(false); // Hide picker on any action
+              if (selectedDate) {
+                const formattedDate = selectedDate.toISOString().split('T')[0];
+                onChange(formattedDate);
+              }
+            };
 
-              {showDatePicker && (
-                <DateTimePicker
-                  value={value ? new Date(value) : new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(_event, selectedDate) => {
-                    setShowDatePicker(Platform.OS === 'ios');
-                    if (selectedDate) {
-                      const formattedDate = selectedDate.toISOString().split('T')[0];
-                      onChange(formattedDate);
-                    }
-                  }}
-                  maximumDate={new Date()}
-                />
-              )}
-            </View>
-          )}
+            return (
+              <View>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                  <AppInput
+                    label="Ngày sinh"
+                    value={value}
+                    error={errors.date_of_birth?.message}
+                    placeholder="YYYY-MM-DD (VD: 1990-01-15)"
+                    style={styles.input}
+                    editable={false}
+                    pointerEvents="none"
+                  />
+                </TouchableOpacity>
+
+                {Platform.OS === 'android' && showDatePicker && (
+                  <DateTimePicker
+                    value={value ? new Date(value) : new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                    maximumDate={new Date()}
+                  />
+                )}
+
+                {Platform.OS === 'ios' && (
+                  <Modal
+                    transparent={true}
+                    animationType="slide"
+                    visible={showDatePicker}
+                    onRequestClose={() => setShowDatePicker(false)}
+                  >
+                    <View style={styles.modalContainer}>
+                      <View style={styles.datePickerContainer}>
+                        <DateTimePicker
+                          value={value ? new Date(value) : new Date()}
+                          mode="date"
+                          display="spinner"
+                          onChange={onDateChange}
+                          maximumDate={new Date()}
+                          style={{ width: '100%' }}
+                        />
+                        <AppButton onPress={() => setShowDatePicker(false)} style={{ marginTop: 16 }}>
+                          Xong
+                        </AppButton>
+                      </View>
+                    </View>
+                  </Modal>
+                )}
+              </View>
+            );
+          }}
         />
 
         {/* Submit Button */}
@@ -228,6 +257,19 @@ const getStyles = () => StyleSheet.create({
   },
   skipButton: {
     marginBottom: 16,
+  },
+  // Styles for iOS DatePicker Modal
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  datePickerContainer: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    alignItems: 'center',
   },
 });
 

@@ -125,5 +125,7 @@ const walletSlice = createSlice({
 
 export const { fetchWalletSuccess } = walletSlice.actions;
 
+export { getWallet, getTransactions, topupWallet, withdrawFromWallet };
+
 export default walletSlice.reducer;
 
