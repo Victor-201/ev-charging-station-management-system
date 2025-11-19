@@ -22,7 +22,12 @@ export class UserController {
         user_id: userId,
         email: email,
         full_name: profile?.full_name || null,
+        phone: profile?.phone || null,
+        date_of_birth: profile?.date_of_birth || null,
         role: role,
+        status: profile?.status || 'active',
+        email_verified: profile?.email_verified || false,
+        created_at: profile?.created_at || null,
       });
     } catch (error) {
       logger.error('Error in getMe:', error);

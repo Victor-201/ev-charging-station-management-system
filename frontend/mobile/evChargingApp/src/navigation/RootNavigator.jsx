@@ -5,8 +5,9 @@ import AuthStack from './stacks/AuthStack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MainTabs from './stacks/MainTabs';
 import ChargingStack from './stacks/ChargingStack';
+import CompleteProfile from '../screens/Auth/CompleteProfile';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { restoreSession, fetchUserProfile } from '../store/slices/authSlice';
+import { restoreSession, fetchUserProfile, setIsNewUser } from '../store/slices/authSlice';
 import { STORAGE_KEYS } from '../config/constants';
 import Loading from '../components/common/Loading';
 
@@ -36,7 +37,12 @@ export default function RootNavigator() {
         if (accessToken && refreshToken) {
           dispatch(restoreSession({ accessToken, refreshToken }));
           // Fetch user profile after restoring session
-          dispatch(fetchUserProfile());
+          const profileResult = await dispatch(fetchUserProfile());
+
+          // Check if profile is incomplete (no full_name)
+          if (profileResult.payload && !profileResult.payload.full_name) {
+            dispatch(setIsNewUser(true));
+          }
         }
       } catch (e) {
         // ignore
@@ -51,12 +57,19 @@ export default function RootNavigator() {
     console.log('🔍 RootNavigator - Auth state:', {
       hasAccessToken: !!auth?.accessToken,
       hasUser: !!auth?.user,
+      isNewUser: auth?.isNewUser,
+      userProfile: auth?.userProfile,
       user: auth?.user,
       ready
     });
   }, [auth, ready]);
 
   if (!ready) return <Loading />;
+
+  // If user is authenticated but needs to complete profile
+  if (auth?.accessToken && auth?.isNewUser) {
+    return <CompleteProfile />;
+  }
 
   return auth?.accessToken ? <AppStack /> : <AuthStack />;
 }
