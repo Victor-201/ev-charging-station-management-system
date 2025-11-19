@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { Snackbar } from 'react-native-paper';
@@ -142,7 +142,18 @@ export default function VerifyEmail({ navigation, route }) {
       setLoading(true);
       setErrorMessage('');
 
-      await authService.verifyEmail(data.token);
+      const inputValue = data.token.trim();
+
+      // Check if input is a 6-digit code or a JWT token
+      const is6DigitCode = /^\d{6}$/.test(inputValue);
+
+      if (is6DigitCode) {
+        // Use 6-digit code verification
+        await authService.verifyEmailCode(email, inputValue);
+      } else {
+        // Use JWT token verification
+        await authService.verifyEmail(inputValue);
+      }
 
       setSuccessMessage('Xác thực email thành công!');
 
@@ -151,7 +162,7 @@ export default function VerifyEmail({ navigation, route }) {
         navigation.navigate('Login', { email });
       }, 1500);
     } catch (error) {
-      const message = error.response?.data?.message || 'Xác thực thất bại. Vui lòng kiểm tra lại token xác thực.';
+      const message = error.response?.data?.message || 'Xác thực thất bại. Vui lòng kiểm tra lại mã xác thực.';
       setErrorMessage(message);
     } finally {
       setLoading(false);
@@ -189,7 +200,10 @@ export default function VerifyEmail({ navigation, route }) {
           </Text>
           <Text style={styles.emailText}>{email}</Text>
           <Text style={styles.subInfoText}>
-            Vui lòng kiểm tra hộp thư, click vào link hoặc copy token từ email và nhập bên dưới.
+            Vui lòng kiểm tra hộp thư, click vào link hoặc nhập mã xác thực bên dưới.
+          </Text>
+          <Text style={[styles.subInfoText, { marginTop: 8, fontStyle: 'italic' }]}>
+            Bạn có thể nhập: mã 6 số hoặc token từ email
           </Text>
         </View>
 
@@ -207,12 +221,12 @@ export default function VerifyEmail({ navigation, route }) {
 
             return (
               <AppInput
-                label="Token xác thực *"
+                label="Mã xác thực *"
                 value={value}
                 onChangeText={handleTokenChange}
                 onBlur={onBlur}
                 error={errors.token?.message}
-                placeholder="Nhập token từ email"
+                placeholder="944045 hoặc token từ email"
                 autoCapitalize="none"
                 style={styles.input}
               />

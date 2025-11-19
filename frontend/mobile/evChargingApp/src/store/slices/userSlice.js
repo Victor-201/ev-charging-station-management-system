@@ -4,7 +4,7 @@ import profileService from '../../services/profileService';
 // Async thunk for fetching user profile
 export const getMe = createAsyncThunk('user/getMe', async (_, { rejectWithValue }) => {
   try {
-    const { data } = await profileService.getMe();
+    const data = await profileService.getMe();
     return data;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });

@@ -15,14 +15,12 @@ const router = express.Router();
 router.use('/staff', staffRoutes);
 
 // ==================== USER ROUTES ====================
-// GET /api/v1/auth/me - Get current user profile
-router.get('/auth/me', authenticate, userController.getMe);
+
 
 // GET /api/v1/users/profile - Get current user profile (convenience route)
 router.get('/users/profile', authenticate, userController.getMe);
 
-// GET /api/v1/users/vehicles - Get current user's vehicles (convenience route)
-router.get('/users/vehicles', authenticate, vehicleController.getCurrentUserVehicles);
+
 
 // GET /api/v1/users - Admin: Get list of users
 router.get('/users', authenticate, authorize('admin'), userController.getUserList);

@@ -82,15 +82,16 @@ export default function CompleteProfile() {
     } catch (error) {
       logger.error('Error completing profile:', error);
 
-      // Better error handling
+      // Better error handling - safely access nested properties
       let errorMessage = 'Không thể cập nhật hồ sơ. Vui lòng thử lại.';
 
-      if (error?.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object') {
+        if (error.response && error.response.data) {
+          // Try to get error message from response
+          errorMessage = error.response.data.message || error.response.data.error || errorMessage;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
       }
 
       Alert.alert('Lỗi', errorMessage);

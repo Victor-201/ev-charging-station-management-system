@@ -4,7 +4,7 @@ import { ENDPOINTS } from '../api/endpoints';
 const profileService = {
   // Get current user profile
   getMe: async () => {
-    const response = await apiClient.get(ENDPOINTS.USER.ME);
+    const response = await apiClient.get(ENDPOINTS.USER.PROFILE);
     return response.data;
   },
 

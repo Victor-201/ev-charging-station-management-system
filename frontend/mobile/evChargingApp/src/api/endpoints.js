@@ -22,7 +22,7 @@ export const ENDPOINTS = {
 
   // ==================== USER SERVICE (Port 3002) ====================
   USER: {
-    ME: '/auth/me',
+    
     PROFILE: '/users/profile',
     GET_USER: '/users/:user_id',
     UPDATE_USER: '/users/:user_id',
@@ -41,7 +41,7 @@ export const ENDPOINTS = {
   VEHICLE: {
     ADD: '/users/:user_id/vehicles',
     LIST: '/users/:user_id/vehicles',
-    CURRENT_USER_VEHICLES: '/users/vehicles',
+    
     DETAIL: '/vehicles/:vehicle_id',
     UPDATE: '/vehicles/:vehicle_id',
     DELETE: '/vehicles/:vehicle_id',
