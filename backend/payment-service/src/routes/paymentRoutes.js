@@ -14,7 +14,7 @@ router.use(authenticate);
 
 // Transaction routes
 router.post('/transaction', PaymentController.createTransaction);
-router.post('/transaction/:id/confirm', authorize(UserRole.STAFF), authorize(UserRole.ADMIN), PaymentController.confirmCashPayment);
+router.post('/transaction/:id/confirm', authorize(UserRole.STAFF, UserRole.ADMIN), PaymentController.confirmCashPayment);
 router.get('/transaction/:id', PaymentController.getPaymentById);
 
 // Wallet routes
