@@ -32,6 +32,7 @@ export interface UserProfile {
 export interface UpdateUserData {
   full_name?: string;
   phone?: string;
+  date_of_birth?: string | Date;
   address?: string;
   avatar_url?: string;
 }
