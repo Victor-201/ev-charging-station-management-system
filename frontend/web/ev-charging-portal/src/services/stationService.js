@@ -23,6 +23,9 @@ export const stationService = {
   reportIssue: (station_id, payload) =>
     apiClient({ method: "POST", url: `api/v1/stations/${station_id}/report-issue`, data: payload }),
 
+   getReportIssues: (station_id, params) =>
+    apiClient({ method: "GET", url: `api/v1/stations/${station_id}/report-issues`, params }),
+
   setMaintenance: (station_id, payload) =>
     apiClient({ method: "POST", url: `api/v1/stations/${station_id}/maintenance`, data: payload }),
 
