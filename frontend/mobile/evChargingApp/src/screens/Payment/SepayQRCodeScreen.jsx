@@ -29,11 +29,21 @@ const SepayQRCodeScreen = () => {
   const dispatch = useDispatch();
 
   const { transaction, amount } = route.params;
-  const userId = useSelector(state => state.auth.user?.id);
+  const profile = useSelector(state => state.user?.profile);
+  const userId = profile?.user_id || profile?.id;
 
   const [status, setStatus] = useState('pending'); // pending, checking, completed, failed
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const pollingInterval = useRef(null);
+
+  // Extract payment data from transaction
+  const paymentData = {
+    transaction_id: transaction?.id || transaction?.transaction_id,
+    bank_name: 'Ngân hàng TMCP Á Châu (ACB)',
+    account_number: transaction?.meta?.account_number || '123456789',
+    account_name: transaction?.meta?.account_name || 'CONG TY EV CHARGING',
+    transfer_content: transaction?.reference_code || transaction?.meta?.reference_code || '',
+  };
 
   useEffect(() => {
     // Get QR code URL from backend response
@@ -81,11 +91,15 @@ const SepayQRCodeScreen = () => {
     try {
       setStatus('checking');
 
-      const result = await sepayService.checkPaymentStatus(
-        paymentData.transaction_id,
-      );
+      const transactionId = transaction?.id || transaction?.transaction_id;
+      if (!transactionId) {
+        logger.error('No transaction ID found');
+        return;
+      }
 
-      if (result.status === 'completed') {
+      const result = await sepayService.checkPaymentStatus(transactionId);
+
+      if (result.status === 'completed' || result.status === 'success') {
         stopPolling();
         setStatus('completed');
 

@@ -21,19 +21,17 @@ export const sepayService = {
     try {
       logger.info('Creating Sepay top-up request', { amount, userId });
 
-      // Create transaction with bank_transfer method
+      // Create topup transaction using createTransaction endpoint
       const response = await apiClient.post(ENDPOINTS.PAYMENT.CREATE_TRANSACTION, {
         user_id: userId,
         type: 'topup',
-        method: 'bank_transfer',
         amount,
+        method: 'bank_transfer',
         currency: 'VND',
-        meta: {
-          description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng',
-          provider: 'sepay'
-        }
+        description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng'
       });
 
+      // Backend returns { transaction, invoice }
       const transaction = response.data?.transaction || response.data;
 
       logger.info('Sepay top-up request created', {
@@ -75,7 +73,17 @@ export const sepayService = {
    */
   getQRCodeUrl(transaction) {
     // Backend returns QR link in meta.qrLink (Sepay format)
-    const qrLink = transaction?.meta?.qrLink || transaction?.meta?.qrlink;
+    // Parse meta if it's a string
+    let meta = transaction?.meta;
+    if (typeof meta === 'string') {
+      try {
+        meta = JSON.parse(meta);
+      } catch (e) {
+        logger.warn('Failed to parse meta', e);
+      }
+    }
+
+    const qrLink = meta?.qrLink || meta?.qrlink;
 
     if (qrLink) {
       logger.debug('Using QR code URL from backend', { qrLink });

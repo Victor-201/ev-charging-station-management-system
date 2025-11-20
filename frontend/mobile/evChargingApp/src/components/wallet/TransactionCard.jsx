@@ -45,6 +45,7 @@ const TransactionCard = ({ transaction, onPress }) => {
 
   const {
     type = 'Giao dịch',
+    status = 'pending',
     created_at,
     amount = 0,
     description,
@@ -58,7 +59,20 @@ const TransactionCard = ({ transaction, onPress }) => {
   const iconColor = isPositive ? colors.success : colors.error;
 
   // Get description from meta or use type
-  const displayText = meta?.description || description || type;
+  const typeLabels = {
+    topup: 'Nạp tiền',
+    payment: 'Thanh toán',
+    refund: 'Hoàn tiền',
+    charging: 'Phí sạc xe'
+  };
+  const statusLabels = {
+    pending: 'Chờ xử lý',
+    completed: 'Thành công',
+    failed: 'Thất bại',
+    cancelled: 'Đã hủy',
+    refunded: 'Đã hoàn tiền'
+  };
+  const displayText = meta?.description || description || typeLabels[type] || type;
 
   const formattedDate = created_at
     ? new Date(created_at).toLocaleString('vi-VN', {
@@ -77,7 +91,22 @@ const TransactionCard = ({ transaction, onPress }) => {
           <IconButton icon={icon} size={32} iconColor={iconColor} style={{ margin: 0 }} />
         </View>
         <View style={styles.details}>
-          <Text style={styles.type}>{displayText}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.type}>{displayText}</Text>
+            {status !== 'completed' && (
+              <Text style={{
+                marginLeft: 8,
+                fontSize: 11,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4,
+                color: status === 'pending' ? colors.warning : status === 'failed' ? colors.error : colors.onSurfaceVariant,
+                backgroundColor: status === 'pending' ? colors.warning + '20' : status === 'failed' ? colors.error + '20' : colors.surfaceVariant,
+              }}>
+                {statusLabels[status] || status}
+              </Text>
+            )}
+          </View>
           <Text style={styles.date}>{formattedDate}</Text>
         </View>
         <View style={styles.amountContainer}>

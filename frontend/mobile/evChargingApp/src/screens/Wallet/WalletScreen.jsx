@@ -111,14 +111,28 @@ const WalletScreen = () => {
           <Text style={styles.emptyStateText}>Chưa có giao dịch nào.</Text>
         ) : (
           transactions.map(tx => (
-            <Card key={tx.id} style={styles.transactionCard}>
+            <Card key={tx.id || tx.transaction_id} style={styles.transactionCard}>
               <Card.Content style={styles.transactionContent}>
-                <View>
-                  <Text style={styles.transactionType}>{tx.type}</Text>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <Text style={styles.transactionType}>
+                      {tx.type === 'topup' ? 'Nạp tiền' : tx.type === 'payment' ? 'Thanh toán' : tx.type === 'refund' ? 'Hoàn tiền' : tx.type}
+                    </Text>
+                    {tx.status === 'pending' && (
+                      <Text style={{ marginLeft: 8, fontSize: 11, color: colors.warning, backgroundColor: colors.warning + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        Chờ xử lý
+                      </Text>
+                    )}
+                    {tx.status === 'completed' && (
+                      <Text style={{ marginLeft: 8, fontSize: 11, color: colors.success, backgroundColor: colors.success + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        Thành công
+                      </Text>
+                    )}
+                  </View>
                   <Text style={styles.transactionDate}>{new Date(tx.created_at).toLocaleString('vi-VN')}</Text>
                 </View>
-                <Text style={[styles.transactionAmount, { color: tx.type === 'topup' ? colors.success : colors.error }]}>
-                  {tx.type === 'topup' ? '+' : '-'}{tx.amount.toLocaleString('vi-VN')} ₫
+                <Text style={[styles.transactionAmount, { color: tx.type === 'topup' || tx.type === 'refund' ? colors.success : colors.error }]}>
+                  {tx.type === 'topup' || tx.type === 'refund' ? '+' : '-'}{tx.amount.toLocaleString('vi-VN')} ₫
                 </Text>
               </Card.Content>
             </Card>
