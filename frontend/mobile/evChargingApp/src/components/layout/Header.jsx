@@ -25,7 +25,7 @@ export default function Header({ user }) {
         <Logo style={styles.logo} />
         <View style={styles.titleContainer}>
           <Text style={[styles.welcomeText, { color: colors.onPrimary }]}>
-            Xin chào, {user?.full_name || 'User'}!
+            Xin chào{user?.full_name ? `, ${user.full_name}` : ''}!
           </Text>
           <Text style={[styles.subtitle, { color: colors.onPrimary + 'CC' }]}>
             Sẵn sàng sạc xe điện của bạn?

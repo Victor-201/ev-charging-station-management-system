@@ -19,17 +19,29 @@ export const sepayService = {
    */
   async createTopUpRequest(amount, userId) {
     try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('userId is required');
+      }
+      if (!amount || amount <= 0) {
+        throw new Error('Invalid amount');
+      }
+
       logger.info('Creating Sepay top-up request', { amount, userId });
 
       // Create topup transaction using createTransaction endpoint
-      const response = await apiClient.post(ENDPOINTS.PAYMENT.CREATE_TRANSACTION, {
+      const payload = {
         user_id: userId,
         type: 'topup',
-        amount,
+        amount: Number(amount),
         method: 'bank_transfer',
         currency: 'VND',
         description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng'
-      });
+      };
+
+      logger.debug('CreateTransaction payload:', payload);
+
+      const response = await apiClient.post(ENDPOINTS.PAYMENT.CREATE_TRANSACTION, payload);
 
       // Backend returns { transaction, invoice }
       const transaction = response.data?.transaction || response.data;
@@ -41,7 +53,13 @@ export const sepayService = {
 
       return transaction;
     } catch (error) {
-      logger.error('Failed to create Sepay top-up request', error);
+      logger.error('Failed to create Sepay top-up request', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        userId,
+        amount
+      });
       throw error;
     }
   },

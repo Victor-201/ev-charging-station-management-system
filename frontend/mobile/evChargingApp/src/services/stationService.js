@@ -95,10 +95,44 @@ const transformStationData = (station) => {
 const stationService = {
   // Search stations with optional filters
   searchStations: async (params = {}) => {
-    const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, { params });
-    // Transform array of stations
-    const stations = Array.isArray(response.data) ? response.data : [];
-    return stations.map(transformStationData);
+    try {
+      // Map mobile params to backend required params
+      const backendParams = {};
+      
+      // Backend requires: latitude, longitude, radius (all required)
+      if (params.lat !== undefined && params.lat !== null) {
+        backendParams.latitude = String(params.lat);
+      }
+      if (params.lng !== undefined && params.lng !== null) {
+        backendParams.longitude = String(params.lng);
+      }
+      if (params.radius !== undefined && params.radius !== null) {
+        backendParams.radius = String(params.radius);
+      }
+      
+      // Optional params
+      if (params.connector_type) backendParams.connector_type = params.connector_type;
+      if (params.power_min) backendParams.power_min = String(params.power_min);
+      if (params.status) backendParams.status = params.status;
+      if (params.page) backendParams.page = String(params.page);
+      if (params.size) backendParams.size = String(params.size);
+      
+      // Validate required params
+      if (!backendParams.latitude || !backendParams.longitude || !backendParams.radius) {
+        console.warn('Missing required search params (latitude, longitude, radius)');
+        return [];
+      }
+      
+      const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, { params: backendParams });
+      // Handle different response formats
+      const data = response.data?.data || response.data;
+      const stations = Array.isArray(data) ? data : [];
+      return stations.map(transformStationData);
+    } catch (error) {
+      console.error('Error searching stations:', error.response?.data || error.message);
+      // Return empty array on error instead of throwing
+      return [];
+    }
   },
 
   // Get station by ID

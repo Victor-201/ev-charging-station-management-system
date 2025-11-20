@@ -24,6 +24,10 @@ import { logger } from '../../utils/logger';
 const SepayTopUpScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  
+  // Get user from profile
+  const profile = useSelector(state => state.user?.profile);
+  const userId = profile?.user_id || profile?.id;
 
   const [amount, setAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
@@ -66,9 +70,8 @@ const SepayTopUpScreen = () => {
         return;
       }
 
-      // Get user ID from Redux store
-      const currentUserId = useSelector(state => state.auth.user?.id);
-      if (!currentUserId) {
+      // Check if user is logged in
+      if (!userId) {
         Alert.alert('Lỗi', 'Vui lòng đăng nhập để nạp tiền');
         return;
       }
@@ -79,7 +82,7 @@ const SepayTopUpScreen = () => {
       // Create top-up request with userId
       const transaction = await sepayService.createTopUpRequest(
         finalAmount,
-        currentUserId,
+        userId,
       );
 
       // Navigate to QR code screen with transaction data

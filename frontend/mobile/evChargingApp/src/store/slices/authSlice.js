@@ -203,6 +203,16 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
+        // Save user profile from OAuth response
+        if (a.payload?.user_id || a.payload?.email || a.payload?.full_name) {
+          s.userProfile = {
+            user_id: a.payload.user_id,
+            email: a.payload.email,
+            full_name: a.payload.full_name,
+            role: a.payload.role,
+            email_verified: a.payload.email_verified,
+          };
+        }
         // Decode JWT to get user info
         if (a.payload?.accessToken) {
           try {
