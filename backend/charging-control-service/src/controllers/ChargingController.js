@@ -131,8 +131,8 @@ exports.initiateSession = async (req, res) => {
 
     // basic validation
     if (!payload.station_id) return res.status(400).json({ error: 'station_id is required' });
-    if (!payload.point_id)   return res.status(400).json({ error: 'point_id is required' });
-    if (!payload.user_id)    return res.status(400).json({ error: 'user_id is required' });
+    if (!payload.point_id) return res.status(400).json({ error: 'point_id is required' });
+    if (!payload.user_id) return res.status(400).json({ error: 'user_id is required' });
 
     // optional debug log — remove in production if noisy
     console.log('[ChargingController.initiateSession] payload:', {
@@ -238,7 +238,7 @@ exports.resumeSession = async (req, res) => {
 exports.stopSession = async (req, res) => {
   try {
     const session_id = req.params.session_id;
-    if (!session_id) 
+    if (!session_id)
       return res.status(400).json({ error: 'session_id is required' });
 
     const stop_reason = req.body.stop_reason || 'user_stop';
@@ -250,16 +250,18 @@ exports.stopSession = async (req, res) => {
       session_id,
       stop_reason,
       end_meter_wh,
-      payment_method
+      payment_method,
     });
+
 
     // --- 2) GỌI RECONCILE TỰ ĐỘNG ---
     // mặc định auto_settle = true để tính tiền & chốt hoá đơn
     const autoSettle = req.body.auto_settle !== undefined ? Boolean(req.body.auto_settle) : true;
-    const threshold  = req.body.threshold != null ? Number(req.body.threshold) : 1000;
-    const operator   = req.body.operator || null;
+    const threshold = req.body.threshold != null ? Number(req.body.threshold) : 1000;
+    const operator = req.body.operator || null;
 
     const reconcileResult = await ChargingService.reconcileSessionWithReservation(
+      req.user?.token,
       session_id,
       { autoSettle, threshold, operator }
     );

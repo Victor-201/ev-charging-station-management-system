@@ -25,6 +25,7 @@ const config = {
   RABBITMQ_URL:
     process.env.RABBITMQ_URL ||
     `amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}`,
+    EXCHANGE_NAME: process.env.EXCHANGE_NAME || 'ev_charging_exchange',
 
   JWT_SECRET: process.env.JWT_SECRET,
 };
