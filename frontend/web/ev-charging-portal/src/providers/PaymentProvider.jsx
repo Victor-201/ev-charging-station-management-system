@@ -14,7 +14,11 @@ export const PaymentProvider = ({ children }) => {
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
   const [loadingLedger, setLoadingLedger] = useState(false);
-  const [loadingRevenue, setLoadingRevenue] = useState({ daily: false, monthly: false, all: false });
+  const [loadingRevenue, setLoadingRevenue] = useState({
+    daily: false,
+    monthly: false,
+    all: false,
+  });
 
   // Cached data
   const [lastPayment, setLastPayment] = useState(null);
@@ -25,6 +29,7 @@ export const PaymentProvider = ({ children }) => {
   const [dailyRevenue, setDailyRevenue] = useState(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState(null);
   const [todayRevenue, setTodayRevenue] = useState(null);
+  const [summaryRevenue, setSummaryRevenue] = useState(null);
 
   // QR and transaction specific state
   const [qrCodeUrl, setQrCodeUrl] = useState(null);
@@ -60,7 +65,10 @@ export const PaymentProvider = ({ children }) => {
     setLoadingTransactions(true);
     setError(null);
     try {
-      const res = await paymentService.confirmCashTransaction(transactionId, payload);
+      const res = await paymentService.confirmCashTransaction(
+        transactionId,
+        payload
+      );
       const data = res?.data ?? res;
       setLastPayment(data);
       return { success: true, data };
@@ -75,12 +83,16 @@ export const PaymentProvider = ({ children }) => {
 
   // Lấy transaction bằng id (useful để check status)
   const getTransaction = useCallback(async (transactionId) => {
-    if (!transactionId) return { success: false, error: "transactionId is required" };
+    if (!transactionId)
+      return { success: false, error: "transactionId is required" };
     setLoadingTransactions(true);
     setError(null);
     try {
       if (typeof paymentService.getTransaction !== "function") {
-        return { success: false, error: "paymentService.getTransaction not implemented" };
+        return {
+          success: false,
+          error: "paymentService.getTransaction not implemented",
+        };
       }
       const res = await paymentService.getTransaction(transactionId);
       const data = res?.data ?? res;
@@ -99,67 +111,86 @@ export const PaymentProvider = ({ children }) => {
   }, []);
 
   // Poll transaction status until completed/failed or timeout
-  const pollTransactionStatus = useCallback((transactionId, {
-    intervalMs = 3000,
-    timeoutMs = 2 * 60 * 1000,
-  } = {}) => {
-    if (!transactionId) return Promise.resolve({ success: false, error: "transactionId is required" });
+  const pollTransactionStatus = useCallback(
+    (transactionId, { intervalMs = 3000, timeoutMs = 2 * 60 * 1000 } = {}) => {
+      if (!transactionId)
+        return Promise.resolve({
+          success: false,
+          error: "transactionId is required",
+        });
 
-    setTransactionPolling(true);
+      setTransactionPolling(true);
 
-    return new Promise((resolve) => {
-      const startedAt = Date.now();
+      return new Promise((resolve) => {
+        const startedAt = Date.now();
 
-      const tick = async () => {
-        // stop if timed out
-        if (Date.now() - startedAt > timeoutMs) {
-          setTransactionPolling(false);
-          resolve({ success: false, error: "timeout" });
-          return;
-        }
-
-        try {
-          // nếu paymentService có getTransaction -> gọi
-          if (typeof paymentService.getTransaction === "function") {
-            const r = await paymentService.getTransaction(transactionId);
-            const tx = r?.data ?? r;
-
-            // normalize status check
-            const status =
-              (tx?.status) ||
-              (tx?.data?.status) ||
-              (tx?.payment_status) ||
-              (tx?.data?.payment_status) ||
-              null;
-
-            if (status && ["completed", "success", "paid"].includes(String(status).toLowerCase())) {
-              setTransactionPolling(false);
-              setLastPayment(tx);
-              resolve({ success: true, data: tx });
-              return;
-            }
-
-            if (status && ["failed", "cancelled", "error"].includes(String(status).toLowerCase())) {
-              setTransactionPolling(false);
-              setLastPayment(tx);
-              resolve({ success: false, error: "transaction_failed", data: tx });
-              return;
-            }
+        const tick = async () => {
+          // stop if timed out
+          if (Date.now() - startedAt > timeoutMs) {
+            setTransactionPolling(false);
+            resolve({ success: false, error: "timeout" });
+            return;
           }
-        } catch (e) {
-          // ignore transient error, continue polling
-        }
 
-        setTimeout(tick, intervalMs);
-      };
+          try {
+            // nếu paymentService có getTransaction -> gọi
+            if (typeof paymentService.getTransaction === "function") {
+              const r = await paymentService.getTransaction(transactionId);
+              const tx = r?.data ?? r;
 
-      tick();
-    });
-  }, []);
+              // normalize status check
+              const status =
+                tx?.status ||
+                tx?.data?.status ||
+                tx?.payment_status ||
+                tx?.data?.payment_status ||
+                null;
+
+              if (
+                status &&
+                ["completed", "success", "paid"].includes(
+                  String(status).toLowerCase()
+                )
+              ) {
+                setTransactionPolling(false);
+                setLastPayment(tx);
+                resolve({ success: true, data: tx });
+                return;
+              }
+
+              if (
+                status &&
+                ["failed", "cancelled", "error"].includes(
+                  String(status).toLowerCase()
+                )
+              ) {
+                setTransactionPolling(false);
+                setLastPayment(tx);
+                resolve({
+                  success: false,
+                  error: "transaction_failed",
+                  data: tx,
+                });
+                return;
+              }
+            }
+          } catch (e) {
+            // ignore transient error, continue polling
+          }
+
+          setTimeout(tick, intervalMs);
+        };
+
+        tick();
+      });
+    },
+    []
+  );
 
   // ===== PAYMENTS =====
   const createIntent = useCallback(async (payload) => {
-    setLoadingPayments(true); setError(null);
+    setLoadingPayments(true);
+    setError(null);
     try {
       const res = await paymentService.createIntent(payload);
       const data = res?.data ?? res;
@@ -169,11 +200,14 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingPayments(false); }
+    } finally {
+      setLoadingPayments(false);
+    }
   }, []);
 
   const confirmIntent = useCallback(async (payload) => {
-    setLoadingPayments(true); setError(null);
+    setLoadingPayments(true);
+    setError(null);
     try {
       const res = await paymentService.confirmIntent(payload);
       const data = res?.data ?? res;
@@ -183,11 +217,14 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingPayments(false); }
+    } finally {
+      setLoadingPayments(false);
+    }
   }, []);
 
   const getPaymentById = useCallback(async (payment_id) => {
-    setLoadingPayments(true); setError(null);
+    setLoadingPayments(true);
+    setError(null);
     try {
       const res = await paymentService.getPaymentById(payment_id);
       const data = res?.data ?? res;
@@ -197,11 +234,14 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingPayments(false); }
+    } finally {
+      setLoadingPayments(false);
+    }
   }, []);
 
   const webhook = useCallback(async (payload) => {
-    setLoadingPayments(true); setError(null);
+    setLoadingPayments(true);
+    setError(null);
     try {
       const res = await paymentService.webhook(payload);
       const data = res?.data ?? res;
@@ -210,11 +250,14 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingPayments(false); }
+    } finally {
+      setLoadingPayments(false);
+    }
   }, []);
 
   const refundPayment = useCallback(async (payment_id, payload) => {
-    setLoadingPayments(true); setError(null);
+    setLoadingPayments(true);
+    setError(null);
     try {
       const res = await paymentService.refundPayment(payment_id, payload);
       const data = res?.data ?? res;
@@ -223,12 +266,15 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingPayments(false); }
+    } finally {
+      setLoadingPayments(false);
+    }
   }, []);
 
   // ===== INVOICE =====
   const getInvoiceById = useCallback(async (invoice_id) => {
-    setLoadingInvoice(true); setError(null);
+    setLoadingInvoice(true);
+    setError(null);
     try {
       const res = await paymentService.getInvoiceById(invoice_id);
       const data = res?.data ?? res;
@@ -238,11 +284,14 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingInvoice(false); }
+    } finally {
+      setLoadingInvoice(false);
+    }
   }, []);
 
   const generateBilling = useCallback(async (payload) => {
-    setLoadingInvoice(true); setError(null);
+    setLoadingInvoice(true);
+    setError(null);
     try {
       const res = await paymentService.generateBilling(payload);
       const data = res?.data ?? res;
@@ -251,12 +300,15 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingInvoice(false); }
+    } finally {
+      setLoadingInvoice(false);
+    }
   }, []);
 
   // ===== WALLET =====
   const getWalletBalance = useCallback(async (user_id) => {
-    setLoadingWallet(true); setError(null);
+    setLoadingWallet(true);
+    setError(null);
     try {
       const res = await paymentService.getWalletBalance(user_id);
       const data = res?.data ?? res;
@@ -266,11 +318,14 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingWallet(false); }
+    } finally {
+      setLoadingWallet(false);
+    }
   }, []);
 
   const transferWallet = useCallback(async (user_id, payload) => {
-    setLoadingWallet(true); setError(null);
+    setLoadingWallet(true);
+    setError(null);
     try {
       const res = await paymentService.transferWallet(user_id, payload);
       const data = res?.data ?? res;
@@ -279,12 +334,15 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingWallet(false); }
+    } finally {
+      setLoadingWallet(false);
+    }
   }, []);
 
   // ===== SUBSCRIPTION =====
   const createSubscription = useCallback(async (payload) => {
-    setLoadingSubscription(true); setError(null);
+    setLoadingSubscription(true);
+    setError(null);
     try {
       const res = await paymentService.createSubscription(payload);
       const data = res?.data ?? res;
@@ -293,11 +351,14 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingSubscription(false); }
+    } finally {
+      setLoadingSubscription(false);
+    }
   }, []);
 
   const cancelSubscription = useCallback(async (id) => {
-    setLoadingSubscription(true); setError(null);
+    setLoadingSubscription(true);
+    setError(null);
     try {
       const res = await paymentService.cancelSubscription(id);
       const data = res?.data ?? res;
@@ -306,12 +367,15 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingSubscription(false); }
+    } finally {
+      setLoadingSubscription(false);
+    }
   }, []);
 
   // ===== COUPON =====
   const createCoupon = useCallback(async (payload) => {
-    setLoadingPayments(true); setError(null);
+    setLoadingPayments(true);
+    setError(null);
     try {
       const res = await paymentService.createCoupon(payload);
       const data = res?.data ?? res;
@@ -320,12 +384,15 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingPayments(false); }
+    } finally {
+      setLoadingPayments(false);
+    }
   }, []);
 
   // ===== LEDGER =====
   const exportLedger = useCallback(async (params) => {
-    setLoadingLedger(true); setError(null);
+    setLoadingLedger(true);
+    setError(null);
     try {
       const res = await paymentService.exportLedger(params);
       const data = res?.data ?? res;
@@ -334,7 +401,9 @@ export const PaymentProvider = ({ children }) => {
       const errObj = err?.response?.data ?? err;
       setError(errObj);
       return { success: false, error: errObj };
-    } finally { setLoadingLedger(false); }
+    } finally {
+      setLoadingLedger(false);
+    }
   }, []);
 
   // ===== REVENUE =====
@@ -356,7 +425,8 @@ export const PaymentProvider = ({ children }) => {
     }
   }, []);
   const getDailyRevenue = useCallback(async () => {
-    setLoadingRevenue((s) => ({ ...s, daily: true })); setError(null);
+    setLoadingRevenue((s) => ({ ...s, daily: true }));
+    setError(null);
     try {
       const res = await paymentService.getDailyRevenue();
       const data = res?.data ?? res;
@@ -373,7 +443,8 @@ export const PaymentProvider = ({ children }) => {
   }, []);
 
   const getMonthlyRevenue = useCallback(async () => {
-    setLoadingRevenue((s) => ({ ...s, monthly: true })); setError(null);
+    setLoadingRevenue((s) => ({ ...s, monthly: true }));
+    setError(null);
     try {
       const res = await paymentService.getMonthlyRevenue();
       const data = res?.data ?? res;
@@ -389,8 +460,33 @@ export const PaymentProvider = ({ children }) => {
     }
   }, []);
 
+const getSummaryRevenue = useCallback(async () => {
+  setLoadingRevenue((s) => ({ ...s, summary: true }));
+  setError(null);
+
+  try {
+    const res = await paymentService.getSummaryRevenue();
+    const data = res?.data ?? res;
+
+    // Lưu vào cache
+    setSummaryRevenue(data);
+
+    return { success: true, data };
+  } catch (err) {
+    const errObj = err?.response?.data ?? err;
+
+    setError(errObj);
+    setSummaryRevenue(null);
+
+    return { success: false, error: errObj };
+  } finally {
+    setLoadingRevenue((s) => ({ ...s, summary: false }));
+  }
+}, []);
+
   const fetchAllRevenue = useCallback(async () => {
-    setLoadingRevenue({ daily: true, monthly: true, all: true }); setError(null);
+    setLoadingRevenue({ daily: true, monthly: true, all: true });
+    setError(null);
     try {
       const [dailyRes, monthlyRes] = await Promise.allSettled([
         paymentService.getDailyRevenue(),
@@ -421,110 +517,119 @@ export const PaymentProvider = ({ children }) => {
   }, []);
 
   // Memoize context value
-  const value = useMemo(() => ({
-    error,
-    loadingPayments,
-    loadingTransactions,
-    loadingInvoice,
-    loadingWallet,
-    loadingSubscription,
-    loadingLedger,
-    loadingRevenue,
-    lastPayment,
-    lastInvoice,
-    walletBalance,
-    dailyRevenue,
-    monthlyRevenue,
-    todayRevenue,
+  const value = useMemo(
+    () => ({
+      error,
+      loadingPayments,
+      loadingTransactions,
+      loadingInvoice,
+      loadingWallet,
+      loadingSubscription,
+      loadingLedger,
+      loadingRevenue,
+      lastPayment,
+      lastInvoice,
+      walletBalance,
+      dailyRevenue,
+      monthlyRevenue,
+      todayRevenue,
+      summaryRevenue,
 
-    // TRANSACTIONS
-    createTransaction,
-    confirmCashTransaction,
-    getTransaction,
-    pollTransactionStatus,
+      // TRANSACTIONS
+      createTransaction,
+      confirmCashTransaction,
+      getTransaction,
+      pollTransactionStatus,
 
-    // PAYMENTS
-    createIntent,
-    confirmIntent,
-    getPaymentById,
-    webhook,
-    refundPayment,
+      // PAYMENTS
+      createIntent,
+      confirmIntent,
+      getPaymentById,
+      webhook,
+      refundPayment,
 
-    // INVOICE
-    getInvoiceById,
-    generateBilling,
+      // INVOICE
+      getInvoiceById,
+      generateBilling,
 
-    // WALLET
-    getWalletBalance,
-    transferWallet,
+      // WALLET
+      getWalletBalance,
+      transferWallet,
 
-    // SUBSCRIPTION
-    createSubscription,
-    cancelSubscription,
+      // SUBSCRIPTION
+      createSubscription,
+      cancelSubscription,
 
-    // COUPON
-    createCoupon,
+      // COUPON
+      createCoupon,
 
-    // LEDGER
-    exportLedger,
+      // LEDGER
+      exportLedger,
 
-    // REVENUE
-    getTodayRevenue,
-    getDailyRevenue,
-    getMonthlyRevenue,
-    fetchAllRevenue,
+      // REVENUE
+      getTodayRevenue,
+      getDailyRevenue,
+      getMonthlyRevenue,
+      getSummaryRevenue,
+      fetchAllRevenue,
 
-    // QR & helpers
-    qrCodeUrl,
-    setQrCodeUrl,
-    transactionPolling,
+      // QR & helpers
+      qrCodeUrl,
+      setQrCodeUrl,
+      transactionPolling,
 
-    // setters (optional)
-    setLastPayment,
-    setLastInvoice,
-    setWalletBalance,
-    setDailyRevenue,
-    setMonthlyRevenue,
-  }), [
-    error,
-    qrCodeUrl,
-    loadingPayments,
-    loadingTransactions,
-    loadingInvoice,
-    loadingWallet,
-    loadingSubscription,
-    loadingLedger,
-    loadingRevenue,
-    lastPayment,
-    lastInvoice,
-    walletBalance,
-    dailyRevenue,
-    monthlyRevenue,
-    todayRevenue,
-    createTransaction,
-    confirmCashTransaction,
-    getTransaction,
-    pollTransactionStatus,
-    createIntent,
-    confirmIntent,
-    getPaymentById,
-    webhook,
-    refundPayment,
-    getInvoiceById,
-    generateBilling,
-    getWalletBalance,
-    transferWallet,
-    createSubscription,
-    cancelSubscription,
-    createCoupon,
-    exportLedger,
-    getTodayRevenue,
-    getDailyRevenue,
-    getMonthlyRevenue,
-    fetchAllRevenue,
-  ]);
+      // setters (optional)
+      setLastPayment,
+      setLastInvoice,
+      setWalletBalance,
+      setDailyRevenue,
+      setMonthlyRevenue,
+    }),
+    [
+      error,
+      qrCodeUrl,
+      loadingPayments,
+      loadingTransactions,
+      loadingInvoice,
+      loadingWallet,
+      loadingSubscription,
+      loadingLedger,
+      loadingRevenue,
+      lastPayment,
+      lastInvoice,
+      walletBalance,
+      dailyRevenue,
+      monthlyRevenue,
+      todayRevenue,
+      summaryRevenue,
+      createTransaction,
+      confirmCashTransaction,
+      getTransaction,
+      pollTransactionStatus,
+      createIntent,
+      confirmIntent,
+      getPaymentById,
+      webhook,
+      refundPayment,
+      getInvoiceById,
+      generateBilling,
+      getWalletBalance,
+      transferWallet,
+      createSubscription,
+      cancelSubscription,
+      createCoupon,
+      exportLedger,
+      getTodayRevenue,
+      getDailyRevenue,
+      getMonthlyRevenue,
+      getSummaryRevenue,
+      fetchAllRevenue,
+    ]
+  );
 
-  return <PaymentContext.Provider value={value}>{children}</PaymentContext.Provider>;
+  return (
+    <PaymentContext.Provider value={value}>{children}</PaymentContext.Provider>
+  );
 };
 
 export default PaymentProvider;

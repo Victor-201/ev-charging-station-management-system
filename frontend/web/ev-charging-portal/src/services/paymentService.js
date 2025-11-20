@@ -65,6 +65,11 @@ export const paymentService = {
       method: "GET",
       url: "api/v1/payments/revenue/today",
     }), 
+    getSummaryRevenue: () =>
+       apiClient({
+      method: "GET",
+      url: "api/v1/payments/revenue/summary",
+    }), 
     createTransaction: (payload) =>
   apiClient({
     method: "POST",
