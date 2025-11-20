@@ -1,9 +1,7 @@
-// ChargingService.js
 const { v4: uuidv4 } = require('uuid');
 const dayjs = require('dayjs');
+const { publish } = require('../rabbit');
 const pool = require('../config/db');
-
-// Repositories
 const SessionRepo = require('../repositories/SessionRepository');
 const TelemetryRepo = require('../repositories/TelemetryRepository');
 const EventOutboxRepo = require('../repositories/EventOutboxRepository');
@@ -28,34 +26,31 @@ class ChargingService {
   _subscribePaymentEvents() {
     EventBus.subscribe('payment.charging.succeeded', async (payload) => {
       debug('💰 Payment succeeded:', payload.related_id);
-      try {
+    try {
         await this.confirmSession(payload.related_id, { payment_info: payload });
-      } catch (e) {
+    } catch (e) {
         debug('confirmReservation error:', e.message);
-      }
-    });
+    }
+  });
 
     EventBus.subscribe('payment.charging.failed', async (payload) => {
       debug('💸 Payment failed:', payload.related_id);
-      try {
+    try {
         await this.markSessionFailed(payload.related_id, { cancel: true, reason: payload.reason });
-      } catch (e) {
+    } catch (e) {
         debug('markPaymentFailed error:', e.message);
-      }
-    });
-  }
+    }
+  });
+}
 
-  // ============================================================
-  // INITIATE SESSION
-  // ============================================================
   async initiateSession({ reservation_id = null, station_id = null, point_id, user_id, connector_type = null } = {}) {
+    // VALIDATION
     if (!point_id) throw new Error('Missing required field: point_id');
     if (!user_id) throw new Error('Missing required field: user_id');
     if (!station_id) throw new Error('Missing required field: station_id');
 
-    console.log('[ChargingService.initiateSession] input:', {
-      reservation_id, station_id, point_id, user_id, connector_type
-    });
+    // debug log để kiểm tra payload — xóa sau khi confirm
+    console.log('[ChargingService.initiateSession] input:', { reservation_id, station_id, point_id, user_id,  connector_type });
 
     const session = {
       session_id: uuidv4(),
@@ -76,256 +71,166 @@ class ChargingService {
     return { session_id: created.session_id, status: created.status };
   }
 
-  // ============================================================
-  // START SESSION
-  // ============================================================
-  async startSession({ session_id, start_meter_wh = null }) {
-    const s = await SessionRepo.getById(session_id);
-    if (!s) throw new Error('Charging session not found');
 
-    if (!['initiated', 'pending', 'PENDING'].includes((s.status || '').toLowerCase())) {
-      throw new Error(`Invalid session state for starting: ${s.status}`);
-    }
+  /**
+   * /api/v1/sessions/start
+   * body: { session_id, start_meter_wh }
+   * Trả về { session_id, status, started_at }
+   */
+async startSession({ session_id, start_meter_wh = null }) {
+  const s = await SessionRepo.getById(session_id);
+  if (!s) throw new Error('Charging session not found');
 
-    const started_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+  if (!['initiated','pending','PENDING'].includes((s.status || '').toLowerCase())) {
+    throw new Error(`Invalid session state for starting: ${s.status}`);
+  }
 
-    const updated = await SessionRepo.updateStatus(session_id, 'charging', {
-      ...(start_meter_wh != null ? { start_meter_wh } : {}),
-      started_at,
-    });
+  // format MySQL DATETIME(3)
+  const started_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+
+  const updated = await SessionRepo.updateStatus(session_id, 'charging', {
+    // only set start_meter_wh if provided (null means use existing in repo)
+    ...(start_meter_wh != null ? { start_meter_wh } : {}),
+    started_at,
+  });
 
   await publish('charging_events', { type: 'SESSION_STARTED', data: { session_id, started_at } });
 
   return { session_id: updated.session_id || session_id, status: updated.status || 'charging', started_at };
-  }
-async reconcileSessionWithReservation(
-      session_id,
-  { autoSettle = false, threshold = 1000, operator = null } = {}
-) {
-    if (!session_id) throw new Error('session_id is required');
+}
+async reconcileSessionWithReservation(session_id, { autoSettle = false, threshold = 1000, operator = null } = {}) {
+  if (!session_id) throw new Error('session_id is required');
 
-    const conn = await pool.getConnection();
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
 
-    try {
-      await conn.beginTransaction();
+    // lock session
+    const [sessRows] = await conn.query('SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE', [session_id]);
+    if (!sessRows || !sessRows.length) throw new Error('Session not found');
+    const s = sessRows[0];
 
-      // lock session
-      const [sessRows] = await conn.query(
-        'SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE',
-        [session_id]
-      );
-      if (!sessRows.length) throw new Error('Session not found');
-      const s = sessRows[0];
+    if (!s.reservation_id) throw new Error('Session has no reservation linked');
 
-      const now = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
-      let meta = {};
-      try {
-      meta =
-        s.metadata && typeof s.metadata === 'object'
-          ? s.metadata
-          : JSON.parse(s.metadata || '{}');
-    } catch (e) {
-      meta = {};
+    // lock reservation
+    const [resRows] = await conn.query('SELECT * FROM reservations WHERE reservation_id = ? LIMIT 1 FOR UPDATE', [s.reservation_id]);
+    if (!resRows || !resRows.length) throw new Error('Reservation not found');
+    const reservation = resRows[0];
+
+    // ensure reservation.total_cost exists; if not compute (same logic)
+    let reservedTotal = Number(reservation.total_cost || 0);
+    if (!reservedTotal || reservedTotal === 0) {
+      if (!reservation.start_time) {
+        reservedTotal = 0;
+      } else {
+        const end = reservation.end_time ? dayjs.utc(reservation.end_time) : dayjs.utc();
+        const start = dayjs.utc(reservation.start_time);
+        const diffMs = end.diff(start);
+        const minutes = diffMs <= 0 ? 0 : Math.ceil(diffMs / 60000);
+        const pricePerMin = Number(reservation.price_per_min || 1000);
+        reservedTotal = minutes * pricePerMin;
+        // update reservation
+        await conn.query('UPDATE reservations SET reserved_minutes = ?, total_cost = ?, updated_at = ? WHERE reservation_id = ?',
+          [minutes, reservedTotal, dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'), reservation.reservation_id]);
+      }
     }
 
-      const actualCost = Number(s.cost || 0);
+    const actual = Number(s.cost != null ? s.cost : 0);
+    const reserved = Number(reservedTotal || 0);
+    const diff = actual - reserved; // positive => user owes; negative => refund due
 
-      // =====================================================
-      // CASE 1: No Reservation
-      // =====================================================
-      if (!s.reservation_id) {
-        meta.reconciliation = {
-          action: 'actual_only',
-          note: 'No reservation linked, used actual cost only',
-          actual: actualCost,
-          at: now,
-          operator
-        };
+    const now = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
 
-        await conn.query(
-          'UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?',
-          [JSON.stringify(meta), now, session_id]
-        );
+    // load metadata
+    let meta = {};
+    try { meta = s.metadata ? (typeof s.metadata === 'object' ? s.metadata : JSON.parse(s.metadata)) : {}; } catch(e) { meta = {}; }
 
-        await conn.commit();
-        return {
-          session_id,
-          action: 'actual_only',
-          actual: actualCost
-        };
-      }
+    const result = { session_id, reservation_id: reservation.reservation_id, reserved, actual, diff };
 
-      // =====================================================
-      // CASE 2: HAS RESERVATION
-      // =====================================================
-      const [resRows] = await conn.query(
-        'SELECT * FROM reservations WHERE reservation_id = ? LIMIT 1 FOR UPDATE',
-        [s.reservation_id]
-      );
-      if (!resRows.length) throw new Error('Reservation not found');
-      const reservation = resRows[0];
+    if (Math.abs(diff) <= Number(threshold || 0)) {
+      // within threshold -> finalize without action
+      await conn.query('UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
+        [actual, 'completed', now, reservation.reservation_id]);
 
-      // ensure reservation.total_cost
-      let reservedTotal = Number(reservation.total_cost || 0);
-      if (!reservedTotal || reservedTotal === 0) {
-        if (reservation.start_time) {
-        const end = reservation.end_time
-          ? dayjs.utc(reservation.end_time)
-          : dayjs.utc();
-          const start = dayjs.utc(reservation.start_time);
-          const diffMs = end.diff(start);
-          const minutes = diffMs <= 0 ? 0 : Math.ceil(diffMs / 60000);
-          const pricePerMin = Number(reservation.price_per_min || 1000);
-
-          reservedTotal = minutes * pricePerMin;
-
-          await conn.query(
-            'UPDATE reservations SET reserved_minutes = ?, total_cost = ?, updated_at = ? WHERE reservation_id = ?',
-          [
-            minutes,
-            reservedTotal,
-            dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
-            reservation.reservation_id
-          ]
-          );
-        }
-      }
-
-      const actual = Number(s.cost || 0);
-      const reserved = Number(reservedTotal || 0);
-      const diff = actual - reserved;
-
-      const result = {
-        session_id,
-        reservation_id: reservation.reservation_id,
-        reserved,
-        actual,
-        diff
-      };
-
-      // within threshold
-      if (Math.abs(diff) <= threshold) {
-        await conn.query(
-          'UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
-          [actual, 'completed', now, reservation.reservation_id]
-        );
-
-        meta.reconciliation = {
-          action: 'settled',
-          note: `diff ${diff} within threshold ${threshold}`,
-          at: now,
-          operator
-        };
-
-        await conn.query(
-          'UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?',
-          [JSON.stringify(meta), now, session_id]
-        );
-
-        await conn.commit();
-        result.action = 'settled';
-        return result;
-      }
-
-      // refund
-      if (diff < -threshold) {
-        const refundAmount = Math.round(-diff);
-
-        await conn.query(
-          'UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
-          [actual, 'completed', now, reservation.reservation_id]
-        );
-
-        meta.reconciliation = {
-          action: 'refund',
-          refund: {
-            amount: refundAmount,
-            currency: 'VND',
-            issued: !!autoSettle,
-            issued_at: autoSettle ? now : null,
-            operator
-          },
-          note: `actual ${actual} < reserved ${reserved}`
-        };
-
-        meta.payment = {
-          refund: {
-            amount: refundAmount,
-            method: reservation.payment_method || 'bank_transfer',
-            at: autoSettle ? now : null
-          }
-        };
-
-        await conn.query(
-          'UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?',
-          [JSON.stringify(meta), now, session_id]
-        );
-
-        await conn.commit();
-
-        return {
-          ...result,
-          action: 'refund',
-          refundAmount,
-          autoSettled: !!autoSettle
-        };
-      }
-
-      // user owes
-      if (diff > threshold) {
-        const dueAmount = Math.round(diff);
-
-        await conn.query(
-          'UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
-          [actual, 'completed', now, reservation.reservation_id]
-        );
-
-        meta.reconciliation = {
-          action: 'charge_due',
-          due: {
-            amount: dueAmount,
-            currency: 'VND',
-            charged: !!autoSettle,
-            charged_at: autoSettle ? now : null,
-            operator
-          },
-          note: `actual ${actual} > reserved ${reserved}`
-        };
-
-        meta.payment = {
-          charge: {
-            amount: dueAmount,
-            method: reservation.payment_method || 'bank_transfer',
-            at: autoSettle ? now : null
-          }
-        };
-
-        await conn.query(
-          'UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?',
-          [JSON.stringify(meta), now, session_id]
-        );
-
-        await conn.commit();
-
-        return {
-          ...result,
-          action: 'charge_due',
-          dueAmount,
-          autoSettled: !!autoSettle
-        };
-      }
+      meta.reconciliation = { action: 'settled', note: `diff ${diff} within threshold ${threshold}`, at: now, operator };
+      await conn.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [JSON.stringify(meta), now, session_id]);
 
       await conn.commit();
-      return { ...result, action: 'no_action' };
-      
-    } catch (err) {
-      await conn.rollback();
-      throw err;
-    } finally {
-      conn.release();
+      result.action = 'settled';
+      return result;
     }
-  }
 
+    if (diff < -threshold) {
+      // refund to user (actual < reserved)
+      const refundAmount = Math.round(-diff);
+      await conn.query('UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
+        [actual, 'completed', now, reservation.reservation_id]);
+
+      meta.reconciliation = meta.reconciliation || {};
+      meta.reconciliation.action = 'refund';
+      meta.reconciliation.refund = {
+        amount: refundAmount,
+        currency: 'VND',
+        issued: !!autoSettle,
+        issued_at: autoSettle ? now : null,
+        operator,
+        note: `actual ${actual} < reserved ${reserved}`
+      };
+
+      // mark session payment_status in metadata (since no dedicated column)
+      meta.payment = meta.payment || {};
+      meta.payment.refund = { amount: refundAmount, method: reservation.payment_method || 'bank_transfer', at: autoSettle ? now : null };
+
+      await conn.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [JSON.stringify(meta), now, session_id]);
+
+      await conn.commit();
+      result.action = 'refund';
+      result.refundAmount = refundAmount;
+      result.autoSettled = !!autoSettle;
+      return result;
+    }
+
+    if (diff > threshold) {
+      // user owes money
+      const dueAmount = Math.round(diff);
+      await conn.query('UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?',
+        [actual, 'completed', now, reservation.reservation_id]);
+
+      meta.reconciliation = meta.reconciliation || {};
+      meta.reconciliation.action = 'charge_due';
+      meta.reconciliation.due = {
+        amount: dueAmount,
+        currency: 'VND',
+        charged: !!autoSettle,
+        charged_at: autoSettle ? now : null,
+        operator,
+        note: `actual ${actual} > reserved ${reserved}`
+      };
+
+      meta.payment = meta.payment || {};
+      meta.payment.charge = { amount: dueAmount, method: reservation.payment_method || 'bank_transfer', at: autoSettle ? now : null };
+
+      await conn.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [JSON.stringify(meta), now, session_id]);
+
+      await conn.commit();
+      result.action = 'charge_due';
+      result.dueAmount = dueAmount;
+      result.autoSettled = !!autoSettle;
+      return result;
+    }
+
+    // fallback
+    await conn.commit();
+    result.action = 'no_action';
+    return result;
+
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
   /**
    * /api/v1/sessions/{session_id}/meter  (push meter)
    * body: { timestamp, meter_wh, power_kw, soc }
@@ -483,24 +388,24 @@ async reconcileSessionWithReservation(
     return await SessionRepo.getByUserId(user_id, opts);
   }
 
+  /**
+   * Trả về danh sách điểm đang sạc cho station_id
+   */
   async getActivePointsByStation(station_id) {
     if (!station_id) throw new Error('station_id is required');
     return await SessionRepo.getActiveByStationId(station_id);
   }
 
-async confirmSession(session_id) {
+async confirmPayment(session_id, { paid_amount = null, payment_method = null, payment_ref = null } = {}) {
   if (!session_id) throw new Error('session_id is required');
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // lock row
-    const [rows] = await conn.query(
-      'SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE',
-      [session_id]
-    );
-    const s = rows?.[0];
+    // lock session row for update
+    const [rows] = await conn.query('SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE', [session_id]);
+    const s = rows && rows[0];
     if (!s) {
       await conn.rollback();
       throw new Error('Charging session not found');
@@ -511,43 +416,71 @@ async confirmSession(session_id) {
       throw new Error('Session is not pending payment');
     }
 
+    // parse existing metadata
+    let metadata = {};
+    try { metadata = s.metadata ? JSON.parse(s.metadata) : {}; } catch (e) { metadata = {}; }
+
+    // attach payment info
+    metadata.payment = metadata.payment || {};
+    metadata.payment.status = 'succeeded';
+    metadata.payment.paid_amount = paid_amount;
+    metadata.payment.payment_method = payment_method;
+    metadata.payment.payment_ref = payment_ref;
+    metadata.payment.paid_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+
     const updated_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
 
-    // chỉ đánh dấu confirmed
+    // update session: status -> confirmed (or paid), update metadata and updated_at
+    // you can adjust the target status string to fit your domain ('confirmed' / 'paid' etc.)
     await conn.query(
-      'UPDATE sessions SET status = ?, updated_at = ? WHERE session_id = ?',
-      ['confirmed', updated_at, session_id]
+      'UPDATE sessions SET status = ?, metadata = ?, updated_at = ? WHERE session_id = ?',
+      ['confirmed', JSON.stringify(metadata), updated_at, session_id]
     );
+
+    // Optional: insert a payment record into payments table if you have one.
+    // await conn.query('INSERT INTO payments (...) VALUES (...)', [...]);
 
     await conn.commit();
     conn.release();
 
+    // refetch using repository (non-transactional read)
     const refreshed = await SessionRepo.getById(session_id);
 
-    debug('confirmSession: marked confirmed', session_id);
-    return refreshed;
+    // publish events (external payment system listeners + internal charging events)
+    // payload shapes are suggestions — adapt to your existing consumers
+    const paymentPayload = {
+      related_id: session_id,
+      amount: paid_amount,
+      method: payment_method,
+      ref: payment_ref,
+      paid_at: metadata.payment.paid_at
+    };
 
+    // Event for other services (e.g., billing) — consistent with your EventBus naming
+    await publish('payment.session.succeeded', paymentPayload);
+    // Internal charging event channel
+    await publish('charging_events', { type: 'SESSION_PAYMENT_CONFIRMED', data: { session_id, paid_amount, payment_method, payment_ref } });
+
+    debug('confirmPayment: success for session', session_id);
+    return refreshed;
   } catch (err) {
-    try { await conn.rollback(); } catch {}
-    try { conn.release(); } catch {}
-    debug('confirmSession error:', err.message);
+    try { await conn.rollback(); } catch (e) { /* ignore */ }
+    try { conn.release(); } catch (e) { /* ignore */ }
+    debug('confirmPayment error:', err.message);
     throw err;
   }
 }
 
-async markSessionFailed(session_id, { reason = null, cancel = false } = {}) {
+async failPayment(session_id, { reason = null, cancel = false } = {}) {
   if (!session_id) throw new Error('session_id is required');
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // lock row
-    const [rows] = await conn.query(
-      'SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE',
-      [session_id]
-    );
-    const s = rows?.[0];
+    // lock session
+    const [rows] = await conn.query('SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE', [session_id]);
+    const s = rows && rows[0];
     if (!s) {
       await conn.rollback();
       throw new Error('Charging session not found');
@@ -558,13 +491,22 @@ async markSessionFailed(session_id, { reason = null, cancel = false } = {}) {
       throw new Error('Session is not pending payment');
     }
 
-    const updated_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
-    const newStatus = cancel ? 'cancelled' : 'payment_failed';
+    // parse existing metadata
+    let metadata = {};
+    try { metadata = s.metadata ? JSON.parse(s.metadata) : {}; } catch (e) { metadata = {}; }
 
-    // chỉ update trạng thái, không metadata
+    metadata.payment = metadata.payment || {};
+    metadata.payment.status = 'failed';
+    metadata.payment.reason = reason;
+    metadata.payment.failed_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+
+    // decide new status
+    const newStatus = cancel ? 'cancelled' : 'payment_failed';
+    const updated_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
+
     await conn.query(
-      'UPDATE sessions SET status = ?, updated_at = ? WHERE session_id = ?',
-      [newStatus, updated_at, session_id]
+      'UPDATE sessions SET status = ?, metadata = ?, updated_at = ? WHERE session_id = ?',
+      [newStatus, JSON.stringify(metadata), updated_at, session_id]
     );
 
     await conn.commit();
@@ -572,13 +514,23 @@ async markSessionFailed(session_id, { reason = null, cancel = false } = {}) {
 
     const refreshed = await SessionRepo.getById(session_id);
 
-    debug('markSessionFailed: marked', newStatus, 'for session', session_id);
-    return refreshed;
+    // publish failure events
+    const failPayload = {
+      related_id: session_id,
+      reason,
+      cancelled: !!cancel,
+      failed_at: metadata.payment.failed_at
+    };
 
+    await publish('payment.session.failed', failPayload);
+    await publish('charging_events', { type: 'SESSION_PAYMENT_FAILED', data: { session_id, reason, cancelled: !!cancel } });
+
+    debug('failPayment: processed for session', session_id);
+    return refreshed;
   } catch (err) {
-    try { await conn.rollback(); } catch {}
-    try { conn.release(); } catch {}
-    debug('markSessionFailed error:', err.message);
+    try { await conn.rollback(); } catch (e) { /* ignore */ }
+    try { conn.release(); } catch (e) { /* ignore */ }
+    debug('failPayment error:', err.message);
     throw err;
   }
 }
