@@ -182,6 +182,12 @@ export class StationAbilityItemDto {
     connector_type?: string;
 }
 
+export class StationAvailabilityPointDto {
+    point_id: string;
+    start: string;
+    end: string;
+}
+
 export class StationAbilityDto {
-    availability: StationAbilityItemDto[];
+    availability: StationAvailabilityPointDto[];
 }
