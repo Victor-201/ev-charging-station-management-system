@@ -474,11 +474,28 @@ export class AuthService {
 
         const userResult = await client.query(
           `INSERT INTO users (email, password_hash, full_name, role, status, email_verified)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
           [email, '', providerData.name || '', 'user', 'active', true]
         );
 
         userId = userResult.rows[0].id;
+
+        // Send user.created event to User Service via outbox
+        await outboxService.insertEvent(
+          client,
+          'User',
+          userId,
+          'user.created',
+          {
+            user_id: userId,
+            email: email,
+            full_name: providerData.name || '',
+            role: 'user',
+            status: 'active',
+            email_verified: true,
+            created_at: userResult.rows[0].created_at,
+          }
+        );
 
         await client.query('COMMIT');
       } catch (error) {
