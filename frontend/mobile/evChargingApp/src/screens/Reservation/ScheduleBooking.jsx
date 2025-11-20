@@ -317,8 +317,14 @@ export default function ScheduleBooking() {
     }
 
     // Format data according to backend API requirements
+    const userId = user?.user_id || user?.id;
+    if (!userId) {
+      Alert.alert('Lỗi', 'Vui lòng đăng nhập để đặt chỗ');
+      return;
+    }
+
     const bookingData = {
-      user_id: user.id,
+      user_id: userId,
       station_id: stationId.toString(),
       point_id: '1', // Default point_id, can be updated when station service is available
       connector_type: selectedConnector.replace(/\s+/g, ''), // Remove spaces: "Type 2" -> "Type2"
