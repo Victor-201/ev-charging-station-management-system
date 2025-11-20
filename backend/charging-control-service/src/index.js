@@ -1,32 +1,29 @@
-require('dotenv').config();
-const app = require('./app');
-const pool = require('./config/db');
-const { connectRabbit } = require('./rabbit');
-const cron = require('node-cron');
+// src/index.js
+const app = require('./app.js');
+const config = require('./config/env.js');
+const { initRabbitConnection } = require('./core/rabbit/connection.js');
+const BookingService = require('./services/BookingService.js');
 
-const PORT = process.env.PORT || 4002;
+const port = config.PORT || 3004;
 
 (async () => {
   try {
-    // 🧩 1. Kiểm tra kết nối MySQL
-    await pool.query('SELECT 1');
-    console.log('✅ Connected to MySQL database');
+    console.log("🔌 Initializing RabbitMQ connection...");
+    await initRabbitConnection();
 
-    // 🧩 2. Kết nối RabbitMQ
-    try {
-      await connectRabbit();
-      console.log('✅ Connected to RabbitMQ');
-    } catch (rabbitErr) {
-      console.warn('⚠️ RabbitMQ connection failed (non-fatal):', rabbitErr.message);
+    // Sau khi RabbitMQ sẵn sàng thì khởi tạo subscription của BookingService
+    if (typeof BookingService.initSubscriptions === 'function') {
+      await BookingService.initSubscriptions();
+    } else {
+      console.warn("[Startup] BookingService.initSubscriptions() not found.");
     }
 
-    // 🧩 3. Bắt đầu server Express
-    app.listen(PORT, () => {
-      console.log(`🚀 Charging Service is running on port ${PORT}`);
+    app.listen(port, () => {
+      console.log(`📦 reservation-service is running on port ${port}`);
     });
 
   } catch (err) {
-    console.error('❌ Failed to start Charging Service:', err);
+    console.error("❌ Failed to start reservation-service:", err);
     process.exit(1);
   }
 })();
