@@ -24,6 +24,9 @@ export default function IncidentReport() {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [error, setError] = useState(null);
 
+  // NEW: loading khi fetch lịch sử báo cáo
+  const [loadingReports, setLoadingReports] = useState(false);
+
   const [showModal, setShowModal] = useState(false);
   const [lastReport, setLastReport] = useState(null);
 
@@ -68,6 +71,79 @@ export default function IncidentReport() {
 
   const points = (connectors && connectors.length ? connectors : currentStation?.chargers) || [];
 
+  // NEW: fetch lịch sử báo cáo cho trạm đang quản lý
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReportHistory(stationId) {
+      if (!stationId) return;
+      setLoadingReports(true);
+      setError(null);
+      try {
+        // gọi API GET api/v1/stations/:id/report-issues
+        const res = await stationService.getReportIssues(stationId);
+        const data = res?.data ?? res;
+
+        // giả sử data là mảng; nếu API trả object { items: [], meta: {} } hãy thay đổi tương ứng
+        const arr = Array.isArray(data) ? data : data?.items || [];
+
+        const mapped = arr.map((item) => {
+          // các tên trường giả định: id, point_id, issue_type, description, reported_at, status, reported_by
+          const pointKey = item.point_id || item.point || item.pointId || item.connector_id || item.connectorId;
+          const pointName =
+            points.find(
+              (p) =>
+                p.id === pointKey ||
+                p.point_id === pointKey ||
+                p.external_id === pointKey ||
+                p.connector_id === pointKey
+            )?.name || pointKey || 'N/A';
+
+          const issueLabel =
+            ISSUE_OPTIONS.find((o) => o.value === (item.issue_type || item.issue))?.label ||
+            item.issue_type ||
+            item.issue ||
+            'Không rõ';
+
+          return {
+            id: item.id || item._id || Date.now() + Math.random(),
+            station: managedStation?.name || stationId,
+            point: pointName,
+            issue: issueLabel,
+            description: item.description || item.detail || '',
+            time: item.reported_at ? new Date(item.reported_at).toLocaleString() : (item.created_at ? new Date(item.created_at).toLocaleString() : new Date().toLocaleString()),
+            status: item.status || 'unknown',
+            raw: item,
+          };
+        });
+
+        if (!cancelled) {
+          // đặt lịch sử từ API trước (những report mới gửi sẽ được unshift ở phía trên khi gửi thành công/không thành công)
+          setReports(mapped.sort((a, b) => {
+            // sắp theo thời gian giảm dần nếu có thể
+            const ta = new Date(a.time).getTime || Date.parse(a.time) || 0;
+            const tb = new Date(b.time).getTime || Date.parse(b.time) || 0;
+            return tb - ta;
+          }));
+        }
+      } catch (err) {
+        console.error('Load report history error', err);
+        if (!cancelled) setError(err);
+      } finally {
+        if (!cancelled) setLoadingReports(false);
+      }
+    }
+
+    if (managedStation?.id) {
+      loadReportHistory(managedStation.id);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managedStation, /* points intentionally included? Keep out to avoid refetch on connectors update; if you want, add points */]);
+
   const submitReport = useCallback(async () => {
     if (!form.station) {
       alert('Vui lòng chọn trạm');
@@ -110,6 +186,7 @@ export default function IncidentReport() {
         raw: data,
       };
 
+      // thêm vào đầu danh sách hiển thị (cùng với dữ liệu từ API)
       setReports((prev) => [reportObj, ...prev]);
       setLastReport(reportObj);
       setShowModal(true);
@@ -162,39 +239,49 @@ export default function IncidentReport() {
             <button onClick={onClose} className="text-gray-500 hover:text-gray-700">Đóng ✕</button>
           </div>
 
-          <div className="mt-4 border rounded-lg p-4 bg-gray-50">
-            <div className="flex justify-between items-start">
-              <div>
-                <div className="text-sm text-gray-500">Trạm</div>
-                <div className="font-semibold text-lg">{report.station}</div>
-              </div>
-              <div className="text-right text-sm text-gray-500">
-                <div>{report.time}</div>
-                <div className="mt-1">{report.status}</div>
-              </div>
-            </div>
+         <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+  {/* Tên trạm nổi bật */}
+  <div className="flex justify-between items-start border-b pb-3 mb-3">
+    <div>
+      <div className="text-sm text-gray-500">Trạm</div>
+      <div className="font-bold text-2xl text-gray-900 leading-tight">
+        {report.station}
+      </div>
+    </div>
 
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <div className="text-sm text-gray-500">Trụ</div>
-                <div className="font-medium">{report.point}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Vấn đề</div>
-                <div className="font-medium">{report.issue}</div>
-              </div>
-            </div>
+    <div className="text-right text-sm text-gray-500">
+      <div>{report.time}</div>
+      <div className="mt-1 capitalize font-medium text-gray-600">
+        {report.status}
+      </div>
+    </div>
+  </div>
 
-            <div className="mt-4">
-              <div className="text-sm text-gray-500">Mô tả</div>
-              <div className="mt-1 p-3 bg-white border rounded text-sm">{report.description || '—'}</div>
-            </div>
+  {/* Phần còn lại giữ nguyên */}
+  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div>
+      <div className="text-sm text-gray-500">Trụ</div>
+      <div className="font-medium text-gray-800">{report.point}</div>
+    </div>
+    <div>
+      <div className="text-sm text-gray-500">Vấn đề</div>
+      <div className="font-medium text-gray-800">{report.issue}</div>
+    </div>
+  </div>
 
-            <div className="mt-4 text-xs text-gray-500">
-              <div>Người báo: {user?.name || user_id || 'Không rõ'}</div>
-              <div className="mt-1">ID báo cáo: {report.id}</div>
-            </div>
-          </div>
+  <div className="mt-4">
+    <div className="text-sm text-gray-500">Mô tả</div>
+    <div className="mt-1 p-3 bg-white border rounded text-sm">
+      {report.description || '—'}
+    </div>
+  </div>
+
+  <div className="mt-4 text-xs text-gray-500">
+    <div>Người báo: {user?.name || user_id || 'Không rõ'}</div>
+    <div className="mt-1">ID báo cáo: {report.id}</div>
+  </div>
+</div>
+
 
           <div className="mt-4 flex gap-2 justify-end">
             <button
@@ -256,13 +343,13 @@ export default function IncidentReport() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card title="Tạo báo cáo mới">
           <div className="space-y-4">
-            <label className="block text-sm font-medium">Trạm</label>
-            <input
-              type="text"
-              value={managedStation?.name || ''}
-              disabled
-              className="w-full p-3 border rounded-lg bg-gray-100 cursor-not-allowed"
-            />
+            <label className="block text-base font-semibold mb-2">Trạm</label>
+<input
+  type="text"
+  value={managedStation?.name || ''}
+  disabled
+  className="w-full p-4 bg-gray-50 text-lg font-medium text-gray-800 rounded-lg border-0 cursor-not-allowed focus:outline-none focus:ring-0 disabled:opacity-100"
+/>
 
             <label className="block text-sm font-medium">Trụ (Point)</label>
             <select
@@ -270,7 +357,7 @@ export default function IncidentReport() {
               onChange={(e) => setForm((f) => ({ ...f, point: e.target.value }))}
               className="w-full p-3 border rounded-lg"
             >
-              <option value="">(Chọn trụ nếu cần)</option>
+              <option value="">Trụ cần báo cáo</option>
               {points.map((p) => (
                 <option key={p.id || p.point_id || p.external_id} value={p.id || p.point_id || p.external_id}>
                   {p.name || p.label || p.id || p.point_id || p.external_id}
@@ -308,7 +395,9 @@ export default function IncidentReport() {
         </Card>
 
         <Card title="Lịch sử báo cáo">
-          {reports.length ? (
+          {loadingReports ? (
+            <p className="text-gray-500">Đang tải lịch sử báo cáo...</p>
+          ) : reports.length ? (
             <ul className="space-y-2">
               {reports.map((r) => (
                 <li key={r.id} className="p-3 bg-red-50 rounded-lg">

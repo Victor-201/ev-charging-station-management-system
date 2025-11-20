@@ -16,11 +16,8 @@ export const PaymentProvider = ({ children }) => {
   const [loadingRevenue, setLoadingRevenue] = useState({
     daily: false,
     monthly: false,
-<<<<<<< HEAD
-=======
     summary: false,
     today: false,
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     all: false,
   });
 
@@ -87,26 +84,14 @@ export const PaymentProvider = ({ children }) => {
   const getTransaction = useCallback(async (transactionId) => {
     if (!transactionId)
       return { success: false, error: "transactionId is required" };
-<<<<<<< HEAD
-=======
 
     if (typeof paymentService.getTransaction !== "function")
       return { success: false, error: "getTransaction not implemented" };
 
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     setLoadingTransactions(true);
     setError(null);
 
     try {
-<<<<<<< HEAD
-      if (typeof paymentService.getTransaction !== "function") {
-        return {
-          success: false,
-          error: "paymentService.getTransaction not implemented",
-        };
-      }
-=======
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
       const res = await paymentService.getTransaction(transactionId);
       const data = res?.data ?? res;
 
@@ -125,18 +110,12 @@ export const PaymentProvider = ({ children }) => {
     }
   }, []);
 
-<<<<<<< HEAD
-  // Poll transaction status until completed/failed or timeout
-  const pollTransactionStatus = useCallback(
-    (transactionId, { intervalMs = 3000, timeoutMs = 2 * 60 * 1000 } = {}) => {
-=======
   // POLLING
   const pollTransactionStatus = useCallback(
     (
       transactionId,
       { intervalMs = 3000, timeoutMs = 120000 } = {}
     ) => {
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
       if (!transactionId)
         return Promise.resolve({
           success: false,
@@ -146,75 +125,14 @@ export const PaymentProvider = ({ children }) => {
       setTransactionPolling(true);
 
       return new Promise((resolve) => {
-<<<<<<< HEAD
-        const startedAt = Date.now();
-
-        const tick = async () => {
-          // stop if timed out
-          if (Date.now() - startedAt > timeoutMs) {
-=======
         const start = Date.now();
 
         const checkStatus = async () => {
           if (Date.now() - start > timeoutMs) {
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
             setTransactionPolling(false);
             resolve({ success: false, error: "timeout" });
             return;
           }
-<<<<<<< HEAD
-
-          try {
-            // nếu paymentService có getTransaction -> gọi
-            if (typeof paymentService.getTransaction === "function") {
-              const r = await paymentService.getTransaction(transactionId);
-              const tx = r?.data ?? r;
-
-              // normalize status check
-              const status =
-                tx?.status ||
-                tx?.data?.status ||
-                tx?.payment_status ||
-                tx?.data?.payment_status ||
-                null;
-
-              if (
-                status &&
-                ["completed", "success", "paid"].includes(
-                  String(status).toLowerCase()
-                )
-              ) {
-                setTransactionPolling(false);
-                setLastPayment(tx);
-                resolve({ success: true, data: tx });
-                return;
-              }
-
-              if (
-                status &&
-                ["failed", "cancelled", "error"].includes(
-                  String(status).toLowerCase()
-                )
-              ) {
-                setTransactionPolling(false);
-                setLastPayment(tx);
-                resolve({
-                  success: false,
-                  error: "transaction_failed",
-                  data: tx,
-                });
-                return;
-              }
-            }
-          } catch (e) {
-            // ignore transient error, continue polling
-          }
-
-          setTimeout(tick, intervalMs);
-        };
-
-        tick();
-=======
 
           try {
             const res = await paymentService.getTransaction(transactionId);
@@ -245,7 +163,6 @@ export const PaymentProvider = ({ children }) => {
         };
 
         checkStatus();
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
       });
     },
     []
@@ -257,25 +174,15 @@ export const PaymentProvider = ({ children }) => {
   const createIntent = useCallback(async (payload) => {
     setLoadingPayments(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.createIntent(payload);
       const data = res?.data ?? res;
       setLastPayment(data);
       return { success: true, data };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingPayments(false);
     }
@@ -284,25 +191,15 @@ export const PaymentProvider = ({ children }) => {
   const confirmIntent = useCallback(async (payload) => {
     setLoadingPayments(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.confirmIntent(payload);
       const data = res?.data ?? res;
       setLastPayment(data);
       return { success: true, data };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingPayments(false);
     }
@@ -311,25 +208,15 @@ export const PaymentProvider = ({ children }) => {
   const getPaymentById = useCallback(async (payment_id) => {
     setLoadingPayments(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.getPaymentById(payment_id);
       const data = res?.data ?? res;
       setLastPayment(data);
       return { success: true, data };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingPayments(false);
     }
@@ -338,23 +225,13 @@ export const PaymentProvider = ({ children }) => {
   const webhook = useCallback(async (payload) => {
     setLoadingPayments(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.webhook(payload);
       return { success: true, data: res?.data ?? res };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingPayments(false);
     }
@@ -363,23 +240,13 @@ export const PaymentProvider = ({ children }) => {
   const refundPayment = useCallback(async (payment_id, payload) => {
     setLoadingPayments(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.refundPayment(payment_id, payload);
       return { success: true, data: res?.data ?? res };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingPayments(false);
     }
@@ -391,25 +258,15 @@ export const PaymentProvider = ({ children }) => {
   const getInvoiceById = useCallback(async (invoice_id) => {
     setLoadingInvoice(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.getInvoiceById(invoice_id);
       const data = res?.data ?? res;
       setLastInvoice(data);
       return { success: true, data };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingInvoice(false);
     }
@@ -418,23 +275,13 @@ export const PaymentProvider = ({ children }) => {
   const generateBilling = useCallback(async (payload) => {
     setLoadingInvoice(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.generateBilling(payload);
       return { success: true, data: res?.data ?? res };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingInvoice(false);
     }
@@ -446,25 +293,15 @@ export const PaymentProvider = ({ children }) => {
   const getWalletBalance = useCallback(async (user_id) => {
     setLoadingWallet(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.getWalletBalance(user_id);
       const data = res?.data ?? res;
       setWalletBalance(data);
       return { success: true, data };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingWallet(false);
     }
@@ -473,23 +310,13 @@ export const PaymentProvider = ({ children }) => {
   const transferWallet = useCallback(async (user_id, payload) => {
     setLoadingWallet(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.transferWallet(user_id, payload);
       return { success: true, data: res?.data ?? res };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingWallet(false);
     }
@@ -501,23 +328,13 @@ export const PaymentProvider = ({ children }) => {
   const createSubscription = useCallback(async (payload) => {
     setLoadingSubscription(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.createSubscription(payload);
       return { success: true, data: res?.data ?? res };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingSubscription(false);
     }
@@ -526,23 +343,13 @@ export const PaymentProvider = ({ children }) => {
   const cancelSubscription = useCallback(async (id) => {
     setLoadingSubscription(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.cancelSubscription(id);
       return { success: true, data: res?.data ?? res };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingSubscription(false);
     }
@@ -570,23 +377,13 @@ export const PaymentProvider = ({ children }) => {
   const createCoupon = useCallback(async (payload) => {
     setLoadingPayments(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.createCoupon(payload);
       return { success: true, data: res?.data ?? res };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingPayments(false);
     }
@@ -598,23 +395,13 @@ export const PaymentProvider = ({ children }) => {
   const exportLedger = useCallback(async (params) => {
     setLoadingLedger(true);
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.exportLedger(params);
       return { success: true, data: res?.data ?? res };
     } catch (err) {
-<<<<<<< HEAD
-      const errObj = err?.response?.data ?? err;
-      setError(errObj);
-      return { success: false, error: errObj };
-=======
       const e = err?.response?.data ?? err;
       setError(e);
       return { success: false, error: e };
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     } finally {
       setLoadingLedger(false);
     }
@@ -645,10 +432,6 @@ export const PaymentProvider = ({ children }) => {
   const getDailyRevenue = useCallback(async () => {
     setLoadingRevenue((s) => ({ ...s, daily: true }));
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.getDailyRevenue();
       const data = res?.data ?? res;
@@ -667,10 +450,6 @@ export const PaymentProvider = ({ children }) => {
   const getMonthlyRevenue = useCallback(async () => {
     setLoadingRevenue((s) => ({ ...s, monthly: true }));
     setError(null);
-<<<<<<< HEAD
-=======
-
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.getMonthlyRevenue();
       const data = res?.data ?? res;
@@ -686,40 +465,10 @@ export const PaymentProvider = ({ children }) => {
     }
   }, []);
 
-<<<<<<< HEAD
-const getSummaryRevenue = useCallback(async () => {
-  setLoadingRevenue((s) => ({ ...s, summary: true }));
-  setError(null);
-
-  try {
-    const res = await paymentService.getSummaryRevenue();
-    const data = res?.data ?? res;
-
-    // Lưu vào cache
-    setSummaryRevenue(data);
-
-    return { success: true, data };
-  } catch (err) {
-    const errObj = err?.response?.data ?? err;
-
-    setError(errObj);
-    setSummaryRevenue(null);
-
-    return { success: false, error: errObj };
-  } finally {
-    setLoadingRevenue((s) => ({ ...s, summary: false }));
-  }
-}, []);
-
-  const fetchAllRevenue = useCallback(async () => {
-    setLoadingRevenue({ daily: true, monthly: true, all: true });
-    setError(null);
-=======
   const getSummaryRevenue = useCallback(async () => {
     setLoadingRevenue((s) => ({ ...s, summary: true }));
     setError(null);
 
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
     try {
       const res = await paymentService.getSummaryRevenue();
       const data = res?.data ?? res;
@@ -773,13 +522,9 @@ const getSummaryRevenue = useCallback(async () => {
     }
   }, []);
 
-<<<<<<< HEAD
-  // Memoize context value
-=======
   // =====================================================
   // PROVIDER VALUE
   // =====================================================
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
   const value = useMemo(
     () => ({
       error,
@@ -790,69 +535,6 @@ const getSummaryRevenue = useCallback(async () => {
       loadingSubscription,
       loadingLedger,
       loadingRevenue,
-<<<<<<< HEAD
-      lastPayment,
-      lastInvoice,
-      walletBalance,
-      dailyRevenue,
-      monthlyRevenue,
-      todayRevenue,
-      summaryRevenue,
-
-      // TRANSACTIONS
-      createTransaction,
-      confirmCashTransaction,
-      getTransaction,
-      pollTransactionStatus,
-
-      // PAYMENTS
-      createIntent,
-      confirmIntent,
-      getPaymentById,
-      webhook,
-      refundPayment,
-
-      // INVOICE
-      getInvoiceById,
-      generateBilling,
-
-      // WALLET
-      getWalletBalance,
-      transferWallet,
-
-      // SUBSCRIPTION
-      createSubscription,
-      cancelSubscription,
-
-      // COUPON
-      createCoupon,
-
-      // LEDGER
-      exportLedger,
-
-      // REVENUE
-      getTodayRevenue,
-      getDailyRevenue,
-      getMonthlyRevenue,
-      getSummaryRevenue,
-      fetchAllRevenue,
-
-      // QR & helpers
-      qrCodeUrl,
-      setQrCodeUrl,
-      transactionPolling,
-
-      // setters (optional)
-      setLastPayment,
-      setLastInvoice,
-      setWalletBalance,
-      setDailyRevenue,
-      setMonthlyRevenue,
-    }),
-    [
-      error,
-      qrCodeUrl,
-=======
 
       lastPayment,
       lastInvoice,
@@ -908,7 +590,6 @@ const getSummaryRevenue = useCallback(async () => {
     }),
     [
       error,
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
       loadingPayments,
       loadingTransactions,
       loadingInvoice,
@@ -916,42 +597,6 @@ const getSummaryRevenue = useCallback(async () => {
       loadingSubscription,
       loadingLedger,
       loadingRevenue,
-<<<<<<< HEAD
-      lastPayment,
-      lastInvoice,
-      walletBalance,
-      dailyRevenue,
-      monthlyRevenue,
-      todayRevenue,
-      summaryRevenue,
-      createTransaction,
-      confirmCashTransaction,
-      getTransaction,
-      pollTransactionStatus,
-      createIntent,
-      confirmIntent,
-      getPaymentById,
-      webhook,
-      refundPayment,
-      getInvoiceById,
-      generateBilling,
-      getWalletBalance,
-      transferWallet,
-      createSubscription,
-      cancelSubscription,
-      createCoupon,
-      exportLedger,
-      getTodayRevenue,
-      getDailyRevenue,
-      getMonthlyRevenue,
-      getSummaryRevenue,
-      fetchAllRevenue,
-    ]
-  );
-
-  return (
-    <PaymentContext.Provider value={value}>{children}</PaymentContext.Provider>
-=======
 
       lastPayment,
       lastInvoice,
@@ -971,7 +616,6 @@ const getSummaryRevenue = useCallback(async () => {
     <PaymentContext.Provider value={value}>
       {children}
     </PaymentContext.Provider>
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
   );
 };
 
