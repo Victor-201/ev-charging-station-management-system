@@ -2,9 +2,9 @@ const ReservationRepo = require('../repositories/ReservationRepository');
 const EventOutboxRepo = require('../repositories/EventOutboxRepository');
 const WaitlistRepo = require('../repositories/WaitlistRepository');
 const QrRepo = require('../repositories/QrCodeRepository');
-const EventBus = require('../core/EventBus');
+const { createConsumer } = require("../core/rabbit/consumer.js");
+const { publishEvent } = require("../core/rabbit/publisher.js");
 const pool = require('../config/db');
-const EventOutbox = require('../models/EventOutbox');
 const { v4: uuidv4 } = require('uuid');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
@@ -25,182 +25,210 @@ class BookingService {
     this.eventOutboxRepo = new EventOutboxRepo(pool);
     this.waitlistRepo = WaitlistRepo;
     this.qrRepo = QrRepo;
-
-    this._subscribePaymentEvents();
   }
 
-  _subscribePaymentEvents() {
-    EventBus.subscribe('payment.booking.succeeded', async (payload) => {
-      debug('💰 Payment succeeded:', payload.related_id);
-      try {
-        await this.confirmReservation(payload.related_id, { payment_info: payload });
-      } catch (e) {
-        debug('confirmReservation error:', e.message);
-      }
-    });
+  async initSubscriptions() {
+    try {
+      console.log("[Booking] Subscribing RMQ payment_queue...");
+      await createConsumer("payment_queue", async (routingKey, payload) => {
+        try {
+          switch (routingKey) {
+            case "payment.booking.success":
+            case "payment.booking.succeeded":
+              debug("💰 Payment success:", payload.related_id);
+              await this.confirmReservation(payload.related_id, { payment_info: payload });
+              break;
 
-    EventBus.subscribe('payment.booking.failed', async (payload) => {
-      debug('💸 Payment failed:', payload.related_id);
-      try {
-        await this.markReservationFailed(payload.related_id, { cancel: true, reason: payload.reason });
-      } catch (e) {
-        debug('markReservationFailed error:', e.message);
-      }
-    });
-  }
-async createReservation(data, token) {
-  const {
-    user_id,
-    station_id,
-    point_id,       // <-- chính là charger_id từ FE
-    connector_type,
-    start_time,
-    end_time,
-    status,
-    payment_method
-  } = data;
+            case "payment.booking.failed":
+            case "payment.booking.failure":
+              debug("💸 Payment failed:", payload.related_id);
+              await this.markReservationFailed(payload.related_id, {
+                cancel: true,
+                reason: payload.reason
+              });
+              break;
 
-  // ===== VALIDATION =====
-  if (!user_id || !station_id || !point_id || !connector_type || !start_time || !end_time) {
-    const e = new Error('Missing required reservation fields');
-    e.status = 400;
-    throw e;
+            default:
+              debug("⚠ Unhandled payment routingKey:", routingKey);
+          }
+        } catch (err) {
+          debug("Payment event handling error:", err && err.message ? err.message : err);
+        }
+      });
+
+      console.log("[Booking] Subscribed to payment_queue successfully.");
+    } catch (err) {
+      console.error("[Booking] initSubscriptions error:", err);
+      throw err;
+    }
   }
 
-  if (!['wallet', 'bank_transfer'].includes(payment_method)) {
-    const e = new Error('Invalid payment_method');
-    e.status = 400;
-    throw e;
-  }
+  async calculatePricing(point_id, start_time, end_time, token) {
+    // Fetch pricing từ station service
+    let pricingList = [];
+    try {
+      const res = await axios.get(
+        `${config.STATIONBASE}/api/v1/chargers/${point_id}/pricing`,
+        { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
+      );
 
-  if (dayjs(end_time).isBefore(dayjs(start_time))) {
-    const e = new Error('Invalid time range');
-    e.status = 400;
-    throw e;
-  }
+      pricingList = res.data?.pricing || [];
+    } catch (err) {
+      console.error("Pricing API error:", err.response?.data || err);
+      const e = new Error("Failed to fetch pricing for charger");
+      e.status = 500;
+      throw e;
+    }
 
-  // ===== CHECK AVAILABILITY =====
-  const available = await this.reservationRepo.checkAvailability(
-    station_id,
-    point_id,
-    start_time,
-    end_time
-  );
+    // Tìm model per_minute
+    const perMin = pricingList.find((p) => p.model === "per_minute");
+    if (!perMin) {
+      const e = new Error("per_minute pricing model not found");
+      e.status = 400;
+      throw e;
+    }
 
-  if (!available) {
-    const e = new Error('Charging point is already reserved');
-    e.status = 409;
-    throw e;
-  }
+    const price_per_min = Number(perMin.price);
 
-  // ===== GET PRICING DIRECTLY USING point_id AS CHARGER_ID =====
-  let pricingList = [];
-  try {
-    const res = await axios.get(
-      `${config.STATIONBASE}/api/v1/chargers/${point_id}/pricing`,
-      { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
-    );
+    // Tính số phút
+    const minutes = dayjs(end_time).diff(dayjs(start_time), "minute");
+    if (minutes <= 0) {
+      const e = new Error("Invalid time range");
+      e.status = 400;
+      throw e;
+    }
 
-    console.log('đâsdsadada', res.data?.pricing)
-    pricingList = res.data?.pricing || [];
-  } catch (err) {
-    console.error("Pricing API error:", err.response?.data || err);
-    const e = new Error("Failed to fetch pricing for charger");
-    e.status = 500;
-    throw e;
-  }
+    // Tính tổng tiền
+    const total_amount = minutes * price_per_min;
 
-  // ===== FIND per_minute MODEL =====
-  const perMin = pricingList.find((p) => p.model === "per_minute");
-
-  if (!perMin) {
-    const e = new Error("per_minute pricing model not found");
-    e.status = 400;
-    throw e;
-  }
-
-  const price_per_min = Number(perMin.price);
-
-  // ===== CALCULATE TOTAL MINUTES =====
-  const minutes = dayjs(end_time).diff(dayjs(start_time), "minute");
-
-  // ===== CALCULATE TOTAL AMOUNT =====
-  const total_amount = minutes * price_per_min;
-
-  console.log("⏱ Minutes:", minutes);
-  console.log("💵 Price per min:", price_per_min);
-  console.log("💰 Total amount:", total_amount);
-
-  const finalStatus = status || "pending";
-
-  const expires_at =
-    data.expires_at ??
-    (finalStatus === "pending"
-      ? dayjs.utc(start_time).subtract(5, "minute").toISOString()
-      : null);
-
-  // ===== CREATE RESERVATION WITH REAL PRICING =====
-  const reservation = await this.reservationRepo.create({
-    user_id,
-    station_id,
-    point_id,
-    connector_type,
-    start_time,
-    end_time,
-    status: finalStatus,
-    price_per_min,
-    total_amount,
-    expires_at,
-  });
-
-  // ===== PREPARE PAYMENT PAYLOAD =====
-  const payload = {
-    user_id: reservation.user_id,
-    type: "payment",
-    method: payment_method,
-    related_id: reservation.reservation_id,
-    related_type: "booking",
-    amount: total_amount,
-
-    meta: {
-      point_id,
-      station_id,
-      minutes,
+    return {
+      pricingList,
       price_per_min,
-      description: `Thanh toán đặt sạc tại trạm ${station_id}`,
+      minutes,
+      total_amount
+    };
+  }
+
+
+  async createReservation(data, token) {
+    const {
+      user_id,
+      station_id,
+      point_id,       // charger_id
+      connector_type,
       start_time,
       end_time,
-    },
-  };
+      status,
+      payment_method
+    } = data;
 
-  let paymentResponse = null;
+    // ===== VALIDATION =====
+    if (!user_id || !station_id || !point_id || !connector_type || !start_time || !end_time) {
+      const e = new Error("Missing required reservation fields");
+      e.status = 400;
+      throw e;
+    }
 
-  // ===== CALL PAYMENT SERVICE =====
-  try {
-    console.log("Sending payment payload:", payload);
+    if (!["wallet", "bank_transfer"].includes(payment_method)) {
+      const e = new Error("Invalid payment_method");
+      e.status = 400;
+      throw e;
+    }
 
-    const res = await axios.post(
-      `${config.PAYMENTBASE}/api/v1/payments/transaction`,
-      payload,
-      { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
+    if (dayjs(end_time).isBefore(dayjs(start_time))) {
+      const e = new Error("Invalid time range");
+      e.status = 400;
+      throw e;
+    }
+
+    // ===== CHECK AVAILABILITY =====
+    const available = await this.reservationRepo.checkAvailability(
+      station_id,
+      point_id,
+      start_time,
+      end_time
     );
 
-    paymentResponse = res.data;
-  } catch (err) {
-    paymentResponse = err.response
-      ? { error: err.response.data, status: err.response.status }
-      : { error: err.message };
+    if (!available) {
+      const e = new Error("Charging point is already reserved");
+      e.status = 409;
+      throw e;
+    }
+
+    // ===== CALCULATE PRICING (TÁCH RA HÀM RIÊNG) =====
+    const {
+      pricingList,
+      price_per_min,
+      minutes,
+      total_amount
+    } = await this.calculatePricing(point_id, start_time, end_time, token);
+
+    const finalStatus = status || "pending";
+
+    const expires_at =
+      data.expires_at ??
+      (finalStatus === "pending"
+        ? dayjs.utc(start_time).subtract(5, "minute").toISOString()
+        : null);
+
+    // ===== CREATE RESERVATION =====
+    const reservation = await this.reservationRepo.create({
+      user_id,
+      station_id,
+      point_id,
+      connector_type,
+      start_time,
+      end_time,
+      status: finalStatus,
+      price_per_min,
+      total_amount,
+      expires_at
+    });
+
+    // ===== PAYMENT PAYLOAD =====
+    const payload = {
+      user_id: reservation.user_id,
+      type: "payment",
+      method: payment_method,
+      related_id: reservation.reservation_id,
+      related_type: "booking",
+      amount: total_amount,
+      meta: {
+        point_id,
+        station_id,
+        minutes,
+        price_per_min,
+        description: `Thanh toán đặt sạc tại trạm ${station_id}`,
+        start_time,
+        end_time
+      }
+    };
+
+    let paymentResponse = null;
+
+    // ===== CALL PAYMENT SERVICE =====
+    try {
+      const res = await axios.post(
+        `${config.PAYMENTBASE}/api/v1/payments/transaction`,
+        payload,
+        { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
+      );
+
+      paymentResponse = res.data;
+    } catch (err) {
+      paymentResponse = err.response
+        ? { error: err.response.data, status: err.response.status }
+        : { error: err.message };
+    }
+
+    return {
+      reservation,
+      payment: paymentResponse,
+      pricing: pricingList,
+      minutes,
+      total_amount
+    };
   }
-
-  return {
-    reservation,
-    payment: paymentResponse,
-    pricing: pricingList,
-    minutes,
-    total_amount,
-  };
-}
-
 
   async confirmReservation(reservation_id, { payment_info = null } = {}) {
     if (!reservation_id) throw new Error('reservation_id is required');
@@ -222,7 +250,7 @@ async createReservation(data, token) {
     if (!available) {
       await this.reservationRepo.markCancelled(reservation_id);
       withTimeout(
-        EventBus.publish('booking.confirm.failed', {
+        publishEvent.publish('booking.confirm.failed', {
           reservation_id,
           reason: 'slot_unavailable',
         })
@@ -236,7 +264,7 @@ async createReservation(data, token) {
     const updated = await this.reservationRepo.update(reservation);
 
     withTimeout(
-      EventBus.publish('booking.confirmed', {
+      publishEvent.publish('booking.confirmed', {
         reservation: updated,
         payment_info,
       })
@@ -254,7 +282,7 @@ async createReservation(data, token) {
     }
 
     withTimeout(
-      EventBus.publish('booking.payment.failed', {
+      publishEvent.publish('booking.payment.failed', {
         reservation_id,
         cancel,
         reason,
@@ -332,7 +360,7 @@ async createReservation(data, token) {
 
       const updated = await this.reservationRepo.update(reservation);
 
-      withTimeout(EventBus.publish('booking.updated', updated))
+      withTimeout(publishEvent.publish('booking.updated', updated))
         .catch((err) => debug('publish booking.updated failed', err.message));
 
       return updated;
@@ -352,7 +380,7 @@ async createReservation(data, token) {
     await this.reservationRepo.markCancelled(reservation_id);
 
     withTimeout(
-      EventBus.publish('booking.cancelled', {
+      publishEvent.publish('booking.cancelled', {
         reservation_id,
         reason,
       })
@@ -366,7 +394,7 @@ async createReservation(data, token) {
 
     const entry = await this.waitlistRepo.create({ user_id, station_id, connector_type, status: 'waiting' });
 
-    withTimeout(EventBus.publish('waitlist.added', entry))
+    withTimeout(publishEvent.publish('waitlist.added', entry))
       .then(() => debug('published waitlist.added', entry.waitlist_id))
       .catch((err) => debug('publish waitlist.added failed', err.message));
 
@@ -387,7 +415,7 @@ async createReservation(data, token) {
     waitlist.status = status;
     await this.waitlistRepo.update(waitlist);
 
-    withTimeout(EventBus.publish('waitlist.updated', waitlist))
+    withTimeout(publishEvent.publish('waitlist.updated', waitlist))
       .catch((err) => debug('publish waitlist.updated failed', err.message));
 
     return waitlist;
@@ -410,7 +438,7 @@ async createReservation(data, token) {
       }
     }
 
-    withTimeout(EventBus.publish('waitlist.removed', waitlist))
+    withTimeout(publishEvent.publish('waitlist.removed', waitlist))
       .catch((err) => debug('publish waitlist.removed failed', err.message));
 
     return { success: true };
@@ -515,7 +543,7 @@ async createReservation(data, token) {
 
     const result = { reservation_id, minutes: calc.minutes, previous_total: previousTotal, new_total: newTotal, difference: diff, action, message };
 
-    withTimeout(EventBus.publish('booking.payment.adjustment', result))
+    withTimeout(publishEvent.publish('booking.payment.adjustment', result))
       .catch((err) => debug('publish booking.payment.adjustment failed', err.message));
 
     return result;
@@ -529,7 +557,7 @@ async createReservation(data, token) {
   async autoCancelExpiredReservations() {
     const cancelled = await this.reservationRepo.autoCancelExpired(20);
     if (cancelled.length) {
-      withTimeout(EventBus.publish('booking.auto.cancelled', cancelled))
+      withTimeout(publishEvent.publish('booking.auto.cancelled', cancelled))
         .catch((err) => debug('publish booking.auto.cancelled failed', err.message));
     }
     return cancelled;
