@@ -101,7 +101,11 @@ export default function EditProfile({ navigation }) {
   };
 
   const onSubmit = async (data) => {
-    if (!profile?.id) return;
+    const userId = profile?.user_id || profile?.id;
+    if (!userId) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+      return;
+    }
 
     const result = await dispatch(updateProfile(data));
 

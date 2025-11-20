@@ -12,10 +12,17 @@ export const getMe = createAsyncThunk('user/getMe', async (_, { rejectWithValue 
 });
 
 // Async thunk for updating user profile
-export const updateProfile = createAsyncThunk('user/updateProfile', async (profileData, { rejectWithValue }) => {
+export const updateProfile = createAsyncThunk('user/updateProfile', async (profileData, { rejectWithValue, getState }) => {
   try {
-    const { data } = await profileService.updateProfile(profileData);
-    return data;
+    const state = getState();
+    const userId = state.user?.profile?.user_id || state.user?.profile?.id || state.auth?.user?.user_id || state.auth?.user?.id;
+    
+    if (!userId) {
+      throw new Error('User ID not found');
+    }
+    
+    const response = await profileService.updateProfile(userId, profileData);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
   }

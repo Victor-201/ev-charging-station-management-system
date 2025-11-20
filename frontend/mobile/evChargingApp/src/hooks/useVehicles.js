@@ -14,8 +14,8 @@ import {
 export default function useVehicles() {
   const dispatch = useDispatch();
   const { vehicles, loading, error } = useSelector((state) => state.vehicles || {});
-  const authUser = useSelector((state) => state.auth?.user);
-  const effectiveUserId = authUser?.id || authUser?.user_id || authUser?.sub;
+  const profile = useSelector((state) => state.user?.profile);
+  const effectiveUserId = profile?.user_id || profile?.id;
 
   // --- Action Dispatchers ---
 

@@ -67,13 +67,17 @@ export default function ChangePasswordScreen({ navigation }) {
   });
 
   const onSubmit = async (data) => {
-    if (!profile?.id) return;
+    const userId = profile?.user_id || profile?.id;
+    if (!userId) {
+      setErrorMessage('Không tìm thấy thông tin người dùng');
+      return;
+    }
 
     try {
       setLoading(true);
       setErrorMessage('');
 
-      await profileService.changePassword(profile.id, {
+      await profileService.changePassword(userId, {
         current_password: data.current_password,
         new_password: data.password,
       });
