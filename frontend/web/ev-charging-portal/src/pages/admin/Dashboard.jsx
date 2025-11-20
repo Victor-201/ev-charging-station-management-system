@@ -1,20 +1,39 @@
 // pages/admin/Dashboard.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useContext, useMemo, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
-import Chart from "@/components/admin/Chart";
-import paymentService from "@/services/paymentService";
-import apiClient from "@/api/apiClient";
+import { PaymentContext } from "@/contexts/PaymentContext";
 
-/* --------------------------- Stat Cards --------------------------- */
-function StatCard({ label, value, unit, loading }) {
+// Recharts
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
+
+/* --------------------------- Stat Card --------------------------- */
+function StatCard({ label, value, unit, loading, big = false, small = false }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-1">
+    <div
+      className={`bg-white rounded-xl shadow-sm p-4 flex flex-col gap-1
+      ${big ? "col-span-2" : ""}
+      ${small ? "col-span-1" : ""}
+    `}
+    >
       <span className="text-sm text-gray-500">{label}</span>
+
       {loading ? (
         <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
       ) : (
-        <span className="text-2xl font-semibold">
+        <span
+          className={`font-semibold ${
+            big ? "text-3xl" : small ? "text-xl" : "text-2xl"
+          }`}
+        >
           {value?.toLocaleString("vi-VN") ?? "--"}
           {unit ? <span className="text-base text-gray-500 ml-1">{unit}</span> : null}
         </span>
@@ -23,253 +42,198 @@ function StatCard({ label, value, unit, loading }) {
   );
 }
 
-/* --------------------------- token helpers --------------------------- */
-function getStoredToken() {
-  if (typeof window === "undefined") return null;
-  const keys = ["access_token", "token", "authToken"];
-  for (const k of keys) {
-    const v = localStorage.getItem(k);
-    if (v) return v;
-  }
-  return null;
-}
+/* --------------------------- Formatters --------------------------- */
+const formatCurrencyVND = (value) =>
+  new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(value ?? 0);
 
-function setAuthHeaderOnApiClient(token) {
-  if (!token || !apiClient) return;
-  try {
-    if (apiClient.defaults?.headers?.common) {
-      apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
-    }
-  } catch {}
-}
+const formatYAxis = (v) => {
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + "m";
+  if (v >= 1000) return (v / 1000).toFixed(0) + "k";
+  return v;
+};
+
+const formatMonth = (m) => {
+  if (!m) return m;
+  if (/^\d{4}-\d{2}$/.test(m)) {
+    const [y, mm] = m.split("-");
+    return `${mm}/${y}`;
+  }
+  return m;
+};
+
+/* ================================================================== */
 
 export default function Dashboard() {
-  /* --------------------------- STATES --------------------------- */
-  const [summary, setSummary] = useState(null);
+  /* ======================== LẤY TỪ CONTEXT ======================== */
+  const {
+    todayRevenue,
+    dailyRevenue,
+    monthlyRevenue,
+    summaryRevenue,
 
-  const [dailyRevenue, setDailyRevenue] = useState([]);
-  const [dailyList, setDailyList] = useState([]);
+    loadingRevenue,
+    error,
 
-  const [monthlyRevenue, setMonthlyRevenue] = useState([]);
+    getTodayRevenue,
+    getDailyRevenue,
+    getMonthlyRevenue,
+    getSummaryRevenue,
+  } = useContext(PaymentContext);
 
   const [health, setHealth] = useState(null);
-
-  const [loadingSummary, setLoadingSummary] = useState(true);
-  const [loadingChart, setLoadingChart] = useState(true);
-  const [loadingDailyList, setLoadingDailyList] = useState(false);
-  const [loadingMonthlyList, setLoadingMonthlyList] = useState(false);
   const [loadingHealth, setLoadingHealth] = useState(true);
 
-  const [error, setError] = useState("");
-
-  /* --------------------------- 1. Summary --------------------------- */
+  /* ======================== LOAD REVENUES ======================== */
   useEffect(() => {
-    let mounted = true;
+    getTodayRevenue();
+    getDailyRevenue();
+    getMonthlyRevenue();
+    getSummaryRevenue();
+  }, [
+    getTodayRevenue,
+    getDailyRevenue,
+    getMonthlyRevenue,
+    getSummaryRevenue,
+  ]);
 
-    async function fetchSummary() {
-      try {
-        setLoadingSummary(true);
-        const token = getStoredToken();
+  /* ======================== DAILY LIST FORMAT ======================== */
+  const dailyList = useMemo(() => {
+    const raw = dailyRevenue?.daily_revenue ?? {};
+    return Object.entries(raw)
+      .map(([date, total]) => ({ date, total }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  }, [dailyRevenue]);
 
-        const res = await fetch("/api/v1/analytics/admin/summary", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+  /* ======================== MONTHLY LIST FORMAT ======================== */
+  const monthlyList = useMemo(() => {
+    const raw = monthlyRevenue?.monthly_revenue ?? {};
+    return Object.entries(raw)
+      .map(([month, total]) => ({ month, total }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  }, [monthlyRevenue]);
 
-        if (!mounted) return;
-        if (!res.ok) throw new Error("Fetch summary failed");
-
-        const json = await res.json();
-        setSummary(json || null);
-      } catch (err) {
-        setError("Không tải được dữ liệu tổng quan.");
-        setSummary(null);
-      } finally {
-        if (mounted) setLoadingSummary(false);
-      }
-    }
-
-    fetchSummary();
-    return () => (mounted = false);
-  }, []);
-
-  /* --------------------------- 2. DAILY revenue --------------------------- */
+  /* ======================== LOAD HEALTH ======================== */
   useEffect(() => {
-    let mounted = true;
+    let ok = true;
 
-    async function fetchDailyRevenue() {
-      try {
-        setLoadingChart(true);
-        setLoadingDailyList(true);
-
-        const token = getStoredToken();
-        setAuthHeaderOnApiClient(token);
-
-        const res = await paymentService.getDailyRevenue();
-        if (!mounted) return;
-
-        const payload = res?.data ?? res;
-
-        // 🔥 Convert incoming object → array
-        const raw = payload?.daily_revenue ?? {};
-        const arr = Object.entries(raw).map(([date, total]) => ({
-          date,
-          total,
-        }));
-
-        // sort theo date
-        arr.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        setDailyRevenue(arr);
-        setDailyList(arr);
-      } catch (err) {
-        setDailyRevenue([]);
-        setDailyList([]);
-      } finally {
-        if (mounted) {
-          setLoadingChart(false);
-          setLoadingDailyList(false);
-        }
-      }
-    }
-
-    fetchDailyRevenue();
-    return () => (mounted = false);
-  }, []);
-
-  /* --------------------------- 3. MONTHLY revenue --------------------------- */
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchMonthlyRevenue() {
-      try {
-        setLoadingMonthlyList(true);
-
-        const token = getStoredToken();
-        setAuthHeaderOnApiClient(token);
-
-        const res = await paymentService.getMonthlyRevenue();
-        if (!mounted) return;
-
-        const payload = res?.data ?? res;
-
-        // 🔥 Convert incoming object → array
-        const raw = payload?.monthly_revenue ?? {};
-        const arr = Object.entries(raw).map(([month, total]) => ({
-          month,
-          total,
-        }));
-
-        // sort theo month
-        arr.sort((a, b) => a.month.localeCompare(b.month));
-
-        setMonthlyRevenue(arr);
-      } catch (err) {
-        setMonthlyRevenue([]);
-      } finally {
-        if (mounted) setLoadingMonthlyList(false);
-      }
-    }
-
-    fetchMonthlyRevenue();
-    return () => (mounted = false);
-  }, []);
-
-  /* --------------------------- 4. HEALTH --------------------------- */
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchHealth() {
+    async function loadHealth() {
       try {
         setLoadingHealth(true);
-        const token = getStoredToken();
-
-        const res = await fetch("/api/v1/monitoring/health", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-
-        if (!mounted) return;
-        if (!res.ok) throw new Error();
-
+        const res = await fetch("/api/v1/monitoring/health");
         const json = await res.json();
-        setHealth(json);
+        if (ok) setHealth(json);
       } catch {
-        setHealth(null);
+        if (ok) setHealth(null);
       } finally {
-        if (mounted) setLoadingHealth(false);
+        if (ok) setLoadingHealth(false);
       }
     }
 
-    fetchHealth();
-    const id = setInterval(fetchHealth, 60000);
+    loadHealth();
+    const id = setInterval(loadHealth, 60000);
+
     return () => {
-      mounted = false;
+      ok = false;
       clearInterval(id);
     };
   }, []);
 
-  /* --------------------------- Utils --------------------------- */
-  const formatDate = (dStr) => {
-    if (!dStr) return dStr;
-    if (/^\d{4}-\d{2}$/.test(dStr)) {
-      const [y, m] = dStr.split("-");
-      return `${m}/${y}`;
-    }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
-      const d = new Date(dStr);
-      return d.toLocaleDateString("vi-VN");
-    }
-    return dStr;
-  };
-
-  /* --------------------------- Derived --------------------------- */
-  const revenueToday = summary?.revenue_today ?? 0;
-  const revenueMonth = summary?.revenue_month ?? 0;
-  const totalUsers = summary?.total_users ?? 0;
-  const totalStations = summary?.total_stations ?? 0;
-  const activeSessions = summary?.active_sessions ?? 0;
-
   const systemStatus = health?.status || "unknown";
   const isSystemOk = ["ok", "UP", "healthy"].includes(systemStatus);
 
-  /* --------------------------- RENDER --------------------------- */
+  /* ================================================================== */
+
   return (
     <div className="space-y-6">
       <PageHeader title="Bảng điều khiển" subtitle="Tổng quan hệ thống trạm sạc EV" />
 
-      {error && <div className="bg-red-100 p-3 text-red-700 rounded">{error}</div>}
+      {error && (
+        <div className="text-sm text-red-600 mb-2">
+          {JSON.stringify(error)}
+        </div>
+      )}
 
-      {/* ---------- QUICK STATS ---------- */}
+      {/* QUICK STATS */}
       <Section title="Thống kê nhanh">
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
-          <StatCard label="Doanh thu hôm nay" value={revenueToday} unit="VND" loading={loadingSummary} />
-          <StatCard label="Doanh thu tháng này" value={revenueMonth} unit="VND" loading={loadingSummary} />
-          <StatCard label="Tổng người dùng" value={totalUsers} loading={loadingSummary} />
-          <StatCard label="Số trạm" value={totalStations} loading={loadingSummary} />
-          <StatCard label="Phiên sạc đang diễn ra" value={activeSessions} loading={loadingSummary} />
+
+          {/* Doanh thu hôm nay — BIG */}
+          <StatCard
+            label="Doanh thu hôm nay"
+            value={todayRevenue?.today_revenue ?? 0}
+            unit="VND"
+            loading={loadingRevenue.today}
+            big
+          />
+
+          {/* Tổng doanh thu — BIG */}
+          <StatCard
+            label="Tổng doanh thu"
+            value={summaryRevenue?.total_revenue ?? 0}
+            unit="VND"
+            loading={loadingRevenue.summary}
+            big
+          />
+
+          {/* Tổng số giao dịch — SMALL */}
+          <StatCard
+            label="Tổng số giao dịch"
+            value={summaryRevenue?.total_transactions ?? 0}
+            loading={loadingRevenue.summary}
+            small
+          />
         </div>
       </Section>
 
-      {/* ---------- DAILY CHART ---------- */}
-      <Section title="Biểu đồ doanh thu 30 ngày gần nhất">
-        {loadingChart ? (
+      {/* ------------------------- Biểu đồ tháng ------------------------- */}
+      <Section title="Biểu đồ doanh thu theo tháng (12 tháng gần nhất)">
+        {loadingRevenue.monthly ? (
           <div className="h-64 bg-gray-100 animate-pulse rounded-xl" />
-        ) : dailyRevenue.length === 0 ? (
+        ) : monthlyList.length === 0 ? (
           <div className="text-sm text-gray-500">Không có dữ liệu.</div>
         ) : (
-          <Chart
-            type="line"
-            data={dailyRevenue}
-            xKey="date"
-            yKey="total"
-            height={260}
-            label="Doanh thu (VND)"
-          />
+          <div className="w-full border border-gray-200 rounded-md bg-white p-3 shadow-sm">
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart
+                data={monthlyList}
+                margin={{ top: 15, right: 25, left: 10, bottom: 50 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fill: "#6b7280", fontSize: 12 }}
+                  tickLine={false}
+                  interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={60}
+                  tickFormatter={formatMonth}
+                />
+                <YAxis tick={{ fill: "#6b7280" }} tickFormatter={formatYAxis} />
+                <Tooltip
+                  formatter={(value) => formatCurrencyVND(value)}
+                  labelFormatter={(label) => `Tháng ${formatMonth(label)}`}
+                />
+                <Bar
+                  dataKey="total"
+                  name="Doanh thu (VND)"
+                  fill="#3b82f6"
+                  radius={[6, 6, 0, 0]}
+                  barSize={32}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </Section>
 
-      {/* ---------- DAILY LIST ---------- */}
+      {/* DAILY LIST */}
       <Section title="Doanh thu theo ngày">
-        {loadingDailyList ? (
+        {loadingRevenue.daily ? (
           <div className="h-40 bg-gray-100 animate-pulse rounded-xl" />
         ) : (
           <div className="overflow-auto bg-white rounded-xl shadow-sm p-4">
@@ -283,8 +247,10 @@ export default function Dashboard() {
               <tbody>
                 {dailyList.map((row) => (
                   <tr key={row.date} className="border-t">
-                    <td className="py-2">{formatDate(row.date)}</td>
-                    <td className="py-2 font-medium">{row.total.toLocaleString("vi-VN")}</td>
+                    <td className="py-2">{row.date}</td>
+                    <td className="py-2 font-medium">
+                      {row.total.toLocaleString("vi-VN")}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -293,9 +259,9 @@ export default function Dashboard() {
         )}
       </Section>
 
-      {/* ---------- MONTHLY LIST ---------- */}
-      <Section title="Doanh thu theo tháng (12 tháng)">
-        {loadingMonthlyList ? (
+      {/* MONTHLY LIST */}
+      <Section title="Doanh thu theo tháng">
+        {loadingRevenue.monthly ? (
           <div className="h-40 bg-gray-100 animate-pulse rounded-xl" />
         ) : (
           <div className="overflow-auto bg-white rounded-xl shadow-sm p-4">
@@ -307,10 +273,12 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {monthlyRevenue.map((row) => (
+                {monthlyList.map((row) => (
                   <tr key={row.month} className="border-t">
-                    <td className="py-2">{formatDate(row.month)}</td>
-                    <td className="py-2 font-medium">{row.total.toLocaleString("vi-VN")}</td>
+                    <td className="py-2">{formatMonth(row.month)}</td>
+                    <td className="py-2 font-medium">
+                      {row.total.toLocaleString("vi-VN")}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -319,7 +287,7 @@ export default function Dashboard() {
         )}
       </Section>
 
-      {/* ---------- HEALTH ---------- */}
+      {/* HEALTH */}
       <Section title="Trạng thái hệ thống">
         <div className="bg-white rounded-xl shadow-sm p-4">
           <div className="flex justify-between mb-2">
@@ -329,9 +297,14 @@ export default function Dashboard() {
                 isSystemOk ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
               }`}
             >
-              {loadingHealth ? "Đang kiểm tra..." : isSystemOk ? "Hoạt động ổn định" : "Có cảnh báo"}
+              {loadingHealth
+                ? "Đang kiểm tra..."
+                : isSystemOk
+                ? "Hoạt động ổn định"
+                : "Có cảnh báo"}
             </span>
           </div>
+
           <pre className="bg-gray-50 p-3 rounded-lg text-xs overflow-auto max-h-40">
             {JSON.stringify(health, null, 2)}
           </pre>
