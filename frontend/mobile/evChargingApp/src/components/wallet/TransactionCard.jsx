@@ -48,12 +48,17 @@ const TransactionCard = ({ transaction, onPress }) => {
     created_at,
     amount = 0,
     description,
+    meta,
   } = transaction;
 
-  const isPositive = amount >= 0;
-  const amountColor = isPositive ? colors.success : colors.onSurface;
+  // Determine if transaction is positive (topup, refund) or negative (payment)
+  const isPositive = type === 'topup' || type === 'refund';
+  const amountColor = isPositive ? colors.success : colors.error;
   const icon = isPositive ? 'arrow-up-bold-circle' : 'arrow-down-bold-circle';
   const iconColor = isPositive ? colors.success : colors.error;
+
+  // Get description from meta or use type
+  const displayText = meta?.description || description || type;
 
   const formattedDate = created_at
     ? new Date(created_at).toLocaleString('vi-VN', {
@@ -72,7 +77,7 @@ const TransactionCard = ({ transaction, onPress }) => {
           <IconButton icon={icon} size={32} iconColor={iconColor} style={{ margin: 0 }} />
         </View>
         <View style={styles.details}>
-          <Text style={styles.type}>{description || type}</Text>
+          <Text style={styles.type}>{displayText}</Text>
           <Text style={styles.date}>{formattedDate}</Text>
         </View>
         <View style={styles.amountContainer}>

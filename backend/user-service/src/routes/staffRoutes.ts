@@ -1,10 +1,20 @@
 import express from 'express';
 import staffController from '../controllers/staffController';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
+import { validate, createStaffSchema, updateStaffSchema } from '../middlewares/validation';
 
 const router = express.Router();
 
 // ==================== STAFF ROUTES ====================
+
+// POST /api/v1/staff - Create new staff member (Admin only)
+router.post(
+  '/',
+  authenticate,
+  authorize('admin'),
+  validate(createStaffSchema),
+  staffController.createStaff
+);
 
 // GET /api/v1/staff - Get all staff with filters (Admin, Station Owner, Manager)
 router.get(
@@ -59,6 +69,23 @@ router.get(
   authenticate,
   authorize('admin', 'station_owner', 'staff'),
   staffController.getStaffById
+);
+
+// PUT /api/v1/staff/:staff_id - Update staff information (Admin only)
+router.put(
+  '/:staff_id',
+  authenticate,
+  authorize('admin'),
+  validate(updateStaffSchema),
+  staffController.updateStaff
+);
+
+// DELETE /api/v1/staff/:staff_id - Delete staff member (Admin only)
+router.delete(
+  '/:staff_id',
+  authenticate,
+  authorize('admin'),
+  staffController.deleteStaff
 );
 
 export default router;

@@ -11,7 +11,7 @@ import { ThemeProvider } from "@/providers/ThemeProvider";
 import { StationProvider } from "@/providers/StationProvider";
 import { ChargingControlProvider } from "@/providers/ChargingControlProvider";
 import { PaymentProvider } from "@/providers/PaymentProvider"; 
-import UserProvider from "@/providers/UserProvider"; // 👈 thêm dòng này
+import UserProvider from "@/providers/UserProvider"; 
 import { AnalyticsProvider } from "@/providers/AnalyticsProvider";
 
 console.log("🚀 Rendering App...");
@@ -23,7 +23,7 @@ root.render(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <UserProvider> {/* 👈 Bọc App trong UserProvider */}
+          <UserProvider>
             <AnalyticsProvider>
               <StationProvider>
                 <ChargingControlProvider>

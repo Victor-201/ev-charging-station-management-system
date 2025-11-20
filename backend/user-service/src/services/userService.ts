@@ -230,6 +230,23 @@ export class UserService {
     }
   }
 
+  // Admin: Activate user account (reactivate)
+  async activateUser(userId: string, token?: string): Promise<void> {
+    try {
+      // Call Auth Service to activate user in auth database
+      await httpClient.activateUserInAuthService(userId, token);
+
+      // Optionally, mark user profile as active in user database
+      await pool.query(
+        `UPDATE user_profiles SET updated_at = CURRENT_TIMESTAMP WHERE user_id = $1`,
+        [userId]
+      );
+    } catch (error) {
+      logger.error('Error activating user:', error);
+      throw error;
+    }
+  }
+
   // GDPR: Export user data
   async exportUserData(userId: string): Promise<any> {
     try {

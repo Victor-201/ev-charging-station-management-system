@@ -12,7 +12,6 @@ export default function AdminSidebar({ active = true }) {
     { key: "stations", label: "Stations", to: ROUTERS.ADMIN.STATION_MANAGEMENT, icon: "⚡" },
     { key: "subscriptions", label: "Subscriptions", to: ROUTERS.ADMIN.SUBSCRIPTION_PLANS, icon: "🪙" },
     { key: "users", label: "Users", to: ROUTERS.ADMIN.USER_MANAGEMENT, icon: "👤" },
-    { key: "settings", label: "Settings", to: ROUTERS.ADMIN.SETTINGS, icon: "⚙️" },
   ];
 
   return (

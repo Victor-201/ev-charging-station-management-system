@@ -24,14 +24,10 @@ export default function useWallet(autoFetch = true, providedUserId) {
     setLoading(true);
     setError(null);
     try {
-      const resp = await walletService.getWallet(uid);
-
-      // paymentService wrapped in walletService returns response.data which may have shape { success, data }
-      const data = resp?.data ?? resp?.result ?? resp;
-
-      if (resp && resp.success && resp.data) {
-        dispatch(fetchWalletSuccess(resp.data));
-      } else if (data) {
+      // walletService.getWallet already extracts data from response
+      const data = await walletService.getWallet(uid);
+      
+      if (data) {
         dispatch(fetchWalletSuccess(data));
       }
 
@@ -40,7 +36,12 @@ export default function useWallet(autoFetch = true, providedUserId) {
     } catch (err) {
       setError(err);
       setLoading(false);
-      console.error('useWallet fetch error', err);
+      console.error('useWallet fetch error:', err.message || err);
+      // Log more details for debugging
+      if (err.response) {
+        console.error('Response status:', err.response.status);
+        console.error('Response data:', err.response.data);
+      }
       return null;
     }
   };

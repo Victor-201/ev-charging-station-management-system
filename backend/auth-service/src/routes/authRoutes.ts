@@ -42,4 +42,7 @@ router.get('/users', authenticate, authorize('admin'), authController.getUserLis
 // Admin routes - Deactivate user (requires admin role)
 router.post('/users/:user_id/deactivate', authenticate, authorize('admin'), authController.deactivateUser);
 
+// Admin routes - Activate user (reactivate) (requires admin role)
+router.post('/users/:user_id/activate', authenticate, authorize('admin'), authController.activateUser);
+
 export default router;

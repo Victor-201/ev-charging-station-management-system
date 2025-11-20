@@ -1,3 +1,4 @@
+// pages/admin/Reports.jsx
 import { useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
@@ -5,88 +6,82 @@ import Table from "@/components/admin/Table";
 import apiClient from "@/api/apiClient";
 
 // =============================
-// REPORT TYPE CONFIG
+// LOẠI BÁO CÁO
 // =============================
 const REPORT_TYPES = [
   {
     key: "revenue",
     label: "Doanh thu",
-    desc: "Báo cáo doanh thu theo khoảng thời gian / trạm.",
-    endpoint: "/api/v1/analytics/reports/revenue",
+    desc: "Báo cáo tổng doanh thu theo tháng.",
   },
   {
     key: "user",
     label: "Theo người dùng",
-    desc: "Báo cáo chi phí & usage theo user (theo tháng).",
-    endpoint: "/api/v1/analytics/reports/user",
+    desc: "Báo cáo tổng chi phí & số phiên theo tháng.",
   },
   {
     key: "station",
     label: "Theo trạm",
-    desc: "Báo cáo sessions / kWh theo trạm (theo ngày).",
-    endpoint: "/api/v1/analytics/reports/station",
+    desc: "Báo cáo daily station (kWh, sessions, revenue).",
   },
 ];
 
+// =============================
+// HÀM LẤY FROM/TO THEO THÁNG
+// =============================
+function getRange(monthStr) {
+  if (!monthStr) return {};
+
+  const [y, m] = monthStr.split("-");
+  const year = Number(y);
+  const month = Number(m);
+
+  const lastDay = new Date(year, month, 0).getDate();
+
+  return {
+    from: `${y}-${m}-01`,
+    to: `${y}-${m}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 export default function Reports() {
   const [reportType, setReportType] = useState("revenue");
-
   const [params, setParams] = useState({
-    userId: "",
-    stationId: "",
-    from: new Date().toISOString().slice(0, 10),
-    to: new Date().toISOString().slice(0, 10),
-    groupBy: "day",
+    month: new Date().toISOString().slice(0, 7),
   });
 
-  const [rows, setRows] = useState([]);
   const [columns, setColumns] = useState([]);
+  const [rows, setRows] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const cfg = REPORT_TYPES.find((r) => r.key === reportType);
-
-  const setParam = (key, value) =>
-    setParams((p) => ({
-      ...p,
-      [key]: value,
-    }));
-
   // =============================
-  // BUILD API REQUEST
+  // XÂY DỰNG REQUEST THEO API THẬT
   // =============================
   const buildRequest = () => {
+    const { month } = params;
+
+    // REVENUE — API thật yêu cầu from/to
     if (reportType === "revenue") {
+      const { from, to } = getRange(month);
       return {
-        url: cfg.endpoint,
-        query: {
-          station_id: params.stationId || undefined,
-          from: params.from,
-          to: params.to,
-          group_by: params.groupBy,
-        },
+        url: "/api/v1/analytics/reports/revenue",
+        query: { from, to },
       };
     }
 
-    if (reportType === "user") {
-      if (!params.userId) throw new Error("Vui lòng nhập User ID.");
+    // USER MONTHLY — bạn yêu cầu system-wide → endpoint aggregate
+    return {
+      url: "/api/v1/analytics/reports/user/monthly",
+      query: { month },
+    };
 
-      return {
-        url: `${cfg.endpoint}/${params.userId}/monthly`,
-        query: {
-          month: params.from.slice(0, 7), // yyyy-MM
-        },
-      };
-    }
-
+    // STATION DAILY — bạn yêu cầu system-wide → endpoint aggregate
     if (reportType === "station") {
-      if (!params.stationId) throw new Error("Vui lòng nhập Station ID.");
-
       return {
-        url: `${cfg.endpoint}/${params.stationId}/daily`,
-        query: {
-          date: params.from,
-        },
+        url: "/api/v1/analytics/reports/station/daily",
+        query: { date: `${month}-01` },
       };
     }
   };
@@ -98,68 +93,51 @@ export default function Reports() {
     try {
       setError("");
       setLoading(true);
-      setRows([]);
       setColumns([]);
+      setRows([]);
 
       const req = buildRequest();
       const res = await apiClient.get(req.url, { params: req.query });
-      const data = res.data;
+      const data = res.data ?? {};
 
-      // ===== REVENUE =====
+      // ======== REVENUE ========
       if (reportType === "revenue") {
-        const items = data.items || data.daily || [];
-
-        setColumns(["Ngày", "Doanh thu (VND)"]);
-        setRows(
-          items.map((i) => [
-            i.date,
-            i.total_revenue?.toLocaleString("vi-VN") || 0,
-          ])
-        );
+        setColumns(["Tổng doanh thu (VND)"]);
+        setRows([[data.total_revenue?.toLocaleString("vi-VN") ?? "0"]]);
         return;
       }
 
-      // ===== USER REPORT =====
+      // ======== USER MONTHLY ========
       if (reportType === "user") {
-        setColumns(["User ID", "Tổng phiên", "Tổng kWh", "Tổng chi phí (VND)"]);
-
+        setColumns(["Tháng", "Tổng chi phí", "Số phiên"]);
         setRows([
           [
-            data.user_id,
-            data.total_sessions,
-            data.total_kwh,
-            data.total_cost?.toLocaleString("vi-VN") || 0,
+            data.month ?? params.month,
+            data.total_cost?.toLocaleString("vi-VN") ?? "0",
+            data.sessions ?? 0,
           ],
         ]);
         return;
       }
 
-      // ===== STATION DAILY REPORT =====
+      // ======== STATION DAILY ========
       if (reportType === "station") {
-        const sessions = data.sessions || [];
-
-        setColumns([
-          "Session ID",
-          "User",
-          "Bắt đầu",
-          "KWh",
-          "Chi phí (VND)",
+        setColumns(["Ngày", "Tổng kWh", "Số phiên", "Doanh thu"]);
+        setRows([
+          [
+            data.date ?? `${params.month}-01`,
+            data.total_kwh ?? 0,
+            data.sessions ?? 0,
+            data.revenue?.toLocaleString("vi-VN") ?? "0",
+          ],
         ]);
-
-        setRows(
-          sessions.map((s) => [
-            s.id,
-            s.user_id,
-            s.start_time,
-            s.energy_kwh,
-            s.cost?.toLocaleString("vi-VN") || 0,
-          ])
-        );
         return;
       }
     } catch (err) {
       setError(
-        err?.response?.data?.message || err?.message || "Không thể tải báo cáo."
+        err?.response?.data?.message ??
+          err?.message ??
+          "Không thể tải báo cáo."
       );
     } finally {
       setLoading(false);
@@ -167,26 +145,25 @@ export default function Reports() {
   };
 
   // =============================
-  // RENDER
+  // UI
   // =============================
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="max-w-6xl mx-auto space-y-6">
+
         <PageHeader
-          title="Báo cáo chi tiết"
-          subtitle="Dữ liệu lấy trực tiếp từ analytics-service & payment-service"
+          title="Báo cáo"
+          subtitle="Dữ liệu trực tiếp từ analytics-service"
         />
 
-        {/* =====================
-            CHỌN LOẠI BÁO CÁO
-        ====================== */}
+        {/* ========== CHỌN LOẠI REPORT ========== */}
         <Section title="Chọn loại báo cáo">
           <div className="flex flex-wrap gap-3">
             {REPORT_TYPES.map((r) => (
               <button
                 key={r.key}
                 onClick={() => setReportType(r.key)}
-                className={`px-4 py-2 rounded-lg border text-sm w-full md:w-auto transition ${
+                className={`px-4 py-2 rounded-lg border text-sm transition ${
                   reportType === r.key
                     ? "bg-blue-600 text-white border-blue-600"
                     : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
@@ -199,81 +176,25 @@ export default function Reports() {
           </div>
         </Section>
 
-        {/* =====================
-            THAM SỐ TRUY VẤN
-        ====================== */}
+        {/* ========== PARAMS ========== */}
         <Section title="Tham số truy vấn">
-          <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-            {/* FROM */}
+          <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+
             <div>
               <label className="block text-xs text-slate-500 mb-1">
-                Từ ngày (yyyy-MM-dd)
+                Chọn tháng (YYYY-MM)
               </label>
               <input
-                type="date"
-                value={params.from}
-                onChange={(e) => setParam("from", e.target.value)}
+                type="month"
+                value={params.month}
+                onChange={(e) =>
+                  setParams((p) => ({ ...p, month: e.target.value }))
+                }
                 className="w-full border rounded-lg px-2 py-1.5"
               />
             </div>
 
-            {/* TO */}
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">
-                Đến ngày (yyyy-MM-dd)
-              </label>
-              <input
-                type="date"
-                value={params.to}
-                onChange={(e) => setParam("to", e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5"
-              />
-            </div>
-
-            {/* Station ID */}
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">
-                Station ID (optional)
-              </label>
-              <input
-                value={params.stationId}
-                onChange={(e) => setParam("stationId", e.target.value)}
-                placeholder="UUID trạm"
-                className="w-full border rounded-lg px-2 py-1.5"
-              />
-            </div>
-
-            {/* User ID */}
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">
-                User ID (cho báo cáo User)
-              </label>
-              <input
-                value={params.userId}
-                onChange={(e) => setParam("userId", e.target.value)}
-                placeholder="UUID user"
-                className="w-full border rounded-lg px-2 py-1.5"
-              />
-            </div>
-
-            {reportType === "revenue" && (
-              <div className="md:col-span-4">
-                <label className="block text-xs text-slate-500 mb-1">
-                  Group by
-                </label>
-                <select
-                  value={params.groupBy}
-                  onChange={(e) => setParam("groupBy", e.target.value)}
-                  className="border rounded-lg px-2 py-1.5 text-sm"
-                >
-                  <option value="day">Day</option>
-                  <option value="month">Month</option>
-                  <option value="station">Station</option>
-                </select>
-              </div>
-            )}
-
-            <div className="md:col-span-4 flex justify-end">
+            <div className="md:col-span-3 flex justify-end">
               <button
                 onClick={fetchReport}
                 disabled={loading}
@@ -285,9 +206,7 @@ export default function Reports() {
           </div>
         </Section>
 
-        {/* =====================
-            BẢNG KẾT QUẢ
-        ====================== */}
+        {/* ========== RESULT TABLE ========== */}
         <Section title="Kết quả">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm mb-4">
@@ -297,12 +216,13 @@ export default function Reports() {
 
           {columns.length === 0 ? (
             <p className="text-sm text-slate-500">
-              Chưa có dữ liệu. Chọn tham số và bấm “Lấy dữ liệu”.
+              Chưa có dữ liệu. Hãy chọn tháng và bấm “Lấy dữ liệu”.
             </p>
           ) : (
             <Table columns={columns} rows={rows} />
           )}
         </Section>
+
       </div>
     </div>
   );

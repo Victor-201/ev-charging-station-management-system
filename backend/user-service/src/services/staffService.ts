@@ -378,6 +378,159 @@ export class StaffService {
       throw error;
     }
   }
+
+  /**
+   * Create new staff member
+   */
+  async createStaff(data: {
+    user_id: string;
+    station_id: string;
+    position?: string;
+    shift?: string;
+    hire_date?: Date;
+    notes?: string;
+  }): Promise<StaffInfo> {
+    try {
+      const result = await pool.query(
+        `INSERT INTO staff (user_id, station_id, position, shift, hire_date, is_active, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, user_id, station_id, position, shift, hire_date, is_active, notes, created_at, updated_at`,
+        [
+          data.user_id,
+          data.station_id,
+          data.position || 'operator',
+          data.shift || 'morning',
+          data.hire_date || new Date(),
+          true,
+          data.notes || null,
+        ]
+      );
+
+      // Get user info to return complete staff info
+      const userResult = await pool.query(
+        `SELECT full_name, email, phone FROM users WHERE id = $1`,
+        [data.user_id]
+      );
+
+      return {
+        ...result.rows[0],
+        full_name: userResult.rows[0]?.full_name || '',
+        email: userResult.rows[0]?.email || '',
+        phone_number: userResult.rows[0]?.phone || '',
+      };
+    } catch (error) {
+      logger.error('Error in createStaff:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update staff information
+   */
+  async updateStaff(staffId: string, data: {
+    station_id?: string;
+    position?: string;
+    shift?: string;
+    hire_date?: Date;
+    is_active?: boolean;
+    notes?: string;
+  }): Promise<StaffInfo> {
+    try {
+      const setClauses: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (data.station_id !== undefined) {
+        setClauses.push(`station_id = $${paramIndex}`);
+        params.push(data.station_id);
+        paramIndex++;
+      }
+
+      if (data.position !== undefined) {
+        setClauses.push(`position = $${paramIndex}`);
+        params.push(data.position);
+        paramIndex++;
+      }
+
+      if (data.shift !== undefined) {
+        setClauses.push(`shift = $${paramIndex}`);
+        params.push(data.shift);
+        paramIndex++;
+      }
+
+      if (data.hire_date !== undefined) {
+        setClauses.push(`hire_date = $${paramIndex}`);
+        params.push(data.hire_date);
+        paramIndex++;
+      }
+
+      if (data.is_active !== undefined) {
+        setClauses.push(`is_active = $${paramIndex}`);
+        params.push(data.is_active);
+        paramIndex++;
+      }
+
+      if (data.notes !== undefined) {
+        setClauses.push(`notes = $${paramIndex}`);
+        params.push(data.notes);
+        paramIndex++;
+      }
+
+      if (setClauses.length === 0) {
+        throw new Error('No fields to update');
+      }
+
+      setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
+      params.push(staffId);
+
+      const result = await pool.query(
+        `UPDATE staff
+         SET ${setClauses.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING id, user_id, station_id, position, shift, hire_date, is_active, notes, created_at, updated_at`,
+        params
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('Staff not found');
+      }
+
+      // Get user info to return complete staff info
+      const userResult = await pool.query(
+        `SELECT full_name, email, phone FROM users WHERE id = $1`,
+        [result.rows[0].user_id]
+      );
+
+      return {
+        ...result.rows[0],
+        full_name: userResult.rows[0]?.full_name || '',
+        email: userResult.rows[0]?.email || '',
+        phone_number: userResult.rows[0]?.phone || '',
+      };
+    } catch (error) {
+      logger.error('Error in updateStaff:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete staff member (soft delete by setting is_active = false)
+   */
+  async deleteStaff(staffId: string): Promise<void> {
+    try {
+      const result = await pool.query(
+        `UPDATE staff SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [staffId]
+      );
+
+      if (result.rowCount === 0) {
+        throw new Error('Staff not found');
+      }
+    } catch (error) {
+      logger.error('Error in deleteStaff:', error);
+      throw error;
+    }
+  }
 }
 
 export default new StaffService();

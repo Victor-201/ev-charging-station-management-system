@@ -220,7 +220,8 @@ const PaymentModal = ({
 
   const handleConfirmCashPayment = async () => {
     if (!confirm("Xác nhận đã thu đủ tiền mặt từ khách hàng?")) return;
-
+console.log("Current session:", currentSession);
+  console.log("User role:", currentSession?.role);
     const amount = Number(reconcileResult.diff);
     const user_id = currentSession?.user_id;
     const session_id = selectedSessionId;
@@ -247,7 +248,9 @@ const PaymentModal = ({
         reservation_id: currentSession?.reservation_id || null,
         connector_id: currentSession?.connector_id || null,
         payment_confirmed_at: new Date().toISOString(),
+        
       },
+      
     };
 
     // Bước 1: Tạo transaction
@@ -273,6 +276,7 @@ const PaymentModal = ({
       confirmed_at: new Date().toISOString(),
       confirmed_by: "staff", // Có thể thêm thông tin nhân viên nếu có
       notes: "Xác nhận thu tiền mặt tại trạm"
+      
     };
 
     const confirmResult = await confirmCashTransaction(transactionId, confirmPayload);

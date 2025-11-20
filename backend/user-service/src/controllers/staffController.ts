@@ -153,6 +153,69 @@ export class StaffController {
       res.status(500).json({ error: 'Failed to get attendance summary' });
     }
   }
+
+  /**
+   * POST /api/v1/staff - Create new staff member
+   */
+  async createStaff(req: Request, res: Response): Promise<void> {
+    try {
+      const { user_id, station_id, position, shift, hire_date, notes } = req.body;
+
+      const staff = await staffService.createStaff({
+        user_id,
+        station_id,
+        position,
+        shift,
+        hire_date: hire_date ? new Date(hire_date) : undefined,
+        notes,
+      });
+
+      res.status(201).json(staff);
+    } catch (error) {
+      logger.error('Error in createStaff:', error);
+      res.status(500).json({ error: 'Failed to create staff' });
+    }
+  }
+
+  /**
+   * PUT /api/v1/staff/:staff_id - Update staff information
+   */
+  async updateStaff(req: Request, res: Response): Promise<void> {
+    try {
+      const { staff_id } = req.params;
+      const { station_id, position, shift, hire_date, is_active, notes } = req.body;
+
+      const staff = await staffService.updateStaff(staff_id, {
+        station_id,
+        position,
+        shift,
+        hire_date: hire_date ? new Date(hire_date) : undefined,
+        is_active,
+        notes,
+      });
+
+      res.json(staff);
+    } catch (error) {
+      logger.error('Error in updateStaff:', error);
+      res.status(500).json({ error: 'Failed to update staff' });
+    }
+  }
+
+  /**
+   * DELETE /api/v1/staff/:staff_id - Delete staff member (soft delete)
+   */
+  async deleteStaff(req: Request, res: Response): Promise<void> {
+    try {
+      const { staff_id } = req.params;
+
+      await staffService.deleteStaff(staff_id);
+
+      res.json({ status: 'deleted', message: 'Staff member deactivated successfully' });
+    } catch (error) {
+      logger.error('Error in deleteStaff:', error);
+      res.status(500).json({ error: 'Failed to delete staff' });
+    }
+  }
 }
 
 export default new StaffController();

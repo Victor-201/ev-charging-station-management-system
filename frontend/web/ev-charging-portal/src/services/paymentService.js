@@ -1,58 +1,127 @@
 import apiClient from "@/api/apiClient";
 
 export const paymentService = {
-  // ===== PAYMENTS =====
+  // ============================
+  // PAYMENTS
+  // ============================
   createIntent: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/payments/transaction", data: payload }),
+    apiClient({
+      method: "POST",
+      url: "api/v1/payments/transaction",
+      data: payload,
+    }),
 
   confirmIntent: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/payments/confirm", data: payload }),
+    apiClient({
+      method: "POST",
+      url: "api/v1/payments/confirm",
+      data: payload,
+    }),
 
   getPaymentById: (payment_id) =>
-    apiClient({ method: "GET", url: `api/v1/payments/${payment_id}` }),
+    apiClient({
+      method: "GET",
+      url: `api/v1/payments/${payment_id}`,
+    }),
 
   webhook: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/payments/webhook", data: payload }),
+    apiClient({
+      method: "POST",
+      url: "api/v1/payments/webhook",
+      data: payload,
+    }),
 
   refundPayment: (payment_id, payload) =>
-    apiClient({ method: "POST", url: `api/v1/payments/${payment_id}/refund`, data: payload }),
+    apiClient({
+      method: "POST",
+      url: `api/v1/payments/${payment_id}/refund`,
+      data: payload,
+    }),
 
-  // ===== INVOICE =====
+  // ============================
+  // INVOICE
+  // ============================
   getInvoiceById: (invoice_id) =>
-    apiClient({ method: "GET", url: `api/v1/invoices/${invoice_id}` }),
+    apiClient({
+      method: "GET",
+      url: `api/v1/invoices/${invoice_id}`,
+    }),
 
-  // ===== BILLING =====
+  // ============================
+  // BILLING
+  // ============================
   generateBilling: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/billing/generate", data: payload }),
+    apiClient({
+      method: "POST",
+      url: "api/v1/billing/generate",
+      data: payload,
+    }),
 
-  // ===== WALLET =====
+  // ============================
+  // WALLET
+  // ============================
   getWalletBalance: (user_id) =>
-    apiClient({ method: "GET", url: `api/v1/wallets/${user_id}/balance` }),
+    apiClient({
+      method: "GET",
+      url: `api/v1/wallets/${user_id}/balance`,
+    }),
 
   transferWallet: (user_id, payload) =>
-    apiClient({ method: "POST", url: `api/v1/wallets/${user_id}/transfer`, data: payload }),
+    apiClient({
+      method: "POST",
+      url: `api/v1/wallets/${user_id}/transfer`,
+      data: payload,
+    }),
 
-  // ===== SUBSCRIPTION =====
+  // ============================
+  // SUBSCRIPTION (Recurring)
+  // ============================
   createSubscription: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/subscriptions", data: payload }),
+    apiClient({
+      method: "POST",
+      url: "api/v1/subscriptions",
+      data: payload,
+    }),
 
   cancelSubscription: (id) =>
-    apiClient({ method: "POST", url: `api/v1/subscriptions/${id}/cancel` }),
+    apiClient({
+      method: "POST",
+      url: `api/v1/subscriptions/${id}/cancel`,
+    }),
 
-  // ===== COUPON =====
+  getAllSubscriptions: () =>
+    apiClient({
+      method: "GET",
+      url: "api/v1/subscriptions",
+    }),
+
+  // ============================
+  // COUPON
+  // ============================
   createCoupon: (payload) =>
-    apiClient({ method: "POST", url: "api/v1/coupons", data: payload }),
+    apiClient({
+      method: "POST",
+      url: "api/v1/coupons",
+      data: payload,
+    }),
 
-  // ===== LEDGER =====
+  // ============================
+  // LEDGER
+  // ============================
   exportLedger: (params) =>
-    apiClient({ method: "GET", url: "api/v1/ledger/export", params }),
+    apiClient({
+      method: "GET",
+      url: "api/v1/ledger/export",
+      params,
+    }),
 
-  // ===== REVENUE =====
+  // ============================
+  // REVENUE
+  // ============================
   getDailyRevenue: () =>
     apiClient({
       method: "GET",
       url: "api/v1/payments/revenue/daily",
-
     }),
 
   getMonthlyRevenue: () =>
@@ -60,21 +129,35 @@ export const paymentService = {
       method: "GET",
       url: "api/v1/payments/revenue/monthly",
     }),
-   getTodayRevenue: () =>
+
+  getTodayRevenue: () =>
     apiClient({
       method: "GET",
       url: "api/v1/payments/revenue/today",
-    }), 
-    createTransaction: (payload) =>
-  apiClient({
-    method: "POST",
-    url: "api/v1/payments/transaction",
-    data: payload,
-  }),
+    }),
+
+  getSummaryRevenue: () =>
+    apiClient({
+      method: "GET",
+      url: "api/v1/payments/revenue/summary",
+    }),
+
+  // ============================
+  // TRANSACTIONS
+  // ============================
+  createTransaction: (payload) =>
+    apiClient({
+      method: "POST",
+      url: "api/v1/payments/transaction",
+      data: payload,
+    }),
+
   confirmCashTransaction: (transaction_id, payload) =>
-apiClient({ method: "POST", url: `api/v1/payments/transaction/${transaction_id}/confirm`, data: payload }),
-
+    apiClient({
+      method: "POST",
+      url: `api/v1/payments/transaction/${transaction_id}/confirm`,
+      data: payload,
+    }),
 };
-
 
 export default paymentService;
