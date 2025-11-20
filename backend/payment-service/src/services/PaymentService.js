@@ -4,7 +4,7 @@ import WalletTransactionRepository from '../repositories/WalletTransactionReposi
 import PlanRepository from '../repositories/PlanRepository.js';
 import EventOutboxRepository from '../repositories/EventOutboxRepository.js';
 import localBus from '../core/LocalEventBus.js';
-import eventBus from '../core/EventBus.js';
+import { publishEvent } from "../core/rabbit/publisher.js";
 import config from '../config/env.js';
 import { randomUUID } from 'crypto';
 
@@ -16,30 +16,23 @@ export default class PaymentService {
     this.planRepo = new PlanRepository();
     this.outboxRepo = new EventOutboxRepository();
 
-    localBus.subscribe("payment.topup.succeeded", (p) =>
-      this._applyWalletTopup(p)
-    );
-    localBus.subscribe("payment.refund", (p) => this._applyWalletRefund(p));
+    localBus.subscribe('payment.topup.succeeded', (p) => this._applyWalletTopup(p));
+    localBus.subscribe('payment.refund', (p) => this._applyWalletRefund(p));
 
-    setInterval(
-      () => this.processOutboxEvents().catch(console.error),
-      5 * 60 * 1000
-    );
-    setInterval(
-      () => this.retryFailedRefunds().catch(console.error),
-      60 * 1000
-    );
+    setInterval(() => this.processOutboxEvents().catch((e) => console.error(e)), 3 * 60 * 1000);
+    setInterval(() => this.retryFailedRefunds().catch((e) => console.error(e)), 60 * 1000);
   }
 
-  async _createOutbox(type, aggregate_id, payload, status = "pending") {
+  async _createOutbox(type, aggregate_id, payload, status = 'pending') {
     await this.outboxRepo.create({
-      aggregate_type: "transaction",
+      id: randomUUID(),
+      aggregate_type: 'transaction',
       aggregate_id,
       type,
       payload: JSON.stringify(payload),
       status,
+      created_at: new Date().toISOString(),
     });
-    console.log(`[Outbox] Created event "${type}" status="${status}" for transaction ${aggregate_id}`);
   }
 
   async _handleWalletInternal(user_id, amount, action, transaction_id = null) {
@@ -47,52 +40,51 @@ export default class PaymentService {
     if (!wallet) wallet = await this.walletRepo.create(user_id);
 
     amount = Number(amount);
-    if (isNaN(amount) || amount <= 0) throw new Error("Amount must be positive");
+    if (isNaN(amount) || amount <= 0) throw new Error('Amount must be positive');
 
-    if (action === "payment") {
-      if (wallet.balance < amount) throw new Error("Insufficient wallet balance");
+    if (action === 'payment') {
+      if (wallet.balance < amount) throw new Error('Insufficient wallet balance');
       wallet.decrease(amount);
       await this.walletRepo.updateBalance(wallet.id, wallet.balance);
-    } else if (["topup", "refund"].includes(action)) {
+    } else if (['topup', 'refund'].includes(action)) {
       wallet.increase(amount);
       await this.walletRepo.updateBalance(wallet.id, wallet.balance);
-    } else throw new Error("Invalid wallet action");
+    } else throw new Error('Invalid wallet action');
   }
 
-  /** === Tạo giao dịch === */
   async createTransaction({
     user_id,
     type,
     amount,
-    currency = "VND",
+    currency = 'VND',
     method,
     related_id = null,
     related_type = null,
-    description = "",
+    description = '',
   }) {
     amount = Number(amount);
-    if (isNaN(amount) || amount <= 0) throw new Error("Invalid amount");
-    if (related_id && !related_type) throw new Error("related_type required");
+    if (isNaN(amount) || amount <= 0) throw new Error('Invalid amount');
+    if (related_id && !related_type) throw new Error('related_type required');
 
     const prefixMap = {
-      topup: "TOP",
-      subscription: "SUB",
-      booking: "BKG",
-      charging_session: "CHG",
-      guest_charging: "CHG",
+      topup: 'TOP',
+      subscription: 'SUB',
+      booking: 'BKG',
+      charging_session: 'CHG',
+      guest_charging: 'CHG',
     };
     const referenceCode =
-      method === "bank_transfer"
-        ? `${prefixMap[related_type] || prefixMap[type] || "TXN"}${randomUUID()
-            .replace(/-/g, "")
-            .substring(0, 22)
-            .toUpperCase()}`
-      : null;
+      method === 'bank_transfer'
+        ? `${prefixMap[related_type] || prefixMap[type] || 'TXN'}${randomUUID()
+          .replace(/-/g, '')
+          .substring(0, 22)
+          .toUpperCase()}`
+        : null;
 
     let qrLink = null;
-    if (method === "bank_transfer") {
+    if (method === 'bank_transfer') {
       const { QR_ACCOUNT: acc, QR_BANK: bank } = config;
-      if (!acc || !bank) throw new Error("QR_ACCOUNT/QR_BANK required");
+      if (!acc || !bank) throw new Error('QR_ACCOUNT/QR_BANK required');
       qrLink = `https://qr.sepay.vn/img?acc=${acc}&bank=${bank}&amount=${amount}&des=${referenceCode}`;
     }
 
@@ -108,12 +100,13 @@ export default class PaymentService {
       meta: { description, qrLink },
     });
 
-    if (method === "wallet") {
+    if (method === 'wallet') {
       try {
         let wallet = await this.walletRepo.findByUserId(user_id);
         if (!wallet) wallet = await this.walletRepo.create(user_id);
 
-        await this._handleWalletInternal(user_id, amount, type, transaction.id);
+        await this._handleWalletInternal(user_id, amount, 'payment', transaction.id);
+
         await this.walletTxRepo.addTransaction({
           wallet_id: wallet.id,
           transaction_id: transaction.id,
@@ -123,11 +116,7 @@ export default class PaymentService {
         });
 
         transaction.markSuccess({ paid_at: new Date().toISOString() });
-        await this.transactionRepo.updateStatus(
-          transaction.id,
-          transaction.status,
-          transaction.meta
-        );
+        await this.transactionRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
         await this._createOutbox(
           `payment.${type}.succeeded`,
@@ -138,16 +127,12 @@ export default class PaymentService {
             amount,
             method,
             reference_code: referenceCode,
-          },
-          "pending"
+          }
         );
       } catch (err) {
         transaction.markFailed({ reason: err.message });
-        await this.transactionRepo.updateStatus(
-          transaction.id,
-          transaction.status,
-          transaction.meta
-        );
+        await this.transactionRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
+
         await this._createOutbox(
           `payment.${type}.failed`,
           transaction.id,
@@ -156,8 +141,7 @@ export default class PaymentService {
             transaction_id: transaction.id,
             amount,
             reason: err.message,
-          },
-          "pending"
+          }
         );
       }
     }
@@ -165,19 +149,35 @@ export default class PaymentService {
     return transaction;
   }
 
-  async _applyWalletTopup({ user_id, amount }) { await this._handleWalletInternal(user_id, amount, "topup"); }
+  async _applyWalletTopup({ user_id, amount }) {
+    await this._handleWalletInternal(user_id, amount, 'topup');
+  }
 
   async _applyWalletRefund({ user_id, amount, transaction_id }) {
     if (!transaction_id) throw new Error("transaction_id required for refund");
+
     const tx = await this.transactionRepo.findById(transaction_id);
     if (!tx || tx.refunded) return;
+
     try {
       await this._handleWalletInternal(user_id, amount, "refund", transaction_id);
+
       tx.markRefunded({ refunded_at: new Date().toISOString() });
       await this.transactionRepo.updateStatus(tx.id, tx.status, tx.meta);
-      await eventBus.publish("payment.refund.success", { user_id, amount, transaction_id });
+
+      localBus.publish("payment.refund.success", {
+        user_id,
+        amount,
+        transaction_id,
+      });
+
     } catch (err) {
-      await this._createOutbox("payment.refund.retry", transaction_id, { user_id, amount }, "failed");
+      await this._createOutbox(
+        "payment.refund.retry",
+        transaction_id,
+        { user_id, amount },
+        "failed"
+      );
     }
   }
 
@@ -185,75 +185,106 @@ export default class PaymentService {
     const events = await this.outboxRepo.findPending(limit);
     if (!events.length) return;
 
-    await eventBus.connect();
-    console.log(`[Outbox] Processing ${events.length} events`);
+    await initRabbitConnection().catch((err) => {
+      console.error('[Outbox] initRabbitConnection failed', err);
+    });
 
     for (const evt of events) {
       let payload;
-      try { payload = JSON.parse(evt.payload); } catch { await this.outboxRepo.markAsFailed(evt.id); continue; }
+      try {
+        payload = JSON.parse(evt.payload);
+      } catch (e) {
+        await this.outboxRepo.markAsFailed(evt.id);
+        continue;
+      }
 
       try {
-        await eventBus.publish(evt.type, payload);
-        if (evt.type === "payment.refund.retry") {
-          await this._applyWalletRefund({ user_id: payload.user_id, amount: payload.amount, transaction_id: evt.aggregate_id });
+        await publishEvent(evt.type, payload);
+
+        if (evt.type === 'payment.refund.retry') {
+          try {
+            await this._applyWalletRefund({
+              user_id: payload.user_id,
+              amount: payload.amount,
+              transaction_id: evt.aggregate_id
+            });
+          } catch (err) {
+            console.error('[Outbox] refund retry failed on apply:', err);
+          }
         }
+
         await this.outboxRepo.markAsProcessed(evt.id);
       } catch (err) {
-        console.error("processOutboxEvents item failed", evt.id, err);
         await this.outboxRepo.markAsFailed(evt.id);
       }
     }
   }
 
   async retryFailedRefunds(limit = 50) {
-    const events = await this.outboxRepo.findFailed("payment.refund.retry", limit);
+    const events = await this.outboxRepo.findFailed('payment.refund.retry', limit);
     if (!events.length) return;
 
     for (const evt of events) {
       let payload;
-      try { payload = JSON.parse(evt.payload); } catch { continue; }
       try {
-        await this._applyWalletRefund({ user_id: payload.user_id, amount: payload.amount, transaction_id: evt.aggregate_id });
-        await this.outboxRepo.markAsProcessed(evt.id);
-      } catch (err) {
-        console.error("retryFailedRefunds item failed", evt.id, err);
+        payload = JSON.parse(evt.payload);
+      } catch {
+        continue;
       }
+
+      try {
+        await this._applyWalletRefund({
+          user_id: payload.user_id,
+          amount: payload.amount,
+          transaction_id: evt.aggregate_id
+        });
+        await this.outboxRepo.markAsProcessed(evt.id);
+      } catch (err) {}
     }
   }
-  
-  /** === Confirm Cash Payment === */
+
   async confirmCashPayment(transaction_id) {
     const tx = await this.transactionRepo.findById(transaction_id);
     if (!tx) throw Object.assign(new Error('Transaction not found'), { status: 404 });
-    if (tx.type !== 'charging') throw Object.assign(new Error('Only charging transactions supported'), { status: 400 });
+    if (tx.related_type !== 'charging_session' && tx.related_type !== 'guest_charging')
+      throw Object.assign(new Error('Only charging transactions supported'), { status: 400 });
 
     tx.markSuccess({ confirmed_at: new Date().toISOString() });
     await this.transactionRepo.updateStatus(tx.id, tx.status, tx.meta);
 
-    await this._createOutbox('payment.charging.succeeded', tx.id, {
-      user_id: tx.user_id,
-      transaction_id: tx.id,
-      related_id: tx.related_id,
-      related_type: 'charging',
-      amount: tx.amount,
-      method: tx.method,
-      reference_code: tx.reference_code
-    }, 'pending');
+    await this._createOutbox(
+      'payment.charging.succeeded',
+      tx.id,
+      {
+        user_id: tx.user_id,
+        transaction_id: tx.id,
+        related_id: tx.related_id,
+        related_type: tx.related_type,
+        amount: tx.amount,
+        method: tx.method,
+        reference_code: tx.reference_code,
+      }
+    );
 
     return tx;
   }
 
-  /** === Webhook ngân hàng === */
   async processBankWebhook(payload) {
     const maybeCodeCandidates = [];
     if (payload.code) maybeCodeCandidates.push(String(payload.code));
     if (payload.content) maybeCodeCandidates.push(String(payload.content));
+
     let refCode = null;
     const regex = /(TOP|SUB|BKG|CHG)[A-F0-9]{22}/i;
+
     for (const text of maybeCodeCandidates) {
       const m = text.match(regex);
-      if (m) { refCode = m[0].toUpperCase(); break; }
+      if (m) {
+        refCode = m[0].toUpperCase();
+        break;
+      }
     }
+
     if (!refCode) throw Object.assign(new Error('Missing referenceCode'), { status: 400 });
 
     const transaction = await this.transactionRepo.findByReferenceCode(refCode);
@@ -270,22 +301,33 @@ export default class PaymentService {
       SUB: 'subscription',
       TOP: 'topup',
       BKG: 'booking',
-      CHG: 'charging'
+      CHG: 'charging',
     }[refCode.substring(0, 3).toUpperCase()];
 
     if (category) {
       const eventType = `payment.${category}.succeeded`;
-      await this._createOutbox(eventType, transaction.id, {
-        user_id: transaction.user_id,
-        transaction_id: transaction.id,
-        related_id: transaction.related_id,
-        related_type: category,
-        amount: incoming,
-        method: transaction.method,
-        reference_code: refCode
-      }, 'pending');
+      await this._createOutbox(
+        eventType,
+        transaction.id,
+        {
+          user_id: transaction.user_id,
+          transaction_id: transaction.id,
+          related_id: transaction.related_id,
+          related_type: transaction.related_type,
+          amount: incoming,
+          method: transaction.method,
+          reference_code: refCode,
+        }
+      );
 
-      await eventBus.publish(eventType, { user_id: transaction.user_id, transaction_id: transaction.id, related_id: transaction.related_id, amount: incoming });
+      try {
+        await publishEvent(eventType, {
+          user_id: transaction.user_id,
+          transaction_id: transaction.id,
+          related_id: transaction.related_id,
+          amount: incoming,
+        });
+      } catch (err) {}
     }
 
     return {
@@ -295,14 +337,13 @@ export default class PaymentService {
       amount: incoming,
       type: transaction.type,
       reference_code: refCode,
-      status: transaction.status
+      status: transaction.status,
     };
   }
 
-  /** === API tiện ích / thống kê === */
   async listUserPayments(user_id) {
     const list = await this.transactionRepo.listByUser(user_id);
-    return list.map(tx => (typeof tx.toJSON === 'function' ? tx.toJSON() : tx));
+    return list.map((tx) => (typeof tx.toJSON === 'function' ? tx.toJSON() : tx));
   }
 
   async getPaymentById(transaction_id) {
@@ -311,10 +352,27 @@ export default class PaymentService {
     return tx;
   }
 
-  async revenueSummary() { return this.transactionRepo.getRevenueSummary(); }
-  async todayRevenue() { return this.transactionRepo.getTodayRevenue(); }
-  async dailyRevenue(days = 30) { return this.transactionRepo.getDailyRevenue(days); }
-  async monthlyRevenue(months = 12) { return this.transactionRepo.getMonthlyRevenue(months); }
-  async revenueByType() { return this.transactionRepo.getRevenueByType(); }
-  async getTotalTransactions() { return this.transactionRepo.count({ status: 'completed' }); }
+  async revenueSummary() {
+    return this.transactionRepo.getRevenueSummary();
+  }
+
+  async todayRevenue() {
+    return this.transactionRepo.getTodayRevenue();
+  }
+
+  async dailyRevenue(days = 30) {
+    return this.transactionRepo.getDailyRevenue(days);
+  }
+
+  async monthlyRevenue(months = 12) {
+    return this.transactionRepo.getMonthlyRevenue(months);
+  }
+
+  async revenueByType() {
+    return this.transactionRepo.getRevenueByType();
+  }
+
+  async getTotalTransactions() {
+    return this.transactionRepo.count({ status: 'completed' });
+  }
 }
