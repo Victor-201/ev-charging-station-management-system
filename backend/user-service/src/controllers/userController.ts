@@ -153,6 +153,31 @@ export class UserController {
     }
   }
 
+  // POST /api/v1/users/:user_id/activate - Admin: Activate user (reactivate)
+  async activateUser(req: Request, res: Response): Promise<void> {
+    try {
+      const { user_id } = req.params;
+
+      // Extract token to forward to auth service
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.split(' ')[1];
+
+      await userService.activateUser(user_id, token);
+
+      res.json({ status: 'activated' });
+    } catch (error: any) {
+      logger.error('Error in activateUser:', error);
+
+      // Forward error from auth service
+      if (error.response?.data) {
+        res.status(error.response.status || 500).json(error.response.data);
+        return;
+      }
+
+      res.status(500).json({ error: 'Failed to activate user' });
+    }
+  }
+
   // GET /api/v1/users/:user_id/export-data - GDPR: Export user data
   async exportUserData(req: Request, res: Response): Promise<void> {
     try {

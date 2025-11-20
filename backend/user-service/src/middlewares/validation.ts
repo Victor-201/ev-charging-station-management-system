@@ -64,6 +64,24 @@ export const scheduleNotificationSchema = Joi.object({
   channels: Joi.array().items(Joi.string().valid('push', 'email', 'sms')).optional(),
 });
 
+export const createStaffSchema = Joi.object({
+  user_id: Joi.string().uuid().required(),
+  station_id: Joi.string().uuid().required(),
+  position: Joi.string().valid('operator', 'manager', 'technician').optional(),
+  shift: Joi.string().valid('morning', 'afternoon', 'night').optional(),
+  hire_date: Joi.date().iso().optional(),
+  notes: Joi.string().max(500).optional(),
+});
+
+export const updateStaffSchema = Joi.object({
+  station_id: Joi.string().uuid().optional(),
+  position: Joi.string().valid('operator', 'manager', 'technician').optional(),
+  shift: Joi.string().valid('morning', 'afternoon', 'night').optional(),
+  hire_date: Joi.date().iso().optional(),
+  is_active: Joi.boolean().optional(),
+  notes: Joi.string().max(500).optional(),
+});
+
 // Validation middleware
 export const validate = (schema: Joi.ObjectSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {

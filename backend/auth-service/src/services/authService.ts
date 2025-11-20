@@ -383,7 +383,7 @@ export class AuthService {
   // Login with email and password
   async login(email: string, password: string, deviceInfo?: string) {
     const result = await query(
-      `SELECT id, email, password_hash, role, status, email_verified FROM users WHERE email = $1`,
+      `SELECT id, email, full_name, password_hash, role, status, email_verified FROM users WHERE email = $1`,
       [email]
     );
 
@@ -433,7 +433,10 @@ export class AuthService {
       accessToken,
       refreshToken,
       user_id: user.id,
+      email: user.email,
+      full_name: user.full_name,
       role: user.role,
+      email_verified: user.email_verified,
     };
   }
 
@@ -454,7 +457,7 @@ export class AuthService {
 
     // Check if user exists
     let user = await query(
-      'SELECT id, email, role, status FROM users WHERE email = $1',
+      'SELECT id, email, full_name, role, status, email_verified FROM users WHERE email = $1',
       [email]
     );
 
@@ -499,7 +502,7 @@ export class AuthService {
 
     // Generate tokens
     const userInfo = await query(
-      'SELECT id, email, role FROM users WHERE id = $1',
+      'SELECT id, email, full_name, role, email_verified FROM users WHERE id = $1',
       [userId]
     );
 
@@ -526,6 +529,10 @@ export class AuthService {
       accessToken,
       refreshToken,
       user_id: userId,
+      email: userInfo.rows[0].email,
+      full_name: userInfo.rows[0].full_name,
+      role: userInfo.rows[0].role,
+      email_verified: userInfo.rows[0].email_verified,
       is_new_user: isNewUser,
     };
   }
@@ -902,7 +909,8 @@ export class AuthService {
 
       // Get paginated users
       const usersResult = await query(
-        `SELECT id AS user_id, email, phone, role, status, created_at
+        `SELECT id AS user_id, email, phone, full_name, date_of_birth,
+                role, status, email_verified, created_at
          FROM users ${whereClause}
          ORDER BY created_at DESC
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
@@ -934,6 +942,25 @@ export class AuthService {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('Failed to deactivate user', 500);
+    }
+  }
+
+  // Admin: Activate user (reactivate)
+  async activateUser(userId: string): Promise<void> {
+    try {
+      const result = await query(
+        `UPDATE users
+         SET status = 'active'
+         WHERE id = $1`,
+        [userId]
+      );
+
+      if (result.rowCount === 0) {
+        throw new AppError('User not found', 404);
+      }
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Failed to activate user', 500);
     }
   }
 }
