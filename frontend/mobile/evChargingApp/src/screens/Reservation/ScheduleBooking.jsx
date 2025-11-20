@@ -331,8 +331,11 @@ export default function ScheduleBooking() {
       connector_type: selectedConnector.replace(/\s+/g, ''), // Remove spaces: "Type 2" -> "Type2"
       start_time: selectedTimeSlot.startTime, // ISO format from slot
       end_time: selectedTimeSlot.endTime, // ISO format from slot
+      payment_method: 'wallet', // Required by backend: 'wallet' or 'bank_transfer'
       price_per_min: 1000, // Default price per minute
     };
+
+    console.log('📋 Booking data to send:', JSON.stringify(bookingData, null, 2));
 
     Alert.alert(
       'Xác nhận đặt chỗ',
@@ -410,7 +413,7 @@ export default function ScheduleBooking() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -592,19 +595,21 @@ export default function ScheduleBooking() {
         )}
       </ScrollView>
 
-      {/* Book Button */}
+      {/* Book Button with SafeArea for bottom */}
       {selectedDate && selectedTimeSlot && selectedConnector && (
-        <View style={styles.bottomContainer}>
-          <TouchableOpacity
-            style={[styles.bookButton, reservationLoading && styles.disabledButton]}
-            onPress={handleBooking}
-            disabled={reservationLoading}
-          >
-            <Text style={styles.bookButtonText}>
-              {reservationLoading ? 'Đang đặt chỗ...' : 'Đặt chỗ ngay'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.background }}>
+          <View style={styles.bottomContainer}>
+            <TouchableOpacity
+              style={[styles.bookButton, reservationLoading && styles.disabledButton]}
+              onPress={handleBooking}
+              disabled={reservationLoading}
+            >
+              <Text style={styles.bookButtonText}>
+                {reservationLoading ? 'Đang đặt chỗ...' : 'Đặt chỗ ngay'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       )}
     </SafeAreaView>
   );

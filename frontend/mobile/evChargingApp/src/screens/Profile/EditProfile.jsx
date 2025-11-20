@@ -125,8 +125,8 @@ export default function EditProfile({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
       <View style={styles.contentContainer}>
         {/* Avatar Section */}
         <View style={styles.avatarContainer}>

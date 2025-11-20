@@ -153,8 +153,8 @@ export default function ProfileScreen({ navigation }) {
   const user = profile;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Profile Header */}
         <View style={styles.headerContainer}>
           <Avatar.Image

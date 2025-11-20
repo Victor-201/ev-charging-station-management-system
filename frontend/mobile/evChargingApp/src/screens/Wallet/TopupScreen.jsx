@@ -106,7 +106,7 @@ const TopupScreen = ({ navigation }) => {
 
   if (topupResult) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <Card style={styles.referenceContainer}>
           <Card.Content>
             <Text style={styles.referenceTitle}>Hoàn tất nạp tiền</Text>
@@ -122,7 +122,7 @@ const TopupScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Text style={styles.title}>Nạp tiền vào ví</Text>
 
       {/* Sepay Quick Top-up Button */}
