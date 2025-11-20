@@ -1,274 +1,251 @@
+// pages/admin/SubscriptionPlans.jsx
 import { useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
 import { usePayment } from "@/hooks/usePayment";
 
-/**
- * Subscription Plans (Pricing Plans)
- * API thật lấy từ payment-service:
- *  GET    /api/v1/payments/plans
- *  POST   /api/v1/payments/plans
- *  PUT    /api/v1/payments/plans/:id
- *  DELETE /api/v1/payments/plans/:id
- */
 export default function SubscriptionPlans() {
   const {
-    loadingPayments,
-    error,
-    setError,
-
-    // Actions
-    getPlans,
-    createPlan,
-    updatePlan,
-    deletePlan,
+    loadingSubscription,
+    createSubscription,
+    cancelSubscription,
+    getAllSubscriptions,
   } = usePayment();
 
-  const [plans, setPlans] = useState([]);
-  const [editing, setEditing] = useState(null); // { id, name, price, currency, description }
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  // ================================
-  // LOAD ALL PLANS
-  // ================================
-  const loadPlans = async () => {
-    setError(null);
-    const res = await getPlans();
-    if (res.success) {
-      setPlans(res.data ?? []);
+  // FORM STATE
+  const [editing, setEditing] = useState(null); // { user_id, plan_id }
+
+  /* ================================
+   * LOAD ALL SUBSCRIPTIONS
+   * ================================ */
+  const loadSubscriptions = async () => {
+    setLoadingList(true);
+    setError("");
+
+    const res = await getAllSubscriptions();
+
+    if (!res?.success) {
+      setError("Không thể tải danh sách subscriptions");
+      setSubscriptions([]);
+      setLoadingList(false);
+      return;
     }
+
+    const data = res.data?.data ?? res.data ?? [];
+    setSubscriptions(Array.isArray(data) ? data : []);
+
+    setLoadingList(false);
   };
 
   useEffect(() => {
-    loadPlans();
+    loadSubscriptions();
   }, []);
 
-  // ================================
-  // START CREATE
-  // ================================
-  const startCreate = () => {
-    setEditing({
-      id: null,
-      name: "",
-      price: 0,
-      currency: "VND",
-      description: "",
-    });
-  };
-
-  // ================================
-  // START EDIT
-  // ================================
-  const startEdit = (p) => {
-    setEditing({
-      id: p.id,
-      name: p.name,
-      price: Number(p.price) || 0,
-      currency: p.currency || "VND",
-      description: p.description || "",
-    });
-  };
-
-  // ================================
-  // SAVE PLAN (POST / PUT)
-  // ================================
-  const savePlan = async () => {
-    if (!editing) return;
-    setSaving(true);
-    setError(null);
-
-    let res;
-    if (editing.id) {
-      res = await updatePlan(editing.id, editing);
-    } else {
-      res = await createPlan(editing);
+  /* ================================
+   * CREATE SUBSCRIPTION
+   * ================================ */
+  const saveSubscription = async () => {
+    if (!editing?.user_id || !editing?.plan_id) {
+      setError("user_id và plan_id là bắt buộc");
+      return;
     }
 
-    setSaving(false);
+    setSaving(true);
+    setError("");
 
-    if (!res.success) {
+    const payload = {
+      user_id: editing.user_id,
+      plan_id: editing.plan_id,
+    };
+
+    console.log("➡ Sending payload:", payload);
+
+    const res = await createSubscription(payload);
+
+    if (!res?.success) {
+      console.log("❌ Subscription create error:", res);
+      setError("Không thể tạo subscription mới");
+      setSaving(false);
       return;
     }
 
     setEditing(null);
-    await loadPlans();
+    await loadSubscriptions();
+    setSaving(false);
   };
 
-  // ================================
-  // DELETE PLAN
-  // ================================
-  const handleDelete = async (id) => {
-    if (!window.confirm("Bạn chắc chắn muốn xoá gói này?")) return;
+  /* ================================
+   * CANCEL SUBSCRIPTION
+   * ================================ */
+  const handleCancel = async (id) => {
+    if (!window.confirm("Bạn có chắc chắn muốn hủy subscription này?")) return;
 
-    const res = await deletePlan(id);
-    if (res.success) {
-      await loadPlans();
+    const res = await cancelSubscription(id);
+
+    if (!res?.success) {
+      setError("Không thể hủy subscription");
+      return;
     }
+
+    await loadSubscriptions();
   };
+
+  /* ================================
+   * TABLE CONFIG
+   * ================================ */
+  const columns = [
+    { key: "id", title: "ID", dataIndex: "id" },
+    { key: "user_id", title: "User ID", dataIndex: "user_id" },
+
+    {
+      key: "plan_id",
+      title: "Plan ID",
+      dataIndex: "plan_id",
+      render: (value, row) => value || row.package_id || "-",
+    },
+
+    {
+      key: "status",
+      title: "Trạng thái",
+      dataIndex: "status",
+      render: (status) => {
+        const color =
+          status === "active"
+            ? "text-emerald-600"
+            : status === "pending"
+            ? "text-amber-600"
+            : "text-slate-600";
+
+        return <span className={color}>{status}</span>;
+      },
+    },
+
+    {
+      key: "start_date",
+      title: "Ngày bắt đầu",
+      dataIndex: "start_date",
+      render: (v) => (v ? new Date(v).toLocaleString("vi-VN") : "-"),
+    },
+
+    {
+      key: "end_date",
+      title: "Ngày kết thúc",
+      dataIndex: "end_date",
+      render: (v) => (v ? new Date(v).toLocaleString("vi-VN") : "-"),
+    },
+
+    {
+      key: "actions",
+      title: "",
+      dataIndex: "id",
+      render: (id, row) =>
+        row.status === "active" || row.status === "pending" ? (
+          <button
+            onClick={() => handleCancel(id)}
+            className="text-xs px-2 py-1 rounded bg-red-600 text-white"
+          >
+            Hủy
+          </button>
+        ) : null,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <PageHeader
-          title="Subscription Plans"
-          subtitle="Quản lý bảng giá từ payment-service (API thật)."
+          title="Subscriptions"
+          subtitle="Quản lý gói subscription của người dùng (API payment-service)"
         />
 
+        {/* ERROR */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
-            {JSON.stringify(error)}
+            {error}
           </div>
         )}
 
-        {/* Danh sách gói */}
-        <Section title="Danh sách gói subscription">
+        {/* LIST */}
+        <Section title="Danh sách subscriptions">
           <div className="flex justify-between items-center mb-3">
             <div className="text-sm text-slate-500">
-              {(plans || []).length} gói đang hoạt động
+              {subscriptions.length} subscriptions
             </div>
+
             <button
-              onClick={startCreate}
+              onClick={() =>
+                setEditing({
+                  user_id: "",
+                  plan_id: "",
+                })
+              }
               className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold"
             >
-              + Tạo gói mới
+              + Tạo subscription mới
             </button>
           </div>
 
-          {loadingPayments ? (
+          {loadingList ? (
             <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
           ) : (
-            <Table
-              columns={["ID", "Tên gói", "Giá", "Mô tả", ""]}
-              rows={(plans || []).map((p) => [
-                p.id,
-                p.name,
-                `${p.price?.toLocaleString("vi-VN")} ${p.currency || "VND"}`,
-                p.description || "",
-                "actions",
-              ])}
-              renderRow={(row, index) => {
-                const p = plans[index];
-                return (
-                  <tr
-                    key={p.id}
-                    className="border-b last:border-0 hover:bg-slate-50"
-                  >
-                    <td className="px-3 py-2 text-xs text-slate-500">
-                      {p.id}
-                    </td>
-                    <td className="px-3 py-2 text-sm font-semibold">
-                      {p.name}
-                    </td>
-                    <td className="px-3 py-2 text-sm">
-                      {p.price?.toLocaleString("vi-VN")} {p.currency}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-600">
-                      {p.description}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <button
-                        onClick={() => startEdit(p)}
-                        className="text-xs px-2 py-1 rounded border mr-2"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDelete(p.id)}
-                        className="text-xs px-2 py-1 rounded bg-red-600 text-white"
-                      >
-                        Xoá
-                      </button>
-                    </td>
-                  </tr>
-                );
-              }}
-            />
+            <Table columns={columns} data={subscriptions} />
           )}
         </Section>
 
-        {/* FORM EDIT / CREATE */}
+        {/* FORM TẠO SUB */}
         {editing && (
-          <Section title={editing.id ? "Sửa gói" : "Tạo gói mới"}>
-            <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <Section title="Tạo subscription mới">
+            <div className="bg-white rounded-xl border shadow-sm p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+
+              {/* USER ID */}
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">
-                  Tên gói
-                </label>
+                <label className="text-xs text-slate-500 mb-1 block">User ID</label>
                 <input
-                  value={editing.name}
+                  value={editing.user_id}
                   onChange={(e) =>
-                    setEditing((p) => ({ ...p, name: e.target.value }))
+                    setEditing((p) => ({ ...p, user_id: e.target.value }))
                   }
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="UUID User"
                 />
               </div>
 
+              {/* PLAN ID */}
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">
-                  Giá
-                </label>
+                <label className="text-xs text-slate-500 mb-1 block">Plan ID</label>
                 <input
-                  type="number"
-                  min={0}
-                  value={editing.price}
+                  value={editing.plan_id}
                   onChange={(e) =>
-                    setEditing((p) => ({
-                      ...p,
-                      price: Number(e.target.value) || 0,
-                    }))
+                    setEditing((p) => ({ ...p, plan_id: e.target.value }))
                   }
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="UUID Plan"
                 />
               </div>
 
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">
-                  Đơn vị tiền
-                </label>
-                <select
-                  value={editing.currency}
-                  onChange={(e) =>
-                    setEditing((p) => ({ ...p, currency: e.target.value }))
-                  }
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="VND">VND</option>
-                  <option value="USD">USD</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="text-xs text-slate-500 mb-1 block">
-                  Mô tả
-                </label>
-                <textarea
-                  rows={3}
-                  value={editing.description}
-                  onChange={(e) =>
-                    setEditing((p) => ({
-                      ...p,
-                      description: e.target.value,
-                    }))
-                  }
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="md:col-span-2 flex justify-end gap-2">
+              {/* BUTTONS */}
+              <div className="md:col-span-3 flex justify-end gap-2">
                 <button
                   onClick={() => setEditing(null)}
                   className="px-3 py-2 rounded-lg border text-sm"
                 >
-                  Huỷ
+                  Hủy
                 </button>
 
                 <button
-                  onClick={savePlan}
-                  disabled={saving}
+                  onClick={saveSubscription}
+                  disabled={saving || loadingSubscription}
                   className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
                 >
-                  {saving ? "Đang lưu..." : "Lưu gói"}
+                  {saving || loadingSubscription
+                    ? "Đang lưu..."
+                    : "Tạo subscription"}
                 </button>
               </div>
             </div>
