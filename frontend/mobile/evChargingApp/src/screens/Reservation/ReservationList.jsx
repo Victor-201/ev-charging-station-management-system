@@ -230,7 +230,7 @@ export default function ReservationList() {
   // Show loading state on initial load
   if (loading && !refreshing && reservations.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Danh sách đặt chỗ</Text>
         </View>
@@ -243,7 +243,7 @@ export default function ReservationList() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Danh sách đặt chỗ</Text>
         <TouchableOpacity
@@ -273,7 +273,7 @@ export default function ReservationList() {
           data={reservations}
           renderItem={renderReservationItem}
           keyExtractor={(item) => item.id?.toString() || item.reservation_id?.toString()}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: 20 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
