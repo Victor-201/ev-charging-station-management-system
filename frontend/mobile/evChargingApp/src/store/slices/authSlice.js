@@ -65,6 +65,9 @@ export const refreshToken = createAsyncThunk('auth/refreshToken', async (_, { ge
 export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provider, token }, { rejectWithValue, dispatch }) => {
   try {
     const data = await authService.socialLogin({ provider, provider_token: token });
+    console.log('==== OAuth Response from Backend ====');
+    console.log('OAuth data:', JSON.stringify(data, null, 2));
+    
     if (data?.accessToken) {
       await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
       if (data.refreshToken) {
@@ -81,22 +84,39 @@ export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provide
           role: data.role,
           email_verified: data.email_verified,
         };
+        console.log('==== Setting OAuth Profile ====');
+        console.log('userProfileData:', JSON.stringify(userProfileData, null, 2));
+        
         dispatch(setUserProfile(userProfileData));
         // Also sync to user slice for Header component
         dispatch({ type: 'user/setProfile', payload: userProfileData });
       }
 
-      // Fetch full user profile from API
+      // Fetch full user profile from API to get additional fields
       try {
         const profile = await profileService.getMe();
-        dispatch(setUserProfile(profile));
-        dispatch({ type: 'user/setProfile', payload: profile });
+        console.log('==== Profile from /users/profile ====');
+        console.log('profile:', JSON.stringify(profile, null, 2));
+        
+        // Merge with OAuth data to ensure full_name is preserved
+        const mergedProfile = {
+          ...profile,
+          full_name: profile.full_name || data.full_name, // Prefer API, fallback to OAuth
+        };
+        console.log('==== Merged Profile ====');
+        console.log('mergedProfile:', JSON.stringify(mergedProfile, null, 2));
+        
+        dispatch(setUserProfile(mergedProfile));
+        dispatch({ type: 'user/setProfile', payload: mergedProfile });
       } catch (profileErr) {
         console.warn('Failed to fetch user profile after social login:', profileErr);
+        // Keep OAuth profile if API call fails
       }
     }
     return data;
   } catch (err) {
+    console.error('==== OAuth Login Error ====');
+    console.error('Error:', err);
     return rejectWithValue(err.response?.data || { message: err.message });
   }
 });

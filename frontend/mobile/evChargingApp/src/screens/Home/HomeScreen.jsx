@@ -20,15 +20,22 @@ export default function HomeScreen() {
 
   // Get user from Redux store
   const userProfile = useSelector((state) => state.user.profile);
+  const authUserProfile = useSelector((state) => state.auth.userProfile);
   const authLoading = useSelector((state) => state.user.loading);
   const accessToken = useSelector((state) => state.auth.accessToken);
 
   // Get wallet data from Redux store
   const { wallet, loading: walletLoading } = useSelector((state) => state.wallet);
 
+  // Debug: Log user profile data
+  console.log('==== HomeScreen User Data ====');
+  console.log('state.user.profile:', JSON.stringify(userProfile, null, 2));
+  console.log('state.auth.userProfile:', JSON.stringify(authUserProfile, null, 2));
+
   // Fetch user profile and wallet data
   useEffect(() => {
     if (accessToken && !userProfile) {
+      console.log('Fetching user profile via getMe()');
       dispatch(getMe());
     }
   }, [accessToken, userProfile, dispatch]);
