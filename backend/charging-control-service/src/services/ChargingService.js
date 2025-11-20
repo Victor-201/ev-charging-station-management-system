@@ -81,7 +81,7 @@ class ChargingService {
 
     const created = await SessionRepo.create(session);
 
-    await publish('charging_events', { type: 'SESSION_INITIATED', data: created });
+ publishEvent('charging_events', { type: 'SESSION_INITIATED', data: created });
 
     return { session_id: created.session_id, status: created.status };
   }
@@ -124,238 +124,180 @@ async reconcileSessionWithReservation(
   try {
     await conn.beginTransaction();
 
-    // ====================================
+    // -----------------------------------------------------
     // 1) LOCK SESSION
-    // ====================================
+    // -----------------------------------------------------
     const [sessRows] = await conn.query(
-      "SELECT * FROM sessions WHERE session_id = ? LIMIT 1 FOR UPDATE",
+      "SELECT * FROM sessions WHERE session_id = ? FOR UPDATE",
       [session_id]
     );
-    if (!sessRows || !sessRows.length) throw new Error("Session not found");
-    const s = sessRows[0];
+    if (!sessRows.length) throw new Error("Session not found");
 
-    const now = dayjs().format("YYYY-MM-DD HH:mm:ss.SSS");
+    const session = sessRows[0];
 
-    // Parse metadata
-    let meta = {};
-    try {
-      meta = s.metadata
-        ? typeof s.metadata === "object"
-          ? s.metadata
-          : JSON.parse(s.metadata)
-        : {};
-    } catch (e) {
-      meta = {};
+    const started_at = session.started_at
+      ? dayjs(session.started_at)
+      : null;
+    const ended_at = session.ended_at
+      ? dayjs(session.ended_at)
+      : dayjs(); // fallback
+
+    // -----------------------------------------------------
+    // 2) LOAD RESERVATION (IF ANY)
+    // -----------------------------------------------------
+    let reservation = null;
+
+    if (session.reservation_id) {
+      const [resRows] = await conn.query(
+        "SELECT * FROM reservations WHERE reservation_id = ? FOR UPDATE",
+        [session.reservation_id]
+      );
+      reservation = resRows.length ? resRows[0] : null;
     }
 
-    // ====================================
-    // 2) CASE: NO RESERVATION
-    // ====================================
-    if (!s.reservation_id) {
-      const actual = Number(s.cost || 0);
+    // -----------------------------------------------------
+    // 3) CALCULATE SESSION PRICE
+    // -----------------------------------------------------
+    let sessionCost = 0;
+    let sessionMinutes = 0;
 
-      meta.reconciliation = {
-        action: "no_reservation",
-        note: "Session has no reservation, settled using actual cost",
-        actual,
-        at: now,
-        operator,
-      };
+    if (started_at) {
+      sessionMinutes = Math.max(0, ended_at.diff(started_at, "minute"));
 
-      await conn.query(
-        "UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?",
-        [JSON.stringify(meta), now, session_id]
+      const pricing = await this.bookingService.calculatePricing(
+      
+        session.point_id,
+        started_at.toISOString(),
+        ended_at.toISOString(),
+         token
       );
 
-      await conn.commit();
-      return {
-        session_id,
-        reservation_id: null,
-        reserved: 0,
-        actual,
-        diff: 0,
-        action: "settled_no_reservation",
-      };
+      sessionCost = Number(pricing.total_amount || 0);
     }
 
-    // ====================================
-    // 3) LOCK RESERVATION
-    // ====================================
-    const [resRows] = await conn.query(
-      "SELECT * FROM reservations WHERE reservation_id = ? LIMIT 1 FOR UPDATE",
-      [s.reservation_id]
-    );
-    if (!resRows || !resRows.length) throw new Error("Reservation not found");
-    const reservation = resRows[0];
-
-    const point_id = reservation.point_id;
-    const start_time = reservation.start_time;
-    const end_time = reservation.end_time;
-
-    // ====================================
-    // 4) CALCULATE RESERVED COST (IF NEEDED)
-    // ====================================
-    let reservedTotal = Number(reservation.total_cost || 0);
-
-    if (!reservedTotal || reservedTotal === 0) {
-      if (!reservation.start_time) {
-        reservedTotal = 0;
-      } else {
-        const {
-          price_per_min,
-          minutes,
-          total_amount,
-        } = await this.bookingService.calculatePricing(point_id, start_time, end_time, token);
-
-        reservedTotal = total_amount;
+    // -----------------------------------------------------
+    // 4) CALCULATE RESERVED COST
+    // -----------------------------------------------------
+    let reservedCost = 0;
+    if (reservation) {
+      if (reservation.total_cost && Number(reservation.total_cost) > 0) {
+        reservedCost = Number(reservation.total_cost);
+      } else if (reservation.start_time && reservation.end_time) {
+        const rp = await this.bookingService.calculatePricing(
+          reservation.point_id,
+          reservation.start_time,
+          reservation.end_time
+        );
+        reservedCost = Number(rp.total_amount || 0);
 
         await conn.query(
-          "UPDATE reservations SET reserved_minutes = ?, total_cost = ?, price_per_min = ?, updated_at = ? WHERE reservation_id = ?",
-          [
-            minutes,
-            total_amount,
-            price_per_min,
-            now,
-            reservation.reservation_id,
-          ]
+          "UPDATE reservations SET total_cost = ?, updated_at = NOW(3) WHERE reservation_id = ?",
+          [reservedCost, reservation.reservation_id]
         );
       }
     }
 
-    // ====================================
-    // 5) COMPARE ACTUAL vs RESERVED
-    // ====================================
-    const actual = Number(s.cost != null ? s.cost : 0);
-    const reserved = Number(reservedTotal || 0);
-    const diff = actual - reserved;
+    // -----------------------------------------------------
+    // 5) COST + DIFF LOGIC
+    // -----------------------------------------------------
+    const totalCost = Number(sessionCost + reservedCost);
+    const diff = totalCost - Number(reservedCost);
 
-    const result = {
-      session_id,
-      reservation_id: reservation.reservation_id,
-      reserved,
-      actual,
-      diff,
-    };
+    let settleAmount = 0;
+    let settlementType = "none";
 
-    // ====================================
-    // CASE 1 — WITHIN THRESHOLD
-    // ====================================
-    if (Math.abs(diff) <= Number(threshold || 0)) {
-      await conn.query(
-        "UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?",
-        [actual, "completed", now, reservation.reservation_id]
-      );
-
-      meta.reconciliation = {
-        action: "settled",
-        note: `diff ${diff} within threshold ${threshold}`,
-        at: now,
-        operator,
-      };
-
-      await conn.query(
-        "UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?",
-        [JSON.stringify(meta), now, session_id]
-      );
-
-      await conn.commit();
-
-      result.action = "settled";
-      return result;
+    if (autoSettle) {if (Math.abs(diff) >= threshold) {
+        settlementType = diff > 0 ? "charge" : "refund";
+        settleAmount = Math.abs(diff);
+      }
     }
 
-    // ====================================
-    // CASE 2 — REFUND
-    // ====================================
-    if (diff < -threshold) {
-      const refundAmount = Math.round(-diff);
+    // -----------------------------------------------------
+    // 6) UPDATE SESSION
+    // -----------------------------------------------------
+    session.metadata = session.metadata
+      ? (typeof session.metadata === "object"
+          ? session.metadata
+          : JSON.parse(session.metadata))
+      : {};
 
+    session.metadata.payment = session.metadata.payment || {};
+    session.metadata.payment.status = settleAmount > 0 ? "settlement_required" : "completed";
+    session.metadata.payment.amount = totalCost;
+    session.metadata.payment.session_cost = sessionCost;
+    session.metadata.payment.reserved_cost = reservedCost;
+    session.metadata.payment.diff = diff;
+    session.metadata.payment.operator = operator;
+    session.metadata.payment.finalized_at = dayjs().format("YYYY-MM-DD HH:mm:ss.SSS");
+
+    await conn.query(
+      `
+      UPDATE sessions
+         SET status = ?,
+             cost = ?,
+             metadata = ?,
+             updated_at = NOW(3)
+       WHERE session_id = ?
+      `,
+      [
+        "completed",
+        totalCost,
+        sessionMinutes,
+        JSON.stringify(session.metadata),
+        session_id,
+      ]
+    );
+
+    // -----------------------------------------------------
+    // 7) UPDATE RESERVATION (optional)
+    // -----------------------------------------------------
+    if (reservation) {
       await conn.query(
-        "UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?",
-        [actual, "completed", now, reservation.reservation_id]
+        `
+        UPDATE reservations
+           SET status = ?,
+               final_cost = ?,
+               updated_at = NOW(3)
+         WHERE reservation_id = ?
+        `,
+        ["completed", reservedCost, reservation.reservation_id]
       );
-
-      meta.reconciliation = meta.reconciliation || {};
-      meta.reconciliation.action = "refund";
-      meta.reconciliation.refund = {
-        amount: refundAmount,
-        currency: "VND",
-        issued: !!autoSettle,
-        issued_at: autoSettle ? now : null,
-        operator,
-        note: `actual ${actual} < reserved ${reserved}`,
-      };
-
-      meta.payment = meta.payment || {};
-      meta.payment.refund = {
-        amount: refundAmount,
-        method: reservation.payment_method || "bank_transfer",
-        at: autoSettle ? now : null,
-      };
-
-      await conn.query(
-        "UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?",
-        [JSON.stringify(meta), now, session_id]
-      );
-
-      await conn.commit();
-
-      result.action = "refund";
-      result.refundAmount = refundAmount;
-      result.autoSettled = !!autoSettle;
-      return result;
     }
 
-    // ====================================
-    // CASE 3 — CHARGE DUE
-    // ====================================
-    if (diff > threshold) {
-      const dueAmount = Math.round(diff);
+    // -----------------------------------------------------
+    // 8) INSERT OUTBOX EVENT
+    // -----------------------------------------------------
+    await EventOutboxRepo.insert(conn, {
+      event_type: "SESSION_SETTLED",
+      payload: {
+        session_id,
+        reservation_id: reservation?.reservation_id || null,
+        total_cost: totalCost,
+        session_cost: sessionCost,
+        reserved_cost: reservedCost,
+        diff,
+        settlement_type: settlementType,
+        settle_amount: settleAmount,
+      },
+    });
 
-      await conn.query(
-        "UPDATE reservations SET final_cost = ?, status = ?, updated_at = ? WHERE reservation_id = ?",
-        [actual, "completed", now, reservation.reservation_id]
-      );
-
-      meta.reconciliation = meta.reconciliation || {};
-      meta.reconciliation.action = "charge_due";
-      meta.reconciliation.due = {
-        amount: dueAmount,
-        currency: "VND",
-        charged: !!autoSettle,
-        charged_at: autoSettle ? now : null,
-        operator,
-        note: `actual ${actual} > reserved ${reserved}`,
-      };
-
-      meta.payment = meta.payment || {};
-      meta.payment.charge = {
-        amount: dueAmount,
-        method: reservation.payment_method || "bank_transfer",
-        at: autoSettle ? now : null,
-      };
-
-      await conn.query(
-        "UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?",
-        [JSON.stringify(meta), now, session_id]
-      );
-
-      await conn.commit();
-
-      result.action = "charge_due";
-      result.dueAmount = dueAmount;
-      result.autoSettled = !!autoSettle;
-      return result;
-    }
-
-    // ====================================
-    // DEFAULT
-    // ====================================
     await conn.commit();
-    result.action = "no_action";
-    return result;
+
+    return {
+      ok: true,
+      session_id,
+      session_cost: sessionCost,
+      reserved_cost: reservedCost,
+      total_cost: totalCost,
+      diff,
+      settlement: {
+        type: settlementType,
+        amount: settleAmount,
+      },
+    };
   } catch (err) {
     await conn.rollback();
+    console.error("[reconcileSessionWithReservation] ERROR:", err);
     throw err;
   } finally {
     conn.release();
@@ -427,87 +369,54 @@ async reconcileSessionWithReservation(
    * body: { stop_reason, end_meter_wh }
    * Trả về: { session_id, status: 'finished', kwh, cost }
    */
-  async stopSession({ session_id, stop_reason = 'user_stop', end_meter_wh = null, payment_method = null } = {}) {
+  async stopSession({ session_id } = {}) {
   const s = await SessionRepo.getById(session_id);
   if (!s) throw new Error('Charging session not found');
 
-  if (!['charging','paused','active','ACTIVE'].includes((s.status || '').toLowerCase())) {
+  if (!['charging', 'paused', 'active', 'ACTIVE'].includes((s.status || '').toLowerCase())) {
     throw new Error('Invalid session state for stopping');
   }
 
-  // ended_at now
   const ended_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
 
-  // compute cost based on time difference: minutes * 1000
-  let cost = null;
-  let duration_minutes = 0;
-  try {
-    const startAt = s.started_at ? dayjs(s.started_at) : null;
-    const endAt = dayjs(ended_at);
-    if (startAt) {
-      const diffMs = endAt.valueOf() - startAt.valueOf();
-      let minutes = Math.ceil(diffMs / 60000); // charge per started minute
-      if (minutes < 0) minutes = 0;
-      duration_minutes = minutes;
-      cost = minutes * 1000; // 1000 đồng per minute
-    } else {
-      // nếu không có started_at thì tính 0 phút
-      duration_minutes = 0;
-      cost = 0;
-    }
-  } catch (err) {
-    // fallback
-    duration_minutes = 0;
-    cost = 0;
-  }
+  // ⚠ cost không tính ở đây nữa
+  const cost = 0;
 
-  const endMeterValue = end_meter_wh != null ? end_meter_wh : (s.end_meter_wh != null ? s.end_meter_wh : null);
-
-  // set default payment method if none provided
-  const AVAILABLE_METHODS = ['wallet', 'bank_transfer', 'cash'];
-  const normalized = (typeof payment_method === 'string' && payment_method.length) ? String(payment_method).toLowerCase() : null;
-  const selected_method = AVAILABLE_METHODS.includes(normalized) ? normalized : 'bank_transfer';
-
-  // update status -> pending and set end_meter_wh, ended_at, cost
   const updated = await SessionRepo.updateStatus(session_id, 'pending', {
-    end_meter_wh: endMeterValue,
     ended_at,
     cost,
   });
 
-  // attach payment info into metadata JSON column (merge with existing metadata if any)
+  // --- cập nhật metadata.payment (không set số tiền)
   try {
-    const existingMeta = updated.metadata && typeof updated.metadata === 'object'
-      ? updated.metadata
-      : (updated.metadata ? JSON.parse(updated.metadata) : {});
+    const meta = updated.metadata
+      ? (typeof updated.metadata === 'object'
+          ? updated.metadata
+          : JSON.parse(updated.metadata))
+      : {};
 
-    existingMeta.payment = existingMeta.payment || {};
-    existingMeta.payment.method = selected_method;
-    existingMeta.payment.status = 'pending';
-    existingMeta.payment.amount = cost;
-    existingMeta.payment.created_at = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
-    existingMeta.payment.stop_reason = stop_reason;
+    meta.payment = meta.payment || {};
+    meta.payment.status = 'pending';
+    meta.payment.created_at = ended_at;
 
-    // persist metadata
-    await pool.query('UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?', [
-      JSON.stringify(existingMeta),
-      dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
-      session_id,
-    ]);
+    await pool.query(
+      'UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?',
+      [JSON.stringify(meta), ended_at, session_id],
+    );
   } catch (err) {
-    // non-fatal: log and continue
     console.error('[stopSession] failed to persist metadata.payment', err);
   }
 
-  publishEvent('charging_events', { type: 'SESSION_PENDING_PAYMENT', data: { session_id, ended_at, cost, stop_reason, payment_method: selected_method } });
+  publishEvent('charging_events', {
+    type: 'SESSION_PENDING_PAYMENT',
+    data: { session_id, ended_at }
+  });
 
   return {
-    session_id: updated.session_id || session_id,
+    session_id,
     status: 'pending',
-    cost,
-    duration_minutes,
-
-    selected_payment_method: selected_method
+    cost: 0,
+    duration_minutes: 0,
   };
 }
   /**
