@@ -98,6 +98,29 @@ class HttpClient {
       throw error;
     }
   }
+
+  // Call Auth Service API to activate user (admin only)
+  async activateUserInAuthService(userId: string, token?: string): Promise<any> {
+    try {
+      const headers: any = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await this.authServiceClient.post(
+        `/api/v1/auth/users/${userId}/activate`,
+        {},
+        { headers }
+      );
+      return response.data;
+    } catch (error: any) {
+      logger.error('Error calling auth service to activate user:', error.message);
+      if (error.response) {
+        logger.error('Response data:', error.response.data);
+      }
+      throw error;
+    }
+  }
 }
 
 export default new HttpClient();

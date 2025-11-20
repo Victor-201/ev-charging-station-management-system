@@ -37,6 +37,9 @@ router.put('/users/:user_id/change-password', authenticate, authorizeOwner, vali
 // POST /api/v1/users/:user_id/deactivate - Admin: Deactivate user
 router.post('/users/:user_id/deactivate', authenticate, authorize('admin'), userController.deactivateUser);
 
+// POST /api/v1/users/:user_id/activate - Admin: Activate user (reactivate)
+router.post('/users/:user_id/activate', authenticate, authorize('admin'), userController.activateUser);
+
 // GET /api/v1/users/:user_id/export-data - GDPR: Export user data
 router.get('/users/:user_id/export-data', authenticate, authorizeOwner, userController.exportUserData);
 

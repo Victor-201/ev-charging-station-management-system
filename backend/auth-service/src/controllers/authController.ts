@@ -169,6 +169,15 @@ export class AuthController {
 
     res.status(200).json({ status: 'deactivated' });
   });
+
+  // Admin: Activate user (reactivate)
+  activateUser = asyncHandler(async (req: Request, res: Response) => {
+    const { user_id } = req.params;
+
+    await authService.activateUser(user_id);
+
+    res.status(200).json({ status: 'activated' });
+  });
 }
 
 export default new AuthController();
