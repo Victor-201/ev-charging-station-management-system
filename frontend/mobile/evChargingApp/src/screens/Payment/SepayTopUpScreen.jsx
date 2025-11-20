@@ -125,7 +125,7 @@ const SepayTopUpScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header with SafeArea */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={24} color="#000" />
@@ -134,7 +134,11 @@ const SepayTopUpScreen = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Info Card */}
         <View style={styles.infoCard}>
           <Icon name="information" size={24} color="#2196F3" />
