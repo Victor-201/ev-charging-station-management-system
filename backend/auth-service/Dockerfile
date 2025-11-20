@@ -12,7 +12,6 @@ RUN npm install
 # Copy source code
 COPY src ./src
 COPY config ./config
-COPY tests ./tests
 
 # Create logs directory
 RUN mkdir -p logs
