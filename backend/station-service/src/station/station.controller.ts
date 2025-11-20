@@ -3,24 +3,29 @@ import { StationService } from './station.service';
 
 import type { Request } from 'express';
 
-import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto, GetListOfStation, StationStatus } from 'src/dto/station.dto';
+import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto, GetListOfStation, StationStatus, StationAbilityItemDto, StationAbilityDto } from 'src/dto/station.dto';
 
 import { JwtAuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
 
+import { MessagePattern, Payload, RmqContext } from '@nestjs/microservices';
+import { RmqService } from 'src/rmq/rmq.service';
 
 @Controller('stations')
 export class StationController {
-    constructor(private stationService: StationService) {}
-    
+    constructor(
+        private stationService: StationService,
+        private readonly rmqService: RmqService
+    ) { }
+
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin', 'staff', 'user')
     @Get('/search')
     async searchStations(@Query() query: SearchStationDto) {
         return this.stationService.searchStations(query);
     }
-    
+
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin', 'staff', 'user')
     @Get()
@@ -74,11 +79,12 @@ export class StationController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin', 'staff')
     @Post(':id/maintenance')
-    async scheduleMaintenance( 
-        @Param('id') station_id: string, 
-        @Req() req: Request, 
-        @Body() data: { start: string; end: string; reason: string 
-    }) {
+    async scheduleMaintenance(
+        @Param('id') station_id: string,
+        @Req() req: Request,
+        @Body() data: {
+            start: string; end: string; reason: string
+        }) {
         const scheduled_by = (req as any).user?.id;
         return this.stationService.scheduleMaintenance(station_id, scheduled_by, data);
     }
@@ -86,7 +92,7 @@ export class StationController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin', 'staff', 'user')
     @Get(':id/pricing')
-    async getPricingByStation(@Param('id') id: string) : Promise<StationPricingDto> {
+    async getPricingByStation(@Param('id') id: string): Promise<StationPricingDto> {
         return this.stationService.getPricingByStation(id);
     }
 
@@ -95,5 +101,32 @@ export class StationController {
     @Put(':id/status')
     async updateStationStatus(@Param('id') id: string, @Body() body: { status: StationStatus }): Promise<any> {
         return this.stationService.updateStatus(id, body.status);
+    }
+
+    @MessagePattern({ queue: 'charger_availability_queue', routingKey: 'charger.availability' })
+    handleChargerAvailability(@Payload() data: any, @Payload() context: RmqContext) {
+        this.rmqService.ack(context);
+        this.stationService.handleChargerAvailability(data);
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff', 'user')
+    @Post('ability')
+    async getStationAbility( @Body() body: StationAbilityItemDto): Promise<StationAbilityDto> {
+        return this.stationService.getStationAbility(body);
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff', 'user')
+    @Get(':id/report-issues')
+    async getHistoryOfReports(@Param('id') id: string) {
+        return this.stationService.getHistoryOfReports(id);
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff')
+    @Get('/report-issues')
+    async getAllHistoryOfReports () {
+        return this.stationService.getAllHistoryOfReports();
     }
 }

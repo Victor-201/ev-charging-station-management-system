@@ -1,18 +1,40 @@
-import { Injectable, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, InternalServerErrorException, NotFoundException, Inject } from '@nestjs/common';
 
 import { PrismaService } from 'src/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
-import { SearchStationDto, CreateStationDto, UpdateStationDto, ConnectorDto, ReportIssueDto, ScheduleMaintenanceDto, StationStatus, PricingItemDto, GetListOfStation } from 'src/dto/station.dto';
+import {
+    SearchStationDto,
+    CreateStationDto,
+    UpdateStationDto,
+    ConnectorDto,
+    ReportIssueDto,
+    ScheduleMaintenanceDto,
+    StationStatus,
+    PricingItemDto,
+    GetListOfStation,
+    StationAbilityItemDto,
+    StationAbilityDto
+} from 'src/dto/station.dto';
+
+import { ClientProxy } from '@nestjs/microservices';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class StationService {
-    constructor(private prisma: PrismaService) { }
+
+    private pendingResponses = new Map<string, (data: StationAbilityDto) => void>();
+
+    constructor(
+        private prisma: PrismaService,
+        @Inject('STATION') private readonly stationClient: ClientProxy,
+        private readonly configService: ConfigService
+    ) { }
 
     searchStations = async (query: SearchStationDto): Promise<any[]> => {
         const {
-            lat,
-            lng,
+            latitude,
+            longitude,
             radius,
             connector_type,
             power_min,
@@ -21,8 +43,8 @@ export class StationService {
             size = '10',
         } = query;
 
-        if (!lat || !lng || !radius) {
-            throw new BadRequestException('lat, lng and radius is required');
+        if (!latitude || !longitude || !radius) {
+            throw new BadRequestException('latitude, longitude and radius is required');
         }
 
         const take = parseInt(size);
@@ -53,8 +75,8 @@ export class StationService {
             if (!station.latitude || !station.longitude) return false;
 
             const distance = getDistanceKm(
-                lat,
-                lng,
+                latitude,
+                longitude,
                 Number(station.latitude),
                 Number(station.longitude),
             );
@@ -73,8 +95,8 @@ export class StationService {
                     address: body.address,
                     city: body.city,
                     region: body.region,
-                    latitude: body.location.lat,
-                    longitude: body.location.lng,
+                    latitude: body.location.latitude,
+                    longitude: body.location.longitude,
                     status: body.status,
                 },
             });
@@ -261,8 +283,8 @@ export class StationService {
             address: station.address,
             city: station.city,
             region: station.region,
-            lat: station.latitude?.toNumber(),
-            lng: station.longitude?.toNumber(),
+            latitude: station.latitude?.toNumber(),
+            longitude: station.longitude?.toNumber(),
             status: station.status as StationStatus,
         }));
     }
@@ -275,11 +297,62 @@ export class StationService {
         if (!station) {
             throw new NotFoundException('Station not found');
         }
-        
+
         return await this.prisma.stations.update({
             where: { id: station_id },
             data: { status: status },
         });
+    }
+
+    getStationAbility = async (body: StationAbilityItemDto): Promise<StationAbilityDto> => {
+        const correlationId = body.station_id + '-' + Date.now();
+
+        const responsePromise = new Promise<StationAbilityDto>((resolve, reject) => {
+            this.pendingResponses.set(correlationId, resolve);
+
+            setTimeout(() => {
+                if (this.pendingResponses.has(correlationId)) {
+                    this.pendingResponses.delete(correlationId);
+                    reject(new Error('Timeout waiting for Charger response'));
+                }
+            }, 5000)
+        });
+
+        const routingKey = this.configService.get<string>('RABBITMQ_STATION_QUEUE');
+        const exchange = this.configService.get<string>('EXCHANGE_NAME');
+        this.stationClient.emit(
+            { exchange: exchange, routingKey: routingKey },
+            { ...body, correlationId }
+        );
+
+        return responsePromise;
+    }
+
+    handleChargerAvailability(data: any) {
+        const { correlationId, availability } = data;
+        const resolve = this.pendingResponses.get(correlationId);
+        if (resolve) {
+            resolve({ availability });
+            this.pendingResponses.delete(correlationId);
+        }
+    }
+
+    getHistoryOfReports = async (station_id: string): Promise<any[]> => {
+        const station = await this.prisma.stations.findUnique({
+            where: { id: station_id },
+        });
+        if (!station) {
+            throw new NotFoundException('Station not found');
+        }
+        const reports = await this.prisma.station_incidents.findMany({
+            where: { station_id },
+        });
+        return reports;
+    }
+
+    getAllHistoryOfReports = async (): Promise<any[]> => {
+        const reports = await this.prisma.station_incidents.findMany();
+        return reports;
     }
 }
 

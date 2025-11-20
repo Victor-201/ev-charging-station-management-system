@@ -1,4 +1,4 @@
-import { IsOptional, IsNumberString, IsString, IsNumber, ValidateNested, IsISO8601, IsEnum } from 'class-validator';
+import { IsOptional, IsNumberString, IsString, IsNumber, ValidateNested, IsISO8601, IsEnum, IsDecimal } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum StationStatus {
@@ -10,10 +10,10 @@ export enum StationStatus {
 
 export class SearchStationDto {
     @IsNumberString()
-    lat: number;
+    latitude: number;
 
     @IsNumberString()
-    lng: number;
+    longitude: number;
 
     @IsNumberString()
     radius: number;
@@ -41,10 +41,10 @@ export class SearchStationDto {
 
 class LocationDto {
     @IsNumber()
-    lat: number;
+    latitude: number;
 
     @IsNumber()
-    lng: number;
+    longitude: number;
 }
 
 
@@ -91,6 +91,14 @@ export class UpdateStationDto {
     @IsOptional()
     @IsEnum(StationStatus)
     status?: StationStatus;
+
+    @IsOptional()
+    @IsDecimal()
+    latitude?: number;
+
+    @IsOptional()
+    @IsDecimal()
+    longitude?: number;
 }
 
 export class ConnectorDto {
@@ -144,17 +152,36 @@ export class StationPricingDto {
 }
 
 export class GetListOfStation {
-  id: string;
-  name: string;
-  address: string | null;
-  city: string | null;
-  region: string | null;
-  lat: number | undefined;
-  lng: number | undefined;
-  status: StationStatus;
+    id: string;
+    name: string;
+    address: string | null;
+    city: string | null;
+    region: string | null;
+    latitude: number | undefined;
+    longitude: number | undefined;
+    status: StationStatus;
 }
 
 export class UpdataStatusDto {
-  @IsEnum(StationStatus)
-  status: StationStatus;
+    @IsEnum(StationStatus)
+    status: StationStatus;
+}
+
+export class StationAbilityItemDto {
+    @IsString()
+    station_id: string;
+
+    @IsISO8601()
+    start: string;
+
+    @IsISO8601()
+    end: string;
+
+    @IsOptional()
+    @IsString()
+    connector_type?: string;
+}
+
+export class StationAbilityDto {
+    availability: StationAbilityItemDto[];
 }

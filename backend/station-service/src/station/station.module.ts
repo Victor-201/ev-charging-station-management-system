@@ -3,9 +3,13 @@ import { StationController } from './station.controller';
 import { StationService } from './station.service';
 import { PrismaService } from 'src/prisma.service';
 import { ConfigModule } from '@nestjs/config';
+import { RmqModule } from 'src/rmq/rmq.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [
+    ConfigModule, 
+    RmqModule.register({ name: 'STATION' })
+  ],
   controllers: [StationController],
   providers: [StationService, PrismaService]
 })
