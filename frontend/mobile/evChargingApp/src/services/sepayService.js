@@ -29,14 +29,16 @@ export const sepayService = {
 
       logger.info('Creating Sepay top-up request', { amount, userId });
 
-      // Create topup transaction using createTransaction endpoint
+      // Create topup transaction - follow web payment flow
       const payload = {
         user_id: userId,
         type: 'topup',
         amount: Number(amount),
         method: 'bank_transfer',
         currency: 'VND',
-        description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng'
+        meta: {
+          description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng'
+        }
       };
 
       logger.debug('CreateTransaction payload:', payload);
@@ -44,11 +46,23 @@ export const sepayService = {
       const response = await apiClient.post(ENDPOINTS.PAYMENT.CREATE_TRANSACTION, payload);
 
       // Backend returns { transaction, invoice }
+      // Extract QR link from meta.qrLink (same as web)
       const transaction = response.data?.transaction || response.data;
+      
+      if (transaction && transaction.meta) {
+        // Ensure meta is parsed if it's a string
+        if (typeof transaction.meta === 'string') {
+          try {
+            transaction.meta = JSON.parse(transaction.meta);
+          } catch (e) {
+            logger.warn('Failed to parse transaction meta:', e);
+          }
+        }
+      }
 
       logger.info('Sepay top-up request created', {
         transaction_id: transaction.id,
-        qrLink: transaction.meta?.qrLink
+        qrLink: transaction.meta?.qrLink || transaction.meta?.qrlink
       });
 
       return transaction;

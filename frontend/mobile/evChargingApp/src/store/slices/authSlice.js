@@ -71,10 +71,26 @@ export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provide
         await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
       }
 
-      // Fetch user profile after successful social login
+      // Set userProfile from OAuth response immediately
+      if (data?.user_id || data?.email || data?.full_name) {
+        const userProfileData = {
+          user_id: data.user_id,
+          id: data.user_id,
+          email: data.email,
+          full_name: data.full_name,
+          role: data.role,
+          email_verified: data.email_verified,
+        };
+        dispatch(setUserProfile(userProfileData));
+        // Also sync to user slice for Header component
+        dispatch({ type: 'user/setProfile', payload: userProfileData });
+      }
+
+      // Fetch full user profile from API
       try {
         const profile = await profileService.getMe();
         dispatch(setUserProfile(profile));
+        dispatch({ type: 'user/setProfile', payload: profile });
       } catch (profileErr) {
         console.warn('Failed to fetch user profile after social login:', profileErr);
       }
@@ -207,6 +223,7 @@ const authSlice = createSlice({
         if (a.payload?.user_id || a.payload?.email || a.payload?.full_name) {
           s.userProfile = {
             user_id: a.payload.user_id,
+            id: a.payload.user_id, // Add id alias for compatibility
             email: a.payload.email,
             full_name: a.payload.full_name,
             role: a.payload.role,

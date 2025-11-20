@@ -14,6 +14,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useSelector } from 'react-redux';
 import { useTheme } from 'react-native-paper';
 import useReservations from '../../hooks/useReservations';
+import reservationService from '../../services/reservationService';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -345,22 +346,53 @@ export default function ScheduleBooking() {
 
   const confirmBooking = async (bookingData) => {
     try {
+      // Step 1: Create reservation
       const response = await createNewReservation(bookingData);
       const reservationId = response?.id || response?.reservation_id || response?.data?.id;
 
-      Alert.alert(
-        'Đặt chỗ thành công!',
-        `Mã đặt chỗ của bạn là: ${reservationId}. Vui lòng kiểm tra trong mục Đặt chỗ.`,
-        [
-          {
-            text: 'Xem đặt chỗ',
-            onPress: () => navigation.navigate('Profile', {
-              screen: 'ReservationStack',
-              params: { screen: 'ReservationMain' }
-            })
-          }
-        ]
-      );
+      if (!reservationId) {
+        throw new Error('Không nhận được mã đặt chỗ từ server');
+      }
+
+      // Step 2: Generate QR code for the reservation
+      try {
+        const qrResponse = await reservationService.generateQR(reservationId);
+        console.log('QR generated successfully:', qrResponse);
+        
+        // Navigate to reservation detail with QR data
+        Alert.alert(
+          'Đặt chỗ thành công!',
+          `Mã đặt chỗ: ${reservationId}\nMã QR đã được tạo để bạn quét khi đến trạm sạc.`,
+          [
+            {
+              text: 'Xem đặt chỗ',
+              onPress: () => navigation.navigate('Profile', {
+                screen: 'ReservationStack',
+                params: { 
+                  screen: 'ReservationMain',
+                  params: { refreshList: true }
+                }
+              })
+            }
+          ]
+        );
+      } catch (qrError) {
+        console.warn('Failed to generate QR code:', qrError);
+        // Still show success even if QR generation fails
+        Alert.alert(
+          'Đặt chỗ thành công!',
+          `Mã đặt chỗ: ${reservationId}\nBạn có thể xem chi tiết trong mục Đặt chỗ.`,
+          [
+            {
+              text: 'Xem đặt chỗ',
+              onPress: () => navigation.navigate('Profile', {
+                screen: 'ReservationStack',
+                params: { screen: 'ReservationMain' }
+              })
+            }
+          ]
+        );
+      }
     } catch (error) {
       console.error('Error creating booking:', error);
       const errorMessage = error?.message || 'Không thể đặt chỗ. Vui lòng thử lại.';
@@ -467,9 +499,9 @@ export default function ScheduleBooking() {
               </View>
             ) : (
               <View style={styles.timeGrid}>
-                {slotsFromRedux.map((slot) => (
+                {slotsFromRedux.map((slot, index) => (
                 <TouchableOpacity
-                  key={slot.id}
+                  key={slot.id || `slot-${index}-${slot.time}`}
                   style={[
                     styles.timeSlot,
                     !slot.available && styles.unavailableSlot,
