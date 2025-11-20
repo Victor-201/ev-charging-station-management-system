@@ -13,7 +13,6 @@ import ForgotPassword from "@/pages/auth/ForgotPassword";
 import DashboardAdmin from "@/pages/admin/Dashboard";
 import AnalyticsAdmin from "@/pages/admin/Analytics";
 import ReportsAdmin from "@/pages/admin/Reports";
-import SettingsAdmin from "@/pages/admin/Settings";
 import StationManagementAdmin from "@/pages/admin/StationManagement";
 import SubscriptionPlansAdmin from "@/pages/admin/SubscriptionPlans";
 import UserManagementAdmin from "@/pages/admin/UserManagement";
@@ -50,7 +49,6 @@ const routeConfig = [
   { path: ROUTERS.ADMIN.DASHBOARD, element: DashboardAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.ANALYTICS, element: AnalyticsAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.REPORTS, element: ReportsAdmin, layout: AdminLayout },
-  { path: ROUTERS.ADMIN.SETTINGS, element: SettingsAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.STATION_MANAGEMENT, element: StationManagementAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.SUBSCRIPTION_PLANS, element: SubscriptionPlansAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.USER_MANAGEMENT, element: UserManagementAdmin, layout: AdminLayout },

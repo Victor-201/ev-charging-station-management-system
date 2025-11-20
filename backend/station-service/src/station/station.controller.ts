@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Post, Body, Put, Delete, UseGuards, Param, Req } from '@nestjs/common';
+import { Controller, Get, Query, Post, Body, Put, Delete, UseGuards, Param, Req, HttpException, HttpStatus } from '@nestjs/common';
 import { StationService } from './station.service';
 
 import type { Request } from 'express';
@@ -112,8 +112,27 @@ export class StationController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin', 'staff', 'user')
     @Post('ability')
+<<<<<<< HEAD
     async getStationAbility( @Body() body: StationAbilityItemDto): Promise<StationAbilityDto> {
         return this.stationService.getStationAbility(body);
+=======
+    async getStationAbility(@Body() body: StationAbilityItemDto): Promise<StationAbilityDto> {
+        try {
+            return await this.stationService.getStationAbility(body);
+        } catch (error) {
+            throw new HttpException(
+                { message: error.message || 'Timeout waiting for response' },
+                HttpStatus.REQUEST_TIMEOUT
+            );
+        }
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin', 'staff', 'user')
+    @Get('report-issues/all')
+    async getAllHistoryOfReports() {
+        return this.stationService.getAllHistoryOfReports();
+>>>>>>> 5053152f02803199790b3813b7364decf11adc80
     }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
@@ -123,10 +142,13 @@ export class StationController {
         return this.stationService.getHistoryOfReports(id);
     }
 
+<<<<<<< HEAD
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin', 'staff')
     @Get('/report-issues')
     async getAllHistoryOfReports () {
         return this.stationService.getAllHistoryOfReports();
     }
+=======
+>>>>>>> 5053152f02803199790b3813b7364decf11adc80
 }
