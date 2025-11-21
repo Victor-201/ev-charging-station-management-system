@@ -7,14 +7,23 @@ const userService = {
     return apiClient.get("/api/v1/auth/me").then(res => res.data);
   },
 
-  // Lấy toàn bộ danh sách user (auth)
-  getAllUsers() {
-    return apiClient.get("/api/v1/auth/users").then(res => res.data);
-    // ⬆ res.data = { total, users } → chuẩn API bạn đưa
+  // Lấy toàn bộ danh sách user (Admin) có pagination + filter
+  getAllUsers(params = {}) {
+    const query = new URLSearchParams({
+      page: params.page ?? 1,
+      size: params.size ?? 20,
+      q: params.q ?? "",
+      role: params.role ?? "",
+      status: params.status ?? ""
+    }).toString();
+
+    return apiClient.get(`/api/v1/auth/users?${query}`).then(res => res.data);
+    // res.data = { total, users }
   },
 
-  // Update user
-  updateUser(id) {
+  // Update user (ở đây đang deactivate)
+  updateUser(id, patch) {
+    // Nếu API chỉ có deactivate, patch có thể bỏ
     return apiClient.post(`/api/v1/auth/users/${id}/deactivate`).then(res => res.data);
   },
 
