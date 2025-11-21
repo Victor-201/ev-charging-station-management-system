@@ -10,9 +10,13 @@ export default function Header({ user }) {
   const navigation = useNavigation();
 
   // useWallet will read auth user id from store if not provided
-    const { wallet, loading: walletLoading, error: walletError, fetchWallet } = useWallet(false, user?.id);
-  console.log('Header wallet', wallet);
+  const { wallet, loading: walletLoading, error: walletError, fetchWallet } = useWallet(false, user?.id);
   const balance = wallet?.balance ?? wallet?.data?.balance ?? 0;
+
+  // Debug logging for user data
+  console.log('==== Header User Data ====');
+  console.log('user:', JSON.stringify(user, null, 2));
+  console.log('user.full_name:', user?.full_name);
 
   const handleBalancePress = () => {
     // Navigate to Wallet tab (which contains WalletStack with WalletMain screen)
@@ -25,7 +29,7 @@ export default function Header({ user }) {
         <Logo style={styles.logo} />
         <View style={styles.titleContainer}>
           <Text style={[styles.welcomeText, { color: colors.onPrimary }]}>
-            Xin chào, {user?.full_name || 'User'}!
+            Xin chào{user?.full_name ? `, ${user.full_name}` : ''}!
           </Text>
           <Text style={[styles.subtitle, { color: colors.onPrimary + 'CC' }]}>
             Sẵn sàng sạc xe điện của bạn?

@@ -465,7 +465,7 @@ export class AuthService {
     let userId: string;
 
     if (user.rows.length === 0) {
-      // Create new user
+      // Create new user with full_name from OAuth provider
       isNewUser = true;
       const client = await getClient();
 
@@ -473,12 +473,29 @@ export class AuthService {
         await client.query('BEGIN');
 
         const userResult = await client.query(
-          `INSERT INTO users (email, password_hash, role, status)
-           VALUES ($1, $2, $3, $4) RETURNING id`,
-          [email, '', 'user', 'active']
+          `INSERT INTO users (email, password_hash, full_name, role, status, email_verified)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
+          [email, '', providerData.name || '', 'user', 'active', true]
         );
 
         userId = userResult.rows[0].id;
+
+        // Send user.created event to User Service via outbox
+        await outboxService.insertEvent(
+          client,
+          'User',
+          userId,
+          'user.created',
+          {
+            user_id: userId,
+            email: email,
+            full_name: providerData.name || '',
+            role: 'user',
+            status: 'active',
+            email_verified: true,
+            created_at: userResult.rows[0].created_at,
+          }
+        );
 
         await client.query('COMMIT');
       } catch (error) {
@@ -489,6 +506,14 @@ export class AuthService {
       }
     } else {
       userId = user.rows[0].id;
+      
+      // Update full_name if not set
+      if (!user.rows[0].full_name && providerData.name) {
+        await query(
+          'UPDATE users SET full_name = $1 WHERE id = $2',
+          [providerData.name, userId]
+        );
+      }
     }
 
     // Link OAuth provider

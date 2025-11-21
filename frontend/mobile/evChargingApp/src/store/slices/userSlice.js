@@ -12,10 +12,17 @@ export const getMe = createAsyncThunk('user/getMe', async (_, { rejectWithValue 
 });
 
 // Async thunk for updating user profile
-export const updateProfile = createAsyncThunk('user/updateProfile', async (profileData, { rejectWithValue }) => {
+export const updateProfile = createAsyncThunk('user/updateProfile', async (profileData, { rejectWithValue, getState }) => {
   try {
-    const { data } = await profileService.updateProfile(profileData);
-    return data;
+    const state = getState();
+    const userId = state.user?.profile?.user_id || state.user?.profile?.id || state.auth?.user?.user_id || state.auth?.user?.id;
+    
+    if (!userId) {
+      throw new Error('User ID not found');
+    }
+    
+    const response = await profileService.updateProfile(userId, profileData);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
   }
@@ -36,6 +43,24 @@ const userSlice = createSlice({
       state.loading = false;
       state.error = null;
     },
+    setProfile(state, action) {
+      // Merge with existing profile to preserve important fields
+      const existingProfile = state.profile || {};
+      const newProfile = action.payload || {};
+      
+      state.profile = {
+        ...existingProfile,
+        ...newProfile,
+        // Ensure full_name is preserved if not in new data
+        full_name: newProfile.full_name || existingProfile.full_name,
+      };
+      
+      console.log('[userSlice] setProfile - Merged:', {
+        hadExisting: !!existingProfile.full_name,
+        newHasFullName: !!newProfile.full_name,
+        finalFullName: state.profile.full_name
+      });
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -46,7 +71,25 @@ const userSlice = createSlice({
       })
       .addCase(getMe.fulfilled, (state, action) => {
         state.loading = false;
-        state.profile = action.payload;
+        
+        // Merge with existing profile to preserve OAuth data like full_name
+        // API /users/profile may not return full_name, but OAuth login does
+        const existingProfile = state.profile || {};
+        const newProfile = action.payload || {};
+        
+        state.profile = {
+          ...newProfile,
+          // Preserve full_name from OAuth if API doesn't provide it
+          full_name: newProfile.full_name || existingProfile.full_name,
+          // Preserve other OAuth fields that might be missing from API
+          email_verified: newProfile.email_verified !== undefined ? newProfile.email_verified : existingProfile.email_verified,
+        };
+        
+        console.log('[userSlice] getMe.fulfilled - Merged profile:', {
+          hadExisting: !!existingProfile.full_name,
+          apiHasFullName: !!newProfile.full_name,
+          finalFullName: state.profile.full_name
+        });
       })
       .addCase(getMe.rejected, (state, action) => {
         state.loading = false;
@@ -70,5 +113,5 @@ const userSlice = createSlice({
   },
 });
 
-export const { clearProfile } = userSlice.actions;
+export const { clearProfile, setProfile } = userSlice.actions;
 export default userSlice.reducer;

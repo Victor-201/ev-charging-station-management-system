@@ -111,7 +111,7 @@ const TransactionHistoryScreen = () => {
 
   if (loading && !refreshing && (!transactions || transactions.length === 0)) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, color: colors.onSurfaceVariant }}>
@@ -124,7 +124,7 @@ const TransactionHistoryScreen = () => {
 
   if (error && (!transactions || transactions.length === 0)) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.centered}>
           <Icon name="error-outline" size={64} color={colors.error} style={{ marginBottom: 16 }} />
           <Text style={styles.errorText}>{error}</Text>
@@ -137,7 +137,7 @@ const TransactionHistoryScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.filterContainer}>
         <Chip selected={filter === 'all'} onPress={() => setFilter('all')}>
           Tất cả

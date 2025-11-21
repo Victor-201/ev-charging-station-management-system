@@ -134,24 +134,7 @@ export const paymentService = {
     apiClient({
       method: "GET",
       url: "api/v1/payments/revenue/today",
-<<<<<<< HEAD
-    }), 
-    getSummaryRevenue: () =>
-       apiClient({
-      method: "GET",
-      url: "api/v1/payments/revenue/summary",
-    }), 
-    createTransaction: (payload) =>
-  apiClient({
-    method: "POST",
-    url: "api/v1/payments/transaction",
-    data: payload,
-  }),
-  confirmCashTransaction: (transaction_id, payload) =>
-apiClient({ method: "POST", url: `api/v1/payments/transaction/${transaction_id}/confirm`, data: payload }),
-=======
     }),
->>>>>>> 5053152f02803199790b3813b7364decf11adc80
 
   getSummaryRevenue: () =>
     apiClient({

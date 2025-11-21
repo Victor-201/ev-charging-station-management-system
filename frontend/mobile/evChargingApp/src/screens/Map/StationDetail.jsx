@@ -209,15 +209,18 @@ export default function StationDetail({ route, navigation }) {
 
     const { latitude, longitude, name } = station;
     
-    // Validate coordinates
-    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+    // Validate coordinates - ensure they are numbers
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
       Alert.alert('Lỗi', 'Không có thông tin vị trí của trạm sạc.');
       return;
     }
 
     const url = Platform.select({
-      ios: `maps://app?daddr=${latitude},${longitude}&q=${encodeURIComponent(name || 'EV Station')}`,
-      android: `https://www.openstreetmap.org/directions?to=${latitude},${longitude}`,
+      ios: `maps://app?daddr=${lat},${lng}&q=${encodeURIComponent(name || 'EV Station')}`,
+      android: `https://www.openstreetmap.org/directions?to=${lat},${lng}`,
     });
 
     Linking.openURL(url).catch(err => {
@@ -244,7 +247,8 @@ export default function StationDetail({ route, navigation }) {
   };
 
   const handleJoinWaitlist = async () => {
-    if (!user?.id || !station?.id) {
+    const userId = user?.user_id || user?.id;
+    if (!userId || !station?.id) {
       Alert.alert('Lỗi', 'Vui lòng đăng nhập để tham gia danh sách chờ');
       return;
     }
@@ -252,9 +256,9 @@ export default function StationDetail({ route, navigation }) {
     setJoiningWaitlist(true);
     try {
       const response = await reservationService.addToWaitlist({
-        user_id: user.id,
+        user_id: userId,
         station_id: station.id,
-        connector_type: station.connector_types?.[0] || 'Type 2', // Default to first available type
+        connector_type: station.connector_types?.[0] || 'Type2', // Default to first available type
       });
 
       Alert.alert(

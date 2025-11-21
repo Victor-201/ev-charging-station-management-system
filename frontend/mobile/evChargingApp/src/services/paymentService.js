@@ -5,13 +5,30 @@ const paymentService = {
   // Wallet Management
   getWallet: async (userId) => {
     try {
-      const response = await apiClient.get(ENDPOINTS.PAYMENT.GET_WALLET.replace(':user_id', userId));
-      return response.data?.data || response.data;
+      // Get transactions and calculate balance
+      const transactions = await apiClient.get(ENDPOINTS.WALLET.TRANSACTIONS.replace(':user_id', userId));
+      const txList = transactions.data?.data || transactions.data || [];
+      
+      let balance = 0;
+      txList.forEach(tx => {
+        if (tx.status === 'completed') {
+          if (tx.type === 'topup' || tx.type === 'refund') {
+            balance += Number(tx.amount);
+          } else if (tx.type === 'payment') {
+            balance -= Number(tx.amount);
+          }
+        }
+      });
+      
+      return {
+        user_id: userId,
+        balance: balance,
+        currency: 'VND',
+        status: 'active'
+      };
     } catch (error) {
-      if (error.response?.status === 404 || error.response?.status === 500) {
-        return { user_id: userId, balance: 0, currency: 'VND', status: 'inactive' };
-      }
-      throw error;
+      console.error('Error getting wallet:', error);
+      return { user_id: userId, balance: 0, currency: 'VND', status: 'active' };
     }
   },
 
@@ -29,6 +46,7 @@ const paymentService = {
       currency: payload.currency || 'VND',
       description: payload.description || 'Nạp tiền vào ví',
     });
+    // Backend returns { transaction, invoice }
     return response.data?.transaction || response.data;
   },
 

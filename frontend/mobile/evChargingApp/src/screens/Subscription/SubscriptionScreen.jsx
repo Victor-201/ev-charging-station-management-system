@@ -8,21 +8,25 @@ import { getSubscriptions, subscribeToPlan, cancelSubscription } from '../../sto
 const SubscriptionScreen = () => {
   const { colors } = useTheme();
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+  const { profile } = useSelector((state) => state.user);
   const { subscriptions, loading, error } = useSelector((state) => state.subscriptions);
 
+  const userId = profile?.user_id || profile?.id;
+
   useEffect(() => {
-    if (user?.id) {
-      dispatch(getSubscriptions(user.id));
+    if (userId) {
+      dispatch(getSubscriptions(userId));
     }
-  }, [dispatch, user?.id]);
+  }, [dispatch, userId]);
 
   const handleSubscribe = (planId) => {
-    dispatch(subscribeToPlan({ userId: user.id, planId }));
+    if (!userId) return;
+    dispatch(subscribeToPlan({ userId, planId }));
   };
 
   const handleCancel = (subscriptionId) => {
-    dispatch(cancelSubscription({ userId: user.id, subscriptionId }));
+    if (!userId) return;
+    dispatch(cancelSubscription({ userId, subscriptionId }));
   };
 
   if (loading) {

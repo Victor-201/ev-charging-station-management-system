@@ -129,6 +129,20 @@ export const StationProvider = ({ children }) => {
       return { success: false, error: err };
     }
   }, []);
+  const fetchReportIssues = useCallback(async (stationId, params = {}) => {
+    if (!stationId) throw new Error("stationId is required");
+    _setStateFor(stationId, { loading: true, error: null });
+
+    try {
+      const res = await stationService.getReportIssues(stationId, params);
+      // giả sử API trả về array ở res.data
+      _setStateFor(stationId, { data: res?.data || [], loading: false, error: null });
+      return res?.data || [];
+    } catch (err) {
+      _setStateFor(stationId, { loading: false, error: err });
+      throw err;
+    }
+  }, []);
 
   const setMaintenance = useCallback(async (station_id, payload) => {
     setLoading(true);
@@ -292,6 +306,7 @@ export const StationProvider = ({ children }) => {
       getConnectors,
       reportIssue,
       setMaintenance,
+      fetchReportIssues,
 
       // charger actions
       registerCharger,

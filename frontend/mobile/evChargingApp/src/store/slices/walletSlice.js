@@ -91,11 +91,10 @@ const walletSlice = createSlice({
       })
       .addCase(topupWallet.fulfilled, (state, action) => {
         state.loading = false;
-        if (state.wallet) {
-          state.wallet.balance = action.payload.new_balance;
-        }
-        const newTransaction = action.payload.transaction || action.payload;
-        if (newTransaction && newTransaction.id) {
+        // Backend returns transaction object, not updated wallet balance
+        // Balance will be updated when transaction is confirmed via webhook
+        const newTransaction = action.payload;
+        if (newTransaction && (newTransaction.id || newTransaction.transaction_id)) {
           state.transactions.unshift(newTransaction); // Add new transaction to the beginning
         }
       })

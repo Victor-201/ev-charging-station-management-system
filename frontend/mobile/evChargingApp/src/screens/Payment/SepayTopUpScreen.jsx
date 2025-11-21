@@ -17,6 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import sepayService from '../../services/sepayService';
 import { logger } from '../../utils/logger';
@@ -24,6 +25,10 @@ import { logger } from '../../utils/logger';
 const SepayTopUpScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  
+  // Get user from profile
+  const profile = useSelector(state => state.user?.profile);
+  const userId = profile?.user_id || profile?.id;
 
   const [amount, setAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
@@ -66,9 +71,8 @@ const SepayTopUpScreen = () => {
         return;
       }
 
-      // Get user ID from Redux store
-      const currentUserId = useSelector(state => state.auth.user?.id);
-      if (!currentUserId) {
+      // Check if user is logged in
+      if (!userId) {
         Alert.alert('Lỗi', 'Vui lòng đăng nhập để nạp tiền');
         return;
       }
@@ -79,7 +83,7 @@ const SepayTopUpScreen = () => {
       // Create top-up request with userId
       const transaction = await sepayService.createTopUpRequest(
         finalAmount,
-        currentUserId,
+        userId,
       );
 
       // Navigate to QR code screen with transaction data
@@ -121,7 +125,7 @@ const SepayTopUpScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top','bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -131,7 +135,11 @@ const SepayTopUpScreen = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Info Card */}
         <View style={styles.infoCard}>
           <Icon name="information" size={24} color="#2196F3" />

@@ -64,6 +64,18 @@ const transformStationData = (station) => {
     return [];
   };
 
+  // Backend returns charging_points array, calculate totals from it
+  const chargingPoints = station.charging_points || [];
+  const totalPorts = chargingPoints.length;
+  const availablePorts = chargingPoints.filter(cp => cp.status === 'available').length;
+  
+  // Extract unique connector types from charging_points
+  const connectorTypes = [...new Set(
+    chargingPoints
+      .map(cp => cp.connector_type)
+      .filter(Boolean)
+  )];
+
   return {
     ...station,
     // Fix text encoding (backend database issue)
@@ -74,16 +86,17 @@ const transformStationData = (station) => {
     // Safely parse coordinates to numbers
     latitude: safeParseFloat(station.latitude),
     longitude: safeParseFloat(station.longitude),
+    // Calculate from charging_points
+    total_ports: totalPorts,
+    available_ports: availablePorts,
     // Safely parse numeric fields
-    available_ports: safeParseInt(station.available_ports),
-    total_ports: safeParseInt(station.total_ports),
     rating: safeParseFloat(station.rating),
     price_per_kwh: safeParseFloat(station.price_per_kwh),
-    // Safely parse arrays
-    connector_types: parseStringArray(station.connector_types),
+    // Extract from charging_points or use existing
+    connector_types: connectorTypes.length > 0 ? connectorTypes : parseStringArray(station.connector_types),
     amenities: parseStringArray(station.amenities),
     // Transform charging_points if present
-    charging_points: (station.charging_points || []).map(point => ({
+    charging_points: chargingPoints.map(point => ({
       ...point,
       max_power_kw: safeParseFloat(point.max_power_kw),
       price_per_kwh: safeParseFloat(point.price_per_kwh),
@@ -95,26 +108,95 @@ const transformStationData = (station) => {
 const stationService = {
   // Search stations with optional filters
   searchStations: async (params = {}) => {
-    const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, { params });
-    // Transform array of stations
-    const stations = Array.isArray(response.data) ? response.data : [];
-    return stations.map(transformStationData);
+    try {
+      // Map mobile params to backend required params
+      const backendParams = {};
+      
+      // Backend requires: latitude, longitude, radius (all required)
+      if (params.lat !== undefined && params.lat !== null) {
+        backendParams.latitude = String(params.lat);
+      }
+      if (params.lng !== undefined && params.lng !== null) {
+        backendParams.longitude = String(params.lng);
+      }
+      if (params.radius !== undefined && params.radius !== null) {
+        backendParams.radius = String(params.radius);
+      }
+      
+      // Optional params
+      if (params.connector_type) backendParams.connector_type = params.connector_type;
+      if (params.power_min) backendParams.power_min = String(params.power_min);
+      if (params.status) backendParams.status = params.status;
+      if (params.page) backendParams.page = String(params.page);
+      if (params.size) backendParams.size = String(params.size);
+      
+      // Validate required params
+      if (!backendParams.latitude || !backendParams.longitude || !backendParams.radius) {
+        console.warn('Missing required search params (latitude, longitude, radius)');
+        return [];
+      }
+      
+      const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, { params: backendParams });
+      // Handle different response formats
+      const data = response.data?.data || response.data;
+      const stations = Array.isArray(data) ? data : [];
+      return stations.map(transformStationData);
+    } catch (error) {
+      console.error('Error searching stations:', error.response?.data || error.message);
+      // Return empty array on error instead of throwing
+      return [];
+    }
   },
 
   // Get station by ID
   getStationById: async (stationId) => {
-    const url = ENDPOINTS.STATION.DETAIL.replace(':id', stationId);
-    const response = await apiClient.get(url);
-    return transformStationData(response.data);
+    try {
+      const url = ENDPOINTS.STATION.DETAIL.replace(':id', stationId);
+      const response = await apiClient.get(url);
+      const station = response.data;
+      
+      // Backend getStationById returns minimal data, fetch connectors separately
+      try {
+        const connectorsUrl = ENDPOINTS.STATION.CONNECTORS.replace(':id', stationId);
+        const connectorsResponse = await apiClient.get(connectorsUrl);
+        const connectors = connectorsResponse.data || [];
+        
+        // Transform connectors to charging_points format
+        station.charging_points = connectors.map(c => ({
+          id: c.point_id,
+          connector_type: c.type,
+          max_power_kw: c.max_power_kw,
+          status: c.status,
+        }));
+      } catch (err) {
+        console.warn('Failed to fetch connectors:', err);
+        station.charging_points = [];
+      }
+      
+      return transformStationData(station);
+    } catch (error) {
+      console.error('Error fetching station by ID:', error);
+      throw error;
+    }
   },
 
   // Get nearby stations based on coordinates
   getNearby: async (latitude, longitude, radius = 10) => {
-    const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, {
-      params: { lat: latitude, lng: longitude, radius }
-    });
-    const stations = Array.isArray(response.data) ? response.data : [];
-    return stations.map(transformStationData);
+    try {
+      const backendParams = {
+        latitude: String(latitude),
+        longitude: String(longitude),
+        radius: String(radius),
+      };
+      
+      const response = await apiClient.get(ENDPOINTS.STATION.SEARCH, { params: backendParams });
+      const data = response.data?.data || response.data;
+      const stations = Array.isArray(data) ? data : [];
+      return stations.map(transformStationData);
+    } catch (error) {
+      console.error('Error fetching nearby stations:', error.response?.data || error.message);
+      return [];
+    }
   },
 
   // Get station availability

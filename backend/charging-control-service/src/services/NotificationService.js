@@ -1,10 +1,10 @@
 const NotificationRepo = require('../repositories/NotificationRepository');
-const { publish } = require('../rabbit');
+const { publishEvent  } = require('../core/rabbit/publisher.js');
 
 class NotificationService {
   async sendNotification(data) {
     const notification = await NotificationRepo.create(data);
-    await publish('notification_events', { type: 'NOTIFICATION_SENT', data: notification });
+    publishEvent ('notification_events', { type: 'NOTIFICATION_SENT', data: notification });
     return notification;
   }
 

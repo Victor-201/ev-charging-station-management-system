@@ -32,7 +32,7 @@ const profileService = {
   // Export user data
   exportData: async (userId) => {
     const url = ENDPOINTS.USER.EXPORT_DATA.replace(':user_id', userId);
-    const response = await apiClient.post(url);
+    const response = await apiClient.get(url);
     return response.data;
   },
 

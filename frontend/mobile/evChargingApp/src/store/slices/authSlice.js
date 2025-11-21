@@ -65,22 +65,58 @@ export const refreshToken = createAsyncThunk('auth/refreshToken', async (_, { ge
 export const socialLogin = createAsyncThunk('auth/socialLogin', async ({ provider, token }, { rejectWithValue, dispatch }) => {
   try {
     const data = await authService.socialLogin({ provider, provider_token: token });
+    console.log('==== OAuth Response from Backend ====');
+    console.log('OAuth data:', JSON.stringify(data, null, 2));
+    
     if (data?.accessToken) {
       await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
       if (data.refreshToken) {
         await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
       }
 
-      // Fetch user profile after successful social login
+      // Set userProfile from OAuth response immediately
+      if (data?.user_id || data?.email || data?.full_name) {
+        const userProfileData = {
+          user_id: data.user_id,
+          id: data.user_id,
+          email: data.email,
+          full_name: data.full_name,
+          role: data.role,
+          email_verified: data.email_verified,
+        };
+        console.log('==== Setting OAuth Profile ====');
+        console.log('userProfileData:', JSON.stringify(userProfileData, null, 2));
+        
+        dispatch(setUserProfile(userProfileData));
+        // Also sync to user slice for Header component
+        dispatch({ type: 'user/setProfile', payload: userProfileData });
+      }
+
+      // Fetch full user profile from API to get additional fields
       try {
         const profile = await profileService.getMe();
-        dispatch(setUserProfile(profile));
+        console.log('==== Profile from /users/profile ====');
+        console.log('profile:', JSON.stringify(profile, null, 2));
+        
+        // Merge with OAuth data to ensure full_name is preserved
+        const mergedProfile = {
+          ...profile,
+          full_name: profile.full_name || data.full_name, // Prefer API, fallback to OAuth
+        };
+        console.log('==== Merged Profile ====');
+        console.log('mergedProfile:', JSON.stringify(mergedProfile, null, 2));
+        
+        dispatch(setUserProfile(mergedProfile));
+        dispatch({ type: 'user/setProfile', payload: mergedProfile });
       } catch (profileErr) {
         console.warn('Failed to fetch user profile after social login:', profileErr);
+        // Keep OAuth profile if API call fails
       }
     }
     return data;
   } catch (err) {
+    console.error('==== OAuth Login Error ====');
+    console.error('Error:', err);
     return rejectWithValue(err.response?.data || { message: err.message });
   }
 });
@@ -120,7 +156,6 @@ const initialState = {
   userProfile: null, // Full user profile from API
   accessToken: null,
   refreshToken: null,
-  isNewUser: false, // Flag to indicate if user needs to complete profile
   loading: false,
   error: null,
 };
@@ -142,15 +177,11 @@ const authSlice = createSlice({
       state.userProfile = null;
       state.accessToken = null;
       state.refreshToken = null;
-      state.isNewUser = false;
       AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
       AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
     },
     setUserProfile(state, action) {
       state.userProfile = action.payload;
-    },
-    setIsNewUser(state, action) {
-      state.isNewUser = action.payload;
     },
     restoreSession(state, action) {
       state.accessToken = action.payload.accessToken;
@@ -208,8 +239,17 @@ const authSlice = createSlice({
         s.loading = false;
         s.accessToken = a.payload?.accessToken ?? null;
         s.refreshToken = a.payload?.refreshToken ?? null;
-        // Check if this is a new user
-        s.isNewUser = a.payload?.is_new_user ?? false;
+        // Save user profile from OAuth response
+        if (a.payload?.user_id || a.payload?.email || a.payload?.full_name) {
+          s.userProfile = {
+            user_id: a.payload.user_id,
+            id: a.payload.user_id, // Add id alias for compatibility
+            email: a.payload.email,
+            full_name: a.payload.full_name,
+            role: a.payload.role,
+            email_verified: a.payload.email_verified,
+          };
+        }
         // Decode JWT to get user info
         if (a.payload?.accessToken) {
           try {
@@ -257,5 +297,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setAccessToken, logout, restoreSession, setUserProfile, setIsNewUser } = authSlice.actions;
+export const { setAccessToken, logout, restoreSession, setUserProfile } = authSlice.actions;
 export default authSlice.reducer;

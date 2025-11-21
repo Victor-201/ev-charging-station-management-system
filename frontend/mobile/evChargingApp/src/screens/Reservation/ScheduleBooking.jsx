@@ -14,6 +14,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useSelector } from 'react-redux';
 import { useTheme } from 'react-native-paper';
 import useReservations from '../../hooks/useReservations';
+import reservationService from '../../services/reservationService';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -317,15 +318,24 @@ export default function ScheduleBooking() {
     }
 
     // Format data according to backend API requirements
+    const userId = user?.user_id || user?.id;
+    if (!userId) {
+      Alert.alert('Lỗi', 'Vui lòng đăng nhập để đặt chỗ');
+      return;
+    }
+
     const bookingData = {
-      user_id: user.id,
+      user_id: userId,
       station_id: stationId.toString(),
       point_id: '1', // Default point_id, can be updated when station service is available
       connector_type: selectedConnector.replace(/\s+/g, ''), // Remove spaces: "Type 2" -> "Type2"
       start_time: selectedTimeSlot.startTime, // ISO format from slot
       end_time: selectedTimeSlot.endTime, // ISO format from slot
+      payment_method: 'wallet', // Required by backend: 'wallet' or 'bank_transfer'
       price_per_min: 1000, // Default price per minute
     };
+
+    console.log('📋 Booking data to send:', JSON.stringify(bookingData, null, 2));
 
     Alert.alert(
       'Xác nhận đặt chỗ',
@@ -339,22 +349,53 @@ export default function ScheduleBooking() {
 
   const confirmBooking = async (bookingData) => {
     try {
+      // Step 1: Create reservation
       const response = await createNewReservation(bookingData);
       const reservationId = response?.id || response?.reservation_id || response?.data?.id;
 
-      Alert.alert(
-        'Đặt chỗ thành công!',
-        `Mã đặt chỗ của bạn là: ${reservationId}. Vui lòng kiểm tra trong mục Đặt chỗ.`,
-        [
-          {
-            text: 'Xem đặt chỗ',
-            onPress: () => navigation.navigate('Profile', {
-              screen: 'ReservationStack',
-              params: { screen: 'ReservationMain' }
-            })
-          }
-        ]
-      );
+      if (!reservationId) {
+        throw new Error('Không nhận được mã đặt chỗ từ server');
+      }
+
+      // Step 2: Generate QR code for the reservation
+      try {
+        const qrResponse = await reservationService.generateQR(reservationId);
+        console.log('QR generated successfully:', qrResponse);
+        
+        // Navigate to reservation detail with QR data
+        Alert.alert(
+          'Đặt chỗ thành công!',
+          `Mã đặt chỗ: ${reservationId}\nMã QR đã được tạo để bạn quét khi đến trạm sạc.`,
+          [
+            {
+              text: 'Xem đặt chỗ',
+              onPress: () => navigation.navigate('Profile', {
+                screen: 'ReservationStack',
+                params: { 
+                  screen: 'ReservationMain',
+                  params: { refreshList: true }
+                }
+              })
+            }
+          ]
+        );
+      } catch (qrError) {
+        console.warn('Failed to generate QR code:', qrError);
+        // Still show success even if QR generation fails
+        Alert.alert(
+          'Đặt chỗ thành công!',
+          `Mã đặt chỗ: ${reservationId}\nBạn có thể xem chi tiết trong mục Đặt chỗ.`,
+          [
+            {
+              text: 'Xem đặt chỗ',
+              onPress: () => navigation.navigate('Profile', {
+                screen: 'ReservationStack',
+                params: { screen: 'ReservationMain' }
+              })
+            }
+          ]
+        );
+      }
     } catch (error) {
       console.error('Error creating booking:', error);
       const errorMessage = error?.message || 'Không thể đặt chỗ. Vui lòng thử lại.';
@@ -372,7 +413,7 @@ export default function ScheduleBooking() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -461,9 +502,9 @@ export default function ScheduleBooking() {
               </View>
             ) : (
               <View style={styles.timeGrid}>
-                {slotsFromRedux.map((slot) => (
+                {slotsFromRedux.map((slot, index) => (
                 <TouchableOpacity
-                  key={slot.id}
+                  key={slot.id || `slot-${index}-${slot.time}`}
                   style={[
                     styles.timeSlot,
                     !slot.available && styles.unavailableSlot,
@@ -554,19 +595,21 @@ export default function ScheduleBooking() {
         )}
       </ScrollView>
 
-      {/* Book Button */}
+      {/* Book Button with SafeArea for bottom */}
       {selectedDate && selectedTimeSlot && selectedConnector && (
-        <View style={styles.bottomContainer}>
-          <TouchableOpacity
-            style={[styles.bookButton, reservationLoading && styles.disabledButton]}
-            onPress={handleBooking}
-            disabled={reservationLoading}
-          >
-            <Text style={styles.bookButtonText}>
-              {reservationLoading ? 'Đang đặt chỗ...' : 'Đặt chỗ ngay'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.background }}>
+          <View style={styles.bottomContainer}>
+            <TouchableOpacity
+              style={[styles.bookButton, reservationLoading && styles.disabledButton]}
+              onPress={handleBooking}
+              disabled={reservationLoading}
+            >
+              <Text style={styles.bookButtonText}>
+                {reservationLoading ? 'Đang đặt chỗ...' : 'Đặt chỗ ngay'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       )}
     </SafeAreaView>
   );

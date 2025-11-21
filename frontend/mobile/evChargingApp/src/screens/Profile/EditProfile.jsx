@@ -101,20 +101,32 @@ export default function EditProfile({ navigation }) {
   };
 
   const onSubmit = async (data) => {
-    if (!profile?.id) return;
+    const userId = profile?.user_id || profile?.id;
+    if (!userId) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+      return;
+    }
 
-    const result = await dispatch(updateProfile(data));
+    try {
+      const result = await dispatch(updateProfile(data));
 
-    if (result.type === 'user/updateProfile/fulfilled') {
-      setSuccessMessage('Cập nhật thông tin thành công!');
-      dispatch(getMe()); // Refetch profile to get updated data
-      setTimeout(() => navigation.goBack(), 1500);
+      if (result.type === 'user/updateProfile/fulfilled') {
+        setSuccessMessage('Cập nhật thông tin thành công!');
+        await dispatch(getMe()); // Refetch profile to get updated data
+        setTimeout(() => navigation.goBack(), 1500);
+      } else if (result.type === 'user/updateProfile/rejected') {
+        const errorMsg = result.payload?.message || result.error?.message || 'Không thể cập nhật thông tin';
+        Alert.alert('Lỗi', errorMsg);
+      }
+    } catch (err) {
+      console.error('Update profile error:', err);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi cập nhật thông tin');
     }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
       <View style={styles.contentContainer}>
         {/* Avatar Section */}
         <View style={styles.avatarContainer}>

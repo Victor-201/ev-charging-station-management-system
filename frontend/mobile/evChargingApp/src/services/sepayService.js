@@ -19,31 +19,61 @@ export const sepayService = {
    */
   async createTopUpRequest(amount, userId) {
     try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('userId is required');
+      }
+      if (!amount || amount <= 0) {
+        throw new Error('Invalid amount');
+      }
+
       logger.info('Creating Sepay top-up request', { amount, userId });
 
-      // Create transaction with bank_transfer method
-      const response = await apiClient.post(ENDPOINTS.PAYMENT.CREATE_TRANSACTION, {
+      // Create topup transaction - follow web payment flow
+      const payload = {
         user_id: userId,
         type: 'topup',
+        amount: Number(amount),
         method: 'bank_transfer',
-        amount,
         currency: 'VND',
         meta: {
-          description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng',
-          provider: 'sepay'
+          description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng'
         }
-      });
+      };
 
+      logger.debug('CreateTransaction payload:', payload);
+
+      const response = await apiClient.post(ENDPOINTS.PAYMENT.CREATE_TRANSACTION, payload);
+
+      // Backend returns { transaction, invoice }
+      // Extract QR link from meta.qrLink (same as web)
       const transaction = response.data?.transaction || response.data;
+      
+      if (transaction && transaction.meta) {
+        // Ensure meta is parsed if it's a string
+        if (typeof transaction.meta === 'string') {
+          try {
+            transaction.meta = JSON.parse(transaction.meta);
+          } catch (e) {
+            logger.warn('Failed to parse transaction meta:', e);
+          }
+        }
+      }
 
       logger.info('Sepay top-up request created', {
         transaction_id: transaction.id,
-        qrLink: transaction.meta?.qrLink
+        qrLink: transaction.meta?.qrLink || transaction.meta?.qrlink
       });
 
       return transaction;
     } catch (error) {
-      logger.error('Failed to create Sepay top-up request', error);
+      logger.error('Failed to create Sepay top-up request', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        userId,
+        amount
+      });
       throw error;
     }
   },
@@ -75,7 +105,17 @@ export const sepayService = {
    */
   getQRCodeUrl(transaction) {
     // Backend returns QR link in meta.qrLink (Sepay format)
-    const qrLink = transaction?.meta?.qrLink || transaction?.meta?.qrlink;
+    // Parse meta if it's a string
+    let meta = transaction?.meta;
+    if (typeof meta === 'string') {
+      try {
+        meta = JSON.parse(meta);
+      } catch (e) {
+        logger.warn('Failed to parse meta', e);
+      }
+    }
+
+    const qrLink = meta?.qrLink || meta?.qrlink;
 
     if (qrLink) {
       logger.debug('Using QR code URL from backend', { qrLink });
@@ -163,8 +203,8 @@ export const sepayService = {
     return {
       bank_name: 'Ngân hàng TMCP Á Châu (ACB)',
       bank_code: 'ACB',
-      account_number: '123456789',
-      account_name: 'CONG TY EV CHARGING',
+      account_number: '45281677',
+      account_name: 'NGUYEN VAN THANG',
       branch: 'Chi nhánh TP.HCM'
     };
   }

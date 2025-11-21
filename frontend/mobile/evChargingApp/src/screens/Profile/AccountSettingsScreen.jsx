@@ -40,7 +40,7 @@ export default function AccountSettingsScreen() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+  const { profile } = useSelector((state) => state.user);
   const { settings: notificationSettings, loading: settingsLoading } = useSelector((state) => state.notification);
   const [loading, setLoading] = useState(null);
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -49,16 +49,19 @@ export default function AccountSettingsScreen() {
   const [unlinkDialogVisible, setUnlinkDialogVisible] = useState(false);
   const [accountToUnlink, setAccountToUnlink] = useState(null);
 
+  const userId = profile?.user_id || profile?.id;
+
   useEffect(() => {
-    if (user?.id) {
-      dispatch(getNotificationSettings(user.id));
+    if (userId) {
+      dispatch(getNotificationSettings(userId));
       fetchSocialAccounts();
     }
-  }, [dispatch, user?.id]);
+  }, [dispatch, userId]);
 
   const fetchSocialAccounts = async () => {
+    if (!userId) return;
     try {
-      const accounts = await profileService.getSocialAccounts(user.id);
+      const accounts = await profileService.getSocialAccounts(userId);
       setSocialAccounts(accounts);
     } catch (error) {
       console.error('Failed to fetch social accounts:', error);
@@ -66,15 +69,16 @@ export default function AccountSettingsScreen() {
   };
 
   const handleSettingChange = (key, value) => {
-    if (!notificationSettings) return;
+    if (!notificationSettings || !userId) return;
     const newSettings = { ...notificationSettings, [key]: value };
-    dispatch(updateNotificationSettings({ userId: user.id, settings: newSettings }));
+    dispatch(updateNotificationSettings({ userId, settings: newSettings }));
   };
 
   const handleExportData = async () => {
+    if (!userId) return;
     setLoading('export');
     try {
-      await profileService.exportData(user.id);
+      await profileService.exportData(userId);
       Alert.alert('Thành công', 'Yêu cầu xuất dữ liệu đã được gửi. Vui lòng kiểm tra email của bạn.');
     } catch (error) {
       Alert.alert('Lỗi', 'Không thể xuất dữ liệu. Vui lòng thử lại.');
@@ -84,10 +88,10 @@ export default function AccountSettingsScreen() {
   };
 
   const handleUnlinkAccount = async () => {
-    if (!accountToUnlink) return;
+    if (!accountToUnlink || !userId) return;
     setUnlinkLoading(accountToUnlink.provider);
     try {
-      await profileService.unlinkSocialAccount(user.id, accountToUnlink.provider);
+      await profileService.unlinkSocialAccount(userId, accountToUnlink.provider);
       setSocialAccounts(socialAccounts.filter(acc => acc.provider !== accountToUnlink.provider));
       Alert.alert('Thành công', `Tài khoản ${accountToUnlink.provider} đã được hủy liên kết.`);
     } catch (error) {
@@ -105,10 +109,11 @@ export default function AccountSettingsScreen() {
   };
 
   const handleDeleteAccount = async () => {
+    if (!userId) return;
     setDialogVisible(false);
     setLoading('delete');
     try {
-      await profileService.deleteAccount(user.id);
+      await profileService.deleteAccount(userId);
       Alert.alert('Thành công', 'Tài khoản của bạn đã được xóa.', [
         { text: 'OK', onPress: () => dispatch(logoutAsync()) },
       ]);
