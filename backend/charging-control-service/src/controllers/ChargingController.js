@@ -59,18 +59,31 @@ exports.reconcileSession = async (req, res) => {
     const session_id = req.params.session_id;
     if (!session_id) return res.status(400).json({ error: 'session_id is required' });
 
+    // --- lấy token ---
+    const authHeader = req.headers?.authorization || req.get('Authorization');
+    const tokenFromHeader = authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.split(' ')[1]
+      : authHeader || null;
+    const token = tokenFromHeader || req.user?.token || null;
+
     const autoSettle = req.body.auto_settle !== undefined ? Boolean(req.body.auto_settle) : false;
     const threshold = req.body.threshold != null ? Number(req.body.threshold) : 1000;
     const operator = req.body.operator || null;
 
-    const result = await ChargingService.reconcileSessionWithReservation(session_id, { autoSettle, threshold, operator });
+    // --- gọi service đúng thứ tự tham số ---
+    const result = await ChargingService.reconcileSessionWithReservation(
+      token,
+      session_id,
+      { autoSettle, threshold, operator }
+    );
+
     return res.status(200).json({ ok: true, result });
   } catch (err) {
     console.error('[ChargingController.reconcileSession] error:', err);
-    const status = 500;
-    return res.status(status).json({ error: err.message || 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
+
 // GET /api/v1/stations/:station_id/active-points
 exports.getActivePoints = async (req, res) => {
   try {
@@ -235,6 +248,7 @@ exports.resumeSession = async (req, res) => {
 };
 
 // POST /api/v1/sessions/:session_id/stop
+// controller (stopSession)
 exports.stopSession = async (req, res) => {
   try {
     const session_id = req.params.session_id;
@@ -244,12 +258,23 @@ exports.stopSession = async (req, res) => {
     // 1) Stop session (không tính tiền)
     const stopped = await ChargingService.stopSession({ session_id });
 
+    // --- secure token extraction ---
+    const authHeader = req.headers?.authorization || req.get('Authorization');
+    const tokenFromHeader = authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.split(' ')[1]
+      : authHeader || null;
+    const token = tokenFromHeader || req.user?.token || null;
+
+    if (!token) {
+      // optional: chỉ log, không block (tùy yêu cầu bảo mật)
+      console.warn('[stopSession] token is missing; proceeding with null token');
+    }
+
     // 2) Toàn bộ việc tính tiền nằm ở reconcile
-    const reconcileResult =
-      await ChargingService.reconcileSessionWithReservation(
-        req.user?.token,
-        session_id,
-      );
+    const reconcileResult = await ChargingService.reconcileSessionWithReservation(
+      token,
+      session_id,
+    );
 
     return res.status(200).json({
       ok: true,
@@ -263,6 +288,7 @@ exports.stopSession = async (req, res) => {
     return res.status(status).json({ error: err.message || 'Internal server error' });
   }
 };
+
 
 
 
