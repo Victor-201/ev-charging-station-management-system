@@ -26,7 +26,7 @@ router.get('/users/profile', authenticate, userController.getMe);
 router.get('/users', authenticate, authorize('admin'), userController.getUserList);
 
 // GET /api/v1/users/:user_id - Get user details
-router.get('/users/:user_id', authenticate, authorizeOwner, userController.getUserDetails);
+router.get('/users/:user_id', authenticate, authorize('admin', 'staff'), userController.getUserDetails);
 
 // PUT /api/v1/users/:user_id - Update user information
 router.put('/users/:user_id', authenticate, authorizeOwner, validate(updateUserSchema), userController.updateUser);
