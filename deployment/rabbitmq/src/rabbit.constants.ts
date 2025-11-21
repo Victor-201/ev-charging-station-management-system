@@ -8,9 +8,9 @@ export const RMQ_ROUTING_KEYS = {
   CHARGER : 'charger.availability',
   STATION : 'points.status',
   PAYMENT: [
-    'payment.booking.success',
+    'payment.booking.succeeded',
     'payment.booking.failed',
-    'payment.charging.success',
+    'payment.charging.succeeded',
     'payment.charging.failed'
   ],
 };
