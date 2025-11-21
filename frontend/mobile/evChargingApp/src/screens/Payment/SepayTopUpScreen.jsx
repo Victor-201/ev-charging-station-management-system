@@ -198,7 +198,7 @@ const SepayTopUpScreen = () => {
           )}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
