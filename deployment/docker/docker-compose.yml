@@ -239,10 +239,14 @@ services:
       DB_PASSWORD: postgres
       AUTH_SERVICE_URL: http://auth-service:3001
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      # Firebase Admin SDK service account path inside container
+      FIREBASE_SERVICE_ACCOUNT_PATH: /app/config/firebase-service-account.json
     ports:
       - "3002:3002"
     volumes:
       - user-service-exports:/app/exports
+      # Mount Firebase service account JSON (read-only)
+      - ../../backend/user-service/config/firebase-service-account.json:/app/config/firebase-service-account.json:ro
     depends_on:
       postgres-user:
         condition: service_healthy
