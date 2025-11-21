@@ -127,8 +127,8 @@ export class StationService {
             address: station.address,
             city: station.city,
             region: station.region,
-            lat: station.latitude?.toNumber(),
-            lng: station.longitude?.toNumber(),
+            latitude: station.latitude?.toNumber(),
+            longitude: station.longitude?.toNumber(),
             status: station.status,
         };
     }
