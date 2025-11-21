@@ -29,13 +29,13 @@ export default function StationManagementPage() {
     city: "",
     region: "",
     status: "",
-    lat: "",
-    lng: "",
+    latitude: "",
+    longitude: "",
   });
 
   // Load danh sách trạm
   useEffect(() => {
-    getAll({ lat: 10.9, lng: 106.8, radius: 50 });
+    getAll({ latitude: 10.9, longitude: 106.8, radius: 50 });
   }, [getAll]);
 
   // Khi chọn trạm → load chi tiết + connectors
@@ -54,10 +54,10 @@ export default function StationManagementPage() {
       city: currentStation.city || "",
       region: currentStation.region || "",
       status: currentStation.status || "active",
-      lat: currentStation.lat || "",
-      lng: currentStation.lng || "",
+      latitude: currentStation.latitude || "",
+      longitude: currentStation.longitude || "",
     });
-  }, [currentStation]);
+  }, [currentStation]); 
 
   const handleSelectStation = (id) => setSelectedId(id);
 
@@ -67,8 +67,8 @@ export default function StationManagementPage() {
 
     await update(id, {
       ...form,
-      lat: Number(form.lat),
-      lng: Number(form.lng),
+      latitude: Number(form.latitude),
+      longitude: Number(form.longitude),
     });
   };
 
@@ -217,14 +217,14 @@ export default function StationManagementPage() {
 
                   <DetailInput
                     label="Vĩ độ (Lat)"
-                    value={form.lat}
-                    onChange={(e) => setForm({ ...form, lat: e.target.value })}
+                    value={form.latitude}
+                    onChange={(e) => setForm({ ...form, latitude: e.target.value })}
                   />
 
                   <DetailInput
                     label="Kinh độ (Lng)"
-                    value={form.lng}
-                    onChange={(e) => setForm({ ...form, lng: e.target.value })}
+                    value={form.longitude}
+                    onChange={(e) => setForm({ ...form, longitude: e.target.value })}
                   />
 
                 </div>
@@ -240,7 +240,7 @@ export default function StationManagementPage() {
                       height="100%"
                       loading="lazy"
                       allowFullScreen
-                      src={`https://maps.google.com/maps?q=${currentStation.lat},${currentStation.lng}&z=15&output=embed`}
+                      src={`https://maps.google.com/maps?q=${currentStation.latitude},${currentStation.longitude}&z=15&output=embed`}
                     ></iframe>
                   </div>
                 </div>
