@@ -59,6 +59,45 @@ export const PaymentProvider = ({ children }) => {
       setLoadingTransactions(false);
     }
   }, []);
+    // =====================================================
+  // INVOICE (PDF)
+  // =====================================================
+  const getInvoiceById = useCallback(async (invoiceId) => {
+    setLoadingInvoice(true);
+    setError(null);
+
+    try {
+      const res = await paymentService.getInvoiceById(invoiceId);
+
+      // API trả về blob PDF
+      const blob = res?.data instanceof Blob ? res.data : new Blob([res], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      // Mở tab mới xem PDF
+      window.open(url);
+
+      // Tạo link download
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice_${invoiceId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      // Lưu lại invoice cuối cùng
+      setLastInvoice(invoiceId);
+
+      return { success: true };
+    } catch (err) {
+      const e = err?.response?.data ?? err;
+      console.error("Invoice Error:", e);
+      setError(e);
+      return { success: false, error: e };
+    } finally {
+      setLoadingInvoice(false);
+    }
+  }, []);
+
 
   const confirmCashTransaction = useCallback(async (transactionId, payload) => {
     setLoadingTransactions(true);
@@ -255,22 +294,7 @@ export const PaymentProvider = ({ children }) => {
   // =====================================================
   // INVOICE
   // =====================================================
-  const getInvoiceById = useCallback(async (invoice_id) => {
-    setLoadingInvoice(true);
-    setError(null);
-    try {
-      const res = await paymentService.getInvoiceById(invoice_id);
-      const data = res?.data ?? res;
-      setLastInvoice(data);
-      return { success: true, data };
-    } catch (err) {
-      const e = err?.response?.data ?? err;
-      setError(e);
-      return { success: false, error: e };
-    } finally {
-      setLoadingInvoice(false);
-    }
-  }, []);
+  
 
   const generateBilling = useCallback(async (payload) => {
     setLoadingInvoice(true);
@@ -543,6 +567,10 @@ export const PaymentProvider = ({ children }) => {
       monthlyRevenue,
       todayRevenue,
       summaryRevenue,
+      getInvoiceById,
+loadingInvoice,
+lastInvoice,
+
 
       // TRANSACTIONS
       createTransaction,
