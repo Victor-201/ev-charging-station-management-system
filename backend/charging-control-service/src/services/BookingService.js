@@ -33,14 +33,12 @@ class BookingService {
       await createConsumer("payment_queue", async (routingKey, payload) => {
         try {
           switch (routingKey) {
-            case "payment.booking.success":
             case "payment.booking.succeeded":
               debug("💰 Payment success:", payload.related_id);
               await this.confirmReservation(payload.related_id, { payment_info: payload });
               break;
 
             case "payment.booking.failed":
-            case "payment.booking.failure":
               debug("💸 Payment failed:", payload.related_id);
               await this.markReservationFailed(payload.related_id, {
                 cancel: true,
