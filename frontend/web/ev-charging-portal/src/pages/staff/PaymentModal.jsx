@@ -1,3 +1,4 @@
+// ================== FULL FILE PaymentModal.js ==================
 import React, { useCallback, useState } from "react";
 import { X } from "lucide-react";
 import paymentService from "@/services/paymentService";
@@ -25,126 +26,186 @@ const PaymentModal = ({
 }) => {
   const [pendingCashTransactionId, setPendingCashTransactionId] = useState(null);
 
+  // =========================
+  // FORMAT MONEY
+  // =========================
   const formatMoney = (v) => {
     if (v === null || v === undefined || v === "") return "N/A";
-    const n = Number(v) ?? 0;
-    return n.toLocaleString("vi-VN") + " VNĐ";
+    return Number(v).toLocaleString("vi-VN") + " VNĐ";
   };
 
-  const createTransaction = useCallback(async (payload) => {
-    setLoadingTransactions(true);
-    setTransactionError(null);
-
+  // =========================
+  // INVOICE HANDLER
+  // =========================
+  const printInvoice = async (invoiceId) => {
     try {
-      const res = await paymentService.createTransaction(payload);
+      const res = await paymentService.getInvoiceById(invoiceId);
+      const blob = res.data;
+      const url = window.URL.createObjectURL(blob);
 
-      const data =
-        res?.transaction ||
-        res?.data?.transaction ||
-        res;
+      // mở tab
+      window.open(url);
 
-      if (!data) {
-        throw new Error("Không tìm thấy dữ liệu giao dịch trong phản hồi");
-      }
-
-      const qr =
-        data?.meta?.qrLink ||
-        data?.meta?.qrlink ||
-        data?.data?.meta?.qrLink ||
-        null;
-
-      if (qr) {
-        setQrCodeUrl(qr);
-      }
-
-      return { success: true, data };
-
+      // download
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice_${invoiceId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (err) {
-      const errorMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Giao dịch thất bại";
-
-      setTransactionError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      setLoadingTransactions(false);
+      console.error("Lỗi in hóa đơn:", err);
+      alert("Không thể in hóa đơn.");
     }
-  }, [setLoadingTransactions, setTransactionError, setQrCodeUrl]);
+  };
 
-  const confirmCashTransaction = useCallback(async (transactionId, payload) => {
-    setLoadingTransactions(true);
-    setTransactionError(null);
-    try {
-      const res = await paymentService.confirmCashTransaction(transactionId, payload);
-      const data = res?.data ?? res;
-      return { success: true, data };
-    } catch (err) {
-      const errorMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Xác nhận giao dịch thất bại";
-      setTransactionError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      setLoadingTransactions(false);
+  const askInvoice = async (invoiceId) => {
+    const wantsInvoice = window.confirm("Bạn có muốn lấy hóa đơn không?");
+    if (wantsInvoice) {
+      await printInvoice(invoiceId);
     }
-  }, [setLoadingTransactions, setTransactionError]);
+  };
 
-  const pollWalletPayment = useCallback(() => {
-    const interval = setInterval(async () => {
-      const paymentSuccess = Math.random() > 0.7;
-      if (paymentSuccess) {
+  // =========================
+  // CREATE TRANSACTION
+  // =========================
+  const createTransaction = useCallback(
+    async (payload) => {
+      setLoadingTransactions(true);
+      setTransactionError(null);
+
+      try {
+        const res = await paymentService.createTransaction(payload);
+        const data =
+          res?.transaction ||
+          res?.data?.transaction ||
+          res;
+
+        const qr =
+          data?.meta?.qrLink ||
+          data?.meta?.qrlink ||
+          data?.data?.meta?.qrLink ||
+          null;
+
+        if (qr) setQrCodeUrl(qr);
+
+        return { success: true, data, raw: res };
+      } catch (err) {
+        const errorMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Giao dịch thất bại";
+
+        setTransactionError(errorMsg);
+        return { success: false, error: errorMsg };
+      } finally {
+        setLoadingTransactions(false);
+      }
+    },
+    [setLoadingTransactions, setTransactionError, setQrCodeUrl]
+  );
+
+  // =========================
+  // CONFIRM CASH
+  // =========================
+  const confirmCashTransaction = useCallback(
+    async (transactionId, payload) => {
+      setLoadingTransactions(true);
+      setTransactionError(null);
+
+      try {
+        const res = await paymentService.confirmCashTransaction(
+          transactionId,
+          payload
+        );
+        return { success: true, data: res?.data ?? res };
+      } catch (err) {
+        const errorMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Xác nhận giao dịch thất bại";
+
+        setTransactionError(errorMsg);
+        return { success: false, error: errorMsg };
+      } finally {
+        setLoadingTransactions(false);
+      }
+    },
+    [setLoadingTransactions, setTransactionError]
+  );
+
+  // =========================
+  // WALLET POLLING MOCK
+  // =========================
+  const pollWalletPayment = useCallback(
+    () => {
+      const interval = setInterval(async () => {
+        const paymentSuccess = Math.random() > 0.7;
+        if (paymentSuccess) {
+          clearInterval(interval);
+          setWalletPolling(false);
+          setReconcileResult((prev) => ({
+            ...prev,
+            payment_status: "completed",
+          }));
+
+          alert("Thanh toán ví thành công!");
+
+          setShowPaymentModal(false);
+          setQrCodeUrl(null);
+
+          await refreshReconcileData();
+          await refreshCurrentSession();
+          await loadActivePoints();
+        }
+      }, 3000);
+
+      setTimeout(() => {
         clearInterval(interval);
         setWalletPolling(false);
-        setReconcileResult((prev) => ({
-          ...prev,
-          payment_status: "completed",
-        }));
-        alert("Thanh toán ví thành công!");
-        setShowPaymentModal(false);
-        setQrCodeUrl(null);
-        await refreshReconcileData();
-        await refreshCurrentSession();
-        await loadActivePoints();
-      }
-    }, 3000);
+      }, 60000);
+    },
+    [
+      setWalletPolling,
+      setReconcileResult,
+      setShowPaymentModal,
+      setQrCodeUrl,
+      refreshReconcileData,
+      refreshCurrentSession,
+      loadActivePoints,
+    ]
+  );
 
-    setTimeout(() => {
-      clearInterval(interval);
-      setWalletPolling(false);
-    }, 60000);
-  }, [setWalletPolling, setReconcileResult, setShowPaymentModal, setQrCodeUrl, refreshReconcileData, refreshCurrentSession, loadActivePoints]);
-
+  // =========================
+  // PROCEED PAYMENT
+  // =========================
   const handleProceedPayment = async () => {
-    if (!selectedPaymentMethod || !reconcileResult?.diff || reconcileResult.diff <= 0) return;
+    if (!selectedPaymentMethod || !reconcileResult?.diff) return;
 
     const amount = Number(reconcileResult.diff);
     const user_id = currentSession?.user_id;
     const session_id = selectedSessionId;
     const start_time = currentSession?.start_time || currentSession?.created_at;
     const end_time = currentSession?.end_time || new Date().toISOString();
-
-    const hasReservation = 
-      currentSession?.reservation_id != null && 
+    const hasReservation =
+      currentSession?.reservation_id != null &&
       currentSession?.reservation_id !== "";
 
-    const related_type = hasReservation ? "charging_session" : "guest_charging";
-
-    if (!user_id || !session_id) {
-      alert("Thiếu thông tin người dùng hoặc phiên sạc");
-      return;
-    }
+    const related_type = hasReservation
+      ? "charging_session"
+      : "guest_charging";
 
     const payload = {
       user_id,
       type: "payment",
       method: selectedPaymentMethod,
       related_id: session_id,
-      related_type: related_type,
+      related_type,
       amount,
       meta: {
-        description: `Thanh toán ${hasReservation ? 'đặt sạc' : 'sạc khách vãng lai'} tại trạm ${STATION_ID}`,
+        description: `Thanh toán ${
+          hasReservation ? "đặt sạc" : "khách vãng lai"
+        } tại trạm ${STATION_ID}`,
         start_time,
         end_time,
         reservation_id: currentSession?.reservation_id || null,
@@ -152,167 +213,168 @@ const PaymentModal = ({
       },
     };
 
+    // Tạo transaction
+    const result = await createTransaction(payload);
+    if (!result.success) return alert(`Tạo giao dịch thất bại: ${result.error}`);
+
+    const transaction = result.data;
+    const invoice = result.raw?.invoice || result.raw?.data?.invoice;
+    const invoiceId = invoice?.id;
+
+    // =======================================
+    // BANK TRANSFER
+    // =======================================
     if (selectedPaymentMethod === "bank_transfer") {
-      const result = await createTransaction(payload);
-
-      if (!result.success) {
-        alert(`Tạo giao dịch thất bại: ${result.error}`);
-        return;
-      }
-
-      const data = result.data ?? result;
-
+      const data = result.data;
       const qrFromBackend =
         data?.meta?.qrLink ||
         data?.data?.meta?.qrLink ||
         data?.meta?.qrlink ||
         null;
 
-      if (qrFromBackend) {
-        setQrCodeUrl(qrFromBackend);
-      } else if (!qrCodeUrl) {
-        const mockQR = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=PAY:${session_id}:${amount}`;
-        setQrCodeUrl(mockQR);
-      }
+      if (qrFromBackend) setQrCodeUrl(qrFromBackend);
 
       const immediateStatus =
-        (data?.status || data?.data?.status || data?.payment_status || data?.data?.payment_status || "")
+        (
+          data?.status ||
+          data?.payment_status ||
+          data?.data?.status ||
+          ""
+        )
           .toString()
           .toLowerCase();
 
       if (["completed", "success", "paid"].includes(immediateStatus)) {
-        setReconcileResult((prev) => ({
-          ...prev,
-          payment_status: "completed",
-        }));
-        alert("Thanh toán chuyển khoản hoàn tất (đã nhận xác nhận).");
+        alert("Thanh toán chuyển khoản hoàn tất.");
         setShowPaymentModal(false);
         setQrCodeUrl(null);
+
+        await askInvoice(invoiceId);
+
         await refreshReconcileData();
         await refreshCurrentSession();
         await loadActivePoints();
       }
-    } else if (selectedPaymentMethod === "wallet") {
+    }
+
+    // =======================================
+    // WALLET
+    // =======================================
+    else if (selectedPaymentMethod === "wallet") {
       setWalletPolling(true);
       pollWalletPayment();
-
-      const result = await createTransaction(payload);
-      if (result.success) {
-        const data = result.data ?? result;
-        const immediateStatus =
-          (data?.status || data?.data?.status || data?.payment_status || data?.data?.payment_status || "")
-            .toString()
-            .toLowerCase();
-        if (["completed", "success", "paid"].includes(immediateStatus)) {
-          setReconcileResult((prev) => ({
-            ...prev,
-            payment_status: "completed",
-          }));
-          setWalletPolling(false);
-          setShowPaymentModal(false);
-          await refreshReconcileData();
-          await refreshCurrentSession();
-          await loadActivePoints();
-        }
-      }
     }
   };
 
+  // =========================
+  // CASH PAYMENT
+  // =========================
   const handleConfirmCashPayment = async () => {
     if (!confirm("Xác nhận đã thu đủ tiền mặt từ khách hàng?")) return;
-console.log("Current session:", currentSession);
-  console.log("User role:", currentSession?.role);
+
     const amount = Number(reconcileResult.diff);
     const user_id = currentSession?.user_id;
     const session_id = selectedSessionId;
     const start_time = currentSession?.start_time || currentSession?.created_at;
     const end_time = currentSession?.end_time || new Date().toISOString();
 
-    const hasReservation = 
-      currentSession?.reservation_id != null && 
+    const hasReservation =
+      currentSession?.reservation_id != null &&
       currentSession?.reservation_id !== "";
 
-    const related_type = hasReservation ? "charging_session" : "guest_charging";
+    const related_type = hasReservation
+      ? "charging_session"
+      : "guest_charging";
 
     const payload = {
       user_id,
       type: "payment",
       method: "cash",
       related_id: session_id,
-      related_type: related_type,
+      related_type,
       amount,
       meta: {
-        description: `Thanh toán tiền mặt ${hasReservation ? 'đặt sạc' : 'khách vãng lai'} tại trạm ${STATION_ID}`,
+        description: `Thanh toán tiền mặt ${
+          hasReservation ? "đặt sạc" : "khách vãng lai"
+        } tại trạm ${STATION_ID}`,
         start_time,
         end_time,
         reservation_id: currentSession?.reservation_id || null,
         connector_id: currentSession?.connector_id || null,
         payment_confirmed_at: new Date().toISOString(),
-        
       },
-      
     };
 
-    // Bước 1: Tạo transaction
+    // 1. Create transaction
     const createResult = await createTransaction(payload);
-    if (!createResult.success) {
-      alert(`Lỗi tạo giao dịch: ${createResult.error}`);
-      return;
-    }
+    if (!createResult.success)
+      return alert(`Lỗi tạo giao dịch: ${createResult.error}`);
 
-    const createdTransaction = createResult.data;
-    const transactionId = createdTransaction?.id || createdTransaction?.transaction_id;
+    const transaction = createResult.data;
+    const transactionId = transaction?.id;
 
-    if (!transactionId) {
-      alert("Không tìm thấy transaction ID");
-      return;
-    }
+    const invoice = createResult.raw?.invoice || createResult.raw?.data?.invoice;
+    const invoiceId = invoice?.id;
 
-    // Lưu transaction ID để hiển thị loading
+    if (!transactionId) return alert("Không tìm thấy transaction ID");
+
     setPendingCashTransactionId(transactionId);
 
-    // Bước 2: Confirm transaction
+    // 2. Confirm transaction
     const confirmPayload = {
       confirmed_at: new Date().toISOString(),
-      confirmed_by: "staff", // Có thể thêm thông tin nhân viên nếu có
-      notes: "Xác nhận thu tiền mặt tại trạm"
-      
+      confirmed_by: "staff",
+      notes: "Xác nhận thu tiền mặt tại trạm",
     };
 
-    const confirmResult = await confirmCashTransaction(transactionId, confirmPayload);
-    
+    const confirmResult = await confirmCashTransaction(
+      transactionId,
+      confirmPayload
+    );
+
     setPendingCashTransactionId(null);
 
     if (confirmResult.success) {
-      setReconcileResult((prev) => ({ 
-        ...prev, 
-        payment_status: "completed" 
+      setReconcileResult((prev) => ({
+        ...prev,
+        payment_status: "completed",
       }));
+
       alert("Đã xác nhận thanh toán tiền mặt thành công!");
+
       setShowPaymentModal(false);
       setQrCodeUrl(null);
+
+      // hỏi in hóa đơn
+      await askInvoice(invoiceId);
+
       await refreshReconcileData();
       await refreshCurrentSession();
       await loadActivePoints();
-    } else {
-      alert(`Lỗi xác nhận thanh toán: ${confirmResult.error}`);
     }
   };
 
-  // Auto-proceed payment when modal opens (for non-cash methods)
+  // =========================
+  // AUTO PROCEED WHEN OPEN
+  // =========================
   React.useEffect(() => {
-    if (showPaymentModal && selectedPaymentMethod && selectedPaymentMethod !== "cash") {
+    if (
+      showPaymentModal &&
+      selectedPaymentMethod &&
+      selectedPaymentMethod !== "cash"
+    ) {
       handleProceedPayment();
     }
   }, [showPaymentModal]);
 
+  // =========================
+  // RENDER UI
+  // =========================
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-900">
-            Thanh toán
-          </h3>
+          <h3 className="text-xl font-bold text-gray-900">Thanh toán</h3>
           <button
             onClick={() => setShowPaymentModal(false)}
             className="text-gray-400 hover:text-gray-600"
@@ -344,7 +406,7 @@ console.log("Current session:", currentSession);
           </div>
         </div>
 
-        {/* Cash Payment */}
+        {/* CASH SECTION */}
         {selectedPaymentMethod === "cash" && (
           <div className="space-y-4">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -373,14 +435,12 @@ console.log("Current session:", currentSession);
           </div>
         )}
 
-        {/* Bank Transfer Payment */}
+        {/* BANK TRANSFER SECTION */}
         {selectedPaymentMethod === "bank_transfer" && (
           <div className="space-y-4">
             {qrCodeUrl ? (
               <div className="text-center">
-                <p className="text-gray-700 mb-3">
-                  Quét mã QR để thanh toán
-                </p>
+                <p className="text-gray-700 mb-3">Quét mã QR để thanh toán</p>
                 <img
                   src={qrCodeUrl}
                   alt="QR Code"
@@ -399,7 +459,7 @@ console.log("Current session:", currentSession);
           </div>
         )}
 
-        {/* Wallet Payment */}
+        {/* WALLET SECTION */}
         {selectedPaymentMethod === "wallet" && (
           <div className="space-y-4">
             {walletPolling ? (
