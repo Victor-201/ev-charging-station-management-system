@@ -225,9 +225,11 @@ const SessionManager = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Active Points */}
+          {/* Active Points - sticky on large screens */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6">
+            {/* Use lg:sticky + lg:top-6 so the panel sticks on larger screens.
+                The inner list has a max-height calculated from viewport so it scrolls independently. */}
+            <div className="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">
                 Điểm Sạc Hoạt Động (
                 {Array.isArray(activePoints?.active)
@@ -235,7 +237,11 @@ const SessionManager = () => {
                   : 0}
                 )
               </h2>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+
+              {/* Scrolling container: limit height so it won't overflow the viewport.
+                  We subtract an estimated header/padding height (e.g., 220px) to ensure it fits.
+                  Adjust the calc(...) value if your header/footer heights differ. */}
+              <div className="space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto">
                 {Array.isArray(activePoints?.active) &&
                   activePoints.active.map((point, index) => (
                     <div
