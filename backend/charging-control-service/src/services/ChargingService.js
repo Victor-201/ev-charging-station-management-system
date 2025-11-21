@@ -20,43 +20,39 @@ class ChargingService {
   // ============================================================
   // SUBSCRIBE PAYMENT EVENTS
   // ============================================================
-  _subscribePaymentEvents() {
-  console.log("[Charging] Listening to payment_queue...");
-
-  createConsumer("payment_queue", async (routingKey, payload) => {
-    console.log("[Charging ← Payment] Event received:", routingKey, payload);
-
-    switch (routingKey) {
-      case "payment.charging.success":
+async initSubscriptions() {
+    try {
+      console.log("[Charging] Subscribing RMQ payment_queue...");
+      await createConsumer("payment_queue", async (routingKey, payload) => {
         try {
-          console.log("💰 Payment succeeded:", payload.related_id);
-          await this.confirmPayment(payload.related_id, {
-            paid_amount: payload.amount,
-            payment_method: payload.method,
-            payment_ref: payload.ref
-          });
-        } catch (e) {
-          console.error("confirmPayment error:", e.message);
-        }
-        break;
+          switch (routingKey) {
+            case "payment.charging.succeeded":
+              debug("💰 Payment success:", payload.related_id);
+              await this.confirmReservation(payload.related_id, { payment_info: payload });
+              break;
 
-      case "payment.charging.failed":
-        try {
-          console.log("💸 Payment failed:", payload.related_id);
-          await this.failPayment(payload.related_id, {
-            reason: payload.reason,
-            cancel: payload.cancelled
-          });
-        } catch (e) {
-          console.error("failPayment error:", e.message);
-        }
-        break;
+            case "payment.charging.failed":
+              debug("💸 Payment failed:", payload.related_id);
+              await this.markReservationFailed(payload.related_id, {
+                cancel: true,
+                reason: payload.reason
+              });
+              break;
 
-      default:
-        console.log("⚠ Unknown routing key:", routingKey);
+            default:
+              debug("⚠ Unhandled payment routingKey:", routingKey);
+          }
+        } catch (err) {
+          debug("Payment event handling error:", err && err.message ? err.message : err);
+        }
+      });
+
+      console.log("[Charging] Subscribed to payment_queue successfully.");
+    } catch (err) {
+      console.error("[Charging] initSubscriptions error:", err);
+      throw err;
     }
-  });
-}
+  }
 
   async initiateSession({ reservation_id = null, station_id = null, point_id, user_id, connector_type = null } = {}) {
     // VALIDATION
@@ -124,29 +120,19 @@ async reconcileSessionWithReservation(
   try {
     await conn.beginTransaction();
 
-    // -----------------------------------------------------
     // 1) LOCK SESSION
-    // -----------------------------------------------------
     const [sessRows] = await conn.query(
       "SELECT * FROM sessions WHERE session_id = ? FOR UPDATE",
       [session_id]
     );
     if (!sessRows.length) throw new Error("Session not found");
-
     const session = sessRows[0];
 
-    const started_at = session.started_at
-      ? dayjs(session.started_at)
-      : null;
-    const ended_at = session.ended_at
-      ? dayjs(session.ended_at)
-      : dayjs(); // fallback
+    const started_at = session.started_at ? dayjs(session.started_at) : null;
+    const ended_at = session.ended_at ? dayjs(session.ended_at) : dayjs();
 
-    // -----------------------------------------------------
     // 2) LOAD RESERVATION (IF ANY)
-    // -----------------------------------------------------
     let reservation = null;
-
     if (session.reservation_id) {
       const [resRows] = await conn.query(
         "SELECT * FROM reservations WHERE reservation_id = ? FOR UPDATE",
@@ -155,29 +141,23 @@ async reconcileSessionWithReservation(
       reservation = resRows.length ? resRows[0] : null;
     }
 
-    // -----------------------------------------------------
     // 3) CALCULATE SESSION PRICE
-    // -----------------------------------------------------
     let sessionCost = 0;
     let sessionMinutes = 0;
-
     if (started_at) {
       sessionMinutes = Math.max(0, ended_at.diff(started_at, "minute"));
 
       const pricing = await this.bookingService.calculatePricing(
-      
         session.point_id,
         started_at.toISOString(),
         ended_at.toISOString(),
-         token
+        token
       );
 
       sessionCost = Number(pricing.total_amount || 0);
     }
 
-    // -----------------------------------------------------
     // 4) CALCULATE RESERVED COST
-    // -----------------------------------------------------
     let reservedCost = 0;
     if (reservation) {
       if (reservation.total_cost && Number(reservation.total_cost) > 0) {
@@ -197,89 +177,45 @@ async reconcileSessionWithReservation(
       }
     }
 
-    // -----------------------------------------------------
-    // 5) COST + DIFF LOGIC
-    // -----------------------------------------------------
-    const totalCost = Number(sessionCost + reservedCost);
-    const diff = totalCost - Number(reservedCost);
+    // 5) CALCULATE DIFF AND SETTLEMENT
+    const diff = sessionCost - reservedCost;
 
-    let settleAmount = 0;
     let settlementType = "none";
+    let settleAmount = 0;
+    let settlementMessage = "";
 
-    if (autoSettle) {if (Math.abs(diff) >= threshold) {
-        settlementType = diff > 0 ? "charge" : "refund";
-        settleAmount = Math.abs(diff);
-      }
+    if (diff > 0) {
+      settlementType = "charge";
+      settleAmount = diff;
+      settlementMessage = `Khách hàng cần thanh toán thêm ${diff}.`;
+    } else if (diff < 0) {
+      settlementType = "refund";
+      settleAmount = Math.abs(diff);
+      settlementMessage = `Khách hàng được hoàn lại ${Math.abs(diff)}.`;
+    } else {
+      settlementType = "none";
+      settleAmount = 0;
+      settlementMessage = "Không phát sinh thu thêm hoặc hoàn tiền.";
     }
 
-    // -----------------------------------------------------
     // 6) UPDATE SESSION
-    // -----------------------------------------------------
     session.metadata = session.metadata
-      ? (typeof session.metadata === "object"
-          ? session.metadata
-          : JSON.parse(session.metadata))
+      ? (typeof session.metadata === "object" ? session.metadata : JSON.parse(session.metadata))
       : {};
 
     session.metadata.payment = session.metadata.payment || {};
     session.metadata.payment.status = settleAmount > 0 ? "settlement_required" : "completed";
-    session.metadata.payment.amount = totalCost;
     session.metadata.payment.session_cost = sessionCost;
     session.metadata.payment.reserved_cost = reservedCost;
     session.metadata.payment.diff = diff;
     session.metadata.payment.operator = operator;
+    session.metadata.payment.settlement_type = settlementType;
+    session.metadata.payment.settlement_amount = settleAmount;
+    session.metadata.payment.settlement_message = settlementMessage;
     session.metadata.payment.finalized_at = dayjs().format("YYYY-MM-DD HH:mm:ss.SSS");
+    session.metadata.session_minutes = sessionMinutes; // lưu vào metadata, không lỗi SQL
 
-    await conn.query(
-      `
-      UPDATE sessions
-         SET status = ?,
-             cost = ?,
-             metadata = ?,
-             updated_at = NOW(3)
-       WHERE session_id = ?
-      `,
-      [
-        "completed",
-        totalCost,
-        sessionMinutes,
-        JSON.stringify(session.metadata),
-        session_id,
-      ]
-    );
 
-    // -----------------------------------------------------
-    // 7) UPDATE RESERVATION (optional)
-    // -----------------------------------------------------
-    if (reservation) {
-      await conn.query(
-        `
-        UPDATE reservations
-           SET status = ?,
-               final_cost = ?,
-               updated_at = NOW(3)
-         WHERE reservation_id = ?
-        `,
-        ["completed", reservedCost, reservation.reservation_id]
-      );
-    }
-
-    // -----------------------------------------------------
-    // 8) INSERT OUTBOX EVENT
-    // -----------------------------------------------------
-    await EventOutboxRepo.insert(conn, {
-      event_type: "SESSION_SETTLED",
-      payload: {
-        session_id,
-        reservation_id: reservation?.reservation_id || null,
-        total_cost: totalCost,
-        session_cost: sessionCost,
-        reserved_cost: reservedCost,
-        diff,
-        settlement_type: settlementType,
-        settle_amount: settleAmount,
-      },
-    });
 
     await conn.commit();
 
@@ -288,11 +224,11 @@ async reconcileSessionWithReservation(
       session_id,
       session_cost: sessionCost,
       reserved_cost: reservedCost,
-      total_cost: totalCost,
       diff,
       settlement: {
         type: settlementType,
         amount: settleAmount,
+        message: settlementMessage,
       },
     };
   } catch (err) {
@@ -303,6 +239,9 @@ async reconcileSessionWithReservation(
     conn.release();
   }
 }
+
+
+
 
   /**
    * /api/v1/sessions/{session_id}/meter  (push meter)
