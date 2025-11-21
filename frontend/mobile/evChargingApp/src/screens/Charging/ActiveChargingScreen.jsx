@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Card, Button, ActivityIndicator, Divider } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -8,12 +8,16 @@ import useSocket from '../../hooks/useSocket';
 import { updateTelemetry } from '../../store/slices/chargingSlice';
 import { useTheme } from 'react-native-paper';
 import useCharging from '../../hooks/useCharging';
+import ChargingProgress from './ChargingProgress';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: colors.background,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100, // Space for fixed controls
   },
   centered: {
     flex: 1,
@@ -33,6 +37,18 @@ const getStyles = (colors) => StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
     color: colors.onSurface,
+  },
+  stationName: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: colors.onSurface,
+    marginBottom: 4,
+  },
+  connectorInfo: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: colors.onSurface + '80',
   },
   statsContainer: {
     paddingVertical: 16,
@@ -55,8 +71,14 @@ const getStyles = (colors) => StyleSheet.create({
     marginVertical: 8,
   },
   controlsContainer: {
-    marginTop: 'auto',
-    paddingBottom: 16,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.onSurface + '20',
   },
   controlButton: {
     marginBottom: 12,
@@ -167,60 +189,84 @@ const ActiveChargingScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text style={styles.title}>Đang sạc...</Text>
-          <Text>{activeSession.station_name}</Text>
-          <Text>Cổng sạc: {activeSession.connector_id}</Text>
-        </Card.Content>
-      </Card>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Station Info Header */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text style={styles.title}>Đang sạc...</Text>
+            <Text style={styles.stationName}>{activeSession.station_name || 'Trạm sạc'}</Text>
+            <Text style={styles.connectorInfo}>
+              Cổng sạc: {activeSession.connector_id || activeSession.point_id || 'N/A'}
+            </Text>
+          </Card.Content>
+        </Card>
 
-      <Card style={styles.card}>
-        <Card.Content style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Năng lượng</Text>
-            <Text style={styles.statValue}>{activeSession.energy_consumed?.toFixed(2) || 0} kWh</Text>
-          </View>
-          <Divider style={styles.divider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Thời gian</Text>
-            <Text style={styles.statValue}>{new Date(activeSession.duration * 1000).toISOString().substr(11, 8)}</Text>
-          </View>
-          <Divider style={styles.divider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Chi phí</Text>
-            <Text style={styles.statValue}>{activeSession.cost?.toLocaleString('vi-VN') || 0} ₫</Text>
-          </View>
-        </Card.Content>
-      </Card>
+        {/* Charging Progress Component */}
+        <ChargingProgress
+          currentEnergy={activeSession.energy_consumed || 0}
+          targetEnergy={activeSession.target_energy || 50}
+          chargingRate={activeSession.charging_rate || activeSession.power_kw || 0}
+          estimatedTime={activeSession.estimated_time || 0}
+          batteryLevel={activeSession.battery_level || activeSession.soc || 0}
+          status={activeSession.status || 'CHARGING'}
+        />
 
+        {/* Session Stats */}
+        <Card style={styles.card}>
+          <Card.Content style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Năng lượng tiêu thụ</Text>
+              <Text style={styles.statValue}>{activeSession.energy_consumed?.toFixed(2) || 0} kWh</Text>
+            </View>
+            <Divider style={styles.divider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Thời gian sạc</Text>
+              <Text style={styles.statValue}>
+                {activeSession.duration ?
+                  new Date(activeSession.duration * 1000).toISOString().substring(11, 19) :
+                  '00:00:00'
+                }
+              </Text>
+            </View>
+            <Divider style={styles.divider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Chi phí hiện tại</Text>
+              <Text style={styles.statValue}>{activeSession.cost?.toLocaleString('vi-VN') || 0} ₫</Text>
+            </View>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+
+      {/* Control Buttons */}
       <View style={styles.controlsContainer}>
         {activeSession.status === 'CHARGING' ? (
-          <Button 
-            mode="contained" 
+          <Button
+            mode="contained"
             onPress={() => handleAction('pause')}
             loading={actionLoading === 'pause'}
             disabled={actionLoading}
             style={styles.controlButton}
+            buttonColor={colors.warning}
             icon="pause-circle"
           >
             Tạm dừng
           </Button>
         ) : (
-          <Button 
-            mode="contained" 
+          <Button
+            mode="contained"
             onPress={() => handleAction('resume')}
             loading={actionLoading === 'resume'}
             disabled={actionLoading}
             style={styles.controlButton}
+            buttonColor={colors.success}
             icon="play-circle"
           >
             Tiếp tục
           </Button>
         )}
-        <Button 
-          mode="contained" 
-          color={colors.error}
+        <Button
+          mode="contained"
+          buttonColor={colors.error}
           onPress={() => handleAction('stop')}
           loading={actionLoading === 'stop'}
           disabled={actionLoading}

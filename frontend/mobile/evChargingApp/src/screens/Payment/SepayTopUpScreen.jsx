@@ -17,6 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import sepayService from '../../services/sepayService';
 import { logger } from '../../utils/logger';
@@ -124,8 +125,8 @@ const SepayTopUpScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header with SafeArea */}
+    <SafeAreaView style={styles.container} edges={['top','bottom']}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={24} color="#000" />

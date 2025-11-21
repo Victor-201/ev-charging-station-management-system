@@ -203,8 +203,8 @@ export const sepayService = {
     return {
       bank_name: 'Ngân hàng TMCP Á Châu (ACB)',
       bank_code: 'ACB',
-      account_number: '123456789',
-      account_name: 'CONG TY EV CHARGING',
+      account_number: '45281677',
+      account_name: 'NGUYEN VAN THANG',
       branch: 'Chi nhánh TP.HCM'
     };
   }

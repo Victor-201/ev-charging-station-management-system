@@ -18,6 +18,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import sepayService from '../../services/sepayService';
 import { getWallet } from '../../store/slices/walletSlice';
@@ -40,8 +41,8 @@ const SepayQRCodeScreen = () => {
   const paymentData = {
     transaction_id: transaction?.id || transaction?.transaction_id,
     bank_name: 'Ngân hàng TMCP Á Châu (ACB)',
-    account_number: transaction?.meta?.account_number || '123456789',
-    account_name: transaction?.meta?.account_name || 'CONG TY EV CHARGING',
+    account_number: transaction?.meta?.account_number || '45281677',
+    account_name: transaction?.meta?.account_name || 'NGUYEN VAN THANG',
     transfer_content: transaction?.reference_code || transaction?.meta?.reference_code || '',
   };
 
@@ -171,7 +172,7 @@ const SepayQRCodeScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top','bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -235,7 +236,7 @@ const SepayQRCodeScreen = () => {
           {renderInfoRow('Nội dung', paymentData.transfer_content, true)}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
