@@ -1,82 +1,120 @@
--- station_db
+-- Tables creation
+DROP TABLE IF EXISTS `_prisma_migrations`;
+CREATE TABLE `_prisma_migrations` (
+  `id` varchar(36) NOT NULL,
+  `checksum` varchar(64) NOT NULL,
+  `finished_at` datetime(3) DEFAULT NULL,
+  `migration_name` varchar(255) NOT NULL,
+  `logs` text,
+  `rolled_back_at` datetime(3) DEFAULT NULL,
+  `started_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `applied_steps_count` int unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE stations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    address VARCHAR(500),
-    city VARCHAR(100),
-    region VARCHAR(100),
-    latitude NUMERIC(10,7),
-    longitude NUMERIC(10,7),
-    status VARCHAR(50) DEFAULT 'active', -- active, maintenance, closed
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+DROP TABLE IF EXISTS `stations`;
+CREATE TABLE `stations` (
+  `id` char(36) NOT NULL,
+  `name` varchar(191) NOT NULL,
+  `address` varchar(500) DEFAULT NULL,
+  `city` varchar(100) DEFAULT NULL,
+  `region` varchar(100) DEFAULT NULL,
+  `latitude` decimal(10,7) DEFAULT NULL,
+  `longitude` decimal(10,7) DEFAULT NULL,
+  `status` enum('active','closed','maintenance','inactive') NOT NULL DEFAULT 'active',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` datetime(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `stations_address_latitude_longitude_key` (`address`,`latitude`,`longitude`),
+  KEY `idx_stations_city` (`city`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_stations_city ON stations(city);
+DROP TABLE IF EXISTS `charging_points`;
+CREATE TABLE `charging_points` (
+  `id` char(36) NOT NULL,
+  `name` char(50) NOT NULL,
+  `station_id` char(36) NOT NULL,
+  `external_id` varchar(100) DEFAULT NULL,
+  `connector_type` varchar(50) DEFAULT NULL,
+  `max_power_kw` decimal(8,2) DEFAULT NULL,
+  `status` enum('available','in_use','offline','faulted','reserved') NOT NULL DEFAULT 'available',
+  `price_per_kwh` decimal(10,2) DEFAULT NULL,
+  `price_per_minute` decimal(10,2) DEFAULT NULL,
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` datetime(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `charging_points_external_id_key` (`external_id`),
+  KEY `idx_cp_stationid` (`station_id`),
+  CONSTRAINT `charging_points_station_id_fkey` FOREIGN KEY (`station_id`) REFERENCES `stations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE charging_points (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    station_id UUID NOT NULL,
-    external_id VARCHAR(100), -- id from hardware / edge controller
-    connector_type VARCHAR(50), -- CCS, CHAdeMO, AC...
-    max_power_kw NUMERIC(8,2),
-    status VARCHAR(50) DEFAULT 'available', -- available, in_use, offline
-    price_per_kwh NUMERIC(10,2),
-    price_per_minute NUMERIC(10,2),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+DROP TABLE IF EXISTS `station_staff`;
+CREATE TABLE `station_staff` (
+  `id` char(36) NOT NULL,
+  `staff_user_id` char(36) NOT NULL,
+  `station_id` char(36) NOT NULL,
+  `role` enum('manager','technician','operator','security') DEFAULT NULL,
+  `assigned_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `idx_station_staff` (`station_id`),
+  CONSTRAINT `station_staff_station_id_fkey` FOREIGN KEY (`station_id`) REFERENCES `stations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_cp_stationid ON charging_points(station_id);
-CREATE UNIQUE INDEX uq_cp_external_id ON charging_points(external_id);
+DROP TABLE IF EXISTS `station_incidents`;
+CREATE TABLE `station_incidents` (
+  `id` char(36) NOT NULL,
+  `station_id` char(36) NOT NULL,
+  `point_id` char(36) DEFAULT NULL,
+  `reported_by` char(36) DEFAULT NULL,
+  `description` varchar(191) DEFAULT NULL,
+  `severity` enum('low','medium','high','critical') NOT NULL DEFAULT 'medium',
+  `status` enum('pending_confirmation','in_progress','resolved','rejected') NOT NULL DEFAULT 'pending_confirmation',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `resolved_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_incidents_station` (`station_id`),
+  KEY `station_incidents_point_id_fkey` (`point_id`),
+  CONSTRAINT `station_incidents_point_id_fkey` FOREIGN KEY (`point_id`) REFERENCES `charging_points` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `station_incidents_station_id_fkey` FOREIGN KEY (`station_id`) REFERENCES `stations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- staff assignment to stations
-CREATE TABLE station_staff (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    staff_user_id UUID NOT NULL, -- references auth_db.users.id logically
-    station_id UUID NOT NULL,
-    role VARCHAR(50), -- operator, manager, maintainer
-    assigned_at TIMESTAMPTZ DEFAULT NOW()
-);
+DROP TABLE IF EXISTS `station_usage_reports`;
+CREATE TABLE `station_usage_reports` (
+  `id` char(36) NOT NULL,
+  `station_id` char(36) NOT NULL,
+  `report_date` datetime(3) NOT NULL,
+  `total_sessions` int NOT NULL DEFAULT '0',
+  `total_kwh` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `total_revenue` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `station_usage_reports_station_id_report_date_key` (`station_id`,`report_date`),
+  CONSTRAINT `station_usage_reports_station_id_fkey` FOREIGN KEY (`station_id`) REFERENCES `stations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_station_staff ON station_staff(station_id);
+DROP TABLE IF EXISTS `station_maintenance`;
+CREATE TABLE `station_maintenance` (
+  `id` varchar(191) NOT NULL,
+  `station_id` varchar(191) NOT NULL,
+  `start_time` datetime(3) NOT NULL,
+  `end_time` datetime(3) NOT NULL,
+  `reason` varchar(191) NOT NULL,
+  `scheduled_by` varchar(191) NOT NULL,
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `station_maintenance_station_id_fkey` (`station_id`),
+  CONSTRAINT `station_maintenance_station_id_fkey` FOREIGN KEY (`station_id`) REFERENCES `stations` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- incidents / issues reported for station or point
-CREATE TABLE station_incidents (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    station_id UUID NOT NULL,
-    point_id UUID,
-    reported_by UUID, -- user id or staff id
-    description TEXT,
-    severity VARCHAR(20) DEFAULT 'medium',
-    status VARCHAR(50) DEFAULT 'open', -- open, investigating, resolved, closed
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    resolved_at TIMESTAMPTZ
-);
+DROP TABLE IF EXISTS `outbox_events`;
+CREATE TABLE `outbox_events` (
+  `id` char(36) NOT NULL,
+  `aggregate_type` varchar(100) DEFAULT NULL,
+  `aggregate_id` char(36) DEFAULT NULL,
+  `event_type` varchar(100) DEFAULT NULL,
+  `payload` json DEFAULT NULL,
+  `published` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_incidents_station ON station_incidents(station_id);
-
--- daily / periodic usage reports (can be filled by jobs)
-CREATE TABLE station_usage_reports (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    station_id UUID NOT NULL,
-    report_date DATE NOT NULL,
-    total_sessions INT DEFAULT 0,
-    total_kwh NUMERIC(12,2) DEFAULT 0,
-    total_revenue NUMERIC(12,2) DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE UNIQUE INDEX uq_station_report_date ON station_usage_reports(station_id, report_date);
-
--- optional: outbox for events to analytics/charging/payment
-CREATE TABLE outbox_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    aggregate_type VARCHAR(100),
-    aggregate_id UUID,
-    event_type VARCHAR(100),
-    payload JSONB,
-    published BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
