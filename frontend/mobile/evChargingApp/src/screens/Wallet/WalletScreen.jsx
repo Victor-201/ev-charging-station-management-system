@@ -11,20 +11,22 @@ const getStyles = (colors) => StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   errorText: { color: colors.error, marginBottom: 16 },
   balanceCard: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 12, // Reduced from 16
     backgroundColor: colors.primary,
   },
   balanceLabel: { color: colors.onPrimary, opacity: 0.8 },
-  balanceAmount: { color: colors.onPrimary, fontSize: 36, fontWeight: 'bold', marginVertical: 8 },
-  actionsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 },
-  transactionsSection: { padding: 16 },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: colors.onSurface },
-  transactionCard: { marginBottom: 8, backgroundColor: colors.surface },
+  balanceAmount: { color: colors.onPrimary, fontSize: 36, fontWeight: 'bold', marginVertical: 4 }, // Reduced from 8
+  actionsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 12 }, // Reduced from 16
+  transactionsSection: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: colors.onSurface }, // Reduced from 16
+  transactionCard: { marginBottom: 6, backgroundColor: colors.surface },
   transactionContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   transactionType: { fontWeight: 'bold', color: colors.onSurface, textTransform: 'capitalize' },
   transactionDate: { fontSize: 12, color: colors.onSurface, opacity: 0.7 },
   transactionAmount: { fontSize: 16, fontWeight: 'bold' },
-  seeAllButton: { marginTop: 16 },
+  seeAllButton: { marginTop: 12 },
   emptyStateText: { color: colors.onSurface, opacity: 0.7, textAlign: 'center' },
 });
 
