@@ -350,6 +350,12 @@ export default class PaymentService {
     };
   }
 
+  async getWalletInfo(user_id) {
+    const wallet = await this.walletRepo.findByUserId(user_id);
+    if (!wallet) wallet = await this.walletRepo.create(user_id);
+    return wallet;
+  }
+
   async listUserPayments(user_id) {
     const list = await this.transactionRepo.listByUser(user_id);
     return list.map((transaction) => (typeof transaction.toJSON === 'function' ? transaction.toJSON() : transaction));
