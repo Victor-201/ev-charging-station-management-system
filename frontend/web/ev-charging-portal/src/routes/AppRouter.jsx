@@ -12,7 +12,6 @@ import ForgotPassword from "@/pages/auth/ForgotPassword";
 
 import DashboardAdmin from "@/pages/admin/Dashboard";
 import AnalyticsAdmin from "@/pages/admin/Analytics";
-import ReportsAdmin from "@/pages/admin/Reports";
 import StationManagementAdmin from "@/pages/admin/StationManagement";
 import SubscriptionPlansAdmin from "@/pages/admin/SubscriptionPlans";
 import UserManagementAdmin from "@/pages/admin/UserManagement";
