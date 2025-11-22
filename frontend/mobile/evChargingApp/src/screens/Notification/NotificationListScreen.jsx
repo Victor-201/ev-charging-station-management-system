@@ -27,10 +27,11 @@ const NotificationListScreen = () => {
   const [filter, setFilter] = useState('all'); // all, unread, read
 
   const loadNotifications = React.useCallback(() => {
-    if (user?.id) {
-      dispatch(getNotifications(user.id));
+    const uid = user?.id || user?.user_id || user?.sub;
+    if (uid) {
+      dispatch(getNotifications(uid));
     }
-  }, [dispatch, user?.id]);
+  }, [dispatch, user?.id, user?.user_id, user?.sub]);
 
   useFocusEffect(loadNotifications);
 
@@ -51,16 +52,17 @@ const NotificationListScreen = () => {
   };
 
   const deleteNotification = (notificationId) => {
-    // TODO: Implement delete notification functionality in the slice and service
-    console.log('Delete notification:', notificationId);
+    // Delete API chưa được hỗ trợ ở backend → hiển thị thông báo thân thiện
+    console.log('Delete notification (not implemented):', notificationId);
+    alert('Chức năng xóa thông báo đang được phát triển.');
   };
 
   const getFilteredNotifications = () => {
     switch (filter) {
       case 'unread':
-        return notifications.filter((n) => !n.read);
+        return notifications.filter((n) => !(n.read || n.is_read));
       case 'read':
-        return notifications.filter((n) => n.read);
+        return notifications.filter((n) => (n.read || n.is_read));
       default:
         return notifications;
     }
@@ -94,7 +96,10 @@ const NotificationListScreen = () => {
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity
       style={[styles.notificationCard, !item.read && styles.notificationCardUnread]}
-      onPress={() => handleMarkAsRead(item.id)}
+      onPress={() => {
+        handleMarkAsRead(item.id);
+        navigation.navigate('NotificationDetail', { id: item.id });
+      }}
       activeOpacity={0.7}
     >
       <View style={styles.notificationIcon}>

@@ -282,7 +282,7 @@ const getStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.surface,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0', // Should be from theme
+    borderBottomColor: colors.surfaceVariant,
   },
   headerTitle: {
     fontSize: 24,
