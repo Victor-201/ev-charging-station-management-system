@@ -8,7 +8,8 @@ import {
   TextInput,
   FlatList,
   Platform,
-  Linking
+  Linking,
+  ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
