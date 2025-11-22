@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import NetworkErrorView from '../../components/common/NetworkErrorView';
 import { useTheme } from 'react-native-paper';
 import useReservations from '../../hooks/useReservations';
 
@@ -34,7 +35,7 @@ const getStyles = (colors) => StyleSheet.create({
     color: colors.onPrimary,
   },
   addButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: colors.onPrimary + '33',
     borderRadius: 20,
     padding: 8,
   },
@@ -240,6 +241,20 @@ export default function ReservationList() {
         </View>
       </SafeAreaView>
     );
+  // Error state
+  if (error && !refreshing) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Danh sách đặt chỗ</Text>
+        </View>
+        <View style={[styles.emptyState, { justifyContent: 'center' }]}>
+          <NetworkErrorView title="Không thể tải danh sách đặt chỗ" message={error} onRetry={onRefresh} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   }
 
   return (

@@ -314,8 +314,19 @@ export class NotificationService {
 
       if (result.rows.length > 0) {
         return result.rows[0];
-      } else {
-        // Return default settings if none are found
+      }
+
+      // Return default settings if none are found
+      return {
+        user_id: userId,
+        email_notifications: true,
+        push_notifications: true,
+        sms_notifications: false,
+      };
+    } catch (error: any) {
+      // If the table doesn't exist, return default settings instead of crashing
+      if (error.code === '42P01') { // '42P01' is the PostgreSQL error code for 'undefined_table'
+        logger.warn('`user_notification_settings` table not found, returning default settings. This may be expected if the migration has not been run.');
         return {
           user_id: userId,
           email_notifications: true,
@@ -323,7 +334,6 @@ export class NotificationService {
           sms_notifications: false,
         };
       }
-    } catch (error) {
       logger.error('Error getting notification settings:', error);
       throw error;
     }

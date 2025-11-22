@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import NetworkErrorView from '../../components/common/NetworkErrorView';
 import { useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../store/slices/notificationSlice';
@@ -29,16 +30,20 @@ const NotificationListScreen = () => {
   const loadNotifications = React.useCallback(() => {
     const uid = user?.id || user?.user_id || user?.sub;
     if (uid) {
-      dispatch(getNotifications(uid));
+      return dispatch(getNotifications(uid)).unwrap?.();
     }
+    return Promise.resolve();
   }, [dispatch, user?.id, user?.user_id, user?.sub]);
 
   useFocusEffect(loadNotifications);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await loadNotifications();
-    setRefreshing(false);
+    try {
+      await loadNotifications();
+    } finally {
+      setRefreshing(false);
+    }
   }, [loadNotifications]);
 
   const handleMarkAsRead = (notificationId) => {
@@ -147,13 +152,7 @@ const NotificationListScreen = () => {
   if (error && !loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Icon name="wifi-off" size={48} color={colors.onSurfaceVariant} />
-          <Text style={styles.loadingText}>{error || 'Không thể tải thông báo'}</Text>
-          <TouchableOpacity onPress={onRefresh} style={{ marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.primary, borderRadius: 8 }}>
-            <Text style={{ color: colors.onPrimary, fontWeight: '600' }}>Thử lại</Text>
-          </TouchableOpacity>
-        </View>
+        <NetworkErrorView title="Không thể tải thông báo" message={error} onRetry={onRefresh} />
       </SafeAreaView>
     );
   }
@@ -262,7 +261,7 @@ const getStyles = (colors) =>
     headerBadgeText: {
       fontSize: 11,
       fontWeight: 'bold',
-      color: '#fff',
+      color: colors.onPrimary,
     },
     markAllButton: {
       padding: 8,

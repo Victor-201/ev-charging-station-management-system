@@ -62,9 +62,11 @@ export default function AccountSettingsScreen() {
     if (!userId) return;
     try {
       const accounts = await profileService.getSocialAccounts(userId);
-      setSocialAccounts(accounts);
+      setSocialAccounts(accounts || []);
     } catch (error) {
       console.error('Failed to fetch social accounts:', error);
+      Alert.alert('Lỗi', 'Không thể tải danh sách tài khoản liên kết. Vui lòng thử lại sau.');
+      setSocialAccounts([]); // Set to empty array on error to prevent render issues
     }
   };
 

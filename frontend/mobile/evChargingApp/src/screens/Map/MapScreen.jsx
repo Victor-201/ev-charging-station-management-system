@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
-import { 
-  View, 
-  StyleSheet, 
-  Dimensions, 
-  Alert, 
-  TouchableOpacity, 
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import {
+  View,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
   Text,
   TextInput,
   FlatList,
@@ -12,9 +11,10 @@ import {
   Linking
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_OSMDROID } from "react-native-maps";
+import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import WebView from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
 import { useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
@@ -258,7 +258,7 @@ export default function MapScreen({ navigation }) {
   const styles = getStyles(colors);
   const mapRef = useRef(null);
   const dispatch = useDispatch();
-  const { stations, selectedStation, loading, error } = useSelector((state) => state.stations);
+  const { stations, selectedStation } = useSelector((state) => state.stations);
 
   const [region, setRegion] = useState({
     latitude: 10.762622,
@@ -266,7 +266,7 @@ export default function MapScreen({ navigation }) {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
-  const [userLocation, setUserLocation] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
@@ -317,7 +317,6 @@ export default function MapScreen({ navigation }) {
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         };
-        setUserLocation({ latitude, longitude });
         setRegion(newRegion);
 
         if (mapRef.current) {
@@ -356,9 +355,9 @@ export default function MapScreen({ navigation }) {
 
   const handleBookStation = () => {
     if (selectedStation) {
-      navigation.navigate('ScheduleBooking', { 
+      navigation.navigate('ScheduleBooking', {
         stationId: selectedStation.id,
-        station: selectedStation 
+        station: selectedStation
       });
     }
   };
@@ -366,7 +365,7 @@ export default function MapScreen({ navigation }) {
   const openDirections = () => {
     if (!selectedStation) return;
 
-    const { latitude, longitude, name, address } = selectedStation;
+    const { latitude, longitude, name } = selectedStation;
 
     // Validate coordinates
     if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
@@ -408,39 +407,104 @@ export default function MapScreen({ navigation }) {
     station.address.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Build Leaflet HTML for Android map rendering via WebView
+  const buildLeafletHtml = (center, data) => `<!doctype html>
+  <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <style>
+        html, body, #map { height: 100%; margin: 0; padding: 0; }
+        .leaflet-container { background: #e5ecff; }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <script>
+        (function(){
+          var center = { lat: ${Number(center.latitude).toFixed(6)}, lng: ${Number(center.longitude).toFixed(6)} };
+          var stations = ${JSON.stringify(data || [])};
+          var map = L.map('map', { zoomControl: true }).setView([center.lat, center.lng], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+          stations.forEach(function(s){
+            if (typeof s.latitude !== 'number' || typeof s.longitude !== 'number') return;
+            var m = L.marker([s.latitude, s.longitude], { title: s.name || 'EV Station' }).addTo(map);
+            m.on('click', function(){
+              if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'markerClick', id: s.id }));
+              }
+            });
+          });
+
+          map.on('moveend', function(){
+            var c = map.getCenter();
+            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'moveEnd', latitude: c.lat, longitude: c.lng, zoom: map.getZoom() }));
+            }
+          });
+        })();
+      </script>
+    </body>
+  </html>`;
+
+  const leafletHtml = useMemo(() => buildLeafletHtml(region, stations), [region, stations]);
+
+  const onWebMessage = (event) => {
+    try {
+      const data = JSON.parse(event?.nativeEvent?.data || '{}');
+      if (data.type === 'markerClick') {
+        const st = stations.find((s) => s.id === data.id);
+        if (st) onMarkerPress(st);
+      } else if (data.type === 'moveEnd' && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+        const radius = 5; // km, simple default radius
+        dispatch(searchStations({ lat: data.latitude, lng: data.longitude, radius }));
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <MapView
-        ref={mapRef}
-        provider={Platform.OS === 'android' ? PROVIDER_OSMDROID : PROVIDER_DEFAULT}
-        style={styles.map}
-        initialRegion={region}
-        showsUserLocation={true}
-        showsMyLocationButton={false}
-        loadingEnabled={true}
-        loadingIndicatorColor={colors.accent}
-        onPress={() => dispatch(setSelectedStation(null))}
-        onRegionChangeComplete={handleRegionChangeComplete}
-        mapType="standard"
-      >
-        {stations.map((station) => (
-          <Marker
-            key={station.id}
-            coordinate={{
-              latitude: station.latitude,
-              longitude: station.longitude,
-            }}
-            title={station.name}
-            description={`${station.available_ports}/${station.total_ports} cổng sạc có sẵn`}
-            pinColor={getMarkerColor(station)}
-            onPress={() => onMarkerPress(station)}
-          />
-        ))}
-      </MapView>
+      {Platform.OS === 'ios' ? (
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_DEFAULT}
+          style={styles.map}
+          initialRegion={region}
+          showsUserLocation
+          showsMyLocationButton={false}
+          loadingEnabled
+          loadingIndicatorColor={colors.accent}
+          onPress={() => dispatch(setSelectedStation(null))}
+          onRegionChangeComplete={handleRegionChangeComplete}
+          mapType="standard"
+        >
+          {stations.map((station) => (
+            <Marker
+              key={station.id}
+              coordinate={{ latitude: station.latitude, longitude: station.longitude }}
+              title={station.name}
+              description={`${station.available_ports}/${station.total_ports} cổng sạc có sẵn`}
+              pinColor={getMarkerColor(station)}
+              onPress={() => onMarkerPress(station)}
+            />
+          ))}
+        </MapView>
+      ) : (
+        <WebView
+          originWhitelist={["*"]}
+          source={{ html: leafletHtml }}
+          onMessage={onWebMessage}
+          style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
+        />
+      )}
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.searchBox}
           onPress={() => setShowSearch(true)}
         >
@@ -488,7 +552,7 @@ export default function MapScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
-          
+
           <View style={styles.stationDetails}>
             <View style={styles.detailRow}>
               <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
@@ -519,14 +583,14 @@ export default function MapScreen({ navigation }) {
           </View>
 
           <View style={styles.actionButtons}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.directionsButton}
               onPress={openDirections}
             >
               <Icon name="directions" size={20} color={colors.accent} />
               <Text style={styles.directionsButtonText}>Chỉ đường</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[
                 styles.bookButton,
@@ -559,12 +623,12 @@ export default function MapScreen({ navigation }) {
               <Icon name="close" size={20} color={colors.onSurface} style={{ opacity: 0.7 }} />
             </TouchableOpacity>
           </View>
-          
+
           <FlatList
             data={filteredStations}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.searchResultItem}
                 onPress={() => {
                   setShowSearch(false);

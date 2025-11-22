@@ -87,9 +87,29 @@ const reservationService = {
   },
 
   // Create a new reservation
-  create: async (data) => {
-    const response = await apiClient.post(ENDPOINTS.BOOKING.CREATE, data);
-    return response.data;
+  create: async (bookingData) => {
+    try {
+      console.log('Attempting to create booking with data:', JSON.stringify(bookingData, null, 2));
+      const response = await apiClient.post(ENDPOINTS.BOOKING.CREATE, bookingData);
+      console.log('Booking creation successful:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error creating booking:',
+        JSON.stringify(error.response?.data || error.message, null, 2)
+      );
+
+      // Provide a more specific error message
+      if (error.response?.data?.message?.includes('no Route matched')) {
+        throw new Error('Không thể kết nối đến dịch vụ đặt chỗ. Vui lòng thử lại sau.');
+      } else if (error.response?.data) {
+        // Re-throw backend error message if available
+        throw new Error(error.response.data.message || 'Đã xảy ra lỗi không xác định.');
+      } else {
+        // Generic network error
+        throw new Error('Lỗi mạng hoặc không thể kết nối đến máy chủ.');
+      }
+    }
   },
 
   // Get all reservations for the current user

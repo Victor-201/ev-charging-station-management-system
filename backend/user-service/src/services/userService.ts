@@ -371,7 +371,12 @@ export class UserService {
         [userId]
       );
       return result.rows;
-    } catch (error) {
+    } catch (error: any) {
+      // If the table doesn't exist, return an empty array instead of crashing
+      if (error.code === '42P01') { // '42P01' is the PostgreSQL error code for 'undefined_table'
+        logger.warn('`user_social_accounts` table not found, returning empty array. This may be expected if the migration has not been run.');
+        return [];
+      }
       logger.error('Error getting social accounts:', error);
       throw error;
     }

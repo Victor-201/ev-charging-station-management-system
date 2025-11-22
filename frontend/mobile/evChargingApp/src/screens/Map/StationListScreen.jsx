@@ -157,7 +157,7 @@ const StationListScreen = () => {
         <View style={styles.detailItem}>
           <Icon name="power" size={18} color={colors.primary} />
           <Text style={styles.detailText}>
-            {item.available_ports}/{item.total_ports} cổng
+{`${item.available_ports}/${item.total_ports}`} cổng
           </Text>
         </View>
 
