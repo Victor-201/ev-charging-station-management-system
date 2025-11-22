@@ -2,13 +2,12 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-// Import screens
-import ReservationList from '../../screens/Reservation/ReservationList';
-import ReservationDetail from '../../screens/Reservation/ReservationDetail';
-import ScheduleBooking from '../../screens/Reservation/ScheduleBooking';
-import QRCodeScreen from '../../screens/Reservation/QRCodeScreen';
+// New booking screens
+import MyBookingsScreen from '../../screens/Booking/MyBookingsScreen';
+import BookingConfirmationScreen from '../../screens/Booking/BookingConfirmationScreen';
+import SelectChargingPointScreen from '../../screens/Booking/SelectChargingPointScreen';
+import SelectTimeSlotScreen from '../../screens/Booking/SelectTimeSlotScreen';
 import InitiateChargingScreen from '../../screens/Charging/InitiateChargingScreen';
-import BookingQRCodeScreen from '../../screens/Reservation/BookingQRCodeScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -19,11 +18,10 @@ export default function ReservationStack() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="ReservationMain" component={ReservationList} />
-      <Stack.Screen name="ReservationDetail" component={ReservationDetail} />
-      <Stack.Screen name="ScheduleBooking" component={ScheduleBooking} />
-      <Stack.Screen name="BookingQRCode" component={BookingQRCodeScreen} />
-      <Stack.Screen name="QRCode" component={QRCodeScreen} />
+      <Stack.Screen name="MyBookingsScreen" component={MyBookingsScreen} />
+      <Stack.Screen name="SelectChargingPointScreen" component={SelectChargingPointScreen} />
+      <Stack.Screen name="SelectTimeSlotScreen" component={SelectTimeSlotScreen} />
+      <Stack.Screen name="BookingConfirmationScreen" component={BookingConfirmationScreen} />
       <Stack.Screen
         name="InitiateCharging"
         component={InitiateChargingScreen}

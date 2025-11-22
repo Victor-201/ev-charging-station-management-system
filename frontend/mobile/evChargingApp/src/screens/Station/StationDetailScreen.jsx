@@ -1,0 +1,107 @@
+import { useEffect, useState, useMemo } from 'react';
+import { View, Text, ActivityIndicator, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import stationService from '../../services/stationService';
+
+const getStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: colors.outline },
+  title: { fontSize: 20, fontWeight: '700', color: colors.onSurface },
+  sub: { color: colors.onSurfaceVariant, marginTop: 4 },
+  section: { backgroundColor: colors.surface, margin: 16, borderRadius: 12, padding: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  icon: { marginRight: 8 },
+  label: { color: colors.onSurface, fontWeight: '600' },
+  value: { color: colors.onSurfaceVariant },
+  point: { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.outline, marginBottom: 10 },
+  pointRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  actions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  btn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 8 },
+});
+
+export default function StationDetailScreen({ route, navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const stationId = route.params?.stationId;
+
+  const [loading, setLoading] = useState(true);
+  const [station, setStation] = useState(null);
+  const [points, setPoints] = useState([]);
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const [s, p] = await Promise.all([
+        stationService.getStationById(stationId),
+        stationService.getStationConnectors(stationId),
+      ]);
+      setStation(s);
+      setPoints(Array.isArray(p) ? p : []);
+    } catch (e) {
+      console.error('StationDetailScreen load error:', e);
+      Alert.alert('Lỗi', 'Không thể tải chi tiết trạm sạc');
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (stationId) load(); }, [stationId]);
+
+  const availableCount = useMemo(() => points.filter(pt => pt.status === 'available').length, [points]);
+
+  if (loading || !station) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}> 
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title} numberOfLines={2}>{station.name}</Text>
+        <Text style={styles.sub} numberOfLines={2}>{station.address}</Text>
+      </View>
+      <ScrollView>
+        <View style={styles.section}>
+          <View style={styles.row}><Icon name="power" size={18} color={colors.onSurface} style={styles.icon} /><Text style={styles.label}>Khả dụng: </Text><Text style={styles.value}>{availableCount}/{points.length} cổng</Text></View>
+          {!!station.price_per_kwh && (
+            <View style={styles.row}><Icon name="attach-money" size={18} color={colors.onSurface} style={styles.icon} /><Text style={styles.label}>Giá: </Text><Text style={styles.value}>{Number(station.price_per_kwh).toLocaleString()} VND/kWh</Text></View>
+          )}
+          {Array.isArray(station.connector_types) && station.connector_types.length>0 && (
+            <View style={{ marginTop: 8 }}>
+              <Text style={styles.label}>Loại đầu nối:</Text>
+              <Text style={styles.value}>{station.connector_types.join(', ')}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.label, { marginBottom: 8 }]}>Các điểm sạc</Text>
+          {points.map((pt) => (
+            <View key={pt.point_id || pt.id} style={styles.point}>
+              <View style={styles.pointRow}>
+                <Text style={styles.label}>{pt.name || pt.point_code || 'Điểm sạc'}</Text>
+                <Text style={[styles.value, { color: pt.status==='available'?colors.success: (pt.status==='occupied'?colors.warning:colors.error) }]}>
+                  {pt.status}
+                </Text>
+              </View>
+              <Text style={styles.value}>Loại: {pt.connector_type || 'N/A'} • Công suất: {pt.max_power_kw || pt.power_kw || 'N/A'} kW</Text>
+            </View>
+          ))}
+
+          <View style={styles.actions}>
+            <TouchableOpacity style={[styles.btn, { backgroundColor: colors.secondaryContainer }]} onPress={()=>navigation.navigate('ReportIssue', { stationId })}>
+              <Text style={{ color: colors.onSecondaryContainer, fontWeight: '700' }}>Báo sự cố</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={()=>navigation.navigate('SelectChargingPointScreen', { stationId })}>
+              <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Chọn điểm sạc</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+

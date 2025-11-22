@@ -1,0 +1,122 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Platform, Alert, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker } from 'react-native-maps';
+import WebView from 'react-native-webview';
+import Geolocation from '@react-native-community/geolocation';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useTheme } from 'react-native-paper';
+import stationService from '../../services/stationService';
+
+const DEFAULT_REGION = { latitude: 10.77978, longitude: 106.699, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+
+const getStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  map: { width: '100%', height: '100%' },
+  fab: { position: 'absolute', right: 16, backgroundColor: colors.surface, padding: 12, borderRadius: 24, elevation: 3 },
+  fabText: { color: colors.accent },
+});
+
+export default function MapScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const mapRef = useRef(null);
+
+  const [region, setRegion] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [stations, setStations] = useState([]);
+
+  const fetchStations = async (lat, lng, radiusKm = 5) => {
+    try {
+      setLoading(true);
+      const list = await stationService.searchStations(lat, lng, radiusKm);
+      setStations(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.error('searchStations error:', e);
+      Alert.alert('Lỗi', 'Không thể tải danh sách trạm sạc');
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    Geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const r = { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+        setRegion(r);
+        fetchStations(latitude, longitude, 5);
+      },
+      () => {
+        setRegion(DEFAULT_REGION);
+        fetchStations(DEFAULT_REGION.latitude, DEFAULT_REGION.longitude, 5);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+  }, []);
+
+  const getPinColor = (s) => {
+    if (s.status === 'maintenance' || s.status === 'offline') return colors.error;
+    if ((s.available_ports || 0) === 0) return colors.warning;
+    return colors.success;
+  };
+
+  const leafletHtml = useMemo(() => {
+    const c = region || DEFAULT_REGION;
+    return `<!doctype html><html><head><meta name=viewport content="width=device-width,initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>html,body,#map{height:100%;margin:0}.leaflet-container{background:${colors.background}}</style></head>
+    <body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>(function(){var map=L.map('map').setView([${c.latitude},${c.longitude}],13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    var stations=${JSON.stringify(stations)};stations.forEach(function(s){
+      if(typeof s.latitude!=='number'||typeof s.longitude!=='number')return;
+      var m=L.marker([s.latitude,s.longitude],{title:s.name||'EV Station'}).addTo(map);
+      m.on('click',function(){window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({t:'tap',id:s.id||s.station_id}))});
+    });
+    map.on('moveend',function(){var c=map.getCenter();window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({t:'move',lat:c.lat,lng:c.lng}))});})();</script>
+    </body></html>`;
+  }, [region, stations, colors.background]);
+
+  const onWebMessage = (e) => {
+    try {
+      const data = JSON.parse(e?.nativeEvent?.data || '{}');
+      if (data.t === 'tap' && data.id) navigation.navigate('StationDetailScreen', { stationId: String(data.id) });
+      if (data.t === 'move' && typeof data.lat === 'number' && typeof data.lng === 'number') fetchStations(data.lat, data.lng, 5);
+    } catch {}
+  };
+
+  if (!region) return (
+    <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}> 
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={{ marginTop: 8, color: colors.onSurfaceVariant }}>Đang xác định vị trí...</Text>
+    </SafeAreaView>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {Platform.OS === 'ios' ? (
+        <MapView ref={mapRef} style={styles.map} initialRegion={region} showsUserLocation onRegionChangeComplete={(r)=>{
+          setRegion(r); fetchStations(r.latitude, r.longitude, Math.max(3, Math.round(r.latitudeDelta*111)));}}
+        >
+          {stations.filter(s=>typeof s.latitude==='number'&&typeof s.longitude==='number').map((s)=>(
+            <Marker key={s.id||s.station_id} coordinate={{ latitude:s.latitude, longitude:s.longitude }} title={s.name} description={s.address} pinColor={getPinColor(s)} onPress={()=>navigation.navigate('StationDetailScreen',{ stationId:String(s.id||s.station_id) })} />
+          ))}
+        </MapView>
+      ) : (
+        <WebView originWhitelist={["*"]} source={{ html: leafletHtml }} onMessage={onWebMessage} />
+      )}
+
+      <View style={{ position:'absolute', right:16, bottom:24 }}>
+        <TouchableOpacity style={styles.fab} onPress={()=> navigation.navigate('StationListScreen', { stations })}>
+          <Icon name="list" size={22} color={colors.accent} />
+        </TouchableOpacity>
+      </View>
+
+      {loading && (
+        <View style={{ position:'absolute', left:0, right:0, top:0, bottom:0, justifyContent:'center', alignItems:'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      )}
+    </SafeAreaView>
+  );
+}
+
