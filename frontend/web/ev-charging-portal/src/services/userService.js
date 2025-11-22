@@ -4,7 +4,7 @@ import apiClient from "@/api/apiClient";
 const userService = {
   // Lấy profile người dùng hiện tại
   getProfile() {
-    return apiClient.get("/api/v1/auth/me").then(res => res.data);
+    return apiClient.get("/api/v1/users/profile").then(res => res.data);
   },
 
   // Lấy toàn bộ danh sách user (Admin) có pagination + filter

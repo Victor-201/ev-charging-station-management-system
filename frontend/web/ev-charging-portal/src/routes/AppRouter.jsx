@@ -76,7 +76,7 @@ const AppRouter = () => {
       })}
 
       {/* Redirect root → /staff/dashboard */}
-      <Route path="/" element={<Navigate to={ROUTERS.STAFF.DASHBOARD} replace />} />
+      <Route path="/" element={<Navigate to={ROUTERS.LOGIN} replace />} />
 
       {/* Catch-all 404 */}
       <Route path="*" element={<NotFound />} />
