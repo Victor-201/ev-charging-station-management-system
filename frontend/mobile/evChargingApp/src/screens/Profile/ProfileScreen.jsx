@@ -46,9 +46,9 @@ const getStyles = (colors) =>
       color: colors.onSurface + '80',
     },
     verificationBadge: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 6,
+      marginTop: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
       borderRadius: 16,
     },
     verificationText: {
@@ -59,11 +59,11 @@ const getStyles = (colors) =>
     infoSection: {
       backgroundColor: colors.surface,
       padding: 16,
-      marginVertical: 8,
+      marginVertical: 4, // Reduced from 8
     },
     infoRow: {
       flexDirection: 'row',
-      paddingVertical: 12,
+      paddingVertical: 10, // Reduced from 12
       borderBottomWidth: 1,
       borderBottomColor: colors.onSurface + '10',
     },
@@ -84,11 +84,13 @@ const getStyles = (colors) =>
       fontWeight: 'bold',
       color: colors.onSurface,
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingTop: 16,
+      paddingBottom: 8,
       backgroundColor: colors.background,
     },
     logoutContainer: {
-      padding: 24,
+      paddingHorizontal: 24,
+      paddingTop: 16,
       backgroundColor: colors.surface,
     },
     logoutButton: {
