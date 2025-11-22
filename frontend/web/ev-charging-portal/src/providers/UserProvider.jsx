@@ -14,7 +14,6 @@ const UserProvider = ({ children }) => {
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
       const data = await userService.getProfile();
       setUser(data ?? null);
@@ -29,22 +28,22 @@ const UserProvider = ({ children }) => {
   }, []);
 
   /* ================================
-        GET ALL USERS (ADMIN)
+        GET ALL USERS (ADMIN) WITH LIMIT
   ================================== */
-  const fetchAllUsers = useCallback(async () => {
+  const fetchAllUsers = useCallback(async (params = {}) => {
     setLoading(true);
     setError(null);
-
     try {
-      const data = await userService.getAllUsers();  
-      // API trả về { total, users }
-      const list = Array.isArray(data?.users) ? data.users : [];
-
-      // Giữ nguyên key như API trả về
-      setUserList(list);
-
+      const data = await userService.getAllUsers({
+        page: params.page ?? 1,
+        size: params.size ?? 20,
+        q: params.q ?? "",
+        role: params.role ?? "",
+        status: params.status ?? "",
+      });
+      setUserList(Array.isArray(data?.users) ? data.users : []);
       setLoading(false);
-      return list;
+      return data;
     } catch (err) {
       setError(err);
       setUserList([]);

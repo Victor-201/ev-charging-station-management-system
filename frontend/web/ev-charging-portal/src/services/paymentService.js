@@ -41,11 +41,16 @@ export const paymentService = {
   // ============================
   // INVOICE
   // ============================
-  getInvoiceById: (invoice_id) =>
-    apiClient({
-      method: "GET",
-      url: `api/v1/invoices/${invoice_id}`,
-    }),
+ getInvoiceById: (invoice_id) =>
+  apiClient({
+    method: "GET",
+    url: `api/v1/invoices/${invoice_id}`,
+    responseType: "blob",
+    headers: {
+      Accept: "application/pdf",
+    },
+  }),
+
 
   // ============================
   // BILLING

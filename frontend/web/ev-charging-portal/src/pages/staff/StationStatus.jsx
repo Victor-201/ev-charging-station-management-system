@@ -2,12 +2,12 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useStation } from "@/hooks/useStation"; // hook lấy từ context
 import Card from "../../components/staff/Card/index";
 import Table from "../../components/staff/Table/index";
-import chargingControlService from "@/services/chargingControlService"; // Giả sử import từ services, điều chỉnh nếu cần
+import chargingControlService from "@/services/chargingControlService"; // service (mình gửi mẫu bên dưới)
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Stations() {
   const managedStationId = "550e8400-e29b-41d4-a716-446655440001";
-  const {user} = useAuth(); // Thay bằng ID thực tế của nhân viên, có thể lấy từ context/auth nếu có
+  const { user } = useAuth();
   const user_id = user?.user_id;
   const {
     stations,
@@ -18,11 +18,12 @@ export default function Stations() {
     getById,
     getConnectors,
     update,
-    getChargerById, // <- ensure exported by useStation
-    getChargerPricing, // <- ensure exported by useStation
+    getChargerById,
+    getChargerPricing,
   } = useStation();
-  const [selectedChargerId, setSelectedChargerId] = useState(null);
-  const [selectedChargerDetails, setSelectedChargerDetails] = useState(null);
+
+  const [selectedChargerId, setSelectedChargerId] = useState(null); // => store the chosen id string (external_id | point_id | id)
+  const [selectedChargerDetails, setSelectedChargerDetails] = useState(null); // detailed object from API
   const [loadingCharger, setLoadingCharger] = useState(false);
   const [loadingPricing, setLoadingPricing] = useState(false);
   const [query, setQuery] = useState("");
@@ -86,63 +87,55 @@ export default function Stations() {
     }
     setSelectedChargerId(chargerId);
     setSelectedChargerDetails(null);
-    // ---------- load details ----------
+
+    // load details
     setLoadingCharger(true);
     try {
       if (getChargerById) {
         const res = await getChargerById(chargerId);
         if (res?.success && res.data) {
-          // set details initial (pricing will merge later)
+          setSelectedChargerDetails(res.data);
+        } else if (res?.data) {
           setSelectedChargerDetails(res.data);
         } else {
-          setSelectedChargerDetails(ch); // fallback
+          // fallback: use the object we clicked
+          setSelectedChargerDetails(ch);
         }
       } else {
+        // if hook doesn't provide, use clicked object
         setSelectedChargerDetails(ch);
       }
     } catch (err) {
+      // fallback
       setSelectedChargerDetails(ch);
     } finally {
       setLoadingCharger(false);
     }
-    // ---------- load pricing and MERGE into selectedChargerDetails ----------
+
+    // load pricing and merge
     setLoadingPricing(true);
     try {
       if (getChargerPricing) {
         const resP = await getChargerPricing(chargerId);
-        if (resP?.success) {
-          // Normalize pricing payload:
-          // API có thể trả { pricing: [...] } hoặc trực tiếp array/object
-          const payload = resP.data ?? resP;
-          const pricingArray = Array.isArray(payload)
-            ? payload
-            : Array.isArray(payload?.pricing)
-            ? payload.pricing
-            : payload?.pricing
-            ? [payload.pricing]
-            : null;
-          // Nếu payload là object chứa price_per_kwh, ... thì lưu nguyên
-          const pricingObj = pricingArray ? { pricing: pricingArray } : payload;
-          // Merge vào details (nếu details chưa có vì load details bị chậm, dùng fallback ch)
-          setSelectedChargerDetails((prev) => {
-            const base = prev || ch || {};
-            // nếu pricingArray tồn tại thì attach trực tiếp như base.pricing = [...]
-            if (pricingArray) {
-              return { ...base, pricing: pricingArray };
-            }
-            // else nếu payload là object (không phải array) attach như base.pricingObj
-            return { ...base, pricing: pricingObj || base.pricing || null };
-          });
-        } else {
-          // no pricing
-          setSelectedChargerDetails((prev) => prev || ch || null);
-        }
+        const payload = resP?.data ?? resP;
+        const pricingArray = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.pricing)
+          ? payload.pricing
+          : payload?.pricing
+          ? [payload.pricing]
+          : null;
+        const pricingObj = pricingArray ? { pricing: pricingArray } : payload;
+        setSelectedChargerDetails((prev) => {
+          const base = prev || ch || {};
+          if (pricingArray) return { ...base, pricing: pricingArray };
+          return { ...base, pricing: pricingObj || base.pricing || null };
+        });
       } else {
         // no pricing function
         setSelectedChargerDetails((prev) => prev || ch || null);
       }
     } catch (err) {
-      // ignore pricing error
       setSelectedChargerDetails((prev) => prev || ch || null);
     } finally {
       setLoadingPricing(false);
@@ -205,16 +198,15 @@ export default function Stations() {
     }
   }
 
+  // ===== Session service wrappers =====
   const initiateSession = useCallback(async (payload) => {
     setLoadingSession(true);
     setError(null);
     try {
       const res = await chargingControlService.initiateSession(payload);
       const data = res?.data ?? res;
-     
       setCurrentSession(data);
-      setSessions(prev => [data, ...prev]);
-     
+      setSessions((prev) => [data, ...prev]);
       setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
@@ -230,14 +222,10 @@ export default function Stations() {
     try {
       const res = await chargingControlService.startSession(payload);
       const data = res?.data ?? res;
-     
       setCurrentSession(data);
-      setSessions(prev =>
-        prev.map(s =>
-          (s.id === data.id || s.session_id === data.session_id) ? data : s
-        )
+      setSessions((prev) =>
+        prev.map((s) => (s.id === data.id || s.session_id === data.session_id ? data : s))
       );
-     
       setLoadingSession(false);
       return { success: true, data };
     } catch (err) {
@@ -249,10 +237,14 @@ export default function Stations() {
 
   // ===== Xử lý bắt đầu sạc (initiate rồi start) =====
   async function handleStartCharging() {
-    if (loadingSession) return; // Ngăn click liên tục
-
-    const point_id = chooseChargerId(selectedCharger);
-    if (!point_id) return;
+    if (loadingSession) return; // prevent double click
+    // Use selectedChargerId which was set when clicking the charger card
+    const point_id = selectedChargerId;
+    if (!point_id) {
+      // no charger selected
+      alert("Bạn chưa chọn trụ để bắt đầu sạc.");
+      return;
+    }
 
     const payload = {
       station_id: managedStationId,
@@ -260,22 +252,37 @@ export default function Stations() {
       user_id,
     };
 
+    // 1) initiate
     const initRes = await initiateSession(payload);
-    if (initRes.success) {
-      const sessionId = initRes.data?.id || initRes.data?.session_id;
-      if (sessionId) {
-        const startPayload = {
-          ...payload,
-          session_id: sessionId,
-        };
-        const startRes = await startSession(startPayload);
-        if (startRes.success) {
-          setChargerStatus(point_id, "charging");
-          addChargerHistory(point_id, "Bắt đầu phiên sạc bởi nhân viên");
-        }
-      }
+    if (!initRes.success) {
+      console.error("initiateSession failed", initRes.error);
+      alert("Không thể khởi tạo phiên sạc: " + (initRes.error?.message || "Lỗi mạng"));
+      return;
     }
-    // Xử lý error nếu cần (ví dụ: alert(error?.message))
+
+    // get session id from returned data
+    const sessionId = initRes.data?.id || initRes.data?.session_id;
+    if (!sessionId) {
+      alert("Server không trả về session_id. Vui lòng kiểm tra API.");
+      return;
+    }
+
+    // 2) start
+    const startPayload = {
+      ...payload,
+      session_id: sessionId,
+    };
+    const startRes = await startSession(startPayload);
+    if (!startRes.success) {
+      console.error("startSession failed", startRes.error);
+      alert("Không thể bắt đầu phiên sạc: " + (startRes.error?.message || "Lỗi mạng"));
+      return;
+    }
+
+    // Success -> update UI local
+    setChargerStatus(point_id, "charging");
+    addChargerHistory(point_id, "Bắt đầu phiên sạc bởi nhân viên");
+    alert("Phiên sạc đã được bắt đầu thành công.");
   }
 
   // ===== Giao diện =====
@@ -285,6 +292,7 @@ export default function Stations() {
         Đang tải dữ liệu trạm...
       </div>
     );
+
   const selectedCharger =
     (selectedChargerDetails &&
       (selectedChargerDetails.id === selectedChargerId ||
@@ -292,6 +300,7 @@ export default function Stations() {
         selectedChargerDetails.external_id === selectedChargerId)
       ? selectedChargerDetails
       : filteredChargers.find((c) => chooseChargerId(c) === selectedChargerId)) || null;
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 px-6 py-8 font-inter">
       <div className="max-w-6xl mx-auto">
@@ -448,13 +457,11 @@ export default function Stations() {
                         {loadingPricing ? (
                           <div className="text-xs text-gray-500">Đang tải giá...</div>
                         ) : selectedChargerDetails?.pricing ? (
-                          // selectedChargerDetails.pricing là mảng các mục pricing
                           Array.isArray(selectedChargerDetails.pricing) && selectedChargerDetails.pricing.length > 0 ? (
                             <ul className="text-sm space-y-1">
                               {selectedChargerDetails.pricing.map((p, idx) => (
                                 <li key={idx} className="flex justify-between items-center">
                                   <div className="text-gray-700">
-                                    {/* nice label for model */}
                                     <div className="text-xs text-gray-400 capitalize">{p.model || p.name || `item ${idx + 1}`}</div>
                                     <div className="font-medium">
                                       {p.price ?? p.price_per_kwh ?? p.value ?? "—"} {p.currency ?? ""}
@@ -467,8 +474,7 @@ export default function Stations() {
                           ) : (
                             <div className="text-xs text-gray-500">Chưa có thông tin giá</div>
                           )
-                        ) : // fallback: nếu API trả về object pricing dưới key khác hoặc trực tiếp là object
-                        selectedChargerDetails && typeof selectedChargerDetails.pricing === "object" ? (
+                        ) : selectedChargerDetails && typeof selectedChargerDetails.pricing === "object" ? (
                           <pre className="text-xs text-gray-700 whitespace-pre-wrap break-all">{JSON.stringify(selectedChargerDetails.pricing, null, 2)}</pre>
                         ) : (
                           <div className="text-xs text-gray-500">Chưa có thông tin giá</div>

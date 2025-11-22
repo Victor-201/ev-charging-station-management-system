@@ -40,7 +40,13 @@ class NotificationService {
 
   async registerFCMToken(fcmToken) {
     try {
-      await apiClient.post(ENDPOINTS.NOTIFICATION.FCM_REGISTER, { fcmToken });
+      // Detect device type
+      const deviceType = Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
+
+      await apiClient.post(ENDPOINTS.NOTIFICATION.FCM_REGISTER, {
+        fcm_token: fcmToken,
+        device_type: deviceType
+      });
       console.log('FCM token registered with server.');
     } catch (error) {
       console.error('Failed to register FCM token with server:', error);
@@ -101,6 +107,24 @@ class NotificationService {
   async updateSettings(userId, settings) {
     const url = ENDPOINTS.NOTIFICATION.UPDATE_SETTINGS.replace(':user_id', userId);
     const response = await apiClient.put(url, settings);
+    return response.data;
+  }
+
+  async getNotifications(userId) {
+    const url = ENDPOINTS.NOTIFICATION.LIST.replace(':user_id', userId);
+    const response = await apiClient.get(url);
+    return response.data;
+  }
+
+  async markAsRead(notificationId) {
+    const url = ENDPOINTS.NOTIFICATION.MARK_READ.replace(':notification_id', notificationId);
+    const response = await apiClient.put(url);
+    return response.data;
+  }
+
+  async markAllAsRead(userId) {
+    const url = ENDPOINTS.NOTIFICATION.MARK_ALL_READ.replace(':user_id', userId);
+    const response = await apiClient.put(url);
     return response.data;
   }
 

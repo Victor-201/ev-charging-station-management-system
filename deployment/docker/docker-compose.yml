@@ -13,7 +13,8 @@ services:
       - "3306:3306"
     volumes:
       - station-data:/var/lib/mysql
-      - ../../backend/station-service/seeds/data.sql:/docker-entrypoint-initdb.d/data.sql
+      - ../../database/schema/ev_station_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../../database/seeds/seed_station_db.sql:/docker-entrypoint-initdb.d/02-seed.sql
     command: >
       mysqld
       --character-set-server=utf8mb4
@@ -54,7 +55,8 @@ services:
       - "3307:3306"
     volumes:
       - reservation-data:/var/lib/mysql
-      - ../../backend/charging-control-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../../database/schema/ev_charging_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../../database/seeds/seed_charging_db.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
       interval: 5s
@@ -143,7 +145,7 @@ services:
     volumes:
       - postgres-auth-data:/var/lib/postgresql/data
       - ../../database/schema/ev_auth_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ../../database/seeds/seed-auth.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ../../database/seeds/seed_auth_db.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -182,7 +184,7 @@ services:
     volumes:
       - postgres-user-data:/var/lib/postgresql/data
       - ../../database/schema/ev_user_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ../../database/seeds/seed-user.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ../../database/seeds/seed_user_db.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -239,10 +241,14 @@ services:
       DB_PASSWORD: postgres
       AUTH_SERVICE_URL: http://auth-service:3001
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      # Firebase Admin SDK service account path inside container
+      FIREBASE_SERVICE_ACCOUNT_PATH: /app/config/firebase-service-account.json
     ports:
       - "3002:3002"
     volumes:
       - user-service-exports:/app/exports
+      # Mount Firebase service account JSON (read-only)
+      - ../../backend/user-service/config/firebase-service-account.json:/app/config/firebase-service-account.json:ro
     depends_on:
       postgres-user:
         condition: service_healthy
@@ -283,8 +289,9 @@ services:
     ports:
       - "3308:3306"
     volumes:
-      - ../../backend/analytics-service/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysql_data:/var/lib/mysql
+      - ../../database/schema/ev_analytics_db.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../../database/seeds/ev_analytics_db.sql:/docker-entrypoint-initdb.d/02-seed.sql
     networks:
       - kong-net
 

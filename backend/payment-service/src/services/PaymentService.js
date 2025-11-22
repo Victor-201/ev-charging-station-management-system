@@ -5,6 +5,7 @@ import PlanRepository from '../repositories/PlanRepository.js';
 import EventOutboxRepository from '../repositories/EventOutboxRepository.js';
 import localBus from '../core/LocalEventBus.js';
 import { publishEvent } from "../core/rabbit/publisher.js";
+import { initRabbitConnection } from '../core/rabbit/connection.js';
 import config from '../config/env.js';
 import { randomUUID } from 'crypto';
 
@@ -156,14 +157,14 @@ export default class PaymentService {
   async _applyWalletRefund({ user_id, amount, transaction_id }) {
     if (!transaction_id) throw new Error("transaction_id required for refund");
 
-    const tx = await this.transactionRepo.findById(transaction_id);
-    if (!tx || tx.refunded) return;
+    const transaction = await this.transactionRepo.findById(transaction_id);
+    if (!transaction || transaction.refunded) return;
 
     try {
       await this._handleWalletInternal(user_id, amount, "refund", transaction_id);
 
-      tx.markRefunded({ refunded_at: new Date().toISOString() });
-      await this.transactionRepo.updateStatus(tx.id, tx.status, tx.meta);
+      transaction.markRefunded({ refunded_at: new Date().toISOString() });
+      await this.transactionRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
       localBus.publish("payment.refund.success", {
         user_id,
@@ -199,7 +200,7 @@ export default class PaymentService {
       }
 
       try {
-        await publishEvent(evt.type, payload);
+        publishEvent(evt.type, payload);
 
         if (evt.type === 'payment.refund.retry') {
           try {
@@ -239,34 +240,42 @@ export default class PaymentService {
           transaction_id: evt.aggregate_id
         });
         await this.outboxRepo.markAsProcessed(evt.id);
-      } catch (err) {}
+      } catch (err) { }
     }
   }
 
   async confirmCashPayment(transaction_id) {
-    const tx = await this.transactionRepo.findById(transaction_id);
-    if (!tx) throw Object.assign(new Error('Transaction not found'), { status: 404 });
-    if (tx.related_type !== 'charging_session' && tx.related_type !== 'guest_charging')
+    const transaction = await this.transactionRepo.findById(transaction_id);
+    if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
+    if (transaction.related_type !== 'charging_session' && transaction.related_type !== 'guest_charging')
       throw Object.assign(new Error('Only charging transactions supported'), { status: 400 });
 
-    tx.markSuccess({ confirmed_at: new Date().toISOString() });
-    await this.transactionRepo.updateStatus(tx.id, tx.status, tx.meta);
+    transaction.markSuccess({ confirmed_at: new Date().toISOString() });
+    await this.transactionRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
+    const eventType = `payment.charging.succeeded`;
     await this._createOutbox(
-      'payment.charging.succeeded',
-      tx.id,
+      eventType,
+      transaction.id,
       {
-        user_id: tx.user_id,
-        transaction_id: tx.id,
-        related_id: tx.related_id,
-        related_type: tx.related_type,
-        amount: tx.amount,
-        method: tx.method,
-        reference_code: tx.reference_code,
+        user_id: transaction.user_id,
+        transaction_id: transaction.id,
+        related_id: transaction.related_id,
+        related_type: transaction.related_type,
+        amount: transaction.amount,
+        method: transaction.method,
       }
     );
 
-    return tx;
+    try {
+      publishEvent(eventType, {
+        user_id: transaction.user_id,
+        transaction_id: transaction.id,
+        related_id: transaction.related_id,
+        amount: transaction.amount,
+      });
+    } catch (err) { }
+    return transaction;
   }
 
   async processBankWebhook(payload) {
@@ -321,13 +330,13 @@ export default class PaymentService {
       );
 
       try {
-        await publishEvent(eventType, {
+        publishEvent(eventType, {
           user_id: transaction.user_id,
           transaction_id: transaction.id,
           related_id: transaction.related_id,
           amount: incoming,
         });
-      } catch (err) {}
+      } catch (err) { }
     }
 
     return {
@@ -343,13 +352,13 @@ export default class PaymentService {
 
   async listUserPayments(user_id) {
     const list = await this.transactionRepo.listByUser(user_id);
-    return list.map((tx) => (typeof tx.toJSON === 'function' ? tx.toJSON() : tx));
+    return list.map((transaction) => (typeof transaction.toJSON === 'function' ? transaction.toJSON() : transaction));
   }
 
   async getPaymentById(transaction_id) {
-    const tx = await this.transactionRepo.findById(transaction_id);
-    if (!tx) throw Object.assign(new Error('Transaction not found'), { status: 404 });
-    return tx;
+    const transaction = await this.transactionRepo.findById(transaction_id);
+    if (!transaction) throw Object.assign(new Error('Transaction not found'), { status: 404 });
+    return transaction;
   }
 
   async revenueSummary() {
