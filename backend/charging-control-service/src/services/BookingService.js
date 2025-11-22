@@ -10,7 +10,6 @@ const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const axios = require('axios');
 const config = require('../config/env.js');
-const db = require('../models');
 dayjs.extend(utc);
 
 const debug = (...args) => console.log('[BookingService]', ...args);

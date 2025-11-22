@@ -1,5 +1,4 @@
 const pool = require('../config/db');
-const { db } = require('../models'); // This line causes a circular dependency
 const Reservation = require('../models/Reservation');
 const { v4: uuidv4 } = require('uuid');
 const dayjs = require('dayjs');
