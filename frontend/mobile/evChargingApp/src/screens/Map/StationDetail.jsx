@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
-import { getStationById, getStationPricing, getStationConnectors } from '../../store/slices/stationSlice';
+import { getStationById } from '../../store/slices/stationSlice';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
 import reservationService from '../../services/reservationService';
@@ -260,15 +260,16 @@ const StationDetail = ({ route, navigation }) => {
   const [joiningWaitlist, setJoiningWaitlist] = useState(false);
   const [selectedConnector, setSelectedConnector] = useState(null);
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [isBooking, setIsBooking] = useState(false);
 
   // ✅ CRITICAL: All hooks must be called BEFORE any conditional returns
   // Calculate availablePoints using useMemo
-  const availablePoints = useMemo(() => {
-    if (!station || !selectedConnector) return [];
+  const pointsForSelectedConnector = useMemo(() => {
+    if (!station?.charging_points || !selectedConnector) return [];
     return (station.charging_points || []).filter(
       (p) => p.connector_type === selectedConnector
     );
-  }, [station, selectedConnector]);
+  }, [station?.charging_points, selectedConnector]);
 
   // Calculate isAvailable
   // Determine booking button state based on station status, availability, and selection
@@ -278,31 +279,58 @@ const StationDetail = ({ route, navigation }) => {
     }
 
     if (!selectedConnector) {
-      // No connector type is selected yet, so booking is not possible.
       return { bookingDisabled: true, bookingButtonText: 'Chọn loại cổng', showWaitlistButton: false };
     }
 
-    if (availablePoints.length === 0) {
-      // Connector type is selected, but there are no points of that type.
+    const trulyAvailablePoints = pointsForSelectedConnector.filter(p => p.status === 'available');
+
+    if (pointsForSelectedConnector.length > 0 && trulyAvailablePoints.length === 0) {
+      // Points exist for this connector type, but none are available
       return { bookingDisabled: true, bookingButtonText: 'Hết chỗ', showWaitlistButton: true };
     }
 
     if (!selectedPoint) {
-      // Points are available, but none is selected.
       return { bookingDisabled: true, bookingButtonText: 'Hãy chọn điểm sạc', showWaitlistButton: false };
+    }
+
+    if (selectedPoint.status !== 'available') {
+      // This case should ideally not happen due to disabled selection, but as a safeguard:
+      return { bookingDisabled: true, bookingButtonText: 'Điểm sạc không khả dụng', showWaitlistButton: true };
     }
 
     // Everything is selected and available.
     return { bookingDisabled: false, bookingButtonText: 'Đặt chỗ ngay', showWaitlistButton: false };
-  }, [station, selectedConnector, selectedPoint, availablePoints]);
+  }, [station, selectedConnector, selectedPoint, pointsForSelectedConnector]);
 
   useEffect(() => {
     if (id) {
       dispatch(getStationById(id));
-      dispatch(getStationPricing(id));
-      dispatch(getStationConnectors(id));
+
     }
   }, [id, dispatch]);
+
+  // Auto-select the first available connector and point when station data is loaded
+  useEffect(() => {
+    if (station && station.connector_types?.length > 0 && !selectedConnector) {
+      const firstConnector = station.connector_types[0];
+      setSelectedConnector(firstConnector);
+    }
+  }, [station]);
+
+  // Auto-select the first available point once charging points are loaded and a connector type is selected
+  useEffect(() => {
+    if (selectedConnector && station?.charging_points?.length > 0) {
+      const firstAvailablePoint = (station.charging_points || []).find(
+        p => p.connector_type === selectedConnector && p.status === 'available'
+      );
+
+      if (firstAvailablePoint) {
+        setSelectedPoint(firstAvailablePoint);
+      } else {
+        setSelectedPoint(null); // Clear selection if no point is available
+      }
+    }
+  }, [selectedConnector, station?.charging_points]);
 
   const openDirections = () => {
     if (!station) return;
@@ -329,14 +357,42 @@ const StationDetail = ({ route, navigation }) => {
     });
   };
 
-  const handleBookStation = () => {
-    if (station && selectedPoint) {
-      navigation.navigate('ScheduleBooking', {
-        stationId: station.id,
+  const handleBookStation = async () => {
+    const userId = user?.user_id || user?.id;
+    if (!station || !selectedPoint || !userId) {
+      Alert.alert('Lỗi', 'Thông tin không hợp lệ để đặt chỗ.');
+      return;
+    }
+
+    setIsBooking(true);
+    try {
+      const now = new Date();
+      const endTime = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes from now
+
+      const reservationData = {
+        user_id: userId,
+        station_id: station.id,
+        point_id: selectedPoint.point_id, // Corrected from .id to .point_id
+        start_time: now.toISOString(),
+        end_time: endTime.toISOString(),
+      };
+
+      const newReservation = await reservationService.createReservation(reservationData);
+
+      // Pass the full station, point, and connectorType for the QR screen
+      const reservationDetails = {
+        ...newReservation,
         station: station,
-        pointId: selectedPoint.id,
+        point: selectedPoint,
         connectorType: selectedConnector,
-      });
+      };
+
+      navigation.replace('ActiveSession', { reservation: reservationDetails });
+
+    } catch (error) {
+      Alert.alert('Đặt chỗ thất bại', error.message || 'Không thể tạo đặt chỗ. Vui lòng thử lại.');
+    } finally {
+      setIsBooking(false);
     }
   };
 
@@ -419,20 +475,27 @@ const StationDetail = ({ route, navigation }) => {
 
       <View style={[styles.infoSection, { backgroundColor: colors.background }]}>
         <InfoBox icon="power" label="Khả dụng" value={`${station.available_ports || 0}/${station.total_ports || 0}`} styles={styles} colors={colors} />
-        {(station.rating && station.rating > 0) && (
-          <InfoBox icon="star" label="Đánh giá" value={`${station.rating} / 5.0`} styles={styles} colors={colors} />
-        )}
+
+        {(() => {
+          const ratingPart = station.rating && station.rating > 0 ? `${Number(station.rating).toFixed(1)} / 5.0` : null;
+          const distancePart = station.distance ? `${station.distance.toFixed(1)} km` : null;
+          const ratingAndDistance = [ratingPart, distancePart].filter(Boolean).join(' • ');
+
+          if (ratingAndDistance) {
+            return <InfoBox icon="star" label="Đánh giá" value={ratingAndDistance} styles={styles} colors={colors} />;
+          }
+          return null;
+        })()}
+
         {(station.price_per_kwh && station.price_per_kwh > 0) ? (
           <InfoBox icon="attach-money" label="Giá" value={`${Number(station.price_per_kwh).toLocaleString()}đ / kWh`} styles={styles} colors={colors} />
         ) : station.pricing && Array.isArray(station.pricing) && station.pricing.length > 0 ? (
           <View style={styles.infoBox}>
             <Icon name="attach-money" size={24} color={colors.primary} />
             <Text style={styles.infoBoxLabel}>Bảng giá</Text>
-            {station.pricing.map((p, i) => (
-              <Text key={i} style={styles.infoBoxValue} numberOfLines={1} ellipsizeMode="tail">
-                {String(p.name || 'N/A')}: {Number(p.price || 0).toLocaleString()}đ
-              </Text>
-            ))}
+            <Text style={styles.infoBoxValue} numberOfLines={2} ellipsizeMode="tail">
+              {station.pricing.map(p => `${p.name}: ${Number(p.price || 0).toLocaleString()}đ`).join(' / ')}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -477,15 +540,15 @@ const StationDetail = ({ route, navigation }) => {
       {selectedConnector && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>2. Chọn điểm sạc</Text>
-          {availablePoints.length > 0 ? (
+          {pointsForSelectedConnector.length > 0 ? (
             <View style={styles.pointContainer}>
-              {availablePoints.map((point) => {
-                const isPointSelected = selectedPoint?.id === point.id;
+              {pointsForSelectedConnector.map((point) => {
+                const isPointSelected = selectedPoint?.point_id === point.point_id;
                 const isPointDisabled = point.status !== 'available';
 
                 return (
                   <TouchableOpacity
-                    key={point.id}
+                    key={point.point_id}
                     style={[
                       styles.pointBadge,
                       { borderColor: colors.surfaceVariant, backgroundColor: colors.surface },
@@ -507,7 +570,7 @@ const StationDetail = ({ route, navigation }) => {
                         isPointDisabled && [styles.pointTextDisabled, { color: colors.onSurfaceDisabled }],
                       ]}
                     >
-                      {String(point.point_name || `P${point.id || 'N/A'}`)}
+                      {String(point.point_name || `P${point.point_id || 'N/A'}`)}
                     </Text>
                     <Text
                       style={[
@@ -555,11 +618,15 @@ const StationDetail = ({ route, navigation }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.bookButton, bookingDisabled && styles.disabledButton]}
+          style={[styles.bookButton, (bookingDisabled || isBooking) && styles.disabledButton]}
           onPress={handleBookStation}
-          disabled={bookingDisabled}
+          disabled={bookingDisabled || isBooking}
         >
-          <Text style={styles.bookButtonText}>{bookingButtonText}</Text>
+          {isBooking ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.bookButtonText}>{bookingButtonText}</Text>
+          )}
         </TouchableOpacity>
       </View>
 

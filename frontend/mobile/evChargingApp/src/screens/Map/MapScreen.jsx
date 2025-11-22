@@ -357,9 +357,17 @@ export default function MapScreen({ navigation }) {
   };
 
   const getMarkerColor = (station) => {
-    if (station.status === 'maintenance') return colors.error;
+    if (station.status === 'maintenance' || station.status === 'offline') return colors.error;
     if ((station.available_ports || 0) === 0) return colors.warning;
-    return colors.success;
+    if ((station.available_ports || 0) > 0) return colors.success;
+    return colors.primary; // Default color
+  };
+
+  const getAvailabilityText = (station) => {
+    if (station.status === 'maintenance') return 'Bảo trì';
+    if (station.status === 'offline') return 'Ngoại tuyến';
+    if ((station.available_ports || 0) === 0) return 'Hết chỗ';
+    return `${station.available_ports}/${station.total_ports} cổng`;
   };
 
   const handleBookStation = () => {
@@ -603,7 +611,7 @@ export default function MapScreen({ navigation }) {
               <Icon name="star" size={16} color={colors.warning} />
               <Text style={styles.detailText}>
                 {selectedStation.rating !== null && selectedStation.rating !== undefined ? Number(selectedStation.rating).toFixed(1) : 'N/A'}
-                {' \u2022 '}
+                <Text style={styles.detailText}> • </Text>
                 {selectedStation.distance !== null && selectedStation.distance !== undefined ? `${Number(selectedStation.distance).toFixed(1)} km` : 'N/A'}
               </Text>
             </View>

@@ -9,6 +9,7 @@ import ChargingHistoryDetail from '../../screens/Charging/ChargingHistoryDetail'
 import ActiveChargingScreen from '../../screens/Charging/ActiveChargingScreen';
 import ChargingCompleteScreen from '../../screens/Charging/ChargingCompleteScreen';
 import InvoiceScreen from '../../screens/Payment/InvoiceScreen';
+import ActiveSessionScreen from '../../screens/Charging/ActiveSessionScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -61,6 +62,14 @@ export default function ChargingStack() {
         component={InvoiceScreen}
         options={{
           title: 'Hóa đơn',
+        }}
+      />
+      <Stack.Screen
+        name="ActiveSession"
+        component={ActiveSessionScreen}
+        options={{
+          title: 'Bắt đầu phiên sạc',
+          headerLeft: () => null, // Prevent going back
         }}
       />
     </Stack.Navigator>

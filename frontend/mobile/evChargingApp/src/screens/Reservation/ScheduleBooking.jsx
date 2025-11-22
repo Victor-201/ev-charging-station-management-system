@@ -370,14 +370,16 @@ export default function ScheduleBooking() {
         throw new Error('Không nhận được mã đặt chỗ từ server.');
       }
 
-      // Navigate to a new confirmation screen
+      // Navigate to confirmation screen with all required data
       navigation.replace('BookingConfirmation', {
         reservationId: reservationId,
         station: station,
+        pointId: pointId,
         bookingDetails: {
           ...bookingData,
           time: selectedTimeSlot.time,
           date: selectedDate.date.toLocaleDateString('vi-VN'),
+          connectorType: selectedConnector,
         },
       });
 
@@ -396,6 +398,36 @@ export default function ScheduleBooking() {
       year: 'numeric'
     });
   };
+
+  if (!station || !pointId) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name="arrow-back" size={24} color={colors.onPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Lỗi</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Icon name="error-outline" size={48} color={colors.error} />
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.error, marginTop: 16, textAlign: 'center' }}>
+            Thông tin không hợp lệ
+          </Text>
+          <Text style={{ fontSize: 14, color: colors.onSurface, opacity: 0.7, marginTop: 8, textAlign: 'center' }}>
+            Vui lòng quay lại và chọn một điểm sạc cụ thể trước khi đặt chỗ.
+          </Text>
+          <TouchableOpacity
+            style={[styles.bookButton, { marginTop: 20, width: '100%' }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.bookButtonText}>Quay lại</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

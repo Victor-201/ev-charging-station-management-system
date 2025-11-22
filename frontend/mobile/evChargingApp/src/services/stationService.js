@@ -45,10 +45,7 @@ const transformStationData = (station) => {
     return isNaN(num) ? 0 : num;
   };
 
-  const safeParseInt = (value) => {
-    const num = parseInt(value, 10);
-    return isNaN(num) ? 0 : num;
-  };
+
 
   const parseStringArray = (arr) => {
     if (!arr) return [];
@@ -190,37 +187,10 @@ const stationService = {
     }
   },
 
-  // Get station availability
-  getAvailability: async (stationId) => {
-    const url = ENDPOINTS.STATION.DETAIL.replace(':id', stationId);
-    const response = await apiClient.get(url);
-    // Extract availability info from station data
-    const station = transformStationData(response.data);
-    return {
-      station_id: stationId,
-      available_ports: station.available_ports || 0,
-      total_ports: station.total_ports || 0,
-    };
-  },
-
-  // Get station connectors
-  getConnectors: async (stationId) => {
-    const url = ENDPOINTS.STATION.CONNECTORS.replace(':id', stationId);
-    const response = await apiClient.get(url);
-    return response.data;
-  },
-
   // Report station issue
   reportIssue: async (stationId, payload) => {
     const url = ENDPOINTS.STATION.REPORT_ISSUE.replace(':id', stationId);
     const response = await apiClient.post(url, payload);
-    return response.data;
-  },
-
-  // Get station pricing
-  getPricing: async (stationId) => {
-    const url = ENDPOINTS.STATION.PRICING.replace(':id', stationId);
-    const response = await apiClient.get(url);
     return response.data;
   },
 };

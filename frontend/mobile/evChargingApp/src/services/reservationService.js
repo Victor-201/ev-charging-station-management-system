@@ -69,13 +69,17 @@ const reservationService = {
 
   /**
    * Generate a QR code for a reservation.
-   * @param {string} reservationId
+   * @param {object} qrData - { reservation_id, user_id, station_id, point_id }
    * @returns {Promise<object>}
    */
-  createQrCode: async (reservationId) => {
-    const url = ENDPOINTS.BOOKING.QR_GENERATE.replace(':reservation_id', reservationId);
-    const response = await apiClient.post(url);
-    return response.data;
+  createQrCode: async (qrData) => {
+    try {
+      const response = await apiClient.post(ENDPOINTS.BOOKING.QR_GENERATE, qrData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating QR code:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Failed to create QR code.');
+    }
   },
 
   // Waitlist operations
