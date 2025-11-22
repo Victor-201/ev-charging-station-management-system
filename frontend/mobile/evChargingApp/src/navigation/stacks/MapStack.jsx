@@ -23,6 +23,7 @@ export default function MapStack() {
       <Stack.Screen name="StationList" component={StationListScreen} />
       <Stack.Screen name="StationDetail" component={StationDetail} />
       <Stack.Screen name="ScheduleBooking" component={ScheduleBooking} />
+      <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
       <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
     </Stack.Navigator>
   );
