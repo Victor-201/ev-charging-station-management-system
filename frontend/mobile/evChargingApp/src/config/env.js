@@ -9,7 +9,7 @@ import {
 } from '@env';
 
 const FALLBACKS = {
-  API_BASE_URL: 'https://liane-precritical-felix.ngrok-free.dev/api/v1',
+  API_BASE_URL: 'https://impeditive-incredible-jordy.ngrok-free.dev/api/v1',
   GOOGLE_WEB_CLIENT_ID: '',
   GOOGLE_IOS_CLIENT_ID: '',
   GOOGLE_ANDROID_CLIENT_ID: '',
