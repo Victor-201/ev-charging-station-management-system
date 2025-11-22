@@ -568,8 +568,6 @@ export const PaymentProvider = ({ children }) => {
       todayRevenue,
       summaryRevenue,
       getInvoiceById,
-loadingInvoice,
-lastInvoice,
 
 
       // TRANSACTIONS
@@ -586,7 +584,7 @@ lastInvoice,
       refundPayment,
 
       // INVOICE
-      getInvoiceById,
+
       generateBilling,
 
       // WALLET
