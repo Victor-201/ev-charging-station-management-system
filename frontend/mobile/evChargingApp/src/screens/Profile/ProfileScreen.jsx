@@ -5,6 +5,7 @@ import { Avatar, List, Divider, Button, ActivityIndicator, Text } from 'react-na
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMe } from '../../store/slices/userSlice';
+import { UserRole } from '../../config/roles';
 import { logoutAsync } from '../../store/slices/authSlice';
 import { useTheme } from 'react-native-paper';
 
@@ -52,7 +53,7 @@ const getStyles = (colors) =>
     verificationText: {
       fontSize: 13,
       fontWeight: '600',
-      color: '#FFFFFF',
+      color: colors.onPrimary,
     },
     infoSection: {
       backgroundColor: colors.surface,
@@ -262,6 +263,18 @@ export default function ProfileScreen({ navigation }) {
             right={(props) => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => navigation.navigate('AccountSettingsScreen')}
           />
+
+          {/* Admin-only section */}
+          {user?.role === UserRole.ADMIN && (
+            <List.Item
+              title="Admin Dashboard"
+              description="Quản lý hệ thống"
+              left={(props) => <List.Icon {...props} icon="view-dashboard-outline" />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => navigation.navigate('AdminDashboardScreen')}
+              titleStyle={{ color: colors.primary }}
+            />
+          )}
         </List.Section>
 
         <Divider />

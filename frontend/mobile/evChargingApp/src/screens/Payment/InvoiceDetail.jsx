@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, useTheme, Divider, Button } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useDispatch, useSelector } from 'react-redux';
+import { getInvoice } from '../../store/slices/paymentSlice';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -27,22 +29,7 @@ const getStyles = (colors) => StyleSheet.create({
   footer: { padding: 20, borderTopWidth: 1, borderTopColor: colors.outline },
 });
 
-// Mock data for a single invoice
-const mockInvoice = {
-  id: 'INV001',
-  transaction_id: 'TXN001',
-  station_name: 'Trạm sạc Central Park',
-  station_address: '123 Nguyễn Huệ, Q1, TP.HCM',
-  amount: 50000,
-  currency: 'VND',
-  status: 'completed',
-  payment_method: 'Thẻ tín dụng',
-  energy_consumed: 25.5,
-  price_per_kwh: 1960,
-  duration: '1h 15m',
-  created_at: '2024-11-04T14:30:00Z',
-  tax: 4000, // 8% VAT
-};
+
 
 const DetailRow = ({ label, value, valueStyle }) => {
   const { colors } = useTheme();
@@ -58,11 +45,35 @@ const DetailRow = ({ label, value, valueStyle }) => {
 export default function InvoiceDetail({ navigation, route }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
-  // const { id } = route.params;
-  // In a real app, you would fetch the invoice by id.
-  const invoice = mockInvoice;
+  const dispatch = useDispatch();
+  const { id } = route.params;
+  const { invoice, loading, error } = useSelector((state) => state.payment);
 
-  const subtotal = invoice.amount - invoice.tax;
+  useEffect(() => {
+    if (id) {
+      dispatch(getInvoice(id));
+    }
+  }, [id, dispatch]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 16, color: colors.onSurfaceVariant }}>Đang tải hóa đơn...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !invoice) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: colors.error, marginBottom: 16 }}>{error || 'Không thể tải được chi tiết hóa đơn.'}</Text>
+        <Button mode="contained" onPress={() => dispatch(getInvoice(id))}>Thử lại</Button>
+      </SafeAreaView>
+    );
+  }
+
+  const subtotal = (invoice.amount || 0) - (invoice.tax || 0);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>

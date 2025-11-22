@@ -16,11 +16,11 @@ export const updateProfile = createAsyncThunk('user/updateProfile', async (profi
   try {
     const state = getState();
     const userId = state.user?.profile?.user_id || state.user?.profile?.id || state.auth?.user?.user_id || state.auth?.user?.id;
-    
+
     if (!userId) {
       throw new Error('User ID not found');
     }
-    
+
     const response = await profileService.updateProfile(userId, profileData);
     return response;
   } catch (err) {
@@ -28,8 +28,19 @@ export const updateProfile = createAsyncThunk('user/updateProfile', async (profi
   }
 });
 
+// Async thunk for fetching all users (admin only)
+export const getUsers = createAsyncThunk('user/getUsers', async (_, { rejectWithValue }) => {
+  try {
+    const data = await profileService.getAllUsers(); // This function needs to be added to profileService
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || { message: err.message });
+  }
+});
+
 const initialState = {
   profile: null,
+  users: [], // Add users to state
   loading: false,
   error: null,
 };
@@ -41,6 +52,9 @@ const userSlice = createSlice({
     clearProfile(state) {
       state.profile = null;
       state.loading = false;
+      state.error = null;
+    },
+    clearError(state) {
       state.error = null;
     },
     setProfile(state, action) {
@@ -109,9 +123,24 @@ const userSlice = createSlice({
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || 'Failed to update profile';
+      })
+
+      // GetUsers reducers
+      .addCase(getUsers.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.users = action.payload.data || [];
+      })
+      .addCase(getUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.users = [];
+        state.error = action.payload?.message || 'Failed to fetch users';
       });
   },
 });
 
-export const { clearProfile, setProfile } = userSlice.actions;
+export const { clearProfile, setProfile, clearError } = userSlice.actions;
 export default userSlice.reducer;

@@ -15,50 +15,67 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
 import useStations from '../../hooks/useStations';
+import Geolocation from '@react-native-community/geolocation';
+import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 const StationListScreen = () => {
   const navigation = useNavigation();
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
-  // Use custom hook for station data management
-  const {
-    stations,
-    loading,
-    error,
-    refreshing,
-    fetchNearbyStations,
-    refresh,
-  } = useStations({
-    autoFetch: true,
-    latitude: 10.7769, // Default to Ho Chi Minh City coordinates
-    longitude: 106.7009,
-    radius: 50,
-  });
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+
+  // Use custom hook for station data management, but disable autoFetch
+  const { stations, loading, error, refreshing, fetchNearbyStations, refresh } = useStations({ autoFetch: false });
 
   const [filteredStations, setFilteredStations] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('distance'); // distance, name, rating, availability
 
-  // Show error alert if there's an error
+  // Request location permission and fetch stations
+  useEffect(() => {
+    const requestAndFetch = async () => {
+      try {
+        const permission = Platform.OS === 'ios'
+          ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+          : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+        const result = await request(permission);
+
+        if (result === RESULTS.GRANTED) {
+          Geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              setUserLocation({ latitude, longitude });
+              fetchNearbyStations(latitude, longitude, 50); // Fetch stations with 50km radius
+            },
+            (err) => {
+              setLocationError('Không thể lấy vị trí hiện tại.');
+              console.error('Geolocation error:', err);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+          );
+        } else {
+          setLocationError('Quyền truy cập vị trí đã bị từ chối.');
+        }
+      } catch (err) {
+        setLocationError('Lỗi khi yêu cầu quyền vị trí.');
+        console.error('Permission error:', err);
+      }
+    };
+
+    requestAndFetch();
+  }, [fetchNearbyStations]);
+
+  // Show data loading error alert
   useEffect(() => {
     if (error) {
-      Alert.alert(
-        'Lỗi tải dữ liệu',
-        'Không thể tải danh sách trạm sạc. Vui lòng thử lại.',
-        [
-          {
-            text: 'Thử lại',
-            onPress: () => refresh(),
-          },
-          {
-            text: 'Đóng',
-            style: 'cancel',
-          },
-        ]
-      );
+      Alert.alert('Lỗi tải dữ liệu', 'Không thể tải danh sách trạm sạc. Vui lòng thử lại.', [
+        { text: 'Thử lại', onPress: () => refresh() },
+        { text: 'Đóng', style: 'cancel' },
+      ]);
     }
-  }, [error]);
+  }, [error, refresh]);
 
   useEffect(() => {
     filterAndSortStations();
@@ -195,12 +212,35 @@ const StationListScreen = () => {
     </TouchableOpacity>
   );
 
-  if (loading) {
+  if (loading && stations.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Đang tải danh sách trạm sạc...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!userLocation && !locationError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Đang lấy vị trí của bạn...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (locationError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Icon name="location-off" size={64} color={colors.onSurfaceVariant} />
+          <Text style={[styles.emptyText, { marginTop: 16 }]}>{locationError}</Text>
+          <Text style={styles.emptySubtext}>Vui lòng cấp quyền vị trí để tìm trạm sạc gần bạn.</Text>
         </View>
       </SafeAreaView>
     );

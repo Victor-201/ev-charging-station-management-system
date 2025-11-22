@@ -332,7 +332,7 @@ export default function ScheduleBooking() {
       point_id: pointId,
       connector_type: selectedConnector,
       start_time: selectedTimeSlot.startTime, // ISO format from slot
-      end_time: selectedTimeSlot.endTime, // ISO format from slot
+      duration_minutes: selectedTimeSlot.duration, // Send duration instead of end_time
       payment_method: 'wallet', // Required by backend: 'wallet' or 'bank_transfer'
       price_per_min: station?.price_per_min || station?.price_per_kwh || 1000, // Use station pricing if available
     };
@@ -366,56 +366,16 @@ export default function ScheduleBooking() {
 
       console.log('✅ Reservation created successfully. ID:', reservationId);
 
-      // Step 2: Generate QR code for the reservation
-      try {
-        console.log('📱 Generating QR code for reservation:', reservationId);
-        const qrResponse = await reservationService.generateQR(reservationId);
-        console.log('✅ QR generated successfully:', qrResponse);
-
-        // Navigate to reservation detail with QR data
-        Alert.alert(
-          'Đặt chỗ thành công!',
-          `Mã đặt chỗ: ${reservationId}\nMã QR đã được tạo để bạn quét khi đến trạm sạc.`,
-          [
-            {
-              text: 'Xem đặt chỗ',
-              onPress: () => navigation.navigate('Profile', {
-                screen: 'ReservationStack',
-                params: {
-                  screen: 'ReservationMain',
-                  params: { refreshList: true }
-                }
-              })
-            }
-          ]
-        );
-      } catch (qrError) {
-        console.warn('⚠️ Failed to generate QR code:', qrError);
-        console.warn('⚠️ QR Error details:', {
-          message: qrError?.message,
-          response: qrError?.response?.data,
-          status: qrError?.response?.status
-        });
-
-        // Still show success even if QR generation fails
-        // User can generate QR later from reservation detail screen
-        Alert.alert(
-          'Đặt chỗ thành công!',
-          `Mã đặt chỗ: ${reservationId}\n\n⚠️ Lưu ý: Không thể tạo mã QR ngay lúc này. Bạn có thể tạo mã QR sau trong mục chi tiết đặt chỗ.`,
-          [
-            {
-              text: 'Xem đặt chỗ',
-              onPress: () => navigation.navigate('Profile', {
-                screen: 'ReservationStack',
-                params: {
-                  screen: 'ReservationMain',
-                  params: { refreshList: true }
-                }
-              })
-            }
-          ]
-        );
-      }
+      // Step 2: Navigate to QR Code screen
+      navigation.navigate('BookingQRCode', {
+        reservation: {
+          ...bookingData,
+          id: reservationId,
+          station_name: station.name,
+          station_address: station.address,
+        },
+        qrData: { reservationId: reservationId }, // Pass data to be encoded in QR
+      });
     } catch (error) {
       console.error('❌ Error creating booking:', error);
       console.error('❌ Error details:', {

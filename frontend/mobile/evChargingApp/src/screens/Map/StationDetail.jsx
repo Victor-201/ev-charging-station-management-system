@@ -250,7 +250,7 @@ const InfoBox = ({ icon, label, value, styles, colors }) => {
   );
 };
 
-export default function StationDetail({ route, navigation }) {
+const StationDetail = ({ route, navigation }) => {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const { id } = route.params;
@@ -271,9 +271,30 @@ export default function StationDetail({ route, navigation }) {
   }, [station, selectedConnector]);
 
   // Calculate isAvailable
-  const isAvailable = useMemo(() => {
-    return station?.status === 'active' && (station?.available_ports || 0) > 0;
-  }, [station]);
+  // Determine booking button state based on station status, availability, and selection
+  const { bookingDisabled, bookingButtonText, showWaitlistButton } = useMemo(() => {
+    if (station?.status !== 'active') {
+      return { bookingDisabled: true, bookingButtonText: 'Bảo trì', showWaitlistButton: false };
+    }
+
+    if (!selectedConnector) {
+      // No connector type is selected yet, so booking is not possible.
+      return { bookingDisabled: true, bookingButtonText: 'Chọn loại cổng', showWaitlistButton: false };
+    }
+
+    if (availablePoints.length === 0) {
+      // Connector type is selected, but there are no points of that type.
+      return { bookingDisabled: true, bookingButtonText: 'Hết chỗ', showWaitlistButton: true };
+    }
+
+    if (!selectedPoint) {
+      // Points are available, but none is selected.
+      return { bookingDisabled: true, bookingButtonText: 'Hãy chọn điểm sạc', showWaitlistButton: false };
+    }
+
+    // Everything is selected and available.
+    return { bookingDisabled: false, bookingButtonText: 'Đặt chỗ ngay', showWaitlistButton: false };
+  }, [station, selectedConnector, selectedPoint, availablePoints]);
 
   useEffect(() => {
     if (id) {
@@ -384,7 +405,7 @@ export default function StationDetail({ route, navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <Text style={[styles.stationName, { color: colors.onSurface }]}>{station.name}</Text>
@@ -522,18 +543,15 @@ export default function StationDetail({ route, navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.bookButton, { backgroundColor: colors.primary }, !selectedPoint && styles.disabledButton]}
+          style={[styles.bookButton, bookingDisabled && styles.disabledButton]}
           onPress={handleBookStation}
-          disabled={!selectedPoint}
+          disabled={bookingDisabled}
         >
-          <Text style={[styles.bookButtonText, { color: colors.onPrimary }]}>
-            {isAvailable ? 'Đặt chỗ ngay' : 'Hết chỗ'}
-          </Text>
+          <Text style={styles.bookButtonText}>{bookingButtonText}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Waitlist Button - Show when no slots available */}
-      {!isAvailable && station.status === 'active' && (
+      {showWaitlistButton && (
         <TouchableOpacity
           style={[styles.waitlistButton, joiningWaitlist && styles.disabledButton]}
           onPress={handleJoinWaitlist}
@@ -557,3 +575,5 @@ export default function StationDetail({ route, navigation }) {
     </SafeAreaView>
   );
 }
+
+export default StationDetail;

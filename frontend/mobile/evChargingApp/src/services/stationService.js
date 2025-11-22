@@ -155,21 +155,10 @@ const stationService = {
       const response = await apiClient.get(url);
       const station = response.data;
       
-      // Backend getStationById returns minimal data, fetch connectors separately
-      try {
-        const connectorsUrl = ENDPOINTS.STATION.CONNECTORS.replace(':id', stationId);
-        const connectorsResponse = await apiClient.get(connectorsUrl);
-        const connectors = connectorsResponse.data || [];
-        
-        // Transform connectors to charging_points format
-        station.charging_points = connectors.map(c => ({
-          id: c.point_id,
-          connector_type: c.type,
-          max_power_kw: c.max_power_kw,
-          status: c.status,
-        }));
-      } catch (err) {
-        console.warn('Failed to fetch connectors:', err);
+      // The /stations/:id endpoint is now expected to return charging_points directly.
+      // The separate call to /connectors is removed for optimization.
+      if (!station.charging_points) {
+        console.warn('Station data from getStationById is missing charging_points.');
         station.charging_points = [];
       }
       
