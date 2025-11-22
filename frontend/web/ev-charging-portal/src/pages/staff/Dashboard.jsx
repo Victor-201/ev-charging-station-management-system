@@ -3,14 +3,48 @@ import { useNavigate } from "react-router-dom";
 import Card from "../../components/staff/Card";
 import { ROUTERS } from "@/utils/constants";
 
+// ICONS trắng / đơn giản
+import {
+  CreditCard,
+  Zap,
+  Battery,
+  Settings,
+  Camera,
+  ChevronRight,
+} from "lucide-react";
+
 export default function Dashboard() {
   const navigate = useNavigate();
 
   const quickCards = [
-    { key: "payments", title: "Payments", subtitle: "Xử lý & ghi nhận", icon: "💳", route: ROUTERS.STAFF.PAYMENTS },
-    { key: "stations", title: "Stations", subtitle: "Quản lý trạm sạc", icon: "⚡", route: ROUTERS.STAFF.STATIONS },
-    { key: "sessions", title: "Sessions", subtitle: "Phiên đang chạy", icon: "🔋", route: ROUTERS.STAFF.SESSIONS },
-    { key: "settings", title: "Settings", subtitle: "Cấu hình hệ thống", icon: "⚙️", route: ROUTERS.STAFF.SETTINGS },
+    {
+      key: "payments",
+      title: "Payments",
+      subtitle: "Xử lý & ghi nhận",
+      icon: <CreditCard size={42} strokeWidth={1.5} className="text-blue-600" />,
+      route: ROUTERS.STAFF.PAYMENTS,
+    },
+    {
+      key: "stations",
+      title: "Stations",
+      subtitle: "Quản lý trạm sạc",
+      icon: <Zap size={42} strokeWidth={1.5} className="text-green-600" />,
+      route: ROUTERS.STAFF.STATIONS,
+    },
+    {
+      key: "sessions",
+      title: "Sessions",
+      subtitle: "Phiên đang chạy",
+      icon: <Battery size={42} strokeWidth={1.5} className="text-yellow-600" />,
+      route: ROUTERS.STAFF.SESSIONS,
+    },
+    {
+      key: "IncidentReport",
+      title: "Incident Report",
+      subtitle: "Báo cáo hệ thống",
+      icon: <Settings size={42} strokeWidth={1.5} className="text-purple-600" />,
+      route: ROUTERS.STAFF.INCIDENT_REPORT,
+    },
   ];
 
   const requestCameraThenNavigate = async (to) => {
@@ -46,9 +80,10 @@ export default function Dashboard() {
                      rounded-2xl flex items-center gap-6 px-6 py-4 shadow-2xl border border-white/10 
                      cursor-pointer select-none transition-transform duration-200 hover:-translate-y-2"
         >
+          {/* ICON CAMERA */}
           <div className="w-[180px] h-[180px] rounded-xl border-2 border-dashed border-white/20 
                           bg-white/10 flex items-center justify-center">
-            <div className="text-6xl">📷</div>
+            <Camera size={74} strokeWidth={1.4} className="text-white" />
           </div>
 
           <div className="flex-1">
@@ -64,23 +99,23 @@ export default function Dashboard() {
           {quickCards.map((c) => (
             <button
               key={c.key}
-              onClick={() => navigate(c.route)} // 👈 Dùng route chuẩn
+              onClick={() => navigate(c.route)}
               aria-label={c.title}
               className="bg-white border border-gray-100 rounded-xl shadow-md flex items-center justify-between gap-4
                          px-5 py-5 min-h-[130px] transition-transform duration-200 hover:-translate-y-2 hover:shadow-xl"
             >
               <div className="flex items-center gap-4 flex-1 text-left">
                 <div
-                  className={`w-[84px] h-[84px] flex items-center justify-center text-[44px] rounded-lg shadow-sm 
-                    ${
-                      c.key === "payments"
-                        ? "bg-cyan-50"
-                        : c.key === "stations"
-                        ? "bg-green-50"
-                        : c.key === "sessions"
-                        ? "bg-yellow-50"
-                        : "bg-purple-50"
-                    }`}
+                  className={`w-[84px] h-[84px] flex items-center justify-center rounded-lg shadow-sm 
+                      ${
+                        c.key === "payments"
+                          ? "bg-cyan-50"
+                          : c.key === "stations"
+                          ? "bg-green-50"
+                          : c.key === "sessions"
+                          ? "bg-yellow-50"
+                          : "bg-purple-50"
+                      }`}
                 >
                   {c.icon}
                 </div>
@@ -89,43 +124,15 @@ export default function Dashboard() {
                   <div className="text-sm text-gray-500 mt-1">{c.subtitle}</div>
                 </div>
               </div>
-              <div className="text-blue-600 text-2xl font-bold">→</div>
+
+              {/* → */}
+              <ChevronRight size={28} className="text-blue-600" />
             </button>
           ))}
         </div>
 
         {/* Latest Sessions */}
-        <div className="mt-10">
-          <Card title="Latest Sessions">
-            <table className="w-full border-collapse text-sm">
-              <thead className="bg-gray-50 text-gray-700">
-                <tr>
-                  <th className="py-2 px-3 text-left font-semibold">Session ID</th>
-                  <th className="py-2 px-3 text-left font-semibold">User</th>
-                  <th className="py-2 px-3 text-left font-semibold">Station</th>
-                  <th className="py-2 px-3 text-left font-semibold">Start</th>
-                  <th className="py-2 px-3 text-left font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-t">
-                  <td className="py-2 px-3">S-1001</td>
-                  <td className="py-2 px-3">Nguyen</td>
-                  <td className="py-2 px-3">Station A</td>
-                  <td className="py-2 px-3">10:00</td>
-                  <td className="py-2 px-3 text-green-600 font-semibold">Active</td>
-                </tr>
-                <tr className="border-t">
-                  <td className="py-2 px-3">S-1000</td>
-                  <td className="py-2 px-3">Le</td>
-                  <td className="py-2 px-3">Station B</td>
-                  <td className="py-2 px-3">09:20</td>
-                  <td className="py-2 px-3 text-gray-500 font-medium">Finished</td>
-                </tr>
-              </tbody>
-            </table>
-          </Card>
-        </div>
+      
       </div>
     </div>
   );
