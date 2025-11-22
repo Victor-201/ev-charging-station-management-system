@@ -356,7 +356,10 @@ export class StationService {
     }
 
     getAssignedStation = async (staff_user_id: string): Promise<GetStation> => {
-        const assignments = await this.prisma.station_staff.findFirst({
+        if(!staff_user_id){
+            throw new BadRequestException('Staff user ID is required');
+        }
+        const assignments = await this.prisma.station_staff.findUnique({
             where: { staff_user_id },
             include: { station: true },
         });

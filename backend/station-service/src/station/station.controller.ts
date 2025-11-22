@@ -34,6 +34,14 @@ export class StationController {
     }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('staff')
+    @Get('staff/assigned-station')
+    async getAssignedStation(@Req() req: Request) {
+        const staff_user_id = (req as any).user?.user_id;
+        return this.stationService.getAssignedStation(staff_user_id);
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin')
     @Post()
     async createStation(@Body() body: CreateStationDto) {
@@ -137,12 +145,4 @@ export class StationController {
         return this.stationService.getHistoryOfReports(id);
     }
 
-
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('staff')
-    @Get('staff/assigned-station')
-    async getAssignedStation(@Req() req: Request) {
-        const staff_user_id = (req as any).user?.user_id;
-        return this.stationService.getAssignedStation(staff_user_id);
-    }
 }
