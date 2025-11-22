@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -240,6 +240,16 @@ const getStyles = (colors) => StyleSheet.create({
   },
 });
 
+const InfoBox = ({ icon, label, value, styles, colors }) => {
+  return (
+    <View style={styles.infoBox}>
+      <Icon name={icon} size={24} color={colors.primary} />
+      <Text style={styles.infoBoxLabel}>{label}</Text>
+      <Text style={styles.infoBoxValue}>{value}</Text>
+    </View>
+  );
+};
+
 export default function StationDetail({ route, navigation }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -250,6 +260,20 @@ export default function StationDetail({ route, navigation }) {
   const [joiningWaitlist, setJoiningWaitlist] = useState(false);
   const [selectedConnector, setSelectedConnector] = useState(null);
   const [selectedPoint, setSelectedPoint] = useState(null);
+
+  // ✅ CRITICAL: All hooks must be called BEFORE any conditional returns
+  // Calculate availablePoints using useMemo
+  const availablePoints = useMemo(() => {
+    if (!station || !selectedConnector) return [];
+    return (station.charging_points || []).filter(
+      (p) => p.connector_type === selectedConnector
+    );
+  }, [station, selectedConnector]);
+
+  // Calculate isAvailable
+  const isAvailable = useMemo(() => {
+    return station?.status === 'active' && (station?.available_ports || 0) > 0;
+  }, [station]);
 
   useEffect(() => {
     if (id) {
@@ -262,11 +286,11 @@ export default function StationDetail({ route, navigation }) {
     if (!station) return;
 
     const { latitude, longitude, name } = station;
-    
+
     // Validate coordinates - ensure they are numbers
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
-    
+
     if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
       Alert.alert('Lỗi', 'Không có thông tin vị trí của trạm sạc.');
       return;
@@ -311,7 +335,7 @@ export default function StationDetail({ route, navigation }) {
 
     setJoiningWaitlist(true);
     try {
-      const response = await reservationService.addToWaitlist({
+      await reservationService.addToWaitlist({
         user_id: userId,
         station_id: station.id,
         connector_type: station.connector_types?.[0] || 'Type2', // Default to first available type
@@ -334,14 +358,7 @@ export default function StationDetail({ route, navigation }) {
     }
   };
 
-  const InfoBox = ({ icon, label, value }) => (
-    <View style={styles.infoBox}>
-      <Icon name={icon} size={24} color={colors.primary} />
-      <Text style={styles.infoBoxLabel}>{label}</Text>
-      <Text style={styles.infoBoxValue}>{value}</Text>
-    </View>
-  );
-
+  // ✅ NOW it's safe to have conditional returns (after all hooks)
   if (loading) {
     return (
       <View style={styles.center}>
@@ -359,33 +376,28 @@ export default function StationDetail({ route, navigation }) {
   }
 
   if (!station) {
-    return null;
-  }
-
-  const isAvailable = station.status === 'active' && station.available_ports > 0;
-
-  const availablePoints = useMemo(() => {
-    if (!station || !selectedConnector) return [];
-    return (station.charging_points || []).filter(
-      (p) => p.connector_type === selectedConnector
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>Không tìm thấy trạm sạc</Text>
+      </View>
     );
-  }, [station, selectedConnector]);
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
-        <Text style={styles.stationName} numberOfLines={2} ellipsizeMode="tail">{station.name}</Text>
+        <Text style={[styles.stationName, { color: colors.onSurface }]}>{station.name}</Text>
         <View style={[styles.statusBadge, { backgroundColor: station.status === 'active' ? colors.success : colors.error }]}>
-          <Text style={styles.statusText}>{station.status === 'active' ? 'Hoạt động' : 'Bảo trì'}</Text>
+          <Text style={[styles.statusText, { color: colors.onPrimary }]}>{station.status === 'active' ? 'Hoạt động' : 'Bảo trì'}</Text>
         </View>
       </View>
 
-      <Text style={styles.address}>{station.address}</Text>
+      <Text style={[styles.address, { color: colors.onSurfaceVariant }]}>{station.address}</Text>
 
-      <View style={styles.infoSection}>
-        <InfoBox icon="power" label="Khả dụng" value={`${station.available_ports}/${station.total_ports}`} />
-        <InfoBox icon="star" label="Đánh giá" value={`${station.rating} / 5.0`} />
+      <View style={[styles.infoSection, { backgroundColor: colors.background }]}>
+        <InfoBox icon="power" label="Khả dụng" value={`${station.available_ports}/${station.total_ports}`} styles={styles} colors={colors} />
+        <InfoBox icon="star" label="Đánh giá" value={`${station.rating} / 5.0`} styles={styles} colors={colors} />
         {station.pricing ? (
           <View style={styles.infoBox}>
             <Icon name="attach-money" size={24} color={colors.primary} />
@@ -395,7 +407,7 @@ export default function StationDetail({ route, navigation }) {
             ))}
           </View>
         ) : (
-          <InfoBox icon="attach-money" label="Giá" value={`${(station.price_per_kwh || 0).toLocaleString()}đ / kWh`} />
+          <InfoBox icon="attach-money" label="Giá" value={`${(station.price_per_kwh || 0).toLocaleString()}đ / kWh`} styles={styles} colors={colors} />
         )}
       </View>
 
@@ -429,6 +441,63 @@ export default function StationDetail({ route, navigation }) {
         </View>
       )}
 
+      {selectedConnector && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>2. Chọn điểm sạc</Text>
+          {availablePoints.length > 0 ? (
+            <View style={styles.pointContainer}>
+              {availablePoints.map((point) => {
+                const isPointSelected = selectedPoint?.id === point.id;
+                const isPointDisabled = point.status !== 'available';
+
+                return (
+                  <TouchableOpacity
+                    key={point.id}
+                    style={[
+                      styles.pointBadge,
+                      { borderColor: colors.surfaceVariant, backgroundColor: colors.surface },
+                      isPointSelected && [styles.pointBadgeSelected, { borderColor: colors.primary, backgroundColor: colors.primaryContainer }],
+                      isPointDisabled && [styles.pointBadgeDisabled, { backgroundColor: colors.surfaceDisabled, borderColor: colors.surfaceDisabled }],
+                    ]}
+                    onPress={() => {
+                      if (!isPointDisabled) {
+                        setSelectedPoint(point);
+                      }
+                    }}
+                    disabled={isPointDisabled}
+                  >
+                    <Text
+                      style={[
+                        styles.pointText,
+                        { color: colors.onSurface },
+                        isPointSelected && [styles.pointTextSelected, { color: colors.onPrimaryContainer }],
+                        isPointDisabled && [styles.pointTextDisabled, { color: colors.onSurfaceDisabled }],
+                      ]}
+                    >
+                      {point.point_name || `P${point.id}`}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.pointStatus,
+                        { color: colors.onSurfaceVariant },
+                        isPointSelected && [styles.pointStatusSelected, { color: colors.onPrimaryContainer }],
+                        isPointDisabled && [styles.pointStatusDisabled, { color: colors.onSurfaceDisabled }],
+                      ]}
+                    >
+                      {point.status}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={{ color: colors.onSurfaceVariant }}>
+              Không có điểm sạc nào cho loại cổng này.
+            </Text>
+          )}
+        </View>
+      )}
+
       {station.amenities && Array.isArray(station.amenities) && station.amenities.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích</Text>
@@ -445,19 +514,19 @@ export default function StationDetail({ route, navigation }) {
 
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={styles.directionsButton}
+          style={[styles.directionsButton, { backgroundColor: colors.secondaryContainer }]}
           onPress={openDirections}
         >
           <Icon name="directions" size={20} color={colors.onSecondaryContainer} />
-          <Text style={styles.directionsButtonText}>Chỉ đường</Text>
+          <Text style={[styles.directionsButtonText, { color: colors.onSecondaryContainer }]}>Chỉ đường</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.bookButton, !selectedPoint && styles.disabledButton]}
+          style={[styles.bookButton, { backgroundColor: colors.primary }, !selectedPoint && styles.disabledButton]}
           onPress={handleBookStation}
           disabled={!selectedPoint}
         >
-          <Text style={styles.bookButtonText}>
+          <Text style={[styles.bookButtonText, { color: colors.onPrimary }]}>
             {isAvailable ? 'Đặt chỗ ngay' : 'Hết chỗ'}
           </Text>
         </TouchableOpacity>
