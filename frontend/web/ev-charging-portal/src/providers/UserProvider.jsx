@@ -75,6 +75,27 @@ const UserProvider = ({ children }) => {
   );
 
   /* ================================
+        LOGOUT USER
+  ================================== */
+  const logout = useCallback(
+    async (refreshToken) => {
+      setLoading(true);
+      setError(null);
+      try {
+        await userService.logout(refreshToken);
+        setUser(null);   // Xóa thông tin người dùng
+        setUserList([]);
+        setLoading(false);
+      } catch (err) {
+        setError(err);
+        setLoading(false);
+        throw err;
+      }
+    },
+    []
+  );
+
+  /* ================================
         AUTO LOAD PROFILE
   ================================== */
   useEffect(() => {
@@ -95,8 +116,9 @@ const UserProvider = ({ children }) => {
       fetchAllUsers,
       updateUser,
       deleteUser,
+      logout
     }),
-    [user, userList, loading, error, fetchProfile, fetchAllUsers, updateUser, deleteUser]
+    [user, userList, loading, error, fetchProfile, fetchAllUsers, updateUser, deleteUser, logout]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
