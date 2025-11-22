@@ -1,35 +1,43 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { ROUTERS } from "@/utils/constants"; // 👈 dùng để móc chính xác route
+import { ROUTERS } from "@/utils/constants";
+import {
+  Home,
+  Zap,
+  BarChart3,
+  CreditCard,
+  ScanLine,
+  FileText,
+  Settings,
+} from "lucide-react"; // 👈 icon trắng, đơn giản
 
 export default function Sidebar({ active = true }) {
   const [expanded, setExpanded] = useState(active);
 
   const items = [
-    { key: "dashboard", label: "Dashboard", to: ROUTERS.STAFF.DASHBOARD, icon: "🏠" },
-    { key: "stations", label: "Stations", to: ROUTERS.STAFF.STATIONS, icon: "⚡" },
-    { key: "sessions", label: "Sessions", to: ROUTERS.STAFF.SESSIONS, icon: "📊" },
-    { key: "payments", label: "Payments", to: ROUTERS.STAFF.PAYMENTS, icon: "💳" },
-    { key: "scan", label: "QR Scan", to: ROUTERS.STAFF.SCAN, icon: "🔎" },
-    { key: "reports", label: "Incident Report", to: ROUTERS.STAFF.INCIDENT_REPORT, icon: "🧾" },
-    { key: "settings", label: "Settings", to: ROUTERS.STAFF.SETTINGS, icon: "⚙️" },
+    { key: "dashboard", label: "Dashboard", to: ROUTERS.STAFF.DASHBOARD, icon: <Home size={20} /> },
+    { key: "stations", label: "Stations", to: ROUTERS.STAFF.STATIONS, icon: <Zap size={20} /> },
+    { key: "sessions", label: "Sessions", to: ROUTERS.STAFF.SESSIONS, icon: <BarChart3 size={20} /> },
+    { key: "payments", label: "Payments", to: ROUTERS.STAFF.PAYMENTS, icon: <CreditCard size={20} /> },
+    { key: "scan", label: "QR Scan", to: ROUTERS.STAFF.SCAN, icon: <ScanLine size={20} /> },
+    { key: "reports", label: "Incident Report", to: ROUTERS.STAFF.INCIDENT_REPORT, icon: <FileText size={20} /> },
+    { key: "settings", label: "Settings", to: ROUTERS.STAFF.SETTINGS, icon: <Settings size={20} /> },
   ];
 
   return (
     <aside
       className={`${
         expanded ? "w-[260px]" : "w-[80px]"
-      } bg-[rgba(6,16,37,0.95)] text-[#eaf2ff] flex flex-col justify-between gap-3 py-4 px-3 transition-all duration-300 relative h-screen overflow-visible`}
-      aria-hidden={!expanded}
+      } bg-[rgba(6,16,37,0.95)] text-white flex flex-col justify-between gap-3 py-4 px-3 transition-all duration-300 relative h-screen overflow-visible`}
     >
       {/* ==== HEADER / LOGO ==== */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 select-none">
-          <div className="text-2xl w-11 h-11 grid place-items-center rounded-xl bg-[rgba(255,255,255,0.03)]">
-            ⚡
+          <div className="text-2xl w-11 h-11 grid place-items-center rounded-xl bg-[rgba(255,255,255,0.05)]">
+            <Zap size={22} />
           </div>
           {expanded && (
-            <div className="font-bold text-[16px] text-white tracking-[0.2px]">
+            <div className="font-bold text-[16px]">
               EV <span className="text-[#0f62fe] font-extrabold">Staff</span>
             </div>
           )}
@@ -76,27 +84,27 @@ export default function Sidebar({ active = true }) {
             className={({ isActive }) =>
               `group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                 isActive
-                  ? "bg-[rgba(15,98,254,0.12)] text-white shadow-[inset_4px_0_0_#0f62fe]"
-                  : "text-[rgba(255,255,255,0.65)] hover:text-white hover:bg-[rgba(255,255,255,0.02)] hover:translate-x-[2px]"
+                  ? "bg-[rgba(15,98,254,0.18)] text-white shadow-[inset_4px_0_0_#0f62fe]"
+                  : "text-white/60 hover:text-white hover:bg-[rgba(255,255,255,0.05)] hover:translate-x-[2px]"
               }`
             }
           >
-            <span className="text-[22px] w-9 h-9 grid place-items-center rounded-md">
-              {i.icon}
-            </span>
+            {/* ICON */}
+            <span className="w-9 h-9 grid place-items-center text-white">{i.icon}</span>
 
-            {expanded && (
-              <>
-                <span className="text-[14px] font-semibold">{i.label}</span>
-                <span className="ml-auto text-[18px] text-[rgba(255,255,255,0.45)]">
-                  ›
-                </span>
-              </>
-            )}
+         {expanded && (
+  <>
+    <span className="text-[14px] font-semibold text-white">
+      {i.label}
+    </span>
+    <span className="ml-auto text-[18px] text-white/40">›</span>
+  </>
+)}
 
-            {/* Tooltip (khi thu gọn) */}
+
+            {/* TOOLTIP khi thu gọn */}
             {!expanded && (
-              <span className="absolute left-[90px] top-1/2 -translate-y-1/2 bg-[rgba(7,16,30,0.98)] text-[#e6f0ff] px-3 py-2 rounded-lg text-[13px] whitespace-nowrap shadow-[0_8px_30px_rgba(6,12,30,0.45)] opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-150 z-50">
+              <span className="absolute left-[90px] top-1/2 -translate-y-1/2 bg-[rgba(7,16,30,0.98)] text-white px-3 py-2 rounded-lg text-[13px] whitespace-nowrap shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-150 z-50">
                 {i.label}
               </span>
             )}

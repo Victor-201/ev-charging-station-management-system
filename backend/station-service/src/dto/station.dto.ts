@@ -151,7 +151,7 @@ export class StationPricingDto {
     pricing: PricingItemDto[];
 }
 
-export class GetListOfStation {
+export class GetStation {
     id: string;
     name: string;
     address: string | null;

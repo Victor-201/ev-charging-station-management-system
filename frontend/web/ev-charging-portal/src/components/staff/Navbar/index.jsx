@@ -1,18 +1,20 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useUser } from "@/hooks/useUser";
-import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom"; // dùng navigate để redirect
+import { useUser } from "@/hooks/useUser"; // hook context user
+import { useAuth } from "@/hooks/useAuth"; // hook auth (có logout)
+import { useNavigate } from "react-router-dom";
+
+import { ROUTERS } from "@/utils/constants";
 
 export default function Navbar({ onToggle }) {
   const { user, setUser } = useUser();
-  const { logout: apiLogout } = useAuth(); // gọi API logout
-  const navigate = useNavigate(); // để redirect về login
+  const { logout: apiLogout } = useAuth();
+  const navigate = useNavigate();
   const [showProfile, setShowProfile] = useState(false);
   const popupRef = useRef(null);
 
   const toggleProfile = () => setShowProfile((prev) => !prev);
 
-  // Ẩn popup khi click ra ngoài
+  // Ẩn popup khi click ngoài
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (popupRef.current && !popupRef.current.contains(e.target)) {
@@ -23,25 +25,30 @@ export default function Navbar({ onToggle }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Logout chuẩn: gọi API, xóa user, redirect
-  const handleLogout = async () => {
-    if (!confirm("Bạn có chắc muốn đăng xuất?")) return;
+  // Logout function
+const handleLogout = async () => {
+  if (!confirm("Bạn có chắc muốn đăng xuất?")) return;
 
-    try {
-      await apiLogout(); // gọi backend logout
-    } catch (err) {
-      console.error("Logout API failed:", err);
-    } finally {
-      setUser(null); // xóa user khỏi context
-      try {
-        localStorage.removeItem("token"); // xóa token nếu dùng
-      } catch (e) {}
-      navigate("/login"); // redirect về login
-    }
-  };
+  try {
+    await apiLogout(); // gọi API logout nếu có (nếu không có thì vẫn ok)
+  } catch (err) {
+    console.error("Logout API failed:", err);
+  }
 
-  const initials = user?.name
-    ? user.name
+  // Clear client state trước khi điều hướng
+  localStorage.removeItem("token");
+  setUser(null);
+
+  // Điều hướng SPA về /login (dùng path từ ROUTERS.PUBLIC)
+  navigate(ROUTERS.PUBLIC.LOGIN, { replace: true });
+
+  // Nếu extreme-case UI vẫn không thay đổi, có thể dùng force-reload:
+  // window.location.replace(ROUTERS.PUBLIC.LOGIN);
+};
+
+  // Tạo chữ cái viết tắt
+  const initials = user?.full_name
+    ? user.full_name
         .split(" ")
         .map((n) => n[0] || "")
         .join("")
@@ -105,17 +112,32 @@ export default function Navbar({ onToggle }) {
           </button>
 
           {/* Profile Popup */}
-          {showProfile && (
+          {showProfile && user && (
             <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-[rgba(0,0,0,0.05)] p-5 animate-fadeIn">
               <div className="flex flex-col items-center text-center">
                 <div className="w-20 h-20 rounded-full bg-gradient-to-b from-[#111827] to-[#1f2937] text-white font-bold grid place-items-center text-2xl mb-3 shadow-md">
                   {initials}
                 </div>
                 <div className="font-semibold text-[17px] text-[#111827]">
-                  {user?.name ?? "Chưa có tên"}
+                  {user.full_name}
                 </div>
-                <div className="text-[14px] text-[#6b7280] mt-1">
-                  {user?.email ?? "Chưa có email"}
+                <div className="text-[14px] text-[#6b7280] mt-1">{user.email}</div>
+
+                <div className="text-[14px] text-[#6b7280] mt-1 w-full text-left">
+                  <p><strong>Phone:</strong> {user.phone || "Chưa có"}</p>
+                  <p>
+                    <strong>Birth Date:</strong>{" "}
+                    {user.date_of_birth
+                      ? new Date(user.date_of_birth).toLocaleDateString()
+                      : "Chưa có"}
+                  </p>
+                  <p><strong>Role:</strong> {user.role}</p>
+                  <p><strong>Status:</strong> {user.status}</p>
+                  <p><strong>Email Verified:</strong> {user.email_verified ? "Yes" : "No"}</p>
+                  <p>
+                    <strong>Created At:</strong>{" "}
+                    {new Date(user.created_at).toLocaleString()}
+                  </p>
                 </div>
 
                 <div className="flex gap-2 mt-5 w-full">
@@ -127,7 +149,7 @@ export default function Navbar({ onToggle }) {
                   </button>
                   <button
                     className="flex-1 px-4 py-2 text-sm font-medium bg-[#ef4444] text-white rounded-xl hover:bg-[#dc2626] transition-all duration-150 active:scale-95"
-                    onClick={handleLogout} // 👈 gọi logout chuẩn
+                    onClick={handleLogout}
                   >
                     🚪 Đăng xuất
                   </button>

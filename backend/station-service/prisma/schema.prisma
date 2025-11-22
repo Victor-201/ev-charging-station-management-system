@@ -99,6 +99,7 @@ model station_staff {
 
   station stations @relation(fields: [station_id], references: [id], onDelete: Cascade)
 
+  @@unique([staff_user_id], name: "unique_staff_per_station")
   @@index([station_id], name: "idx_station_staff")
 }
 
