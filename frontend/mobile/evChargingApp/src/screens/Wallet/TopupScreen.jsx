@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Button, Card, TextInput, RadioButton, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { topupWallet } from '../../store/slices/walletSlice';
@@ -76,6 +76,7 @@ const TopupScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { loading, error } = useSelector((state) => state.wallet || {});
+  const insets = useSafeAreaInsets();
 
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
@@ -106,7 +107,7 @@ const TopupScreen = ({ navigation }) => {
 
   if (topupResult) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <Card style={styles.referenceContainer}>
           <Card.Content>
             <Text style={styles.referenceTitle}>Hoàn tất nạp tiền</Text>
@@ -122,7 +123,7 @@ const TopupScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Text style={styles.title}>Nạp tiền vào ví</Text>
 
       {/* Sepay Quick Top-up Button */}

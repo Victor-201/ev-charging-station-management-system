@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Button, Card, ActivityIndicator, useTheme } from 'react-native-paper';
+
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { createPayment } from '../../store/slices/paymentSlice'; // To be created
@@ -29,6 +30,7 @@ const PaymentConfirmScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
 
   const { user } = useSelector((state) => state.auth);
   const { loading, error } = useSelector((state) => state.payment || {});
@@ -74,15 +76,17 @@ const PaymentConfirmScreen = () => {
 
       {error && <Text style={styles.errorText}>{error}</Text>}
 
-      <Button
-        mode="contained"
-        onPress={handleConfirmPayment}
-        loading={loading}
-        disabled={loading}
-        style={styles.button}
-      >
-        {loading ? 'Đang xử lý...' : 'Thanh toán ngay'}
-      </Button>
+      <View style={{ paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }}>
+        <Button
+          mode="contained"
+          onPress={handleConfirmPayment}
+          loading={loading}
+          disabled={loading}
+          style={styles.button}
+        >
+          {loading ? 'Đang xử lý...' : 'Thanh toán ngay'}
+        </Button>
+      </View>
     </SafeAreaView>
   );
 };

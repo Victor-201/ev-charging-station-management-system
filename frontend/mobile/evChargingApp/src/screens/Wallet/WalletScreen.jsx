@@ -64,7 +64,7 @@ const WalletScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView
       
       refreshControl={<RefreshControl refreshing={loading} onRefresh={loadWalletData} colors={[colors.primary]} tintColor={colors.primary} />}

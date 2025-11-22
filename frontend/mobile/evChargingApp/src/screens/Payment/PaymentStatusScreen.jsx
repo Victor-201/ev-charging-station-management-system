@@ -53,7 +53,7 @@ const PaymentStatusScreen = () => {
   const { success, transactionId, error } = route.params;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Card style={styles.card}>
         <Card.Content style={styles.cardContent}>
           <Icon
