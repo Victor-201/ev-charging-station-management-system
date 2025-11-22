@@ -1,4 +1,4 @@
-import { useEffect, useContext, useMemo, useState } from "react";
+import { useEffect, useContext, useMemo } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import { PaymentContext } from "@/contexts/PaymentContext";
@@ -68,9 +68,6 @@ export default function Dashboard() {
     getSummaryRevenue,
   } = useContext(PaymentContext);
 
-  const [health, setHealth] = useState(null);
-  const [loadingHealth, setLoadingHealth] = useState(true);
-
   /* ----------------------- Load revenue ----------------------- */
   useEffect(() => {
     getTodayRevenue();
@@ -98,29 +95,6 @@ export default function Dashboard() {
       .map(([month, total]) => ({ month, total }))
       .sort((a, b) => a.month.localeCompare(b.month));
   }, [monthlyRevenue]);
-
-  /* ----------------------- Health ----------------------- */
-  useEffect(() => {
-    let ok = true;
-    async function loadHealth() {
-      try {
-        setLoadingHealth(true);
-        const res = await fetch("/api/v1/monitoring/health");
-        const json = await res.json();
-        if (ok) setHealth(json);
-      } catch {
-        if (ok) setHealth(null);
-      } finally {
-        if (ok) setLoadingHealth(false);
-      }
-    }
-    loadHealth();
-    const id = setInterval(loadHealth, 60000);
-    return () => { ok = false; clearInterval(id); };
-  }, []);
-
-  const systemStatus = health?.status || "unknown";
-  const isSystemOk = ["ok", "UP", "healthy"].includes(systemStatus);
 
   return (
     <div className="space-y-6">
@@ -190,18 +164,6 @@ export default function Dashboard() {
         )}
       </Section>
 
-      {/* Health Panel */}
-      <Section title="Trạng thái hệ thống">
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="flex justify-between mb-2">
-            <span className="text-sm text-gray-500">Tình trạng chung</span>
-            <span className={`px-2 py-1 rounded-full text-xs ${isSystemOk ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-              {loadingHealth ? "Đang kiểm tra..." : isSystemOk ? "Hoạt động ổn định" : "Có cảnh báo"}
-            </span>
-          </div>
-          <pre className="bg-gray-50 p-3 rounded-lg text-xs overflow-auto max-h-40">{JSON.stringify(health, null, 2)}</pre>
-        </div>
-      </Section>
     </div>
   );
 }

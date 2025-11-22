@@ -47,7 +47,6 @@ const routeConfig = [
   // 🧑‍💼 Admin routes
   { path: ROUTERS.ADMIN.DASHBOARD, element: DashboardAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.ANALYTICS, element: AnalyticsAdmin, layout: AdminLayout },
-  { path: ROUTERS.ADMIN.REPORTS, element: ReportsAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.STATION_MANAGEMENT, element: StationManagementAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.SUBSCRIPTION_PLANS, element: SubscriptionPlansAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.USER_MANAGEMENT, element: UserManagementAdmin, layout: AdminLayout },

@@ -24,10 +24,11 @@ export const analyticsService = {
       url: `api/v1/analytics/reports/user/${user_id}/monthly`,
     }),
 
-  getStationDailyReport: (station_id) =>
+  getStationDailyReport: (station_id, date) =>
     apiClient({
       method: "GET",
       url: `api/v1/analytics/reports/station/${station_id}/daily`,
+      params: date ? { date } : undefined,
     }),
 
   getRevenueReport: (params) =>
@@ -52,7 +53,15 @@ export const analyticsService = {
 
   // ===== TELEMETRY =====
   getRawTelemetry: (params) =>
-    apiClient({ method: "GET", url: "api/v1/telemetry/raw", params }),
+    apiClient({
+      method: "GET",
+      url: "api/v1/telemetry/raw",
+      params,
+      responseType:
+        params?.format && String(params.format).toLowerCase() === "pdf"
+          ? "blob"
+          : undefined,
+    }),
 
   // ===== DASHBOARD =====
   getDashboards: () =>
@@ -70,6 +79,20 @@ export const analyticsService = {
 
   getRevenue: (params) =>
     apiClient({ method: "GET", url: "api/v1/revenue", params }),
+
+  // ===== ANALYTICS AI =====
+  getSystemStats: () =>
+    apiClient({ method: "GET", url: "api/v1/analytics-ai/stats" }),
+
+  analyzeUserBehavior: () =>
+    apiClient({ method: "GET", url: "api/v1/analytics-ai/users" }),
+
+  forecastStationDemand: (station_id, params) =>
+    apiClient({
+      method: "GET",
+      url: `api/v1/analytics-ai/forecast/${station_id}`,
+      params,
+    }),
 };
 
 export default analyticsService;
