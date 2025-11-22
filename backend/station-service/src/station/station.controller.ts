@@ -3,7 +3,7 @@ import { StationService } from './station.service';
 
 import type { Request } from 'express';
 
-import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto, GetListOfStation, StationStatus, StationAbilityItemDto, StationAbilityDto } from 'src/dto/station.dto';
+import { SearchStationDto, CreateStationDto, UpdateStationDto, ReportIssueDto, StationPricingDto, GetStation, StationStatus, StationAbilityItemDto, StationAbilityDto } from 'src/dto/station.dto';
 
 import { JwtAuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
@@ -29,7 +29,7 @@ export class StationController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin', 'staff', 'user')
     @Get()
-    async getListOfStation(): Promise<GetListOfStation[]> {
+    async getListOfStation(): Promise<GetStation[]> {
         return this.stationService.getListOfStation();
     }
 
@@ -137,4 +137,12 @@ export class StationController {
         return this.stationService.getHistoryOfReports(id);
     }
 
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('staff')
+    @Get('staff/assigned-station')
+    async getAssignedStation(@Req() req: Request) {
+        const staff_user_id = (req as any).user?.user_id;
+        return this.stationService.getAssignedStation(staff_user_id);
+    }
 }

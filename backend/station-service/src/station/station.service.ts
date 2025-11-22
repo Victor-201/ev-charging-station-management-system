@@ -12,7 +12,7 @@ import {
     ScheduleMaintenanceDto,
     StationStatus,
     PricingItemDto,
-    GetListOfStation,
+    GetStation,
     StationAbilityItemDto,
     StationAbilityDto
 } from 'src/dto/station.dto';
@@ -270,11 +270,11 @@ export class StationService {
         return { pricing }
     }
 
-    getListOfStation = async (): Promise<GetListOfStation[]> => {
+    getListOfStation = async (): Promise<GetStation[]> => {
         const stations = await this.prisma.stations.findMany();
 
         if (!stations || stations.length === 0) {
-            throw new NotFoundException('Station not found');
+            return [];
         }
 
         return stations.map((station) => ({
@@ -353,6 +353,30 @@ export class StationService {
     getAllHistoryOfReports = async (): Promise<any[]> => {
         const reports = await this.prisma.station_incidents.findMany();
         return reports;
+    }
+
+    getAssignedStation = async (staff_user_id: string): Promise<GetStation> => {
+        const assignments = await this.prisma.station_staff.findFirst({
+            where: { staff_user_id },
+            include: { station: true },
+        });
+
+        if (!assignments) {
+            throw new NotFoundException('This staff member is not assigned to any station');
+        }
+
+        const station = assignments.station;
+
+        return {
+            id: station.id,
+            name: station.name,
+            address: station.address,
+            city: station.city,
+            region: station.region,
+            latitude: station.latitude?.toNumber(),
+            longitude: station.longitude?.toNumber(),
+            status: station.status as StationStatus,
+        };
     }
 }
 
