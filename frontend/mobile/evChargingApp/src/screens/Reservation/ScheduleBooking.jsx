@@ -318,21 +318,25 @@ export default function ScheduleBooking() {
     }
 
     // Format data according to backend API requirements
-    const userId = user?.user_id || user?.id;
+    // Support multiple user ID formats: OAuth (id, sub) and Email (user_id)
+    const userId = user?.id || user?.user_id || user?.sub;
     if (!userId) {
+      console.error('❌ No user ID found. User object:', JSON.stringify(user, null, 2));
       Alert.alert('Lỗi', 'Vui lòng đăng nhập để đặt chỗ');
       return;
     }
+    console.log('✅ User ID extracted:', userId);
 
+    // Prepare booking data with smart defaults from station data
     const bookingData = {
       user_id: userId,
       station_id: stationId.toString(),
-      point_id: '1', // Default point_id, can be updated when station service is available
+      point_id: station?.default_point_id || station?.point_id || '1', // Use station's default point if available
       connector_type: selectedConnector.replace(/\s+/g, ''), // Remove spaces: "Type 2" -> "Type2"
       start_time: selectedTimeSlot.startTime, // ISO format from slot
       end_time: selectedTimeSlot.endTime, // ISO format from slot
       payment_method: 'wallet', // Required by backend: 'wallet' or 'bank_transfer'
-      price_per_min: 1000, // Default price per minute
+      price_per_min: station?.price_per_min || station?.price_per_kwh || 1000, // Use station pricing if available
     };
 
     console.log('📋 Booking data to send:', JSON.stringify(bookingData, null, 2));
@@ -350,18 +354,26 @@ export default function ScheduleBooking() {
   const confirmBooking = async (bookingData) => {
     try {
       // Step 1: Create reservation
+      console.log('📤 Sending reservation request...');
       const response = await createNewReservation(bookingData);
-      const reservationId = response?.id || response?.reservation_id || response?.data?.id;
+      console.log('📥 Reservation response received:', JSON.stringify(response, null, 2));
+
+      // Extract reservation ID with multiple fallbacks
+      const reservationId = response?.id || response?.reservation_id || response?.data?.id || response?.data?.reservation_id;
 
       if (!reservationId) {
-        throw new Error('Không nhận được mã đặt chỗ từ server');
+        console.error('❌ No reservation ID found in response:', response);
+        throw new Error('Không nhận được mã đặt chỗ từ server. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
       }
+
+      console.log('✅ Reservation created successfully. ID:', reservationId);
 
       // Step 2: Generate QR code for the reservation
       try {
+        console.log('📱 Generating QR code for reservation:', reservationId);
         const qrResponse = await reservationService.generateQR(reservationId);
-        console.log('QR generated successfully:', qrResponse);
-        
+        console.log('✅ QR generated successfully:', qrResponse);
+
         // Navigate to reservation detail with QR data
         Alert.alert(
           'Đặt chỗ thành công!',
@@ -371,7 +383,7 @@ export default function ScheduleBooking() {
               text: 'Xem đặt chỗ',
               onPress: () => navigation.navigate('Profile', {
                 screen: 'ReservationStack',
-                params: { 
+                params: {
                   screen: 'ReservationMain',
                   params: { refreshList: true }
                 }
@@ -380,25 +392,54 @@ export default function ScheduleBooking() {
           ]
         );
       } catch (qrError) {
-        console.warn('Failed to generate QR code:', qrError);
+        console.warn('⚠️ Failed to generate QR code:', qrError);
+        console.warn('⚠️ QR Error details:', {
+          message: qrError?.message,
+          response: qrError?.response?.data,
+          status: qrError?.response?.status
+        });
+
         // Still show success even if QR generation fails
+        // User can generate QR later from reservation detail screen
         Alert.alert(
           'Đặt chỗ thành công!',
-          `Mã đặt chỗ: ${reservationId}\nBạn có thể xem chi tiết trong mục Đặt chỗ.`,
+          `Mã đặt chỗ: ${reservationId}\n\n⚠️ Lưu ý: Không thể tạo mã QR ngay lúc này. Bạn có thể tạo mã QR sau trong mục chi tiết đặt chỗ.`,
           [
             {
               text: 'Xem đặt chỗ',
               onPress: () => navigation.navigate('Profile', {
                 screen: 'ReservationStack',
-                params: { screen: 'ReservationMain' }
+                params: {
+                  screen: 'ReservationMain',
+                  params: { refreshList: true }
+                }
               })
             }
           ]
         );
       }
     } catch (error) {
-      console.error('Error creating booking:', error);
-      const errorMessage = error?.message || 'Không thể đặt chỗ. Vui lòng thử lại.';
+      console.error('❌ Error creating booking:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        bookingData: bookingData
+      });
+
+      // Provide user-friendly error messages based on error type
+      let errorMessage = 'Không thể đặt chỗ. Vui lòng thử lại.';
+
+      if (error?.response?.status === 401) {
+        errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (error?.response?.status === 409) {
+        errorMessage = 'Khung giờ này đã được đặt. Vui lòng chọn giờ khác.';
+      } else if (error?.response?.status === 400) {
+        errorMessage = error?.response?.data?.message || 'Thông tin đặt chỗ không hợp lệ.';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
       Alert.alert('Lỗi đặt chỗ', errorMessage);
     }
   };

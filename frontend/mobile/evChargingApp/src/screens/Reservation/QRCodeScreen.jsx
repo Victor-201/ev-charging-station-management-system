@@ -27,10 +27,18 @@ const QRCodeScreen = () => {
   const [timeRemaining, setTimeRemaining] = useState(null);
 
   useEffect(() => {
-    if (!qrData || !expiresAt) {
+    // Validate QR data
+    if (!qrData) {
+      console.error('❌ No QR data provided');
       Alert.alert('Lỗi', 'Dữ liệu mã QR không hợp lệ.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
+      return;
+    }
+
+    // If no expiry time provided, skip timer
+    if (!expiresAt) {
+      console.warn('⚠️ No expiry time provided for QR code');
       return;
     }
 

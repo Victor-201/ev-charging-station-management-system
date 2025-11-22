@@ -86,11 +86,24 @@ export default function ReservationDetail() {
   };
 
   const handleStartCharging = async () => {
-    if (!reservation?.reservation_id) return;
+    if (!reservation?.reservation_id) {
+      console.error('❌ No reservation ID found');
+      Alert.alert('Lỗi', 'Không tìm thấy mã đặt chỗ.');
+      return;
+    }
 
     setQrLoading(true);
     try {
+      console.log('📱 Generating QR code for reservation:', reservation.reservation_id);
       const response = await reservationService.generateQR(reservation.reservation_id);
+      console.log('✅ QR code generated successfully');
+
+      // Validate QR response
+      if (!response?.qr_code) {
+        console.error('❌ No QR code in response:', response);
+        throw new Error('Không nhận được mã QR từ server');
+      }
+
       navigation.navigate('QRCodeScreen', {
         qrData: response.qr_code,
         reservationId: reservation.reservation_id,
@@ -98,8 +111,25 @@ export default function ReservationDetail() {
         expiresAt: response.expires_at,
       });
     } catch (err) {
-      console.error('Failed to generate QR code:', err);
-      Alert.alert('Lỗi', 'Không thể tạo mã QR để bắt đầu sạc. Vui lòng thử lại.');
+      console.error('❌ Failed to generate QR code:', err);
+      console.error('❌ Error details:', {
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status
+      });
+
+      // Provide user-friendly error messages
+      let errorMessage = 'Không thể tạo mã QR để bắt đầu sạc. Vui lòng thử lại.';
+
+      if (err?.response?.status === 404) {
+        errorMessage = 'Không tìm thấy đặt chỗ. Vui lòng kiểm tra lại.';
+      } else if (err?.response?.status === 503) {
+        errorMessage = 'Dịch vụ tạo mã QR tạm thời không khả dụng. Vui lòng thử lại sau.';
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      Alert.alert('Lỗi', errorMessage);
     } finally {
       setQrLoading(false);
     }
