@@ -1,3 +1,4 @@
+// core/rabbit/publisher.js
 const { getChannel, EXCHANGE } = require("./connection.js");
 
 function publishEvent(routingKey, payload) {
@@ -10,9 +11,7 @@ function publishEvent(routingKey, payload) {
     { persistent: true }
   );
 
-  console.log(`[CHARGING → RMQ] Sent: ${routingKey}`, payload);
+  console.log(`[RMQ →] Sent: ${routingKey}`, payload);
 }
 
-module.exports = {
-  publishEvent,
-};
+module.exports = { publishEvent };
