@@ -144,6 +144,20 @@ const NotificationListScreen = () => {
     );
   }
 
+  if (error && !loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Icon name="wifi-off" size={48} color={colors.onSurfaceVariant} />
+          <Text style={styles.loadingText}>{error || 'Không thể tải thông báo'}</Text>
+          <TouchableOpacity onPress={onRefresh} style={{ marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.primary, borderRadius: 8 }}>
+            <Text style={{ color: colors.onPrimary, fontWeight: '600' }}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}

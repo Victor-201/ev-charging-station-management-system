@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Provider as ReduxProvider, useSelector } from 'react-redux';
 import { Provider as PaperProvider } from 'react-native-paper';
 import AppNavigation from './src/navigation';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import store from './src/store/store';
 import { theme } from './src/config/theme';
 import notificationService from './src/services/notificationService';
@@ -33,7 +34,10 @@ export default function App() {
   return (
     <ReduxProvider store={store}>
       <PaperProvider theme={theme}>
-        <Root />
+        {/* Global error boundary to prevent full app crash */}
+        <ErrorBoundary>
+          <Root />
+        </ErrorBoundary>
       </PaperProvider>
     </ReduxProvider>
   );
