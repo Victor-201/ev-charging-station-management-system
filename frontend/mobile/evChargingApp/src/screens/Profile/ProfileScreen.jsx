@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, List, Divider, Button, ActivityIndicator, Text } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMe } from '../../store/slices/userSlice';
+import { UserRole } from '../../config/roles';
 import { logoutAsync } from '../../store/slices/authSlice';
 import { useTheme } from 'react-native-paper';
 
@@ -28,11 +29,12 @@ const getStyles = (colors) =>
     },
     headerContainer: {
       alignItems: 'center',
-      paddingVertical: 24,
+      paddingTop: 16,
+      paddingBottom: 20,
       backgroundColor: colors.surface,
     },
     avatar: {
-      marginBottom: 12,
+      marginBottom: 8,
     },
     userName: {
       fontSize: 22,
@@ -52,7 +54,7 @@ const getStyles = (colors) =>
     verificationText: {
       fontSize: 13,
       fontWeight: '600',
-      color: '#FFFFFF',
+      color: colors.onPrimary,
     },
     infoSection: {
       backgroundColor: colors.surface,
@@ -101,6 +103,7 @@ const getStyles = (colors) =>
 export default function ProfileScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
+  const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const { profile, loading, error } = useSelector((state) => state.user);
 
@@ -153,7 +156,7 @@ export default function ProfileScreen({ navigation }) {
   const user = profile;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top','bottom']}>
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Profile Header */}
         <View style={styles.headerContainer}>
@@ -262,12 +265,24 @@ export default function ProfileScreen({ navigation }) {
             right={(props) => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => navigation.navigate('AccountSettingsScreen')}
           />
+
+          {/* Admin-only section */}
+          {user?.role === UserRole.ADMIN && (
+            <List.Item
+              title="Admin Dashboard"
+              description="Quản lý hệ thống"
+              left={(props) => <List.Icon {...props} icon="view-dashboard-outline" />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => navigation.navigate('AdminDashboardScreen')}
+              titleStyle={{ color: colors.primary }}
+            />
+          )}
         </List.Section>
 
         <Divider />
 
         {/* Logout Button */}
-        <View style={styles.logoutContainer}>
+        <View style={[styles.logoutContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom : 24 }]}>
           <Button
             mode="contained"
             onPress={handleLogout}

@@ -29,6 +29,17 @@ const profileService = {
     return response.data;
   },
 
+  // Get all users (admin only)
+  getAllUsers: async () => {
+    try {
+      const response = await apiClient.get(ENDPOINTS.USER.LIST);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all users:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
   // Export user data
   exportData: async (userId) => {
     const url = ENDPOINTS.USER.EXPORT_DATA.replace(':user_id', userId);

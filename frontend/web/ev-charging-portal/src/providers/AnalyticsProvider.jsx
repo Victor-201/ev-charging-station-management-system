@@ -129,11 +129,11 @@ export const AnalyticsProvider = ({ children }) => {
     }
   }, []);
 
-  const getStationDailyReport = useCallback(async (station_id) => {
+  const getStationDailyReport = useCallback(async (station_id, date) => {
     setLoadingAnalytics(true);
     setError(null);
     try {
-      const res = await analyticsService.getStationDailyReport(station_id);
+      const res = await analyticsService.getStationDailyReport(station_id, date);
       const data = res?.data ?? res;
       setStationDailyReport(data);
       setLoadingAnalytics(false);

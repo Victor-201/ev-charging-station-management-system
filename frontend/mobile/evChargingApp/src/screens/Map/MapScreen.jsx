@@ -8,7 +8,8 @@ import {
   TextInput,
   FlatList,
   Platform,
-  Linking
+  Linking,
+  ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
@@ -253,6 +254,14 @@ const getStyles = (colors) => StyleSheet.create({
   },
 });
 
+// Default location: 70 Tô Ký, Quận 12, TP.HCM
+const DEFAULT_LOCATION = {
+  latitude: 10.8543,
+  longitude: 106.6296,
+  latitudeDelta: 0.05,
+  longitudeDelta: 0.05,
+};
+
 export default function MapScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -260,12 +269,7 @@ export default function MapScreen({ navigation }) {
   const dispatch = useDispatch();
   const { stations, selectedStation } = useSelector((state) => state.stations);
 
-  const [region, setRegion] = useState({
-    latitude: 10.762622,
-    longitude: 106.660172,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  });
+  const [region, setRegion] = useState(null); // Start with null region
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -277,6 +281,7 @@ export default function MapScreen({ navigation }) {
   }, []);
 
   const handleRegionChangeComplete = (newRegion) => {
+    if (!newRegion) return;
     const radius = Math.max(1, Math.round(newRegion.latitudeDelta * 111)); // Approx delta to km
     dispatch(searchStations({
       lat: newRegion.latitude,
@@ -295,10 +300,12 @@ export default function MapScreen({ navigation }) {
       if (result === RESULTS.GRANTED) {
         getCurrentLocation();
       } else {
-        handleRegionChangeComplete(region);
+        // Set default location to 70 Tô Ký if permission denied
+        setRegion(DEFAULT_LOCATION);
+        handleRegionChangeComplete(DEFAULT_LOCATION);
         Alert.alert(
           'Quyền truy cập vị trí',
-          'Bạn đã từ chối quyền truy cập vị trí. Ứng dụng sẽ hiển thị các trạm sạc ở vị trí mặc định.',
+          'Bạn đã từ chối quyền truy cập vị trí. Ứng dụng sẽ hiển thị các trạm sạc ở khu vực 70 Tô Ký.',
           [{ text: 'OK' }]
         );
       }
@@ -326,8 +333,10 @@ export default function MapScreen({ navigation }) {
       },
       (error) => {
         console.error('Error getting location:', error);
-        handleRegionChangeComplete(region);
-        Alert.alert('Lỗi', 'Không thể lấy vị trí hiện tại. Hiển thị trạm sạc ở vị trí mặc định.');
+        // Set default location to 70 Tô Ký if GPS fails
+        setRegion(DEFAULT_LOCATION);
+        handleRegionChangeComplete(DEFAULT_LOCATION);
+        Alert.alert('Lỗi', 'Không thể lấy vị trí hiện tại. Hiển thị trạm sạc ở khu vực 70 Tô Ký.');
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
@@ -336,8 +345,8 @@ export default function MapScreen({ navigation }) {
   const onMarkerPress = (station) => {
     dispatch(setSelectedStation(station));
 
-    // Animate to station location
-    if (mapRef.current) {
+    // Animate to station location (only if coordinates are valid)
+    if (mapRef.current && station.latitude != null && station.longitude != null) {
       mapRef.current.animateToRegion({
         latitude: station.latitude,
         longitude: station.longitude,
@@ -408,14 +417,18 @@ export default function MapScreen({ navigation }) {
   );
 
   // Build Leaflet HTML for Android map rendering via WebView
-  const buildLeafletHtml = (center, data) => `<!doctype html>
+  const buildLeafletHtml = (center, data, backgroundColor) => {
+    // Provide default center if null
+    const safeCenter = center || DEFAULT_LOCATION; // Default to 70 Tô Ký, Quận 12, TP.HCM
+
+    return `<!doctype html>
   <html>
     <head>
       <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       <style>
         html, body, #map { height: 100%; margin: 0; padding: 0; }
-        .leaflet-container { background: #e5ecff; }
+        .leaflet-container { background: ${backgroundColor}; }
       </style>
     </head>
     <body>
@@ -423,7 +436,7 @@ export default function MapScreen({ navigation }) {
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
       <script>
         (function(){
-          var center = { lat: ${Number(center.latitude).toFixed(6)}, lng: ${Number(center.longitude).toFixed(6)} };
+          var center = { lat: ${Number(safeCenter.latitude).toFixed(6)}, lng: ${Number(safeCenter.longitude).toFixed(6)} };
           var stations = ${JSON.stringify(data || [])};
           var map = L.map('map', { zoomControl: true }).setView([center.lat, center.lng], 13);
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
@@ -448,8 +461,9 @@ export default function MapScreen({ navigation }) {
       </script>
     </body>
   </html>`;
+  };
 
-  const leafletHtml = useMemo(() => buildLeafletHtml(region, stations), [region, stations]);
+  const leafletHtml = useMemo(() => buildLeafletHtml(region, stations, colors.background), [region, stations, colors.background]);
 
   const onWebMessage = (event) => {
     try {
@@ -465,6 +479,15 @@ export default function MapScreen({ navigation }) {
       // ignore parse errors
     }
   };
+
+  if (!region) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]} edges={['top', 'bottom']}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 16, color: colors.onSurfaceVariant }}>Đang lấy vị trí của bạn...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -482,16 +505,24 @@ export default function MapScreen({ navigation }) {
           onRegionChangeComplete={handleRegionChangeComplete}
           mapType="standard"
         >
-          {stations.map((station) => (
-            <Marker
-              key={station.id}
-              coordinate={{ latitude: station.latitude, longitude: station.longitude }}
-              title={station.name}
-              description={`${station.available_ports}/${station.total_ports} cổng sạc có sẵn`}
-              pinColor={getMarkerColor(station)}
-              onPress={() => onMarkerPress(station)}
-            />
-          ))}
+          {stations
+            .filter(station =>
+              station.latitude != null &&
+              station.longitude != null &&
+              !isNaN(station.latitude) &&
+              !isNaN(station.longitude)
+            )
+            .map((station) => (
+              <Marker
+                key={station.id}
+                coordinate={{ latitude: station.latitude, longitude: station.longitude }}
+                title={station.name}
+                description={`${station.available_ports}/${station.total_ports} cổng sạc có sẵn`}
+                pinColor={getMarkerColor(station)}
+                onPress={() => onMarkerPress(station)}
+              />
+            ))
+          }
         </MapView>
       ) : (
         <WebView

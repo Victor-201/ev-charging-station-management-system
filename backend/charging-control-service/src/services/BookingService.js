@@ -28,37 +28,22 @@ class BookingService {
   }
 
   async initSubscriptions() {
-    try {
-      console.log("[Booking] Subscribing RMQ payment_queue...");
-      await createConsumer("payment_queue", async (routingKey, payload) => {
-        try {
-          switch (routingKey) {
-            case "payment.booking.succeeded":
-              debug("💰 Payment success:", payload.related_id);
-              await this.confirmReservation(payload.related_id, { payment_info: payload });
-              break;
+    await createConsumer(
+      "payment_booking_queue",
+      "payment.booking.*",
+      async (routingKey, payload) => {
+        console.log("[Booking] Event:", routingKey);
 
-            case "payment.booking.failed":
-              debug("💸 Payment failed:", payload.related_id);
-              await this.markReservationFailed(payload.related_id, {
-                cancel: true,
-                reason: payload.reason
-              });
-              break;
-
-            default:
-              debug("⚠ Unhandled payment routingKey:", routingKey);
-          }
-        } catch (err) {
-          debug("Payment event handling error:", err && err.message ? err.message : err);
+        if (routingKey === "payment.booking.succeeded") {
+          await this.confirmReservation(payload.related_id, { payment_info: payload });
+        } else if (routingKey === "payment.booking.failed") {
+          await this.markReservationFailed(payload.related_id, {
+            cancel: true,
+            reason: payload.reason,
+          });
         }
-      });
-
-      console.log("[Booking] Subscribed to payment_queue successfully.");
-    } catch (err) {
-      console.error("[Booking] initSubscriptions error:", err);
-      throw err;
-    }
+      }
+    );
   }
 
   async calculatePricing(point_id, start_time, end_time, token) {

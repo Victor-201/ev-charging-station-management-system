@@ -17,71 +17,24 @@ class ChargingService {
     this.eventOutboxRepo = new EventOutboxRepo(pool);
   }
 
-  // ============================================================
-  // SUBSCRIBE PAYMENT EVENTS
-  // ============================================================
 async initSubscriptions() {
-    try {
-      console.log("[Charging] Subscribing RMQ payment_queue...");
-      await createConsumer("payment_queue", async (routingKey, payload) => {
-        try {
-          switch (routingKey) {
-            case "payment.charging.succeeded":
-              debug("💰 Payment success:", payload.related_id);
-              await this.confirmReservation(payload.related_id, { payment_info: payload });
-              break;
+    await createConsumer(
+      "payment_charging_queue",
+      "payment.charging.*",
+      async (routingKey, payload) => {
+        console.log("[Charging] Event:", routingKey);
 
-            case "payment.charging.failed":
-              debug("💸 Payment failed:", payload.related_id);
-              await this.markReservationFailed(payload.related_id, {
-                cancel: true,
-                reason: payload.reason
-              });
-              break;
-
-            default:
-              debug("⚠ Unhandled payment routingKey:", routingKey);
-          }
-        } catch (err) {
-          debug("Payment event handling error:", err && err.message ? err.message : err);
+        if (routingKey === "payment.charging.succeeded") {
+          await this.confirmReservation(payload.related_id, { payment_info: payload });
+        } else if (routingKey === "payment.charging.failed") {
+          await this.markReservationFailed(payload.related_id, {
+            cancel: true,
+            reason: payload.reason,
+          });
         }
-      });
-
-      console.log("[Charging] Subscribed to payment_queue successfully.");
-    } catch (err) {
-      console.error("[Charging] initSubscriptions error:", err);
-      throw err;
-    }
+      }
+    );
   }
-
-  async initiateSession({ reservation_id = null, station_id = null, point_id, user_id, connector_type = null } = {}) {
-    // VALIDATION
-    if (!point_id) throw new Error('Missing required field: point_id');
-    if (!user_id) throw new Error('Missing required field: user_id');
-    if (!station_id) throw new Error('Missing required field: station_id');
-
-    // debug log để kiểm tra payload — xóa sau khi confirm
-    console.log('[ChargingService.initiateSession] input:', { reservation_id, station_id, point_id, user_id,  connector_type });
-
-    const session = {
-      session_id: uuidv4(),
-      reservation_id: reservation_id || null,
-      station_id,
-      point_id,
-      user_id,
-      connector_type: connector_type || null,
-      status: 'initiated',
-      created_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
-      updated_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
-    };
-
-    const created = await SessionRepo.create(session);
-
- publishEvent('charging_events', { type: 'SESSION_INITIATED', data: created });
-
-    return { session_id: created.session_id, status: created.status };
-  }
-
 
   /**
    * /api/v1/sessions/start

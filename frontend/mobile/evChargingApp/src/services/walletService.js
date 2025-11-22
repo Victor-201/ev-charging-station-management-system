@@ -5,36 +5,14 @@ import { ENDPOINTS } from '../api/endpoints';
 const walletService = {
   getWallet: async (userId) => {
     try {
-      // Get transactions and calculate balance from completed topups/payments
-      const transactions = await walletService.getTransactions(userId);
-      
-      // Calculate balance from completed transactions
-      let balance = 0;
-      transactions.forEach(tx => {
-        if (tx.status === 'completed') {
-          if (tx.type === 'topup' || tx.type === 'refund') {
-            balance += Number(tx.amount);
-          } else if (tx.type === 'payment') {
-            balance -= Number(tx.amount);
-          }
-        }
-      });
-      
-      return {
-        user_id: userId,
-        balance: balance,
-        currency: 'VND',
-        status: 'active'
-      };
+      // Fetch REAL wallet balance from payment-service
+      const url = ENDPOINTS.PAYMENT.GET_WALLET.replace(':user_id', userId);
+      const response = await apiClient.get(url);
+      // Backend returns { success: true, data: { user_id, balance, currency, status } }
+      return response.data?.data || response.data;
     } catch (error) {
       console.error('Error fetching wallet:', error);
-      // Return default wallet if error
-      return {
-        user_id: userId,
-        balance: 0,
-        currency: 'VND',
-        status: 'active'
-      };
+      throw error;
     }
   },
 

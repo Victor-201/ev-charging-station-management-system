@@ -7,6 +7,13 @@ export const getWallet = createAsyncThunk('wallet/getWallet', async (userId, { r
     const data = await walletService.getWallet(userId);
     return data;
   } catch (err) {
+    // If wallet doesn't exist (400/404), return null instead of rejecting
+    // This allows the UI to show "wallet not activated" state gracefully
+    const status = err.response?.status;
+    if (status === 400 || status === 404) {
+      return null; // Return null for non-existent wallet (fulfilled state)
+    }
+    // For other errors (500, network errors, etc.), reject
     return rejectWithValue(err.response?.data || { message: err.message });
   }
 });

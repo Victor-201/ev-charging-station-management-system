@@ -12,6 +12,7 @@ import ChangePasswordScreen from '../../screens/Profile/ChangePasswordScreen';
 import AccountSettingsScreen from '../../screens/Profile/AccountSettingsScreen';
 import ReservationStack from './ReservationStack';
 import SubscriptionScreen from '../../screens/Subscription/SubscriptionScreen';
+import AdminDashboardScreen from '../../screens/Admin/AdminDashboardScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -32,6 +33,7 @@ export default function ProfileStack() {
       <Stack.Screen name="SubscriptionScreen" component={SubscriptionScreen} />
 
       <Stack.Screen name="AccountSettingsScreen" component={AccountSettingsScreen} />
+      <Stack.Screen name="AdminDashboardScreen" component={AdminDashboardScreen} />
       <Stack.Screen name="ReservationStack" component={ReservationStack} />
     </Stack.Navigator>
   );

@@ -12,7 +12,6 @@ import ForgotPassword from "@/pages/auth/ForgotPassword";
 
 import DashboardAdmin from "@/pages/admin/Dashboard";
 import AnalyticsAdmin from "@/pages/admin/Analytics";
-import ReportsAdmin from "@/pages/admin/Reports";
 import StationManagementAdmin from "@/pages/admin/StationManagement";
 import SubscriptionPlansAdmin from "@/pages/admin/SubscriptionPlans";
 import UserManagementAdmin from "@/pages/admin/UserManagement";
@@ -48,7 +47,6 @@ const routeConfig = [
   // 🧑‍💼 Admin routes
   { path: ROUTERS.ADMIN.DASHBOARD, element: DashboardAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.ANALYTICS, element: AnalyticsAdmin, layout: AdminLayout },
-  { path: ROUTERS.ADMIN.REPORTS, element: ReportsAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.STATION_MANAGEMENT, element: StationManagementAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.SUBSCRIPTION_PLANS, element: SubscriptionPlansAdmin, layout: AdminLayout },
   { path: ROUTERS.ADMIN.USER_MANAGEMENT, element: UserManagementAdmin, layout: AdminLayout },
@@ -76,7 +74,7 @@ const AppRouter = () => {
       })}
 
       {/* Redirect root → /staff/dashboard */}
-      <Route path="/" element={<Navigate to={ROUTERS.STAFF.DASHBOARD} replace />} />
+      <Route path="/" element={<Navigate to={ROUTERS.PUBLIC.LOGIN} replace />} />
 
       {/* Catch-all 404 */}
       <Route path="*" element={<NotFound />} />
