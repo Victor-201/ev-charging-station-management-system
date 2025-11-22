@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
-import { getStationById, getStationPricing } from '../../store/slices/stationSlice';
+import { getStationById, getStationPricing, getStationConnectors } from '../../store/slices/stationSlice';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
 import reservationService from '../../services/reservationService';
@@ -300,6 +300,7 @@ const StationDetail = ({ route, navigation }) => {
     if (id) {
       dispatch(getStationById(id));
       dispatch(getStationPricing(id));
+      dispatch(getStationConnectors(id));
     }
   }, [id, dispatch]);
 
@@ -417,22 +418,26 @@ const StationDetail = ({ route, navigation }) => {
       <Text style={[styles.address, { color: colors.onSurfaceVariant }]}>{station.address}</Text>
 
       <View style={[styles.infoSection, { backgroundColor: colors.background }]}>
-        <InfoBox icon="power" label="Khả dụng" value={`${station.available_ports}/${station.total_ports}`} styles={styles} colors={colors} />
-        <InfoBox icon="star" label="Đánh giá" value={`${station.rating} / 5.0`} styles={styles} colors={colors} />
-        {station.pricing ? (
+        <InfoBox icon="power" label="Khả dụng" value={`${station.available_ports || 0}/${station.total_ports || 0}`} styles={styles} colors={colors} />
+        {(station.rating && station.rating > 0) && (
+          <InfoBox icon="star" label="Đánh giá" value={`${station.rating} / 5.0`} styles={styles} colors={colors} />
+        )}
+        {(station.price_per_kwh && station.price_per_kwh > 0) ? (
+          <InfoBox icon="attach-money" label="Giá" value={`${Number(station.price_per_kwh).toLocaleString()}đ / kWh`} styles={styles} colors={colors} />
+        ) : station.pricing && Array.isArray(station.pricing) && station.pricing.length > 0 ? (
           <View style={styles.infoBox}>
             <Icon name="attach-money" size={24} color={colors.primary} />
             <Text style={styles.infoBoxLabel}>Bảng giá</Text>
             {station.pricing.map((p, i) => (
-              <Text key={i} style={styles.infoBoxValue} numberOfLines={1} ellipsizeMode="tail">{p.name}: {p.price.toLocaleString()}đ</Text>
+              <Text key={i} style={styles.infoBoxValue} numberOfLines={1} ellipsizeMode="tail">
+                {String(p.name || 'N/A')}: {Number(p.price || 0).toLocaleString()}đ
+              </Text>
             ))}
           </View>
-        ) : (
-          <InfoBox icon="attach-money" label="Giá" value={`${(station.price_per_kwh || 0).toLocaleString()}đ / kWh`} styles={styles} colors={colors} />
-        )}
+        ) : null}
       </View>
 
-      {station.connector_types && Array.isArray(station.connector_types) && station.connector_types.length > 0 && (
+      {station.connector_types && Array.isArray(station.connector_types) && station.connector_types.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>1. Chọn loại cổng sạc</Text>
           <View style={styles.connectorContainer}>
@@ -454,11 +459,18 @@ const StationDetail = ({ route, navigation }) => {
                     selectedConnector === type && styles.connectorTextSelected,
                   ]}
                 >
-                  {type}
+                  {String(type)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+      ) : (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Cổng sạc</Text>
+          <Text style={{ color: colors.onSurfaceVariant, fontSize: 16 }}>
+            Không có thông tin về cổng sạc cho trạm này.
+          </Text>
         </View>
       )}
 
@@ -495,7 +507,7 @@ const StationDetail = ({ route, navigation }) => {
                         isPointDisabled && [styles.pointTextDisabled, { color: colors.onSurfaceDisabled }],
                       ]}
                     >
-                      {point.point_name || `P${point.id}`}
+                      {String(point.point_name || `P${point.id || 'N/A'}`)}
                     </Text>
                     <Text
                       style={[
@@ -505,7 +517,7 @@ const StationDetail = ({ route, navigation }) => {
                         isPointDisabled && [styles.pointStatusDisabled, { color: colors.onSurfaceDisabled }],
                       ]}
                     >
-                      {point.status}
+                      {String(point.status || 'N/A')}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -526,7 +538,7 @@ const StationDetail = ({ route, navigation }) => {
             {station.amenities.map((amenity, index) => (
               <View key={index} style={styles.amenityItem}>
                 <Icon name="check-circle" size={16} color={colors.primary} />
-                <Text style={styles.amenityText}>{amenity}</Text>
+                <Text style={styles.amenityText}>{String(amenity)}</Text>
               </View>
             ))}
           </View>

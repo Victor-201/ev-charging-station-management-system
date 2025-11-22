@@ -13,7 +13,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useSelector } from 'react-redux';
 import { useTheme } from 'react-native-paper';
-import useReservations from '../../hooks/useReservations';
 import reservationService from '../../services/reservationService';
 
 const getStyles = (colors) => StyleSheet.create({
@@ -236,17 +235,12 @@ export default function ScheduleBooking() {
   const { stationId, station, pointId, connectorType } = route.params;
   const user = useSelector((state) => state.auth.user);
 
-  const {
-    availableSlots: slotsFromRedux,
-    slotsLoading,
-    loading: reservationLoading,
-    fetchAvailableSlots,
-    createNewReservation,
-  } = useReservations();
-
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [selectedConnector] = useState(connectorType);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [reservationLoading, setReservationLoading] = useState(false);
 
   // Generate next 7 days
   const generateDates = () => {
@@ -271,18 +265,59 @@ export default function ScheduleBooking() {
 
   useEffect(() => {
     if (selectedDate) {
-      loadAvailableSlots();
+      loadAvailableSlotsForDate();
     }
-  }, [selectedDate]);
+  }, [selectedDate, pointId]);
 
-  const loadAvailableSlots = async () => {
-    if (!selectedDate) return;
+  const loadAvailableSlotsForDate = async () => {
+    if (!selectedDate || !pointId) return;
+
+    setSlotsLoading(true);
+    setAvailableSlots([]);
+
     try {
       const dateString = selectedDate.date.toISOString().split('T')[0];
-      await fetchAvailableSlots(stationId, dateString, pointId);
+      const startHour = 8;
+      const endHour = 20;
+      const slotPromises = [];
+      const initialSlots = [];
+
+      for (let hour = startHour; hour < endHour; hour++) {
+        const startTime = `${dateString}T${hour.toString().padStart(2, '0')}:00:00Z`;
+        const endTime = `${dateString}T${(hour + 1).toString().padStart(2, '0')}:00:00Z`;
+
+        initialSlots.push({
+          id: `${dateString}-${hour}`,
+          time: `${hour.toString().padStart(2, '0')}:00`,
+          startTime,
+          endTime,
+          duration: 60,
+          price: 60000, // Placeholder
+        });
+
+        slotPromises.push(
+          reservationService.checkAvailability({
+            station_id: stationId,
+            point_id: pointId,
+            start_time: startTime,
+            end_time: endTime,
+          })
+        );
+      }
+
+      const availabilityResults = await Promise.all(slotPromises);
+
+      const finalSlots = initialSlots.map((slot, index) => ({
+        ...slot,
+        available: availabilityResults[index]?.available === true,
+      }));
+
+      setAvailableSlots(finalSlots);
     } catch (error) {
       console.error('Error loading available slots:', error);
       Alert.alert('Lỗi', 'Không thể tải lịch trống cho ngày đã chọn.');
+    } finally {
+      setSlotsLoading(false);
     }
   };
 
@@ -308,97 +343,48 @@ export default function ScheduleBooking() {
 
   const handleBooking = async () => {
     if (!selectedDate || !selectedTimeSlot || !selectedConnector) {
-      Alert.alert(
-        'Thông tin chưa đầy đủ',
-        'Vui lòng chọn ngày, giờ và loại cổng sạc'
-      );
+      Alert.alert('Thông tin chưa đầy đủ', 'Vui lòng chọn ngày và giờ đặt chỗ.');
       return;
     }
 
-    // Format data according to backend API requirements
-    // Support multiple user ID formats: OAuth (id, sub) and Email (user_id)
     const userId = user?.id || user?.user_id || user?.sub;
     if (!userId) {
-      console.error('❌ No user ID found. User object:', JSON.stringify(user, null, 2));
-      Alert.alert('Lỗi', 'Vui lòng đăng nhập để đặt chỗ');
+      Alert.alert('Lỗi', 'Vui lòng đăng nhập để đặt chỗ.');
       return;
     }
-    console.log('✅ User ID extracted:', userId);
 
-    // Prepare booking data with smart defaults from station data
     const bookingData = {
       user_id: userId,
-      station_id: stationId.toString(),
+      station_id: stationId,
       point_id: pointId,
-      connector_type: selectedConnector,
-      start_time: selectedTimeSlot.startTime, // ISO format from slot
-      duration_minutes: selectedTimeSlot.duration, // Send duration instead of end_time
-      payment_method: 'wallet', // Required by backend: 'wallet' or 'bank_transfer'
-      price_per_min: station?.price_per_min || station?.price_per_kwh || 1000, // Use station pricing if available
+      start_time: selectedTimeSlot.startTime,
+      end_time: selectedTimeSlot.endTime,
     };
 
-    console.log('📋 Booking data to send:', JSON.stringify(bookingData, null, 2));
-
-    Alert.alert(
-      'Xác nhận đặt chỗ',
-      `Đặt chỗ tại ${station.name}\nNgày: ${selectedDate.date.toLocaleDateString('vi-VN')}\nGiờ: ${selectedTimeSlot.time}\nLoại cổng: ${selectedConnector}\nUớc tính: ${calculateTotalCost().toLocaleString()} VND`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Xác nhận', onPress: () => confirmBooking(bookingData) }
-      ]
-    );
-  };
-
-  const confirmBooking = async (bookingData) => {
+    setReservationLoading(true);
     try {
-      // Step 1: Create reservation
-      console.log('📤 Sending reservation request...');
-      const response = await createNewReservation(bookingData);
-      console.log('📥 Reservation response received:', JSON.stringify(response, null, 2));
-
-      // Extract reservation ID with multiple fallbacks
-      const reservationId = response?.id || response?.reservation_id || response?.data?.id || response?.data?.reservation_id;
+      const reservation = await reservationService.createReservation(bookingData);
+      const reservationId = reservation?.id || reservation?.reservation_id;
 
       if (!reservationId) {
-        console.error('❌ No reservation ID found in response:', response);
-        throw new Error('Không nhận được mã đặt chỗ từ server. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
+        throw new Error('Không nhận được mã đặt chỗ từ server.');
       }
 
-      console.log('✅ Reservation created successfully. ID:', reservationId);
-
-      // Step 2: Navigate to QR Code screen
-      navigation.navigate('BookingQRCode', {
-        reservation: {
+      // Navigate to a new confirmation screen
+      navigation.replace('BookingConfirmation', {
+        reservationId: reservationId,
+        station: station,
+        bookingDetails: {
           ...bookingData,
-          id: reservationId,
-          station_name: station.name,
-          station_address: station.address,
+          time: selectedTimeSlot.time,
+          date: selectedDate.date.toLocaleDateString('vi-VN'),
         },
-        qrData: { reservationId: reservationId }, // Pass data to be encoded in QR
       });
+
     } catch (error) {
-      console.error('❌ Error creating booking:', error);
-      console.error('❌ Error details:', {
-        message: error?.message,
-        response: error?.response?.data,
-        status: error?.response?.status,
-        bookingData: bookingData
-      });
-
-      // Provide user-friendly error messages based on error type
-      let errorMessage = 'Không thể đặt chỗ. Vui lòng thử lại.';
-
-      if (error?.response?.status === 401) {
-        errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
-      } else if (error?.response?.status === 409) {
-        errorMessage = 'Khung giờ này đã được đặt. Vui lòng chọn giờ khác.';
-      } else if (error?.response?.status === 400) {
-        errorMessage = error?.response?.data?.message || 'Thông tin đặt chỗ không hợp lệ.';
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-
-      Alert.alert('Lỗi đặt chỗ', errorMessage);
+      Alert.alert('Lỗi đặt chỗ', error.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
+      setReservationLoading(false);
     }
   };
 
@@ -493,7 +479,7 @@ export default function ScheduleBooking() {
                   Đang tải lịch trống...
                 </Text>
               </View>
-            ) : slotsFromRedux.length === 0 ? (
+            ) : availableSlots.length === 0 ? (
               <View style={{ padding: 20, alignItems: 'center' }}>
                 <Text style={{ color: colors.onSurface, opacity: 0.7 }}>
                   Không có lịch trống cho ngày này
@@ -501,7 +487,7 @@ export default function ScheduleBooking() {
               </View>
             ) : (
               <View style={styles.timeGrid}>
-                {slotsFromRedux.map((slot, index) => (
+                {availableSlots.map((slot, index) => (
                 <TouchableOpacity
                   key={slot.id || `slot-${index}-${slot.time}`}
                   style={[

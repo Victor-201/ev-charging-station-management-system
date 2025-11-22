@@ -78,6 +78,8 @@ const transformStationData = (station) => {
 
   return {
     ...station,
+    // Ensure the primary ID is always 'id', mapping from 'station_id' if necessary.
+    id: station.id || station.station_id,
     // Fix text encoding (backend database issue)
     name: fixTextEncoding(station.name),
     address: fixTextEncoding(station.address),
@@ -92,7 +94,7 @@ const transformStationData = (station) => {
     // Safely parse numeric fields
     rating: safeParseFloat(station.rating),
     price_per_kwh: safeParseFloat(station.price_per_kwh),
-    // Extract from charging_points or use existing
+    // Extract from charging_points. Only override if the new array has content.
     connector_types: connectorTypes.length > 0 ? connectorTypes : parseStringArray(station.connector_types),
     amenities: parseStringArray(station.amenities),
     // Transform charging_points if present

@@ -7,6 +7,7 @@ import MapScreen from '../../screens/Map/MapScreen';
 import StationListScreen from '../../screens/Map/StationListScreen';
 import StationDetail from '../../screens/Map/StationDetail';
 import ScheduleBooking from '../../screens/Reservation/ScheduleBooking';
+import BookingConfirmationScreen from '../../screens/Reservation/BookingConfirmationScreen';
 import ReportIssueScreen from '../../screens/Station/ReportIssueScreen';
 
 const Stack = createNativeStackNavigator();

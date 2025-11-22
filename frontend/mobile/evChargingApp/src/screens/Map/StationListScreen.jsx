@@ -149,68 +149,73 @@ const StationListScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderStationItem = ({ item }) => (
-    <TouchableOpacity style={styles.stationCard} onPress={() => handleStationPress(item)}>
-      <View style={styles.stationHeader}>
-        <View style={styles.stationTitleRow}>
-          <Icon name="ev-station" size={24} color={colors.primary} />
-          <Text style={styles.stationName} numberOfLines={1}>
-            {item.name}
-          </Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item) }]}>
-          <Text style={styles.statusText}>{getStatusText(item)}</Text>
-        </View>
-      </View>
+  const renderStationItem = ({ item }) => {
+    // Ensure item has required properties
+    if (!item) return null;
 
-      <View style={styles.stationInfo}>
-        <Icon name="location-on" size={16} color={colors.onSurfaceVariant} />
-        <Text style={styles.addressText} numberOfLines={2}>
-          {item.address}
-        </Text>
-      </View>
+    return (
+      <TouchableOpacity style={styles.stationCard} onPress={() => handleStationPress(item)}>
+        <View style={styles.stationHeader}>
+          <View style={styles.stationTitleRow}>
+            <Icon name="ev-station" size={24} color={colors.primary} />
+            <Text style={styles.stationName} numberOfLines={1}>
+              {item.name || 'Trạm sạc'}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item) }]}>
+            <Text style={styles.statusText}>{getStatusText(item)}</Text>
+          </View>
+        </View>
 
-      <View style={styles.stationDetails}>
-        <View style={styles.detailItem}>
-          <Icon name="power" size={18} color={colors.primary} />
-          <Text style={styles.detailText}>
-            {`${item.available_ports}/${item.total_ports} cổng`}
+        <View style={styles.stationInfo}>
+          <Icon name="location-on" size={16} color={colors.onSurfaceVariant} />
+          <Text style={styles.addressText} numberOfLines={2}>
+            {item.address || 'Không có địa chỉ'}
           </Text>
         </View>
 
-        {item.distance !== undefined && (
+        <View style={styles.stationDetails}>
           <View style={styles.detailItem}>
-            <Icon name="near-me" size={18} color={colors.primary} />
-            <Text style={styles.detailText}>{item.distance.toFixed(1)} km</Text>
+            <Icon name="power" size={18} color={colors.primary} />
+            <Text style={styles.detailText}>
+              {`${item.available_ports || 0}/${item.total_ports || 0} cổng`}
+            </Text>
           </View>
-        )}
 
-        {item.rating && (
-          <View style={styles.detailItem}>
-            <Icon name="star" size={18} color={colors.warning} />
-            <Text style={styles.detailText}>{item.rating.toFixed(1)}</Text>
-          </View>
-        )}
-
-        {item.price_per_kwh && (
-          <View style={styles.detailItem}>
-            <Icon name="attach-money" size={18} color={colors.success} />
-            <Text style={styles.detailText}>{item.price_per_kwh.toLocaleString()}đ/kWh</Text>
-          </View>
-        )}
-      </View>
-
-      {item.connector_types && item.connector_types.length > 0 && (
-        <View style={styles.connectorTypes}>
-          {item.connector_types.map((type, index) => (
-            <View key={index} style={styles.connectorBadge}>
-              <Text style={styles.connectorText}>{type}</Text>
+          {item.distance !== null && item.distance !== undefined && (
+            <View style={styles.detailItem}>
+              <Icon name="near-me" size={18} color={colors.primary} />
+              <Text style={styles.detailText}>{`${Number(item.distance).toFixed(1)} km`}</Text>
             </View>
-          ))}
+          )}
+
+          {item.rating !== null && item.rating !== undefined && (
+            <View style={styles.detailItem}>
+              <Icon name="star" size={18} color={colors.warning} />
+              <Text style={styles.detailText}>{Number(item.rating).toFixed(1)}</Text>
+            </View>
+          )}
+
+          {item.price_per_kwh !== null && item.price_per_kwh !== undefined && (
+            <View style={styles.detailItem}>
+              <Icon name="attach-money" size={18} color={colors.success} />
+              <Text style={styles.detailText}>{`${Number(item.price_per_kwh).toLocaleString()}đ/kWh`}</Text>
+            </View>
+          )}
         </View>
-      )}
-    </TouchableOpacity>
-  );
+
+        {item.connector_types && Array.isArray(item.connector_types) && item.connector_types.length > 0 && (
+          <View style={styles.connectorTypes}>
+            {item.connector_types.map((type, index) => (
+              <View key={index} style={styles.connectorBadge}>
+                <Text style={styles.connectorText}>{String(type)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   if (loading && stations.length === 0) {
     return (

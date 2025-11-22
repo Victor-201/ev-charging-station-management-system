@@ -68,19 +68,45 @@ export const theme = {
     // === Màu chủ đạo (thiên về xanh nước biển) ===
     primary: '#002682',
     onPrimary: '#FFFFFF',
+    primaryContainer: '#D6E3FF',
+    onPrimaryContainer: '#001B3D',
+
     secondary: '#1E45B5',
+    onSecondary: '#FFFFFF',
+    secondaryContainer: '#D9E2FF',
+    onSecondaryContainer: '#001849',
+
     accent: '#4A6CFF',
 
     // === Màu nền & bề mặt ===
     background: '#FFFFFF',
     surface: '#E5ECFF',
+    surfaceVariant: '#DFE2EB',
+    surfaceDisabled: '#E0E0E0',
     onBackground: '#00103dff',
     onSurface: '#000c29ff',
+    onSurfaceVariant: '#8A93B9',
+    onSurfaceDisabled: '#9E9E9E',
 
     // === Màu trạng thái ===
     error: '#f60d01',
+    onError: '#FFFFFF',
+    errorContainer: '#FFDAD6',
+    onErrorContainer: '#410002',
+
     success: '#86df20',
+    onSuccess: '#FFFFFF',
+    successContainer: '#E8F5D8',
+    onSuccessContainer: '#1A3700',
+
     warning: '#f2ae14',
+    onWarning: '#FFFFFF',
+    warningContainer: '#FFEFD5',
+    onWarningContainer: '#3E2D00',
+
+    // === Màu viền & outline ===
+    outline: '#75777F',
+    outlineVariant: '#C5C6D0',
 
     // === Màu brand (gradient scale) ===
     brand50:  '#E5ECFF',
@@ -91,8 +117,5 @@ export const theme = {
     brand500: '#002682',
     brand600: '#001F6B',
     brand700: '#001653',
-
-    // === Màu chữ phụ & chữ mờ ===
-    onSurfaceVariant: '#8A93B9', // chữ phụ, mô tả, text ít quan trọng, placeholder, disabled text
   },
 };

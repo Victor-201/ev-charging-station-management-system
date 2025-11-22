@@ -594,13 +594,17 @@ export default function MapScreen({ navigation }) {
             <View style={styles.detailRow}>
               <Icon name="attach-money" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
               <Text style={styles.detailText}>
-                {selectedStation.price_per_kwh ? selectedStation.price_per_kwh.toLocaleString() : 'N/A'} VND/kWh
+                {selectedStation.price_per_kwh !== null && selectedStation.price_per_kwh !== undefined
+                  ? `${Number(selectedStation.price_per_kwh).toLocaleString()} VND/kWh`
+                  : 'N/A'}
               </Text>
             </View>
             <View style={styles.detailRow}>
               <Icon name="star" size={16} color={colors.warning} />
               <Text style={styles.detailText}>
-                {selectedStation.rating || 'N/A'} • {selectedStation.distance || 'N/A'} km
+                {selectedStation.rating !== null && selectedStation.rating !== undefined ? Number(selectedStation.rating).toFixed(1) : 'N/A'}
+                {' \u2022 '}
+                {selectedStation.distance !== null && selectedStation.distance !== undefined ? `${Number(selectedStation.distance).toFixed(1)} km` : 'N/A'}
               </Text>
             </View>
           </View>
