@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -100,15 +100,24 @@ const getStyles = (colors) => StyleSheet.create({
     gap: 10,
   },
   connectorBadge: {
-    backgroundColor: colors.primaryContainer,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: 'transparent',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
+  connectorBadgeSelected: {
+    backgroundColor: colors.primary,
+  },
   connectorText: {
-    color: colors.onPrimaryContainer,
+    color: colors.primary,
     fontWeight: '500',
   },
+  connectorTextSelected: {
+    color: colors.onPrimary,
+  },
+
   amenitiesContainer: {
     gap: 10,
   },
@@ -120,6 +129,49 @@ const getStyles = (colors) => StyleSheet.create({
   amenityText: {
     fontSize: 16,
     color: colors.onSurface,
+  },
+  pointContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  pointBadge: {
+    borderWidth: 1,
+    borderColor: colors.surfaceVariant,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  pointBadgeSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryContainer,
+  },
+  pointBadgeDisabled: {
+    backgroundColor: colors.surfaceDisabled,
+    borderColor: colors.surfaceDisabled,
+  },
+  pointText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.onSurface,
+  },
+  pointTextSelected: {
+    color: colors.onPrimaryContainer,
+  },
+  pointTextDisabled: {
+    color: colors.onSurfaceDisabled,
+  },
+  pointStatus: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+  },
+  pointStatusSelected: {
+    color: colors.onPrimaryContainer,
+  },
+  pointStatusDisabled: {
+    color: colors.onSurfaceDisabled,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -196,6 +248,8 @@ export default function StationDetail({ route, navigation }) {
   const { selectedStation: station, loading, error } = useSelector((state) => state.stations);
   const { user } = useSelector((state) => state.auth);
   const [joiningWaitlist, setJoiningWaitlist] = useState(false);
+  const [selectedConnector, setSelectedConnector] = useState(null);
+  const [selectedPoint, setSelectedPoint] = useState(null);
 
   useEffect(() => {
     if (id) {
@@ -230,10 +284,12 @@ export default function StationDetail({ route, navigation }) {
   };
 
   const handleBookStation = () => {
-    if (station) {
+    if (station && selectedPoint) {
       navigation.navigate('ScheduleBooking', {
         stationId: station.id,
-        station: station
+        station: station,
+        pointId: selectedPoint.id,
+        connectorType: selectedConnector,
       });
     }
   };
@@ -308,6 +364,13 @@ export default function StationDetail({ route, navigation }) {
 
   const isAvailable = station.status === 'active' && station.available_ports > 0;
 
+  const availablePoints = useMemo(() => {
+    if (!station || !selectedConnector) return [];
+    return (station.charging_points || []).filter(
+      (p) => p.connector_type === selectedConnector
+    );
+  }, [station, selectedConnector]);
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
@@ -338,12 +401,29 @@ export default function StationDetail({ route, navigation }) {
 
       {station.connector_types && Array.isArray(station.connector_types) && station.connector_types.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Loại cổng sạc</Text>
+          <Text style={styles.sectionTitle}>1. Chọn loại cổng sạc</Text>
           <View style={styles.connectorContainer}>
             {station.connector_types.map((type, index) => (
-              <View key={index} style={styles.connectorBadge}>
-                <Text style={styles.connectorText}>{type}</Text>
-              </View>
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.connectorBadge,
+                  selectedConnector === type && styles.connectorBadgeSelected,
+                ]}
+                onPress={() => {
+                  setSelectedConnector(type);
+                  setSelectedPoint(null); // Reset point selection
+                }}
+              >
+                <Text
+                  style={[
+                    styles.connectorText,
+                    selectedConnector === type && styles.connectorTextSelected,
+                  ]}
+                >
+                  {type}
+                </Text>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -373,9 +453,9 @@ export default function StationDetail({ route, navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.bookButton, !isAvailable && styles.disabledButton]}
+          style={[styles.bookButton, !selectedPoint && styles.disabledButton]}
           onPress={handleBookStation}
-          disabled={!isAvailable}
+          disabled={!selectedPoint}
         >
           <Text style={styles.bookButtonText}>
             {isAvailable ? 'Đặt chỗ ngay' : 'Hết chỗ'}

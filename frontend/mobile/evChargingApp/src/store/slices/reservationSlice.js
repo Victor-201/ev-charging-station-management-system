@@ -4,9 +4,9 @@ import reservationService from '../../services/reservationService';
 // Async thunk for fetching available time slots
 export const getAvailableSlots = createAsyncThunk(
   'reservation/getAvailableSlots',
-  async ({ stationId, date }, { rejectWithValue }) => {
+  async ({ stationId, date, pointId }, { rejectWithValue }) => {
     try {
-      const response = await reservationService.getAvailableSlots(stationId, date);
+      const response = await reservationService.getAvailableSlots(stationId, date, pointId);
       const slots = response?.data?.slots || response?.slots || response?.data || response || [];
       return Array.isArray(slots) ? slots : [];
     } catch (err) {

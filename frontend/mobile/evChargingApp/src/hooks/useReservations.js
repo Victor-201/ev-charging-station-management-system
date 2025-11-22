@@ -37,8 +37,8 @@ export default function useReservations() {
   // --- Action Dispatchers ---
 
   const fetchAvailableSlots = useCallback(
-    (stationId, date) => {
-      const cacheKey = `${stationId}-${date}`;
+    (stationId, date, pointId) => {
+      const cacheKey = `${stationId}-${pointId}-${date}`;
       const cachedData = slotsCache.current[cacheKey];
       const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
 
@@ -51,7 +51,7 @@ export default function useReservations() {
 
       console.log('⬇️ Fetching new slots for', cacheKey);
       // No valid cache, fetch from network
-      return dispatch(getAvailableSlots({ stationId, date }))
+      return dispatch(getAvailableSlots({ stationId, date, pointId }))
         .unwrap()
         .then((slots) => {
           // Update cache on successful fetch

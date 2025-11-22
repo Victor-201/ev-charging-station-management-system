@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -233,7 +233,7 @@ export default function ScheduleBooking() {
   const styles = getStyles(colors);
   const navigation = useNavigation();
   const route = useRoute();
-  const { stationId, station } = route.params;
+  const { stationId, station, pointId, connectorType } = route.params;
   const user = useSelector((state) => state.auth.user);
 
   const {
@@ -246,7 +246,7 @@ export default function ScheduleBooking() {
 
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
-  const [selectedConnector, setSelectedConnector] = useState(null);
+  const [selectedConnector] = useState(connectorType);
 
   // Generate next 7 days
   const generateDates = () => {
@@ -279,7 +279,7 @@ export default function ScheduleBooking() {
     if (!selectedDate) return;
     try {
       const dateString = selectedDate.date.toISOString().split('T')[0];
-      await fetchAvailableSlots(stationId, dateString);
+      await fetchAvailableSlots(stationId, dateString, pointId);
     } catch (error) {
       console.error('Error loading available slots:', error);
       Alert.alert('Lỗi', 'Không thể tải lịch trống cho ngày đã chọn.');
@@ -297,9 +297,7 @@ export default function ScheduleBooking() {
     }
   };
 
-  const handleConnectorSelect = (connector) => {
-    setSelectedConnector(connector);
-  };
+
 
   const calculateTotalCost = () => {
     if (!selectedTimeSlot) return 0;
@@ -331,8 +329,8 @@ export default function ScheduleBooking() {
     const bookingData = {
       user_id: userId,
       station_id: stationId.toString(),
-      point_id: station?.default_point_id || station?.point_id || '1', // Use station's default point if available
-      connector_type: selectedConnector.replace(/\s+/g, ''), // Remove spaces: "Type 2" -> "Type2"
+      point_id: pointId,
+      connector_type: selectedConnector,
       start_time: selectedTimeSlot.startTime, // ISO format from slot
       end_time: selectedTimeSlot.endTime, // ISO format from slot
       payment_method: 'wallet', // Required by backend: 'wallet' or 'bank_transfer'
@@ -575,36 +573,7 @@ export default function ScheduleBooking() {
           </View>
         )}
 
-        {/* Connector Type Selection */}
-        {selectedTimeSlot && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Chọn loại cổng sạc</Text>
-            <View style={styles.connectorContainer}>
-              {station.connector_types.map((connector, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.connectorCard,
-                    selectedConnector === connector && styles.selectedConnector
-                  ]}
-                  onPress={() => handleConnectorSelect(connector)}
-                >
-                  <Icon 
-                    name="power" 
-                    size={24} 
-                    color={selectedConnector === connector ? colors.onPrimary : colors.accent}
-                  />
-                  <Text style={[
-                    styles.connectorText,
-                    selectedConnector === connector && styles.selectedConnectorText
-                  ]}>
-                    {connector}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
+
 
         {/* Booking Summary */}
         {selectedDate && selectedTimeSlot && selectedConnector && (

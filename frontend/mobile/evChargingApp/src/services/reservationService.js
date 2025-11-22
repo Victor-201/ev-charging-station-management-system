@@ -4,7 +4,7 @@ import { ENDPOINTS } from '../api/endpoints';
 const reservationService = {
   // Get available time slots for a station on a specific date
   // This generates time slots on client-side and checks availability with backend
-  getAvailableSlots: async (stationId, date, pointId = '1') => {
+  getAvailableSlots: async (stationId, date, pointId) => {
     try {
       // Generate time slots (8:00 AM to 8:00 PM, 1-hour intervals)
       const slots = [];
