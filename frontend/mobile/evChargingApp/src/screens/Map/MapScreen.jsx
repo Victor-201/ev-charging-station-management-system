@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -594,9 +594,16 @@ export default function MapScreen({ navigation }) {
 
           <View style={styles.stationDetails}>
             <View style={styles.detailRow}>
-              <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
-              <Text style={styles.detailText}>
-                {selectedStation.available_ports || 0}/{selectedStation.total_ports || 0} cổng sạc
+              <Icon
+                name="power"
+                size={16}
+                color={getMarkerColor(selectedStation)}
+              />
+              <Text style={[styles.detailText, {
+                color: getMarkerColor(selectedStation),
+                fontWeight: '600'
+              }]}>
+                {getAvailabilityText(selectedStation)}
               </Text>
             </View>
             <View style={styles.detailRow}>
@@ -604,17 +611,29 @@ export default function MapScreen({ navigation }) {
               <Text style={styles.detailText}>
                 {selectedStation.price_per_kwh !== null && selectedStation.price_per_kwh !== undefined
                   ? `${Number(selectedStation.price_per_kwh).toLocaleString()} VND/kWh`
-                  : 'N/A'}
+                  : 'Liên hệ'}
               </Text>
             </View>
-            <View style={styles.detailRow}>
-              <Icon name="star" size={16} color={colors.warning} />
-              <Text style={styles.detailText}>
-                {selectedStation.rating !== null && selectedStation.rating !== undefined ? Number(selectedStation.rating).toFixed(1) : 'N/A'}
-                <Text style={styles.detailText}> • </Text>
-                {selectedStation.distance !== null && selectedStation.distance !== undefined ? `${Number(selectedStation.distance).toFixed(1)} km` : 'N/A'}
-              </Text>
-            </View>
+            {(selectedStation.rating || selectedStation.distance) && (
+              <View style={styles.detailRow}>
+                {selectedStation.rating && (
+                  <>
+                    <Icon name="star" size={16} color={colors.warning} />
+                    <Text style={styles.detailText}>
+                      {Number(selectedStation.rating).toFixed(1)}
+                    </Text>
+                  </>
+                )}
+                {selectedStation.rating && selectedStation.distance && (
+                  <Text style={styles.detailText}> • </Text>
+                )}
+                {selectedStation.distance && (
+                  <Text style={styles.detailText}>
+                    {Number(selectedStation.distance).toFixed(1)} km
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
 
           <View style={styles.connectorTypes}>
@@ -637,13 +656,19 @@ export default function MapScreen({ navigation }) {
             <TouchableOpacity
               style={[
                 styles.bookButton,
-                (selectedStation.available_ports || 0) === 0 && styles.disabledButton
+                (selectedStation.status !== 'active' || (selectedStation.available_ports || 0) === 0) && styles.disabledButton
               ]}
               onPress={handleBookStation}
-              disabled={(selectedStation.available_ports || 0) === 0}
+              disabled={selectedStation.status !== 'active' || (selectedStation.available_ports || 0) === 0}
             >
               <Text style={styles.bookButtonText}>
-                {(selectedStation.available_ports || 0) === 0 ? 'Hết chỗ' : 'Đặt chỗ sạc'}
+                {selectedStation.status === 'maintenance'
+                  ? 'Đang bảo trì'
+                  : selectedStation.status === 'offline'
+                  ? 'Ngoại tuyến'
+                  : (selectedStation.available_ports || 0) === 0
+                  ? 'Hết chỗ'
+                  : 'Đặt chỗ sạc'}
               </Text>
             </TouchableOpacity>
           </View>

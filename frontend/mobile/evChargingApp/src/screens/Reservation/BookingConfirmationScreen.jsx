@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTheme } from 'react-native-paper';
 import { useSelector } from 'react-redux';
-import QRCode from 'react-native-qrcode-svg';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import reservationService from '../../services/reservationService';
+import QRCodeDisplay from '../../components/charging/QRCodeDisplay';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -90,40 +90,44 @@ export default function BookingConfirmationScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchQrCode = async () => {
-      try {
-        const userId = user?.id || user?.user_id || user?.sub;
-        if (!userId || !reservationId || !station?.id || !pointId) {
-          throw new Error('Missing required data for QR code generation');
-        }
+  const fetchQrCode = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-        const qrData = {
-          reservation_id: reservationId,
-          user_id: userId,
-          station_id: station.id,
-          point_id: pointId,
-        };
-
-        const response = await reservationService.createQrCode(qrData);
-        setQrCode(response.qr_code || response.qr_id || response.qrId);
-      } catch (error) {
-        console.error('Failed to generate QR code:', error);
-        setError(error.message || 'Không thể tạo mã QR');
-        Alert.alert(
-          'Lỗi tạo mã QR',
-          'Không thể tạo mã QR cho đặt chỗ này. Bạn vẫn có thể xem chi tiết đặt chỗ trong danh sách đặt chỗ của mình.',
-          [{ text: 'OK' }]
-        );
-      } finally {
-        setLoading(false);
+    try {
+      const userId = user?.id || user?.user_id || user?.sub;
+      if (!userId || !reservationId || !station?.id || !pointId) {
+        throw new Error('Missing required data for QR code generation');
       }
-    };
 
+      const qrData = {
+        reservation_id: reservationId,
+        user_id: userId,
+        station_id: station.id,
+        point_id: pointId,
+      };
+
+      const response = await reservationService.createQrCode(qrData);
+      setQrCode(response.qr_code || response.qr_id || response.qrId);
+    } catch (error) {
+      console.error('Failed to generate QR code:', error);
+      const errorMessage = error.message || 'Không thể tạo mã QR';
+      setError(errorMessage);
+      Alert.alert(
+        'Lỗi tạo mã QR',
+        'Không thể tạo mã QR cho đặt chỗ này. Bạn vẫn có thể xem chi tiết đặt chỗ trong danh sách đặt chỗ của mình.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [reservationId, user, station, pointId]);
+
+  useEffect(() => {
     if (reservationId) {
       fetchQrCode();
     }
-  }, [reservationId, user, station, pointId]);
+  }, [reservationId, fetchQrCode]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -139,33 +143,11 @@ export default function BookingConfirmationScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.qrContainer}>
-              {qrCode ? (
-                <>
-                  <QRCode value={qrCode} size={200} />
-                  <Text style={{ marginTop: 16, color: colors.onSurfaceVariant, textAlign: 'center' }}>
-                    Quét mã QR này tại trạm sạc để bắt đầu sạc
-                  </Text>
-                </>
-              ) : error ? (
-                <View style={{ alignItems: 'center', padding: 20 }}>
-                  <Icon name="error-outline" size={48} color={colors.error} />
-                  <Text style={{ marginTop: 16, color: colors.error, textAlign: 'center' }}>
-                    {error}
-                  </Text>
-                  <Text style={{ marginTop: 8, color: colors.onSurfaceVariant, textAlign: 'center' }}>
-                    Bạn vẫn có thể xem đặt chỗ trong danh sách của mình
-                  </Text>
-                </View>
-              ) : (
-                <View style={{ alignItems: 'center', padding: 20 }}>
-                  <Icon name="info-outline" size={48} color={colors.warning} />
-                  <Text style={{ marginTop: 16, color: colors.onSurface, textAlign: 'center' }}>
-                    Không thể tạo mã QR
-                  </Text>
-                </View>
-              )}
-            </View>
+            <QRCodeDisplay
+              qrCode={qrCode}
+              error={error}
+              onRefresh={fetchQrCode}
+            />
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Chi tiết đặt chỗ</Text>
