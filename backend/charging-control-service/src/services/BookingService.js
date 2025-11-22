@@ -549,7 +549,16 @@ class BookingService {
 
   async checkAvailability(station_id, point_id, start_time, end_time) {
     if (!station_id || !point_id || !start_time || !end_time) throw new Error('Missing availability parameters');
-    return await this.reservationRepo.checkAvailability(station_id, point_id, start_time, end_time);
+    // Lazy-load 'db' to prevent circular dependency issues.
+    const db = require('../models');
+    const [results] = await db.sequelize.query(
+      `SELECT * FROM reservations WHERE point_id = :pointId AND status = 'confirmed' AND start_time < :endTime AND end_time > :startTime LIMIT 1`,
+      {
+        replacements: { pointId: point_id, startTime: start_time, endTime: end_time },
+        type: db.Sequelize.QueryTypes.SELECT,
+      }
+    );
+    return !results;
   }
 
   async autoCancelExpiredReservations() {
