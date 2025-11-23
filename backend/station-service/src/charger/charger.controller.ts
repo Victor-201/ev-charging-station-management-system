@@ -6,9 +6,15 @@ import { JwtAuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
 
+import { MessagePattern, Payload, RmqContext } from '@nestjs/microservices';
+import { RmqService } from 'src/rmq/rmq.service';
+
 @Controller('chargers')
 export class ChargerController {
-    constructor( private chargerService: ChargerService ) { }
+    constructor( 
+        private chargerService: ChargerService,
+        private readonly rmqService: RmqService
+     ) { }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin')
@@ -50,5 +56,17 @@ export class ChargerController {
     @Get(':charger_id/pricing')
     async getChargerPricing(@Param('charger_id') charger_id: string): Promise<ChargerPricingResponseDto> {
         return this.chargerService.getChargerPricing( charger_id );
+    }
+
+    @MessagePattern({ queue: 'session_queue', routingKey: 'start_session' })
+    handelStartSession(@Payload() data: any, context: RmqContext) {
+        this.rmqService.ack(context);
+        this.chargerService.handleStartSession(data);
+    }
+
+    @MessagePattern({ queue: 'session_queue', routingKey: 'start_session' })
+    handelStopSession(@Payload() data: any, context: RmqContext) {
+        this.rmqService.ack(context);
+        this.chargerService.handleStopSession(data);
     }
 }
