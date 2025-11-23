@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, Card, ActivityIndicator, useTheme } from 'react-native-paper';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -112,32 +112,39 @@ const WalletScreen = () => {
         {!transactions || transactions.length === 0 ? (
           <Text style={styles.emptyStateText}>Chưa có giao dịch nào.</Text>
         ) : (
-          transactions.map(tx => (
-            <Card key={tx.id || tx.transaction_id} style={styles.transactionCard}>
-              <Card.Content style={styles.transactionContent}>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                    <Text style={styles.transactionType}>
-                      {tx.type === 'topup' ? 'Nạp tiền' : tx.type === 'payment' ? 'Thanh toán' : tx.type === 'refund' ? 'Hoàn tiền' : tx.type}
-                    </Text>
-                    {tx.status === 'pending' && (
-                      <Text style={{ marginLeft: 8, fontSize: 11, color: colors.warning, backgroundColor: colors.warning + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                        Chờ xử lý
+          transactions.map(tx => {
+            const transaction = {
+              ...tx,
+              type: tx.type === 'topup' ? 'deposit' : tx.type
+            }
+            return (
+            <TouchableOpacity key={transaction.id || transaction.transaction_id} onPress={() => navigation.navigate('TransactionDetailScreen', { transaction })}>
+              <Card style={styles.transactionCard}>
+                <Card.Content style={styles.transactionContent}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <Text style={styles.transactionType}>
+                        {transaction.type === 'deposit' ? 'Nạp tiền' : transaction.type === 'payment' ? 'Thanh toán' : transaction.type === 'refund' ? 'Hoàn tiền' : transaction.type}
                       </Text>
-                    )}
-                    {tx.status === 'completed' && (
-                      <Text style={{ marginLeft: 8, fontSize: 11, color: colors.success, backgroundColor: colors.success + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                        Thành công
-                      </Text>
-                    )}
+                      {transaction.status === 'pending' && (
+                        <Text style={{ marginLeft: 8, fontSize: 11, color: colors.warning, backgroundColor: colors.warning + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          Chờ xử lý
+                        </Text>
+                      )}
+                      {transaction.status === 'completed' && (
+                        <Text style={{ marginLeft: 8, fontSize: 11, color: colors.success, backgroundColor: colors.success + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          Thành công
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.transactionDate}>{new Date(transaction.created_at).toLocaleString('vi-VN')}</Text>
                   </View>
-                  <Text style={styles.transactionDate}>{new Date(tx.created_at).toLocaleString('vi-VN')}</Text>
-                </View>
-                <Text style={[styles.transactionAmount, { color: tx.type === 'topup' || tx.type === 'refund' ? colors.success : colors.error }]}>
-                  {tx.type === 'topup' || tx.type === 'refund' ? '+' : '-'}{tx.amount.toLocaleString('vi-VN')} ₫
-                </Text>
-              </Card.Content>
-            </Card>
+                  <Text style={[styles.transactionAmount, { color: transaction.type === 'deposit' || transaction.type === 'refund' ? colors.success : colors.error }]}>
+                    {transaction.type === 'deposit' || transaction.type === 'refund' ? '+' : '-'}{transaction.amount.toLocaleString('vi-VN')} ₫
+                  </Text>
+                </Card.Content>
+              </Card>
+            </TouchableOpacity>
           ))
         )}
         <Button style={styles.seeAllButton} onPress={() => navigation.navigate('TransactionHistoryScreen')}>

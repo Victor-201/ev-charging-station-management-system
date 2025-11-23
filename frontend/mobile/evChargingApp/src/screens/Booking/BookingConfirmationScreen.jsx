@@ -70,8 +70,20 @@ export default function BookingConfirmationScreen() {
       const start = slot?.start_time || slot?.startTime;
       if (!start) { Alert.alert('Thiếu thời gian', 'Không có thời gian bắt đầu của đặt chỗ'); return; }
       const res = await reminderService.createBookingReminder({ stationName: station?.name || 'Trạm sạc', startTime: start });
-      if (res.ok) notifier.show({ type: 'success', icon: 'notifications-active', title: 'Đã thêm lời nhắc', message: 'Nhắc trước 15 phút trong Lời nhắc' });
-      else Alert.alert('Không thể tạo lời nhắc', res.error || 'Vui lòng thử lại');
+      if (res.ok) {
+        notifier.show({ type: 'success', icon: 'notifications-active', title: 'Đã thêm lời nhắc', message: 'Nhắc trước 15 phút trong Lời nhắc' });
+      } else if (res.needSettings) {
+        Alert.alert(
+          'Quyền bị từ chối',
+          'Hãy cấp quyền truy cập Lời nhắc trong Cài đặt để tạo nhắc trước giờ bắt đầu 15 phút.',
+          [
+            { text: 'Hủy', style: 'cancel' },
+            { text: 'Mở Cài đặt', onPress: () => reminderService.openSettings() }
+          ]
+        );
+      } else {
+        Alert.alert('Không thể tạo lời nhắc', res.error || 'Vui lòng thử lại');
+      }
     } catch (e) {
       Alert.alert('Không thể tạo lời nhắc', e?.message || 'Vui lòng thử lại');
     }

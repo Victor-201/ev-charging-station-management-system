@@ -54,6 +54,9 @@
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
+		<key>NSCalendarsUsageDescription</key>
+		<string>Ứng dụng cần quyền truy cập Lịch để tạo sự kiện nhắc trước 15 phút cho lịch đặt chỗ.</string>
+
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Ứng dụng cần quyền truy cập Lời nhắc để tạo nhắc nhở sạc xe trước giờ đặt chỗ 15 phút.</string>
 	<key>NSUserTrackingUsageDescription</key>

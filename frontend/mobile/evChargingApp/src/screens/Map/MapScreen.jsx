@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Platform, Alert, StyleSheet } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
 import WebView from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import stationService from '../../services/stationService';
 import StationsBottomSheet from '../../components/station/StationsBottomSheet';
 import mapService from '../../services/mapService';
@@ -15,7 +16,7 @@ const DEFAULT_REGION = { latitude: 10.77978, longitude: 106.699, latitudeDelta: 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   map: { width: '100%', height: '100%' },
-  fab: { position: 'absolute', right: 16, backgroundColor: colors.surface, padding: 12, borderRadius: 24, elevation: 3 },
+  fab: { backgroundColor: colors.surface, padding: 12, borderRadius: 24, elevation: 3 },
   fabText: { color: colors.accent },
 });
 
@@ -28,7 +29,8 @@ export default function MapScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [stations, setStations] = useState([]);
   const [sheetVisible, setSheetVisible] = useState(false);
-  const insets = useSafeAreaInsets();
+
+  const tabBarHeight = useBottomTabBarHeight();
 
   const fetchStations = async (lat, lng, radiusKm = 5) => {
     try {
@@ -98,7 +100,7 @@ export default function MapScreen({ navigation }) {
   };
 
   if (!region) return (
-    <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}> 
+    <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
       <ActivityIndicator size="large" color={colors.primary} />
       <Text style={{ marginTop: 8, color: colors.onSurfaceVariant }}>Đang xác định vị trí...</Text>
     </SafeAreaView>
@@ -136,12 +138,8 @@ export default function MapScreen({ navigation }) {
         <WebView originWhitelist={["*"]} source={{ html: leafletHtml }} onMessage={onWebMessage} />
       )}
 
-      {/* FABs with SafeArea spacing */}
-      <View style={{ position:'absolute', right:16, bottom: Math.max(16, insets.bottom + 8), gap: 12 }}>
-        {/* Gần tôi: mở bottom sheet danh sách đã sort theo khoảng cách */}
-        <TouchableOpacity style={styles.fab} onPress={()=> setSheetVisible(true)} accessibilityLabel="Trạm gần tôi" accessibilityHint="Hiển thị danh sách trạm sạc gần vị trí hiện tại">
-          <Icon name="place" size={22} color={colors.accent} />
-        </TouchableOpacity>
+      {/* FABs with SafeArea spacing - moved to left */}
+      <View style={{ position:'absolute', left:16, bottom: tabBarHeight + 16, gap: 12 }}>
         {/* Vị trí hiện tại: recenter + refresh */}
         <TouchableOpacity style={styles.fab} onPress={()=>{
           Geolocation.getCurrentPosition(
@@ -151,6 +149,18 @@ export default function MapScreen({ navigation }) {
           );
         }} accessibilityLabel="Vị trí của tôi" accessibilityHint="Đưa bản đồ về vị trí hiện tại và nạp trạm gần">
           <Icon name="my-location" size={22} color={colors.accent} />
+        </TouchableOpacity>
+        {/* Danh sách trạm gần */}
+        <TouchableOpacity style={styles.fab} onPress={()=> setSheetVisible(true)} accessibilityLabel="Trạm gần tôi" accessibilityHint="Hiển thị danh sách trạm sạc gần vị trí hiện tại">
+          <Icon name="place" size={22} color={colors.accent} />
+        </TouchableOpacity>
+        {/* Lịch sử phiên sạc */}
+        <TouchableOpacity style={styles.fab} onPress={()=> navigation.navigate('History', { screen: 'ChargingHistory' })} accessibilityLabel="Lịch sử sạc" accessibilityHint="Xem lịch sử các phiên sạc">
+          <Icon name="history" size={22} color={colors.accent} />
+        </TouchableOpacity>
+        {/* Lịch sử đặt chỗ */}
+        <TouchableOpacity style={styles.fab} onPress={()=> navigation.navigate('MyBookingsScreen')} accessibilityLabel="Lịch sử đặt chỗ" accessibilityHint="Xem danh sách các đặt chỗ của tôi">
+          <Icon name="event-note" size={22} color={colors.accent} />
         </TouchableOpacity>
       </View>
 

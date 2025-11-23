@@ -10,6 +10,7 @@ import TransactionHistoryScreen from '../../screens/Wallet/TransactionHistoryScr
 import SepayTopUpScreen from '../../screens/Payment/SepayTopUpScreen';
 import SepayQRCodeScreen from '../../screens/Payment/SepayQRCodeScreen';
 import TopupSuccessScreen from '../../screens/Wallet/TopupSuccessScreen';
+import TransactionDetailScreen from '../../screens/Wallet/TransactionDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -27,6 +28,7 @@ export default function WalletStack() {
       <Stack.Screen name="SepayTopUp" component={SepayTopUpScreen} />
       <Stack.Screen name="SepayQRCode" component={SepayQRCodeScreen} />
       <Stack.Screen name="TopupSuccessScreen" component={TopupSuccessScreen} />
+      <Stack.Screen name="TransactionDetailScreen" component={TransactionDetailScreen} />
     </Stack.Navigator>
   );
 }

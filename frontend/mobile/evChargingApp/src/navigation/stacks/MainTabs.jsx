@@ -3,6 +3,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 // Import components
 import CustomTabBar from '../../components/layout/CustomTabBar';
 
@@ -33,17 +34,44 @@ export default function MainTabs() {
       <Tab.Screen
         name="Map"
         component={MapStack}
-        options={{ title: 'Bản đồ' }}
+        options={({ route }) => ({
+          title: 'Bản đồ',
+          tabBarStyle: ((route) => {
+            const routeName = getFocusedRouteNameFromRoute(route) ?? ''
+            if (['StationDetailScreen', 'SelectChargingPointScreen', 'SelectTimeSlotScreen', 'BookingConfirmationScreen', 'ReportIssue'].includes(routeName)) {
+              return { display: 'none' }
+            }
+            return
+          })(route),
+        })}
       />
       <Tab.Screen
         name="History"
         component={HistoryStack}
-        options={{ title: 'Lịch sử' }}
+        options={({ route }) => ({
+          title: 'Lịch sử',
+          tabBarStyle: ((route) => {
+            const routeName = getFocusedRouteNameFromRoute(route) ?? ''
+            if (['SessionDetail'].includes(routeName)) {
+              return { display: 'none' }
+            }
+            return
+          })(route),
+        })}
       />
       <Tab.Screen
         name="Wallet"
         component={WalletStack}
-        options={{ title: 'Ví' }}
+        options={({ route }) => ({
+          title: 'Ví',
+          tabBarStyle: ((route) => {
+            const routeName = getFocusedRouteNameFromRoute(route) ?? ''
+            if (['TopupSuccessScreen', 'TransactionDetailScreen'].includes(routeName)) {
+              return { display: 'none' }
+            }
+            return
+          })(route),
+        })}
       />
       <Tab.Screen
         name="Profile"
