@@ -54,10 +54,20 @@ class NotificationService {
     }
   }
 
-  listenForMessages() {
+  listenForMessages(onForegroundMessage) {
     const offForeground = messaging().onMessage(async remoteMessage => {
       console.log('A new FCM message arrived!', JSON.stringify(remoteMessage));
       this.onDisplayNotification(remoteMessage);
+      try {
+        const n = {
+          id: remoteMessage.messageId || Date.now(),
+          title: remoteMessage.notification?.title || remoteMessage.data?.title,
+          message: remoteMessage.notification?.body || remoteMessage.data?.body,
+          created_at: Date.now(),
+          read: false,
+        };
+        onForegroundMessage?.(n);
+      } catch {}
     });
 
     const offOpened = messaging().onNotificationOpenedApp(remoteMessage => {
@@ -92,12 +102,12 @@ class NotificationService {
     return unsub;
   }
 
-  async initForLoggedInUser() {
+  async initForLoggedInUser(onForegroundMessage) {
     const granted = await this.requestUserPermission();
     if (!granted) return () => {};
     const token = await this.getFCMToken();
     await this.registerFCMToken(token);
-    const offMsg = this.listenForMessages();
+    const offMsg = this.listenForMessages(onForegroundMessage);
     const offRefresh = this.listenTokenRefresh();
     return () => { offMsg?.(); offRefresh?.(); };
   }

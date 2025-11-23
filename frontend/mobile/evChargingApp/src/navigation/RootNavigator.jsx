@@ -12,6 +12,7 @@ import { STORAGE_KEYS } from '../config/constants';
 import Loading from '../components/common/Loading';
 import notificationService from '../services/notificationService';
 import NotificationStack from './stacks/NotificationStack';
+import { addNotification } from '../store/slices/notificationSlice';
 
 const RootStack = createNativeStackNavigator();
 
@@ -71,7 +72,7 @@ export default function RootNavigator() {
     if (auth?.accessToken) {
       (async () => {
         try {
-          cleanup = await notificationService.initForLoggedInUser();
+          cleanup = await notificationService.initForLoggedInUser((n)=>dispatch(addNotification(n)));
         } catch (e) {
           console.warn('FCM init failed:', e?.message || e);
         }

@@ -4,9 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
+import { FEATURES } from '../../config/featureFlags';
 
 import { getMe } from '../../store/slices/userSlice';
 import { getWallet } from '../../store/slices/walletSlice';
+import { getNotifications } from '../../store/slices/notificationSlice';
 
 
 import Header from '../../components/layout/Header';
@@ -26,6 +28,7 @@ export default function HomeScreen() {
 
   // Get wallet data from Redux store
   const { wallet, loading: walletLoading } = useSelector((state) => state.wallet);
+  const { unreadCount } = useSelector((state) => state.notification || { unreadCount: 0 });
 
   // Debug: Log user profile data
   console.log('==== HomeScreen User Data ====');
@@ -43,19 +46,16 @@ export default function HomeScreen() {
   useEffect(() => {
     if (userProfile?.user_id) {
       dispatch(getWallet(userProfile.user_id));
+      // fetch notifications to update badge
+      dispatch(getNotifications(userProfile.user_id));
     }
   }, [userProfile, dispatch]);
 
   // Mock stats - TODO: fetch from analytics API
-  const stats = {
-    totalCharges: 15,
-    totalEnergy: 350,
-  };
-
-  
-
+  // Quick actions
   const quickActions = [
     { id: 'find-station', title: 'Tìm trạm sạc', subtitle: 'Tìm trạm sạc gần nhất', onPress: () => navigation.navigate('Map') },
+    { id: 'notifications', title: 'Thông báo', subtitle: 'Tin mới từ hệ thống', onPress: () => navigation.navigate('Notification'), badgeCount: unreadCount },
     { id: 'charging-history', title: 'Lịch sử sạc', subtitle: 'Xem lịch sử sạc xe', onPress: () => navigation.navigate('Charging', { screen: 'ChargingHistory' }) },
     {
       id: 'wallet',
@@ -89,14 +89,16 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Thống kê */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.brand600 }]}>Thống kê cá nhân</Text>
-        <View style={styles.statsGrid}>
-          <StatCard number={stats.totalCharges.toString()} label="Lần sạc" />
-          <StatCard number={`${stats.totalEnergy} kWh`} label="Năng lượng" />
+      {/* Thống kê (ẩn bằng feature flag khi analytics-service chưa sẵn) */}
+      {FEATURES.analytics && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.brand600 }]}>Thống kê cá nhân</Text>
+          <View style={styles.statsGrid}>
+            <StatCard number={stats.totalCharges.toString()} label="Lần sạc" />
+            <StatCard number={`${stats.totalEnergy} kWh`} label="Năng lượng" />
+          </View>
         </View>
-      </View>
+      )}
           </ScrollView>
     </SafeAreaView>
   );
