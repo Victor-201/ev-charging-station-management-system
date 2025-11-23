@@ -261,24 +261,6 @@ services:
     restart: unless-stopped
 
   ## Analytics-service
-  analytics-service:
-    build:
-      context: ../../backend/analytics-service
-      dockerfile: Dockerfile
-    image: analytics-service:v1.0.0
-    container_name: analytics-service
-    ports:
-      - "3000:3000"
-    env_file:
-      - ../../backend/analytics-service/.env
-    environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
-    depends_on:
-      - analytics-database
-    command: npm run dev
-    networks:
-      - kong-net
-
   analytics-database:
     image: mysql:8.0
     container_name: mysql-evcs
@@ -294,7 +276,35 @@ services:
       - ../../database/seeds/seed_analytics_db.sql:/docker-entrypoint-initdb.d/02-seed.sql
     networks:
       - kong-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
+  analytics-service:
+    build:
+      context: ../../backend/analytics-service
+      dockerfile: Dockerfile
+    image: analytics-service:v1.0.0
+    container_name: analytics-service
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../../backend/analytics-service/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      DB_HOST: mysql-evcs
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: 123456
+      DB_NAME: ev_analytics_db
+    depends_on:
+      analytics-database:
+        condition: service_healthy
+    command: npm run dev
+    networks:
+      - kong-net
 ## RabbitMQ service
   rabbitmq:
     image: rabbitmq:3-management
