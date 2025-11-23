@@ -2,6 +2,7 @@ export const RMQ_QUEUES = {
   CHARGER : 'charger_availability_queue',
   STATION : 'points_status_queue',
   PAYMENT : 'payment_queue',
+  SESSION: 'session_queue'
 };
 
 export const RMQ_ROUTING_KEYS = {
@@ -13,4 +14,5 @@ export const RMQ_ROUTING_KEYS = {
     'payment.charging.succeeded',
     'payment.charging.failed'
   ],
+  SESSION: ['start_session', 'stop_session']
 };
