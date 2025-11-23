@@ -38,6 +38,7 @@
     "react": "19.1.1",
     "react-hook-form": "7.66.0",
     "react-native": "0.82.1",
+    "react-native-calendar-events": "^2.2.0",
     "react-native-dotenv": "3.4.11",
     "react-native-gesture-handler": "2.29.0",
     "react-native-maps": "1.26.18",
