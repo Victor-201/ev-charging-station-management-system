@@ -40,7 +40,8 @@ export class RabbitMQService implements OnModuleInit {
     const bindings = [
       { queue: RMQ_QUEUES.CHARGER, key: RMQ_ROUTING_KEYS.CHARGER },
       { queue: RMQ_QUEUES.STATION, key: RMQ_ROUTING_KEYS.STATION },
-      { queue: RMQ_QUEUES.PAYMENT, key: RMQ_ROUTING_KEYS.PAYMENT }
+      { queue: RMQ_QUEUES.PAYMENT, key: RMQ_ROUTING_KEYS.PAYMENT },
+      { queue: RMQ_QUEUES.SESSION, key: RMQ_ROUTING_KEYS.SESSION },
     ];
 
     for (const b of bindings) {

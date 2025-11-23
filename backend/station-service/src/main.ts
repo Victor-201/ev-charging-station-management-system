@@ -7,7 +7,7 @@ async function bootstrap() {
 
   const rmqService = app.get(RmqService);
 
-  const queues = ['CHARGER'];
+  const queues = ['CHARGER', 'SESSION'];
 
   queues.forEach(queue => {
     app.connectMicroservice(rmqService.getOptions(queue));

@@ -169,4 +169,37 @@ export class ChargerService {
 
         return { pricing };
     }
+
+    async handleStartSession(data: any) {
+        const {point_id} = data;
+        const exist = await this.prisma.charging_points.findUnique({
+            where: {id: point_id},
+        });
+        if(!exist) {
+            throw new ConflictException('Charger with this ID does not exist');
+        }
+
+        await this.prisma.charging_points.update({
+            where: {id: point_id},
+            data: {
+                status: 'in_use'
+            }
+        })
+    }
+
+    async handleStopSession(data: any) {
+        const {point_id} = data;
+        const exist = await this.prisma.charging_points.findUnique({
+            where: {id: point_id},
+        });
+        if(!exist) {
+            throw new ConflictException('Charger with this ID does not exist');
+        }
+        await this.prisma.charging_points.update({
+            where: {id: point_id},
+            data: {
+                status: 'available'
+            }
+        })
+    }
 }
