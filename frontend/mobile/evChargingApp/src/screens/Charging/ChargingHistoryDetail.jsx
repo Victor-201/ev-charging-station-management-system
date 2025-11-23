@@ -130,6 +130,18 @@ const ChargingHistoryDetail = () => {
         </Text>
       </View>
 
+	      {/* Realtime detail button when session is active */}
+	      {['active','charging','running'].includes(String(currentSession.status||'').toLowerCase()) && (
+	        <TouchableOpacity
+	          style={styles.invoiceButton}
+	          onPress={() => navigation.navigate('ChargingSessionDetail', { sessionId })}
+	        >
+	          <Ionicons name="pulse-outline" size={20} color={colors.onPrimary} />
+	          <Text style={styles.invoiceButtonText}>Xem realtime</Text>
+	        </TouchableOpacity>
+	      )}
+
+
       {/* Station Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Thông tin trạm sạc</Text>

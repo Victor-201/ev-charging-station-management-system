@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Platform, Alert, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
 import WebView from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
 import stationService from '../../services/stationService';
+import StationsBottomSheet from '../../components/station/StationsBottomSheet';
 
 const DEFAULT_REGION = { latitude: 10.77978, longitude: 106.699, latitudeDelta: 0.05, longitudeDelta: 0.05 };
 
@@ -25,14 +26,31 @@ export default function MapScreen({ navigation }) {
   const [region, setRegion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [stations, setStations] = useState([]);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const fetchStations = async (lat, lng, radiusKm = 5) => {
     try {
       setLoading(true);
-      const list = await stationService.searchStations(lat, lng, radiusKm);
-      setStations(Array.isArray(list) ? list : []);
+      let list = [];
+      try {
+        list = await stationService.searchStations(lat, lng, radiusKm);
+      } catch (err) {
+        // Fallback: khi /stations/search lỗi, dùng /stations và tự lọc/sort theo khoảng cách
+        console.warn('searchStations failed, fallback to getAllStations:', err?.message || err);
+        list = await stationService.getAllStations();
+      }
+      const enriched = (Array.isArray(list) ? list : [])
+        .filter(s => typeof s.latitude === 'number' && typeof s.longitude === 'number')
+        .map(s => ({
+          ...s,
+          distanceKm: stationService.calculateDistance(lat, lng, s.latitude, s.longitude)
+        }))
+        .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+      const filtered = enriched.filter(s => typeof s.distanceKm === 'number' ? s.distanceKm <= Math.max(5, radiusKm) : true);
+      setStations(filtered);
     } catch (e) {
-      console.error('searchStations error:', e);
+      console.error('fetchStations error:', e);
       Alert.alert('Lỗi', 'Không thể tải danh sách trạm sạc');
     } finally { setLoading(false); }
   };
@@ -105,11 +123,31 @@ export default function MapScreen({ navigation }) {
         <WebView originWhitelist={["*"]} source={{ html: leafletHtml }} onMessage={onWebMessage} />
       )}
 
-      <View style={{ position:'absolute', right:16, bottom:24 }}>
-        <TouchableOpacity style={styles.fab} onPress={()=> navigation.navigate('StationListScreen', { stations })}>
-          <Icon name="list" size={22} color={colors.accent} />
+      {/* FABs with SafeArea spacing */}
+      <View style={{ position:'absolute', right:16, bottom: Math.max(16, insets.bottom + 8), gap: 12 }}>
+        {/* Gần tôi: mở bottom sheet danh sách đã sort theo khoảng cách */}
+        <TouchableOpacity style={styles.fab} onPress={()=> setSheetVisible(true)} accessibilityLabel="Trạm gần tôi" accessibilityHint="Hiển thị danh sách trạm sạc gần vị trí hiện tại">
+          <Icon name="place" size={22} color={colors.accent} />
+        </TouchableOpacity>
+        {/* Vị trí hiện tại: recenter + refresh */}
+        <TouchableOpacity style={styles.fab} onPress={()=>{
+          Geolocation.getCurrentPosition(
+            (pos)=>{ const { latitude, longitude } = pos.coords; setRegion({ latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }); fetchStations(latitude, longitude, 5); },
+            (err)=>{ Alert.alert('Lỗi vị trí', 'Không thể lấy vị trí hiện tại'); },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+          );
+        }} accessibilityLabel="Vị trí của tôi" accessibilityHint="Đưa bản đồ về vị trí hiện tại và nạp trạm gần">
+          <Icon name="my-location" size={22} color={colors.accent} />
         </TouchableOpacity>
       </View>
+
+      {/* Bottom sheet danh sách trạm */}
+      <StationsBottomSheet
+        visible={sheetVisible}
+        onClose={()=> setSheetVisible(false)}
+        stations={stations}
+        onSelect={(s)=> navigation.navigate('StationDetailScreen', { stationId: String(s.id || s.station_id) })}
+      />
 
       {loading && (
         <View style={{ position:'absolute', left:0, right:0, top:0, bottom:0, justifyContent:'center', alignItems:'center' }}>
