@@ -34,49 +34,46 @@ export default function MainTabs() {
       <Tab.Screen
         name="Map"
         component={MapStack}
-        options={({ route }) => ({
-          title: 'Bản đồ',
-          tabBarStyle: ((route) => {
-            const routeName = getFocusedRouteNameFromRoute(route) ?? ''
-            if (['StationDetailScreen', 'SelectChargingPointScreen', 'SelectTimeSlotScreen', 'BookingConfirmationScreen', 'ReportIssue'].includes(routeName)) {
-              return { display: 'none' }
-            }
-            return
-          })(route),
-        })}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'MapMain';
+          return {
+            title: 'Bản đồ',
+            tabBarStyle: { display: routeName === 'MapMain' ? 'flex' : 'none' },
+          };
+        }}
       />
       <Tab.Screen
         name="History"
         component={HistoryStack}
-        options={({ route }) => ({
-          title: 'Lịch sử',
-          tabBarStyle: ((route) => {
-            const routeName = getFocusedRouteNameFromRoute(route) ?? ''
-            if (['SessionDetail'].includes(routeName)) {
-              return { display: 'none' }
-            }
-            return
-          })(route),
-        })}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'ChargingHistory';
+          return {
+            title: 'Lịch sử',
+            tabBarStyle: { display: routeName === 'ChargingHistory' ? 'flex' : 'none' },
+          };
+        }}
       />
       <Tab.Screen
         name="Wallet"
         component={WalletStack}
-        options={({ route }) => ({
-          title: 'Ví',
-          tabBarStyle: ((route) => {
-            const routeName = getFocusedRouteNameFromRoute(route) ?? ''
-            if (['TopupSuccessScreen', 'TransactionDetailScreen'].includes(routeName)) {
-              return { display: 'none' }
-            }
-            return
-          })(route),
-        })}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'WalletMain';
+          return {
+            title: 'Ví',
+            tabBarStyle: { display: routeName === 'WalletMain' ? 'flex' : 'none' },
+          };
+        }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
-        options={{ title: 'Hồ sơ' }}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'ProfileMain';
+          return {
+            title: 'Hồ sơ',
+            tabBarStyle: { display: routeName === 'ProfileMain' ? 'flex' : 'none' },
+          };
+        }}
       />
     </Tab.Navigator>
   );

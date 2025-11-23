@@ -7,6 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import bookingService from '../../services/bookingService';
 import QRCodeDisplay from '../../components/booking/QRCodeDisplay';
 import reminderService from '../../services/reminderService';
+
 import { useInAppNotification } from '../../components/notification/InAppNotification';
 
 const getStyles = (colors) => StyleSheet.create({
@@ -63,6 +64,8 @@ export default function BookingConfirmationScreen() {
       } catch {}
     }
   }, [reservationId]);
+
+
 
   const onAddReminder = async () => {
     try {

@@ -26,11 +26,39 @@ export default function MapScreen({ navigation }) {
   const mapRef = useRef(null);
 
   const [region, setRegion] = useState(null);
+  const [userLocation, setUserLocation] = useState(null); // To store user's actual GPS location
   const [loading, setLoading] = useState(true);
   const [stations, setStations] = useState([]);
   const [sheetVisible, setSheetVisible] = useState(false);
 
   const tabBarHeight = useBottomTabBarHeight();
+
+  const goToMyLocation = () => {
+    Geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const newLocation = { latitude, longitude };
+        setUserLocation(newLocation);
+
+        const newRegion = { ...newLocation, latitudeDelta: 0.02, longitudeDelta: 0.02 };
+        mapRef.current?.animateToRegion(newRegion, 1000);
+        fetchStations(latitude, longitude);
+      },
+      () => {
+        Alert.alert('Lỗi vị trí', 'Không thể lấy vị trí hiện tại của bạn.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+    );
+  };
+
+  const findNearbyStations = () => {
+    if (userLocation) {
+      fetchStations(userLocation.latitude, userLocation.longitude);
+    } else {
+      // Fallback if user location is not yet available
+      goToMyLocation();
+    }
+  };
 
   const fetchStations = async (lat, lng, radiusKm = 5) => {
     try {
@@ -56,8 +84,9 @@ export default function MapScreen({ navigation }) {
     Geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        const r = { latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 };
-        setRegion(r);
+        const location = { latitude, longitude };
+        setUserLocation(location);
+        setRegion({ ...location, latitudeDelta: 0.05, longitudeDelta: 0.05 });
         fetchStations(latitude, longitude, 5);
       },
       () => {
@@ -127,9 +156,7 @@ export default function MapScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       {Platform.OS === 'ios' ? (
-        <MapView ref={mapRef} style={styles.map} initialRegion={region} showsUserLocation onRegionChangeComplete={(r)=>{
-          setRegion(r); fetchStations(r.latitude, r.longitude, Math.max(3, Math.round(r.latitudeDelta*111)));}}
-        >
+        <MapView ref={mapRef} style={styles.map} initialRegion={region} showsUserLocation onRegionChangeComplete={setRegion}>
           {stations.filter(s=>typeof s.latitude==='number'&&typeof s.longitude==='number').map((s)=>(
             <Marker key={s.id||s.station_id} coordinate={{ latitude:s.latitude, longitude:s.longitude }} title={s.name} description={s.address} pinColor={getPinColor(s)} onPress={()=>navigation.navigate('StationDetailScreen',{ stationId:String(s.id||s.station_id) })} />
           ))}
@@ -142,16 +169,12 @@ export default function MapScreen({ navigation }) {
       <View style={{ position:'absolute', left:16, bottom: tabBarHeight + 16, gap: 12 }}>
         {/* Vị trí hiện tại: recenter + refresh */}
         <TouchableOpacity style={styles.fab} onPress={()=>{
-          Geolocation.getCurrentPosition(
-            (pos)=>{ const { latitude, longitude } = pos.coords; setRegion({ latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }); fetchStations(latitude, longitude, 5); },
-            ()=>{ Alert.alert('Lỗi vị trí', 'Không thể lấy vị trí hiện tại'); },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
-          );
+          goToMyLocation();
         }} accessibilityLabel="Vị trí của tôi" accessibilityHint="Đưa bản đồ về vị trí hiện tại và nạp trạm gần">
           <Icon name="my-location" size={22} color={colors.accent} />
         </TouchableOpacity>
         {/* Danh sách trạm gần */}
-        <TouchableOpacity style={styles.fab} onPress={()=> setSheetVisible(true)} accessibilityLabel="Trạm gần tôi" accessibilityHint="Hiển thị danh sách trạm sạc gần vị trí hiện tại">
+        <TouchableOpacity style={styles.fab} onPress={() => { findNearbyStations(); setSheetVisible(true); }} accessibilityLabel="Trạm gần tôi" accessibilityHint="Hiển thị danh sách trạm sạc gần vị trí hiện tại">
           <Icon name="place" size={22} color={colors.accent} />
         </TouchableOpacity>
         {/* Lịch sử phiên sạc */}

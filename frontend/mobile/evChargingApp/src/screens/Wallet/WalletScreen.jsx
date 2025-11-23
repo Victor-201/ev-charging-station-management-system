@@ -41,12 +41,15 @@ const WalletScreen = () => {
   const loadWalletData = useCallback(() => {
     const userId = user?.user_id || user?.id;
     if (userId) {
-      // Try to get wallet info (may fail if wallet doesn't exist yet)
-      dispatch(getWallet(userId)).catch(err => {
-        console.log('Wallet not created yet:', err);
-      });
-      // Get transaction history (this should work even without wallet)
-      dispatch(getTransactions({ userId, params: { limit: 5 } }));
+      const fetchData = async () => {
+        try {
+          await dispatch(getWallet(userId)).unwrap();
+        } catch (err) {
+          console.log('Wallet not created yet:', err);
+        }
+        dispatch(getTransactions({ userId, params: { limit: 5 } }));
+      };
+      fetchData();
     }
   }, [dispatch, user]);
 
