@@ -14,6 +14,8 @@ export const StationProvider = ({ children }) => {
   const [chargers, setChargers] = useState([]);
   const [availability, setAvailability] = useState(null);
   const [pricing, setPricing] = useState(null);
+  const [assignedStation, setAssignedStation] = useState(null);
+
 
   // ===== STATION =====
   const getAll = useCallback(async (params) => {
@@ -283,6 +285,22 @@ export const StationProvider = ({ children }) => {
       return { success: false, error: err };
     }
   }, []);
+  const getAssignedStation = useCallback(async () => {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await stationService.getAssignedStation();
+    const data = res?.data ?? res;
+    setAssignedStation(data); // lưu vào state
+    setLoading(false);
+    return { success: true, data };
+  } catch (err) {
+    setError(err);
+    setLoading(false);
+    return { success: false, error: err };
+  }
+}, []);
+
 
   // Memoize context value
   const value = useMemo(
@@ -296,6 +314,9 @@ export const StationProvider = ({ children }) => {
       chargers,
       availability,
       pricing,
+      assignedStation,
+getAssignedStation,
+setAssignedStation,
 
       // station actions
       getAll,
