@@ -7,6 +7,7 @@ import MapScreen from '../../screens/Map/MapScreen';
 import StationListScreen from '../../screens/Map/StationListScreen';
 import StationDetail from '../../screens/Map/StationDetail';
 import ScheduleBooking from '../../screens/Reservation/ScheduleBooking';
+import BookingConfirmationScreen from '../../screens/Reservation/BookingConfirmationScreen';
 import ReportIssueScreen from '../../screens/Station/ReportIssueScreen';
 
 const Stack = createNativeStackNavigator();
@@ -22,6 +23,7 @@ export default function MapStack() {
       <Stack.Screen name="StationList" component={StationListScreen} />
       <Stack.Screen name="StationDetail" component={StationDetail} />
       <Stack.Screen name="ScheduleBooking" component={ScheduleBooking} />
+      <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
       <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
     </Stack.Navigator>
   );

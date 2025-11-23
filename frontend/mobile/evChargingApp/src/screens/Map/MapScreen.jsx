@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -357,9 +357,17 @@ export default function MapScreen({ navigation }) {
   };
 
   const getMarkerColor = (station) => {
-    if (station.status === 'maintenance') return colors.error;
+    if (station.status === 'maintenance' || station.status === 'offline') return colors.error;
     if ((station.available_ports || 0) === 0) return colors.warning;
-    return colors.success;
+    if ((station.available_ports || 0) > 0) return colors.success;
+    return colors.primary; // Default color
+  };
+
+  const getAvailabilityText = (station) => {
+    if (station.status === 'maintenance') return 'Bảo trì';
+    if (station.status === 'offline') return 'Ngoại tuyến';
+    if ((station.available_ports || 0) === 0) return 'Hết chỗ';
+    return `${station.available_ports}/${station.total_ports} cổng`;
   };
 
   const handleBookStation = () => {
@@ -586,23 +594,46 @@ export default function MapScreen({ navigation }) {
 
           <View style={styles.stationDetails}>
             <View style={styles.detailRow}>
-              <Icon name="power" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
-              <Text style={styles.detailText}>
-                {selectedStation.available_ports || 0}/{selectedStation.total_ports || 0} cổng sạc
+              <Icon
+                name="power"
+                size={16}
+                color={getMarkerColor(selectedStation)}
+              />
+              <Text style={[styles.detailText, {
+                color: getMarkerColor(selectedStation),
+                fontWeight: '600'
+              }]}>
+                {getAvailabilityText(selectedStation)}
               </Text>
             </View>
             <View style={styles.detailRow}>
               <Icon name="attach-money" size={16} color={colors.onSurface} style={{ opacity: 0.7 }} />
               <Text style={styles.detailText}>
-                {selectedStation.price_per_kwh ? selectedStation.price_per_kwh.toLocaleString() : 'N/A'} VND/kWh
+                {selectedStation.price_per_kwh !== null && selectedStation.price_per_kwh !== undefined
+                  ? `${Number(selectedStation.price_per_kwh).toLocaleString()} VND/kWh`
+                  : 'Liên hệ'}
               </Text>
             </View>
-            <View style={styles.detailRow}>
-              <Icon name="star" size={16} color={colors.warning} />
-              <Text style={styles.detailText}>
-                {selectedStation.rating || 'N/A'} • {selectedStation.distance || 'N/A'} km
-              </Text>
-            </View>
+            {(selectedStation.rating || selectedStation.distance) && (
+              <View style={styles.detailRow}>
+                {selectedStation.rating && (
+                  <>
+                    <Icon name="star" size={16} color={colors.warning} />
+                    <Text style={styles.detailText}>
+                      {Number(selectedStation.rating).toFixed(1)}
+                    </Text>
+                  </>
+                )}
+                {selectedStation.rating && selectedStation.distance && (
+                  <Text style={styles.detailText}> • </Text>
+                )}
+                {selectedStation.distance && (
+                  <Text style={styles.detailText}>
+                    {Number(selectedStation.distance).toFixed(1)} km
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
 
           <View style={styles.connectorTypes}>
@@ -625,13 +656,19 @@ export default function MapScreen({ navigation }) {
             <TouchableOpacity
               style={[
                 styles.bookButton,
-                (selectedStation.available_ports || 0) === 0 && styles.disabledButton
+                (selectedStation.status !== 'active' || (selectedStation.available_ports || 0) === 0) && styles.disabledButton
               ]}
               onPress={handleBookStation}
-              disabled={(selectedStation.available_ports || 0) === 0}
+              disabled={selectedStation.status !== 'active' || (selectedStation.available_ports || 0) === 0}
             >
               <Text style={styles.bookButtonText}>
-                {(selectedStation.available_ports || 0) === 0 ? 'Hết chỗ' : 'Đặt chỗ sạc'}
+                {selectedStation.status === 'maintenance'
+                  ? 'Đang bảo trì'
+                  : selectedStation.status === 'offline'
+                  ? 'Ngoại tuyến'
+                  : (selectedStation.available_ports || 0) === 0
+                  ? 'Hết chỗ'
+                  : 'Đặt chỗ sạc'}
               </Text>
             </TouchableOpacity>
           </View>

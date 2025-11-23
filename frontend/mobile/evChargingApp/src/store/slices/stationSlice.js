@@ -20,14 +20,7 @@ export const getStationById = createAsyncThunk('stations/getStationById', async 
   }
 });
 
-export const getStationPricing = createAsyncThunk('stations/getStationPricing', async (stationId, { rejectWithValue }) => {
-  try {
-    const data = await stationService.getPricing(stationId);
-    return { stationId, pricing: data };
-  } catch (err) {
-    return rejectWithValue(err.response?.data || { message: err.message });
-  }
-});
+
 
 const initialState = {
   stations: [],
@@ -59,17 +52,11 @@ const stationSlice = createSlice({
         state.stations = action.payload;
       })
 
-      // Get Station Pricing
-      .addCase(getStationPricing.fulfilled, (state, action) => {
-        if (state.selectedStation && state.selectedStation.id === action.payload.stationId) {
-          state.selectedStation.pricing = action.payload.pricing;
-        }
-      })
-
       .addCase(searchStations.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || 'Failed to search stations';
       })
+
 
       // Get Station By ID
       .addCase(getStationById.pending, (state) => {
