@@ -5,8 +5,7 @@ import { RefreshCw, Clock, DollarSign, CheckCircle, ArrowLeftRight } from "lucid
 export const formatMoney = (v) => {
   if (v === null || v === undefined || v === "") return "N/A";
   const n = Number(v) ?? 0;
-  const amount = n * 1000;
-  return amount.toLocaleString("vi-VN") + " VNĐ";
+  return n.toLocaleString("vi-VN") + " VNĐ";
 };
 
 export const getStatusColor = (status) => {

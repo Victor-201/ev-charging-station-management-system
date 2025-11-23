@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useUser } from "@/hooks/useUser"; // hook context user
-import { useAuth } from "@/hooks/useAuth"; // hook auth (có logout)
+import { useUser } from "@/hooks/useUser";
+import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-
 import { ROUTERS } from "@/utils/constants";
 
 export default function Navbar({ onToggle }) {
@@ -10,6 +9,7 @@ export default function Navbar({ onToggle }) {
   const { logout: apiLogout } = useAuth();
   const navigate = useNavigate();
   const [showProfile, setShowProfile] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const popupRef = useRef(null);
 
   const toggleProfile = () => setShowProfile((prev) => !prev);
@@ -25,26 +25,43 @@ export default function Navbar({ onToggle }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Logout function
-const handleLogout = async () => {
-  if (!confirm("Bạn có chắc muốn đăng xuất?")) return;
+  // Logout function - ĐÃ CẢI TIẾN
+  const handleLogout = async () => {
+    if (!window.confirm("Bạn có chắc muốn đăng xuất?")) return;
 
-  try {
-    await apiLogout(); // gọi API logout nếu có (nếu không có thì vẫn ok)
-  } catch (err) {
-    console.error("Logout API failed:", err);
-  }
+    setIsLoggingOut(true);
+    setShowProfile(false);
 
-  // Clear client state trước khi điều hướng
-  localStorage.removeItem("token");
-  setUser(null);
+    try {
+      // Gọi API logout (nếu có)
+      if (apiLogout) {
+        await apiLogout();
+      }
+    } catch (err) {
+      console.error("Logout API failed:", err);
+      // Vẫn tiếp tục logout ở client dù API fail
+    }
 
-  // Điều hướng SPA về /login (dùng path từ ROUTERS.PUBLIC)
-  navigate(ROUTERS.PUBLIC.LOGIN, { replace: true });
+    // Clear tất cả data ở client
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken"); // nếu có
+    localStorage.removeItem("user"); // nếu có lưu user
+    sessionStorage.clear(); // clear luôn sessionStorage
 
-  // Nếu extreme-case UI vẫn không thay đổi, có thể dùng force-reload:
-  // window.location.replace(ROUTERS.PUBLIC.LOGIN);
-};
+    // Clear user state
+    if (setUser) {
+      setUser(null);
+    }
+
+    // Cách 1: Dùng navigate (SPA navigation)
+    navigate(ROUTERS.PUBLIC.LOGIN, { replace: true });
+
+    // Cách 2: Nếu navigate không work, dùng window.location (uncomment nếu cần)
+    // window.location.href = ROUTERS.PUBLIC.LOGIN;
+
+    // Cách 3: Force reload hoàn toàn (uncomment nếu cần)
+    // window.location.replace(ROUTERS.PUBLIC.LOGIN);
+  };
 
   // Tạo chữ cái viết tắt
   const initials = user?.full_name
@@ -107,6 +124,7 @@ const handleLogout = async () => {
             onClick={toggleProfile}
             className="w-10 h-10 grid place-items-center rounded-xl font-bold bg-gradient-to-b from-[#111827] to-[#1f2937] text-white"
             title="Profile"
+            disabled={isLoggingOut}
           >
             {initials}
           </button>
@@ -148,10 +166,11 @@ const handleLogout = async () => {
                     ✏️ Chỉnh sửa
                   </button>
                   <button
-                    className="flex-1 px-4 py-2 text-sm font-medium bg-[#ef4444] text-white rounded-xl hover:bg-[#dc2626] transition-all duration-150 active:scale-95"
+                    className="flex-1 px-4 py-2 text-sm font-medium bg-[#ef4444] text-white rounded-xl hover:bg-[#dc2626] transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={handleLogout}
+                    disabled={isLoggingOut}
                   >
-                    🚪 Đăng xuất
+                    {isLoggingOut ? "⏳ Đang xuất..." : "🚪 Đăng xuất"}
                   </button>
                 </div>
               </div>
