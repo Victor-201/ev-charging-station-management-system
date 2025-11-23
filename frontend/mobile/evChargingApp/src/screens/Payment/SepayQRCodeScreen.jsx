@@ -109,17 +109,19 @@ const SepayQRCodeScreen = () => {
           dispatch(getWallet(userId));
         }
 
-        // Show success message
-        Alert.alert(
-          'Thành công',
-          `Nạp tiền thành công ${sepayService.formatAmount(amount)}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('WalletMain'),
+        // Optional local push in case server push hasn't arrived yet
+        try {
+          const { default: notificationService } = await import('../../services/notificationService');
+          await notificationService.onDisplayNotification({
+            notification: {
+              title: 'Nạp tiền thành công',
+              body: `Bạn vừa nạp ${sepayService.formatAmount(amount)} vào ví`,
             },
-          ],
-        );
+          });
+        } catch {}
+
+        // Navigate to success screen
+        navigation.replace('TopupSuccessScreen', { amount, transactionId });
       } else if (result.status === 'failed') {
         stopPolling();
         setStatus('failed');

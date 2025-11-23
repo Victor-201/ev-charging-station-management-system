@@ -32,23 +32,17 @@ export default function MapScreen({ navigation }) {
   const fetchStations = async (lat, lng, radiusKm = 5) => {
     try {
       setLoading(true);
-      let list = [];
-      try {
-        list = await stationService.searchStations(lat, lng, radiusKm);
-      } catch (err) {
-        // Fallback: khi /stations/search lỗi, dùng /stations và tự lọc/sort theo khoảng cách
-        console.warn('searchStations failed, fallback to getAllStations:', err?.message || err);
-        list = await stationService.getAllStations();
-      }
-      const enriched = (Array.isArray(list) ? list : [])
-        .filter(s => typeof s.latitude === 'number' && typeof s.longitude === 'number')
+      const list = await stationService.searchStations(lat, lng, radiusKm);
+
+      const stationsWithDistance = (Array.isArray(list) ? list : [])
         .map(s => ({
           ...s,
+          // Calculate distance for display and sorting purposes
           distanceKm: stationService.calculateDistance(lat, lng, s.latitude, s.longitude)
         }))
         .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
-      const filtered = enriched.filter(s => typeof s.distanceKm === 'number' ? s.distanceKm <= Math.max(5, radiusKm) : true);
-      setStations(filtered);
+
+      setStations(stationsWithDistance);
     } catch (e) {
       console.error('fetchStations error:', e);
       Alert.alert('Lỗi', 'Không thể tải danh sách trạm sạc');
@@ -133,7 +127,7 @@ export default function MapScreen({ navigation }) {
         <TouchableOpacity style={styles.fab} onPress={()=>{
           Geolocation.getCurrentPosition(
             (pos)=>{ const { latitude, longitude } = pos.coords; setRegion({ latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }); fetchStations(latitude, longitude, 5); },
-            (err)=>{ Alert.alert('Lỗi vị trí', 'Không thể lấy vị trí hiện tại'); },
+            ()=>{ Alert.alert('Lỗi vị trí', 'Không thể lấy vị trí hiện tại'); },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
           );
         }} accessibilityLabel="Vị trí của tôi" accessibilityHint="Đưa bản đồ về vị trí hiện tại và nạp trạm gần">

@@ -29,6 +29,11 @@ class NotificationService {
 
   async getFCMToken() {
     try {
+      // Ensure device is registered for remote messages first (iOS requirement)
+      await messaging().setAutoInitEnabled(true);
+      if (Platform.OS === 'ios') {
+        try { await messaging().registerDeviceForRemoteMessages(); } catch {}
+      }
       const token = await messaging().getToken();
       console.log('FCM Token:', token);
       return token;

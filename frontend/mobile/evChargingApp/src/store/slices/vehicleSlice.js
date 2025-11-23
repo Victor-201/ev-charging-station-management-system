@@ -5,7 +5,8 @@ import vehicleService from '../../services/vehicleService';
 export const getVehicles = createAsyncThunk('vehicles/getVehicles', async (userId, { rejectWithValue }) => {
   try {
     const { data } = await vehicleService.getVehicles(userId);
-    return data.vehicles;
+    // Handle both { vehicles: [...] } and [...] responses
+    return Array.isArray(data?.vehicles) ? data.vehicles : (Array.isArray(data) ? data : []);
   } catch (err) {
     return rejectWithValue(err.response?.data || { message: err.message });
   }
