@@ -47,6 +47,27 @@ export default function BookingConfirmationScreen() {
 
   useEffect(() => { fetchQr(); }, [fetchQr]);
 
+  // Poll reservation status; if session started -> go to realtime session detail
+  useEffect(() => {
+    if (!reservationId) return;
+    let timer = null;
+    const poll = async () => {
+      try {
+        const res = await bookingService.getById(reservationId);
+        const sessionId = res?.session_id || res?.reservation?.session_id;
+        const status = (res?.status || res?.reservation?.status || '').toLowerCase();
+        if (sessionId || status === 'started' || status === 'checked_in') {
+          navigation.replace('ChargingSessionDetail', { sessionId: sessionId || res?.reservation?.session_id });
+        }
+      } catch (e) {
+        // silent; QR flow vẫn hoạt động bình thường
+      }
+    };
+    timer = setInterval(poll, 5000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [reservationId, navigation]);
+
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,18 +30,23 @@ export default function ChargingSessionDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [stopping, setStopping] = useState(false);
 
-  const isSessionActive = session?.status === 'running' || session?.status === 'paused';
+  const isSessionActive = session?.status === 'running' || session?.status === 'paused' || session?.status === 'charging' || session?.status === 'active';
 
   const fetchSession = useCallback(async () => {
     try {
       const data = await chargingService.getSession(sessionId);
       setSession(data);
+      const status = String(data?.status || '').toLowerCase();
+      if (status === 'completed' || status === 'stopped' || status === 'finished') {
+        // Optionally fetch invoice screen directly
+        navigation.replace('ChargingHistoryDetail', { sessionId });
+      }
     } catch (e) {
       console.error('fetchSession error:', e);
       Alert.alert('Lỗi', 'Không thể tải thông tin phiên sạc.');
       navigation.goBack();
     }
-  }, [sessionId]);
+  }, [sessionId, navigation]);
 
   const fetchTelemetry = useCallback(async () => {
     if (!isSessionActive) return;
