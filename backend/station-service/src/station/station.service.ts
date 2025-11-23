@@ -38,17 +38,13 @@ export class StationService {
             radius,
             connector_type,
             power_min,
-            status,
-            page = '1',
-            size = '10',
+            status
         } = query;
 
         if (!latitude || !longitude || !radius) {
             throw new BadRequestException('latitude, longitude and radius is required');
         }
 
-        const take = parseInt(size);
-        const skip = (parseInt(page) - 1) * take;
 
         const filters: any = {};
 
@@ -66,8 +62,6 @@ export class StationService {
         let stations = await this.prisma.stations.findMany({
             where: filters,
             include: { charging_points: true },
-            skip,
-            take,
         });
 
 
