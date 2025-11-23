@@ -145,7 +145,8 @@ const WalletScreen = () => {
                 </Card.Content>
               </Card>
             </TouchableOpacity>
-          ))
+          );
+        })
         )}
         <Button style={styles.seeAllButton} onPress={() => navigation.navigate('TransactionHistoryScreen')}>
           Xem tất cả
