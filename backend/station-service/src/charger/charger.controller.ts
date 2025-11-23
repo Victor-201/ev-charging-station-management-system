@@ -64,7 +64,7 @@ export class ChargerController {
         this.chargerService.handleStartSession(data);
     }
 
-    @MessagePattern({ queue: 'session_queue', routingKey: 'start_session' })
+    @MessagePattern({ queue: 'session_queue', routingKey: 'stop_session' })
     handelStopSession(@Payload() data: any, context: RmqContext) {
         this.rmqService.ack(context);
         this.chargerService.handleStopSession(data);
