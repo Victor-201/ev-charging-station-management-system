@@ -74,7 +74,7 @@ const ChargingHistoryScreen = ({ navigation }) => {
   const renderItem = ({ item }) => (
     <SessionCard
       session={item}
-      onPress={() => navigation.navigate('SessionDetail', { sessionId: item.id || item.session_id })}
+      onPress={() => navigation.navigate('SessionDetail', { session: item })}
     />
   );
 

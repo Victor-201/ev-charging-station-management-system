@@ -10,6 +10,9 @@ import { restoreSession } from '../store/slices/authSlice';
 import { getMe } from '../store/slices/userSlice';
 import { STORAGE_KEYS } from '../config/constants';
 import Loading from '../components/common/Loading';
+import notificationService from '../services/notificationService';
+import NotificationStack from './stacks/NotificationStack';
+import { addNotification } from '../store/slices/notificationSlice';
 
 const RootStack = createNativeStackNavigator();
 
@@ -19,6 +22,11 @@ const AppStack = () => (
     <RootStack.Screen
       name="Charging"
       component={ChargingStack}
+      options={{ presentation: 'modal' }}
+    />
+    <RootStack.Screen
+      name="Notification"
+      component={NotificationStack}
       options={{ presentation: 'modal' }}
     />
   </RootStack.Navigator>
@@ -54,9 +62,24 @@ export default function RootNavigator() {
       hasUser: !!auth?.user,
       userProfile: auth?.userProfile,
       user: auth?.user,
-      ready
+      ready,
     });
   }, [auth, ready]);
+
+  // Initialize FCM after login
+  useEffect(() => {
+    let cleanup;
+    if (auth?.accessToken) {
+      (async () => {
+        try {
+          cleanup = await notificationService.initForLoggedInUser((n)=>dispatch(addNotification(n)));
+        } catch (e) {
+          console.warn('FCM init failed:', e?.message || e);
+        }
+      })();
+    }
+    return () => { if (cleanup) cleanup(); };
+  }, [auth?.accessToken]);
 
   if (!ready) return <Loading />;
 

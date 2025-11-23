@@ -22,10 +22,6 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -37,11 +33,16 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GIDClientID</key>
 	<string>497529490549-csp81kblkv3etilrrfcle2p6j0fqqq83.apps.googleusercontent.com</string>
 	<key>LSApplicationQueriesSchemes</key>
-	<array>
-	</array>
+	<array/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>MKDirectionsApplicationSupportedModes</key>
+	<array/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -53,8 +54,15 @@
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
+		<key>NSCalendarsUsageDescription</key>
+		<string>Ứng dụng cần quyền truy cập Lịch để tạo sự kiện nhắc trước 15 phút cho lịch đặt chỗ.</string>
+
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập Lời nhắc để tạo nhắc nhở sạc xe trước giờ đặt chỗ 15 phút.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Ứng dụng cần quyền này để cung cấp trải nghiệm tốt hơn.</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
@@ -66,22 +74,6 @@
 			<string>n38lu8286q.skadnetwork</string>
 		</dict>
 	</array>
-	<key>RCTNewArchEnabled</key>
-	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>arm64</string>
-	</array>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AntDesign.ttf</string>
@@ -101,5 +93,23 @@
 		<string>SimpleLineIcons.ttf</string>
 		<string>Zocial.ttf</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
 </dict>
 </plist>

@@ -117,6 +117,19 @@ const ActiveChargingScreen = () => {
 
   useSocket(eventHandlers);
 
+  // Header action to open realtime detail screen
+  useEffect(() => {
+    if (!sessionId) return;
+    navigation.setOptions({
+      headerRight: () => (
+        <Button compact mode="text" onPress={() => navigation.navigate('ChargingSessionDetail', { sessionId })}>
+          Realtime
+        </Button>
+      ),
+    });
+  }, [navigation, sessionId]);
+
+
   // Polling fallback for telemetry updates (every 5 seconds)
   useEffect(() => {
     if (!sessionId) return;

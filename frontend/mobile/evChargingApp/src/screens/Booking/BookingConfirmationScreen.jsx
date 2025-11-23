@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import bookingService from '../../services/bookingService';
 import QRCodeDisplay from '../../components/booking/QRCodeDisplay';
+import reminderService from '../../services/reminderService';
+
+import { useInAppNotification } from '../../components/notification/InAppNotification';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -30,6 +33,7 @@ export default function BookingConfirmationScreen() {
   const [qrCode, setQrCode] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const notifier = useInAppNotification();
 
   const fetchQr = useCallback(async () => {
     setLoading(true); setError(null);
@@ -46,6 +50,68 @@ export default function BookingConfirmationScreen() {
   }, [reservationId]);
 
   useEffect(() => { fetchQr(); }, [fetchQr]);
+
+  // Show success banner and provide quick context
+  useEffect(() => {
+    if (reservationId) {
+      try {
+        notifier.show({
+          type: 'success',
+          icon: 'event-available',
+          title: 'Đặt chỗ thành công',
+          message: `${station?.name || 'Trạm sạc'} • ${slot?.time || ''}`,
+        });
+      } catch {}
+    }
+  }, [reservationId]);
+
+
+
+  const onAddReminder = async () => {
+    try {
+      if (Platform.OS !== 'ios') return;
+      const start = slot?.start_time || slot?.startTime;
+      if (!start) { Alert.alert('Thiếu thời gian', 'Không có thời gian bắt đầu của đặt chỗ'); return; }
+      const res = await reminderService.createBookingReminder({ stationName: station?.name || 'Trạm sạc', startTime: start });
+      if (res.ok) {
+        notifier.show({ type: 'success', icon: 'notifications-active', title: 'Đã thêm lời nhắc', message: 'Nhắc trước 15 phút trong Lời nhắc' });
+      } else if (res.needSettings) {
+        Alert.alert(
+          'Quyền bị từ chối',
+          'Hãy cấp quyền truy cập Lời nhắc trong Cài đặt để tạo nhắc trước giờ bắt đầu 15 phút.',
+          [
+            { text: 'Hủy', style: 'cancel' },
+            { text: 'Mở Cài đặt', onPress: () => reminderService.openSettings() }
+          ]
+        );
+      } else {
+        Alert.alert('Không thể tạo lời nhắc', res.error || 'Vui lòng thử lại');
+      }
+    } catch (e) {
+      Alert.alert('Không thể tạo lời nhắc', e?.message || 'Vui lòng thử lại');
+    }
+  };
+
+  // Poll reservation status; if session started -> go to realtime session detail
+  useEffect(() => {
+    if (!reservationId) return;
+    let timer = null;
+    const poll = async () => {
+      try {
+        const res = await bookingService.getById(reservationId);
+        const sessionId = res?.session_id || res?.reservation?.session_id;
+        const status = (res?.status || res?.reservation?.status || '').toLowerCase();
+        if (sessionId || status === 'started' || status === 'checked_in') {
+          navigation.replace('ChargingSessionDetail', { sessionId: sessionId || res?.reservation?.session_id });
+        }
+      } catch (e) {
+        // silent; QR flow vẫn hoạt động bình thường
+      }
+    };
+    timer = setInterval(poll, 5000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [reservationId, navigation]);
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -72,6 +138,16 @@ export default function BookingConfirmationScreen() {
           </View>
 
           <View style={[styles.actions, { paddingBottom: Math.max(12, insets.bottom + 8) }]}>
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={[styles.btn, { backgroundColor: colors.success }]}
+                onPress={onAddReminder}
+                accessibilityRole="button"
+                accessibilityLabel="Thêm lời nhắc"
+              >
+                <Text style={{ color: colors.onSuccess, fontWeight: '700' }}>Thêm lời nhắc</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.btn, { backgroundColor: colors.primary }]}
               onPress={()=>navigation.navigate('Home')}

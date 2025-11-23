@@ -29,6 +29,11 @@ class NotificationService {
 
   async getFCMToken() {
     try {
+      // Ensure device is registered for remote messages first (iOS requirement)
+      await messaging().setAutoInitEnabled(true);
+      if (Platform.OS === 'ios') {
+        try { await messaging().registerDeviceForRemoteMessages(); } catch {}
+      }
       const token = await messaging().getToken();
       console.log('FCM Token:', token);
       return token;
@@ -40,6 +45,7 @@ class NotificationService {
 
   async registerFCMToken(fcmToken) {
     try {
+      if (!fcmToken) return;
       // Detect device type
       const deviceType = Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
 
@@ -53,15 +59,25 @@ class NotificationService {
     }
   }
 
-  listenForMessages() {
-    messaging().onMessage(async remoteMessage => {
+  listenForMessages(onForegroundMessage) {
+    const offForeground = messaging().onMessage(async remoteMessage => {
       console.log('A new FCM message arrived!', JSON.stringify(remoteMessage));
       this.onDisplayNotification(remoteMessage);
+      try {
+        const n = {
+          id: remoteMessage.messageId || Date.now(),
+          title: remoteMessage.notification?.title || remoteMessage.data?.title,
+          message: remoteMessage.notification?.body || remoteMessage.data?.body,
+          created_at: Date.now(),
+          read: false,
+        };
+        onForegroundMessage?.(n);
+      } catch {}
     });
 
-    messaging().onNotificationOpenedApp(remoteMessage => {
+    const offOpened = messaging().onNotificationOpenedApp(remoteMessage => {
       console.log('Notification caused app to open from background state:', remoteMessage);
-      // Handle navigation
+      // TODO: Handle navigation deep link
     });
 
     messaging()
@@ -69,9 +85,36 @@ class NotificationService {
       .then(remoteMessage => {
         if (remoteMessage) {
           console.log('Notification caused app to open from quit state:', remoteMessage);
-          // Handle navigation
+          // TODO: Handle navigation deep link
         }
       });
+
+    return () => {
+      offForeground?.();
+      offOpened?.();
+    };
+  }
+
+  listenTokenRefresh() {
+    const unsub = messaging().onTokenRefresh(async (token) => {
+      try {
+        console.log('FCM token refreshed:', token);
+        await this.registerFCMToken(token);
+      } catch (e) {
+        console.warn('Failed to register refreshed token:', e?.message || e);
+      }
+    });
+    return unsub;
+  }
+
+  async initForLoggedInUser(onForegroundMessage) {
+    const granted = await this.requestUserPermission();
+    if (!granted) return () => {};
+    const token = await this.getFCMToken();
+    await this.registerFCMToken(token);
+    const offMsg = this.listenForMessages(onForegroundMessage);
+    const offRefresh = this.listenTokenRefresh();
+    return () => { offMsg?.(); offRefresh?.(); };
   }
 
   async onDisplayNotification(remoteMessage) {

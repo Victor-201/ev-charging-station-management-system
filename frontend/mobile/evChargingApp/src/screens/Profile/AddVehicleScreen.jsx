@@ -134,7 +134,7 @@ export default function AddVehicleScreen({ navigation, route }) {
       };
 
       if (isEditMode) {
-        await modifyVehicle(vehicleId, data);
+        await modifyVehicle(vehicleId, finalVehicleData);
         setSuccessMessage('Cập nhật phương tiện thành công!');
       } else {
         await createVehicle(finalVehicleData);

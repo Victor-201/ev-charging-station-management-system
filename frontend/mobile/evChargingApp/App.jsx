@@ -6,6 +6,7 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 import store from './src/store/store';
 import { theme } from './src/config/theme';
 import notificationService from './src/services/notificationService';
+import { InAppNotificationProvider } from './src/components/notification/InAppNotification';
 
 const Root = () => {
   const { isAuthenticated } = useSelector(state => state.auth);
@@ -34,10 +35,12 @@ export default function App() {
   return (
     <ReduxProvider store={store}>
       <PaperProvider theme={theme}>
-        {/* Global error boundary to prevent full app crash */}
-        <ErrorBoundary>
-          <Root />
-        </ErrorBoundary>
+        <InAppNotificationProvider>
+          {/* Global error boundary to prevent full app crash */}
+          <ErrorBoundary>
+            <Root />
+          </ErrorBoundary>
+        </InAppNotificationProvider>
       </PaperProvider>
     </ReduxProvider>
   );

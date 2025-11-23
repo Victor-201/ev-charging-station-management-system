@@ -17,6 +17,7 @@
 
 /* Begin PBXFileReference section */
 		02C1A3512EBE1749005D121C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		02C3FA5A2ED31728008836B0 /* evChargingApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = evChargingApp.entitlements; path = evChargingApp/evChargingApp.entitlements; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* evChargingApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = evChargingApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = evChargingApp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = evChargingApp/Info.plist; sourceTree = "<group>"; };
@@ -44,6 +45,7 @@
 		13B07FAE1A68108700A75B9A /* evChargingApp */ = {
 			isa = PBXGroup;
 			children = (
+				02C3FA5A2ED31728008836B0 /* evChargingApp.entitlements */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -278,6 +280,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = evChargingApp/evChargingApp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -310,6 +313,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = evChargingApp/evChargingApp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

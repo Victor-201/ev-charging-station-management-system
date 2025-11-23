@@ -3,6 +3,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 // Import components
 import CustomTabBar from '../../components/layout/CustomTabBar';
 
@@ -33,22 +34,46 @@ export default function MainTabs() {
       <Tab.Screen
         name="Map"
         component={MapStack}
-        options={{ title: 'Bản đồ' }}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'MapMain';
+          return {
+            title: 'Bản đồ',
+            tabBarStyle: { display: routeName === 'MapMain' ? 'flex' : 'none' },
+          };
+        }}
       />
       <Tab.Screen
         name="History"
         component={HistoryStack}
-        options={{ title: 'Lịch sử' }}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'ChargingHistory';
+          return {
+            title: 'Lịch sử',
+            tabBarStyle: { display: routeName === 'ChargingHistory' ? 'flex' : 'none' },
+          };
+        }}
       />
       <Tab.Screen
         name="Wallet"
         component={WalletStack}
-        options={{ title: 'Ví' }}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'WalletMain';
+          return {
+            title: 'Ví',
+            tabBarStyle: { display: routeName === 'WalletMain' ? 'flex' : 'none' },
+          };
+        }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
-        options={{ title: 'Hồ sơ' }}
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'ProfileMain';
+          return {
+            title: 'Hồ sơ',
+            tabBarStyle: { display: routeName === 'ProfileMain' ? 'flex' : 'none' },
+          };
+        }}
       />
     </Tab.Navigator>
   );
