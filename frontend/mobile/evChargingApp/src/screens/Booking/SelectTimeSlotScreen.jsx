@@ -3,8 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Sty
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useSelector } from 'react-redux';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import bookingService from '../../services/bookingService';
+import walletService from '../../services/walletService';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -104,6 +104,40 @@ export default function SelectTimeSlotScreen({ route, navigation }) {
       const created = await bookingService.createReservation(payload);
       const reservationId = created?.reservation?.reservation_id || created?.reservation_id || created?.id;
       if (!reservationId) throw new Error('Không nhận được mã đặt chỗ');
+
+      // Check wallet balance and ask to deduct if sufficient before showing QR
+      try {
+        const userIdNum = userId;
+        const wallet = await walletService.getWallet(userIdNum);
+        const balance = Number(wallet?.balance) || 0;
+        const estimate = Number(
+          created?.reservation?.estimated_cost ??
+          created?.estimated_cost ??
+          created?.reservation?.deposit_amount ??
+          created?.deposit_amount ?? 0
+        );
+        if (estimate > 0 && balance >= estimate) {
+          // Release loading before alert so user can interact
+          setBooking(false);
+          Alert.alert(
+            'Xác nhận thanh toán',
+            `Ví của bạn đủ số dư. Sẽ tạm giữ/trừ ${estimate.toLocaleString('vi-VN')} ₫ cho đặt chỗ này. Tiếp tục?`,
+            [
+              { text: 'Hủy', style: 'cancel' },
+              {
+                text: 'Đồng ý',
+                style: 'default',
+                onPress: () => navigation.replace('BookingConfirmationScreen', { reservationId, station, point, slot: selSlot })
+              },
+            ]
+          );
+          return;
+        }
+      } catch (walletErr) {
+        console.warn('Wallet check failed, continue to QR:', walletErr?.message || walletErr);
+      }
+
+      // Default flow: go to QR screen
       navigation.replace('BookingConfirmationScreen', { reservationId, station, point, slot: selSlot });
     } catch (e) {
       Alert.alert('Đặt chỗ thất bại', e?.response?.data?.error || e.message || 'Vui lòng thử lại');
