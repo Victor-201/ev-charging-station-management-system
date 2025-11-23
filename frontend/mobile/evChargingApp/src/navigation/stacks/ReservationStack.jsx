@@ -18,7 +18,7 @@ export default function ReservationStack() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="MyBookingsScreen" component={MyBookingsScreen} />
+      <Stack.Screen name="ReservationMain" component={MyBookingsScreen} />
       <Stack.Screen name="SelectChargingPointScreen" component={SelectChargingPointScreen} />
       <Stack.Screen name="SelectTimeSlotScreen" component={SelectTimeSlotScreen} />
       <Stack.Screen name="BookingConfirmationScreen" component={BookingConfirmationScreen} />

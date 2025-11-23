@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -22,6 +22,7 @@ const getStyles = (colors) => StyleSheet.create({
 export default function BookingConfirmationScreen() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
+  const insets = useSafeAreaInsets();
   const route = useRoute();
   const navigation = useNavigation();
   const { reservationId, station, point, slot } = route.params || {};
@@ -70,11 +71,21 @@ export default function BookingConfirmationScreen() {
             <View style={styles.row}><Text style={styles.label}>Thời gian</Text><Text style={styles.value}>{slot?.time || 'N/A'}</Text></View>
           </View>
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={()=>navigation.navigate('Home')}>
+          <View style={[styles.actions, { paddingBottom: Math.max(12, insets.bottom + 8) }]}>
+            <TouchableOpacity
+              style={[styles.btn, { backgroundColor: colors.primary }]}
+              onPress={()=>navigation.navigate('Home')}
+              accessibilityRole="button"
+              accessibilityLabel="Về trang chủ"
+            >
               <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Về trang chủ</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, { backgroundColor: colors.secondaryContainer }]} onPress={()=>navigation.navigate('MyBookingsScreen')}>
+            <TouchableOpacity
+              style={[styles.btn, { backgroundColor: colors.secondaryContainer }]}
+              onPress={()=>navigation.navigate('MyBookingsScreen')}
+              accessibilityRole="button"
+              accessibilityLabel="Xem đặt chỗ của tôi"
+            >
               <Text style={{ color: colors.onSecondaryContainer, fontWeight: '700' }}>Xem đặt chỗ của tôi</Text>
             </TouchableOpacity>
           </View>
