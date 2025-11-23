@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -31,6 +31,7 @@ const getStyles = (colors) => StyleSheet.create({
 export default function SelectTimeSlotScreen({ route, navigation }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
+  const insets = useSafeAreaInsets();
   const { stationId, pointId, station, point } = route.params || {};
   const user = useSelector((state) => state.auth.user);
 
@@ -54,23 +55,31 @@ export default function SelectTimeSlotScreen({ route, navigation }) {
   const loadSlots = async () => {
     if (!selDate) return;
     setLoading(true); setSlots([]);
+    const dateStr = selDate.d.toISOString().split('T')[0];
+    const startHour = 8, endHour = 20; // 8:00 -> 19:00
+    const tmp = [];
     try {
-      const dateStr = selDate.d.toISOString().split('T')[0];
-      const startHour = 8, endHour = 20; // 8:00 -> 19:00
-      const tmp = [];
       const checks = [];
       for (let h = startHour; h < endHour; h++) {
         const start_time = `${dateStr}T${String(h).padStart(2, '0')}:00:00Z`;
         const end_time = `${dateStr}T${String(h+1).padStart(2, '0')}:00:00Z`;
-        tmp.push({ id: `${dateStr}-${h}`, time: `${String(h).padStart(2,'0')}:00`, start_time, end_time, available: false });
+        tmp.push({ id: `${dateStr}-${h}`, time: `${String(h).padStart(2,'0')}:00`, start_time, end_time, available: true });
         checks.push(bookingService.checkAvailability({ station_id: stationId, point_id: pointId, start_time, end_time }));
       }
       const res = await Promise.allSettled(checks);
-      const merged = tmp.map((t, idx) => ({ ...t, available: res[idx].status === 'fulfilled' && res[idx].value?.available === true }));
+      // If backend returns error for checkAvailability, fall back to optimistic availability
+      const hasAnyFulfilled = res.some(r => r.status === 'fulfilled');
+      const merged = tmp.map((t, idx) => ({
+        ...t,
+        available: hasAnyFulfilled
+          ? (res[idx].status === 'fulfilled' && res[idx].value?.available === true)
+          : true,
+      }));
       setSlots(merged);
     } catch (e) {
       console.error('loadSlots error:', e);
-      Alert.alert('Lỗi', 'Không thể tải lịch trống');
+      // Fallback: allow user to select any slot; server will validate on create
+      setSlots(tmp.map(t => ({ ...t, available: true })));
     } finally { setLoading(false); }
   };
 
@@ -82,9 +91,18 @@ export default function SelectTimeSlotScreen({ route, navigation }) {
     if (!userId) { Alert.alert('Lỗi', 'Vui lòng đăng nhập'); return; }
     setBooking(true);
     try {
-      const payload = { user_id: userId, station_id: stationId, point_id: pointId, start_time: selSlot.start_time, end_time: selSlot.end_time };
+      const connectorType = (point?.connector_type) || (point?.type) || 'unknown';
+      const payload = {
+        user_id: userId,
+        station_id: stationId,
+        point_id: pointId,
+        connector_type: connectorType,
+        start_time: selSlot.start_time,
+        end_time: selSlot.end_time,
+        payment_method: 'wallet', // default, backend accepts 'wallet' or 'bank_transfer'
+      };
       const created = await bookingService.createReservation(payload);
-      const reservationId = created?.reservation_id || created?.id;
+      const reservationId = created?.reservation?.reservation_id || created?.reservation_id || created?.id;
       if (!reservationId) throw new Error('Không nhận được mã đặt chỗ');
       navigation.replace('BookingConfirmationScreen', { reservationId, station, point, slot: selSlot });
     } catch (e) {
@@ -127,9 +145,18 @@ export default function SelectTimeSlotScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      <TouchableOpacity style={[styles.btn, (!selSlot||booking) && { backgroundColor: colors.surfaceDisabled }]} onPress={onConfirm} disabled={!selSlot || booking}>
-        <Text style={styles.btnTxt}>{booking ? 'Đang đặt chỗ...' : 'Xác nhận đặt chỗ'}</Text>
-      </TouchableOpacity>
+      {/* Footer safe area for critical action */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: Math.max(12, insets.bottom + 8) }}>
+        <TouchableOpacity
+          style={[styles.btn, { margin: 0 }, (!selSlot || booking) && { backgroundColor: colors.surfaceDisabled }]}
+          onPress={onConfirm}
+          disabled={!selSlot || booking}
+          accessibilityRole="button"
+          accessibilityLabel="Xác nhận đặt chỗ"
+        >
+          <Text style={styles.btnTxt}>{booking ? 'Đang đặt chỗ...' : 'Xác nhận đặt chỗ'}</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }

@@ -12,8 +12,10 @@ const bookingService = {
       const response = await apiClient.get(ENDPOINTS.BOOKING.CHECK, { params });
       return response.data;
     } catch (error) {
-      console.error('[bookingService] checkAvailability error:', error.response?.data || error.message);
-      throw error;
+      // Avoid crashing the app with red screen in dev when backend route is not ready
+      console.warn('[bookingService] checkAvailability warning:', error.response?.data || error.message);
+      // Fallback to optimistic availability; server will validate at createReservation
+      return { available: true, fallback: true };
     }
   },
 
