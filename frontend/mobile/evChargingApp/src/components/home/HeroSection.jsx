@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -10,11 +9,8 @@ export default function HeroSection({ user, onFindStation, balance }) {
   const { colors } = useTheme();
 
   return (
-    <LinearGradient
-      colors={[colors.primary, '#003DA5', '#0052CC']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.container}
+    <View
+      style={[styles.container, { backgroundColor: colors.primary }]}
     >
       {/* Welcome Text */}
       <View style={styles.welcomeSection}>
@@ -50,7 +46,7 @@ export default function HeroSection({ user, onFindStation, balance }) {
       {/* Decorative Elements */}
       <View style={[styles.circle, styles.circle1]} />
       <View style={[styles.circle, styles.circle2]} />
-    </LinearGradient>
+    </View>
   );
 }
 

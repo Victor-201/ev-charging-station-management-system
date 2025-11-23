@@ -2,15 +2,14 @@ import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { LinearGradient } from 'expo-linear-gradient';
 
-export default function FeatureCard({ 
-  icon, 
-  title, 
-  subtitle, 
-  onPress, 
+export default function FeatureCard({
+  icon,
+  title,
+  subtitle,
+  onPress,
   gradientColors,
-  badgeCount 
+  badgeCount
 }) {
   const { colors } = useTheme();
   const defaultGradient = [colors.primary, '#0052CC'];

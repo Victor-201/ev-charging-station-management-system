@@ -10,10 +10,13 @@ import { getMe } from '../../store/slices/userSlice';
 import { getWallet } from '../../store/slices/walletSlice';
 import { getNotifications } from '../../store/slices/notificationSlice';
 
-
-import Header from '../../components/layout/Header';
-import QuickActionCard from '../../components/cards/QuickActionCard';
-import StatCard from '../../components/cards/StatCard';
+// New modern components
+import HeroSection from '../../components/home/HeroSection';
+import FeatureCard from '../../components/home/FeatureCard';
+import QuickAccessGrid from '../../components/home/QuickAccessGrid';
+import PromoBanner from '../../components/home/PromoBanner';
+import RecentActivityCard from '../../components/home/RecentActivityCard';
+import StatsOverview from '../../components/home/StatsOverview';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -51,19 +54,154 @@ export default function HomeScreen() {
     }
   }, [userProfile, dispatch]);
 
-  // Mock stats - TODO: fetch from analytics API
-  // Quick actions
-  const quickActions = [
-    { id: 'find-station', title: 'Tìm trạm sạc', subtitle: 'Tìm trạm sạc gần nhất', onPress: () => navigation.navigate('Map') },
-    { id: 'notifications', title: 'Thông báo', subtitle: 'Tin mới từ hệ thống', onPress: () => navigation.navigate('Notification'), badgeCount: unreadCount },
-    { id: 'charging-history', title: 'Lịch sử sạc', subtitle: 'Xem lịch sử sạc xe', onPress: () => navigation.navigate('Charging', { screen: 'ChargingHistory' }) },
+  // Feature cards with gradient colors
+  const featureCards = [
     {
-      id: 'wallet',
-      title: 'Ví của tôi',
-      subtitle: walletLoading ? 'Đang tải...' : `${(wallet?.balance || 0).toLocaleString()} VND`,
-      onPress: () => navigation.navigate('Wallet'),
+      icon: 'ev-station',
+      title: 'Trạm sạc',
+      subtitle: 'Tìm và đặt chỗ tại trạm sạc gần bạn',
+      gradientColors: ['#002682', '#0052CC'],
+      onPress: () => navigation.navigate('Map'),
     },
-    { id: 'profile', title: 'Hồ sơ', subtitle: 'Quản lý thông tin cá nhân', onPress: () => navigation.navigate('Profile') },
+    {
+      icon: 'bell-ring',
+      title: 'Thông báo',
+      subtitle: 'Cập nhật mới nhất từ hệ thống',
+      gradientColors: ['#f2ae14', '#ff9500'],
+      badgeCount: unreadCount,
+      onPress: () => navigation.navigate('Notification'),
+    },
+    {
+      icon: 'history',
+      title: 'Lịch sử sạc',
+      subtitle: 'Xem chi tiết các lần sạc trước đây',
+      gradientColors: ['#86df20', '#5cb300'],
+      onPress: () => navigation.navigate('Charging', { screen: 'ChargingHistory' }),
+    },
+  ];
+
+  // Quick access grid items
+  const quickAccessItems = [
+    {
+      icon: 'wallet',
+      label: 'Ví',
+      onPress: () => navigation.navigate('Wallet'),
+      iconColor: '#86df20',
+      bgColor: '#86df2020',
+    },
+    {
+      icon: 'account',
+      label: 'Hồ sơ',
+      onPress: () => navigation.navigate('Profile'),
+      iconColor: '#002682',
+      bgColor: '#00268220',
+    },
+    {
+      icon: 'car-electric',
+      label: 'Xe của tôi',
+      onPress: () => navigation.navigate('Profile', { screen: 'VehicleListScreen' }),
+      iconColor: '#f2ae14',
+      bgColor: '#f2ae1420',
+    },
+    {
+      icon: 'credit-card',
+      label: 'Thanh toán',
+      onPress: () => navigation.navigate('Wallet', { screen: 'PaymentMethods' }),
+      iconColor: '#f60d01',
+      bgColor: '#f60d0120',
+    },
+    {
+      icon: 'calendar-clock',
+      label: 'Đặt chỗ',
+      onPress: () => navigation.navigate('Charging', { screen: 'ReservationStack' }),
+      iconColor: '#0052CC',
+      bgColor: '#0052CC20',
+    },
+    {
+      icon: 'chart-line',
+      label: 'Thống kê',
+      onPress: () => navigation.navigate('Charging', { screen: 'ChargingHistory' }),
+      iconColor: '#86df20',
+      bgColor: '#86df2020',
+    },
+    {
+      icon: 'gift',
+      label: 'Ưu đãi',
+      onPress: () => navigation.navigate('Profile', { screen: 'SubscriptionScreen' }),
+      iconColor: '#f60d01',
+      bgColor: '#f60d0120',
+    },
+    {
+      icon: 'help-circle',
+      label: 'Trợ giúp',
+      onPress: () => {},
+      iconColor: '#f2ae14',
+      bgColor: '#f2ae1420',
+    },
+  ];
+
+  // Stats data
+  const statsData = [
+    {
+      icon: 'lightning-bolt',
+      value: '24',
+      label: 'Lần sạc',
+      trend: 12,
+      iconColor: '#86df20',
+      iconBg: '#86df2020',
+    },
+    {
+      icon: 'battery-charging-80',
+      value: '156 kWh',
+      label: 'Năng lượng',
+      trend: 8,
+      iconColor: '#002682',
+      iconBg: '#00268220',
+    },
+    {
+      icon: 'cash',
+      value: '2.4M',
+      label: 'Tiết kiệm',
+      trend: 15,
+      iconColor: '#86df20',
+      iconBg: '#86df2020',
+    },
+    {
+      icon: 'leaf',
+      value: '89 kg',
+      label: 'CO₂ giảm',
+      trend: 10,
+      iconColor: '#5cb300',
+      iconBg: '#5cb30020',
+    },
+  ];
+
+  // Recent activities
+  const recentActivities = [
+    {
+      icon: 'lightning-bolt',
+      title: 'Sạc hoàn tất',
+      subtitle: 'Trạm Vincom Center - 45 kWh',
+      time: '2h trước',
+      iconBg: '#86df2020',
+      iconColor: '#86df20',
+    },
+    {
+      icon: 'cash-plus',
+      title: 'Nạp tiền',
+      subtitle: '+500,000 VND',
+      time: '1 ngày',
+      iconBg: '#00268220',
+      iconColor: '#002682',
+    },
+    {
+      icon: 'calendar-check',
+      title: 'Đặt chỗ thành công',
+      subtitle: 'Trạm Landmark 81 - 15:00',
+      time: '2 ngày',
+      iconBg: '#f2ae1420',
+      iconColor: '#f2ae14',
+    },
   ];
 
   // Show loading state while fetching user profile
@@ -77,35 +215,63 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView>
-      <Header user={userProfile} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Hero Section with gradient */}
+        <HeroSection
+          user={userProfile}
+          balance={wallet?.balance || 0}
+          onFindStation={() => navigation.navigate('Map')}
+        />
 
-      {/* Thao tác nhanh */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.brand600 }]}>Thao tác nhanh</Text>
-        {quickActions.map((a) => (
-          <QuickActionCard key={a.id} {...a} />
-        ))}
-      </View>
-
-      {/* Thống kê (ẩn bằng feature flag khi analytics-service chưa sẵn) */}
-      {FEATURES.analytics && (
+        {/* Feature Cards */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.brand600 }]}>Thống kê cá nhân</Text>
-          <View style={styles.statsGrid}>
-            <StatCard number={stats.totalCharges.toString()} label="Lần sạc" />
-            <StatCard number={`${stats.totalEnergy} kWh`} label="Năng lượng" />
-          </View>
+          {featureCards.map((card, index) => (
+            <FeatureCard key={index} {...card} />
+          ))}
         </View>
-      )}
-          </ScrollView>
+
+        {/* Promo Banner */}
+        <PromoBanner
+          title="Ưu đãi đặc biệt!"
+          description="Giảm 20% cho lần sạc tiếp theo khi nạp từ 500K"
+          buttonText="Xem chi tiết"
+          onPress={() => navigation.navigate('Profile', { screen: 'SubscriptionScreen' })}
+          gradientColors={['#f60d01', '#ff4757']}
+          icon="gift"
+        />
+
+        {/* Quick Access Grid */}
+        <QuickAccessGrid items={quickAccessItems} />
+
+        {/* Stats Overview */}
+        {FEATURES.analytics && (
+          <StatsOverview stats={statsData} />
+        )}
+
+        {/* Recent Activity */}
+        <RecentActivityCard
+          activities={recentActivities}
+          onViewAll={() => navigation.navigate('Charging', { screen: 'ChargingHistory' })}
+        />
+
+        {/* Bottom spacing */}
+        <View style={{ height: 32 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { padding: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-  statsGrid: { flexDirection: 'row', gap: 12 },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  section: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
 });
