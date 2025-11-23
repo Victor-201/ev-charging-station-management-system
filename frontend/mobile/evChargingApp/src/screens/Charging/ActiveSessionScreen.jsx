@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import QRCode from 'react-native-qrcode-svg';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import chargingService from '../../services/chargingService';
-import reservationService from '../../services/reservationService';
+import bookingService from '../../services/bookingService';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -138,7 +138,7 @@ const ActiveSessionScreen = ({ route, navigation }) => {
           onPress: async () => {
             setIsCancelling(true);
             try {
-              await reservationService.cancel(reservation.id);
+              await bookingService.cancelBooking(reservation.id);
               Alert.alert('Thành công', 'Đặt chỗ của bạn đã được hủy.');
               navigation.goBack();
             } catch (err) {
