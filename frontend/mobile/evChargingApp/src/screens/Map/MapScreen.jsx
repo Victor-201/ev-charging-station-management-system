@@ -1,23 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Platform, Alert, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, Platform, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
 import WebView from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import stationService from '../../services/stationService';
 import StationsBottomSheet from '../../components/station/StationsBottomSheet';
 import mapService from '../../services/mapService';
+import AnimatedFAB from '../../components/common/AnimatedFAB';
 
 const DEFAULT_REGION = { latitude: 10.77978, longitude: 106.699, latitudeDelta: 0.05, longitudeDelta: 0.05 };
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   map: { width: '100%', height: '100%' },
-  fab: { backgroundColor: colors.surface, padding: 12, borderRadius: 24, elevation: 3 },
-  fabText: { color: colors.accent },
 });
 
 export default function MapScreen({ navigation }) {
@@ -168,23 +166,36 @@ export default function MapScreen({ navigation }) {
       {/* FABs with SafeArea spacing - moved to left */}
       <View style={{ position:'absolute', left:16, bottom: tabBarHeight + 16, gap: 12 }}>
         {/* Vị trí hiện tại: recenter + refresh */}
-        <TouchableOpacity style={styles.fab} onPress={()=>{
-          goToMyLocation();
-        }} accessibilityLabel="Vị trí của tôi" accessibilityHint="Đưa bản đồ về vị trí hiện tại và nạp trạm gần">
-          <Icon name="my-location" size={22} color={colors.accent} />
-        </TouchableOpacity>
+        <AnimatedFAB
+          icon="my-location"
+          onPress={goToMyLocation}
+          accessibilityLabel="Vị trí của tôi"
+          accessibilityHint="Đưa bản đồ về vị trí hiện tại và nạp trạm gần"
+        />
+
         {/* Danh sách trạm gần */}
-        <TouchableOpacity style={styles.fab} onPress={() => { findNearbyStations(); setSheetVisible(true); }} accessibilityLabel="Trạm gần tôi" accessibilityHint="Hiển thị danh sách trạm sạc gần vị trí hiện tại">
-          <Icon name="place" size={22} color={colors.accent} />
-        </TouchableOpacity>
+        <AnimatedFAB
+          icon="place"
+          onPress={() => { findNearbyStations(); setSheetVisible(true); }}
+          accessibilityLabel="Trạm gần tôi"
+          accessibilityHint="Hiển thị danh sách trạm sạc gần vị trí hiện tại"
+        />
+
         {/* Lịch sử phiên sạc */}
-        <TouchableOpacity style={styles.fab} onPress={()=> navigation.navigate('History', { screen: 'ChargingHistory' })} accessibilityLabel="Lịch sử sạc" accessibilityHint="Xem lịch sử các phiên sạc">
-          <Icon name="history" size={22} color={colors.accent} />
-        </TouchableOpacity>
+        <AnimatedFAB
+          icon="history"
+          onPress={() => navigation.navigate('History', { screen: 'ChargingHistory' })}
+          accessibilityLabel="Lịch sử sạc"
+          accessibilityHint="Xem lịch sử các phiên sạc"
+        />
+
         {/* Lịch sử đặt chỗ */}
-        <TouchableOpacity style={styles.fab} onPress={()=> navigation.navigate('MyBookingsScreen')} accessibilityLabel="Lịch sử đặt chỗ" accessibilityHint="Xem danh sách các đặt chỗ của tôi">
-          <Icon name="event-note" size={22} color={colors.accent} />
-        </TouchableOpacity>
+        <AnimatedFAB
+          icon="event-note"
+          onPress={() => navigation.navigate('MyBookingsScreen')}
+          accessibilityLabel="Lịch sử đặt chỗ"
+          accessibilityHint="Xem danh sách các đặt chỗ của tôi"
+        />
       </View>
 
       {/* Bottom sheet danh sách trạm */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,17 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Animated,
+  Platform,
+  LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import stationService from '../../services/stationService'; // Import stationService
+import stationService from '../../services/stationService';
+import ModalHeader from '../../components/common/ModalHeader';
+import AnimatedButton from '../../components/common/AnimatedButton';
+import { LayoutAnimations, fadeIn } from '../../utils/animations';
 
 const ISSUE_TYPES = [
   { id: 'not_working', label: 'Trạm không hoạt động', icon: 'alert-circle' },
@@ -35,13 +41,37 @@ const ReportIssueScreen = ({ route, navigation }) => {
   const [selectedConnectorId, setSelectedConnectorId] = useState(null);
   const [loadingConnectors, setLoadingConnectors] = useState(true);
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
   useEffect(() => {
+    // Animate content on mount (iOS only)
+    if (Platform.OS === 'ios') {
+      Animated.parallel([
+        fadeIn(fadeAnim, 400),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(1);
+      slideAnim.setValue(0);
+    }
+
     if (station?.id) {
       const fetchConnectors = async () => {
         try {
           setLoadingConnectors(true);
           const fetchedConnectors = await stationService.getConnectors(station.id);
           setConnectors(fetchedConnectors || []);
+
+          // Animate connectors in (iOS only)
+          if (Platform.OS === 'ios') {
+            LayoutAnimation.configureNext(LayoutAnimations.spring);
+          }
         } catch (error) {
           console.error("Failed to fetch connectors:", error);
           Alert.alert("Lỗi", "Không thể tải danh sách đầu sạc.");
@@ -216,11 +246,23 @@ const ReportIssueScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <ModalHeader
+        title="Báo cáo sự cố"
+        onClose={() => navigation.goBack()}
+      />
+
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}
       >
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Station Info */}
         {station && (
           <View style={styles.stationInfo}>
@@ -338,7 +380,7 @@ const ReportIssueScreen = ({ route, navigation }) => {
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity
+        <AnimatedButton
           style={[
             styles.submitButton,
             (!selectedConnectorId || !selectedIssue || !description.trim() || isSubmitting) &&
@@ -346,6 +388,7 @@ const ReportIssueScreen = ({ route, navigation }) => {
           ]}
           onPress={handleSubmit}
           disabled={!selectedConnectorId || !selectedIssue || !description.trim() || isSubmitting}
+          enableHaptic={true}
         >
           <Text
             style={[
@@ -356,8 +399,9 @@ const ReportIssueScreen = ({ route, navigation }) => {
           >
             {isSubmitting ? 'Đang gửi...' : 'Gửi báo cáo'}
           </Text>
-        </TouchableOpacity>
-      </ScrollView>
+        </AnimatedButton>
+        </ScrollView>
+      </Animated.View>
     </SafeAreaView>
   );
 };

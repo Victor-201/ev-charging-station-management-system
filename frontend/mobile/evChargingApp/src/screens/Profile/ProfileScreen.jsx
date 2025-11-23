@@ -143,5 +143,7 @@ const ProfileScreen = ({ navigation }) => {
       </ScrollView>
     </SafeAreaView>
   );
-}
+};
+
+export default ProfileScreen;
 

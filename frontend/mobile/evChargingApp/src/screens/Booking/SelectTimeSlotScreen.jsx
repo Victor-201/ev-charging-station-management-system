@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, StyleSheet, Animated, Platform, LayoutAnimation } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import bookingService from '../../services/bookingService';
 import walletService from '../../services/walletService';
+import ModalHeader from '../../components/common/ModalHeader';
+import AnimatedButton from '../../components/common/AnimatedButton';
+import { LayoutAnimations, fadeIn } from '../../utils/animations';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -41,6 +44,10 @@ export default function SelectTimeSlotScreen({ route, navigation }) {
   const [booking, setBooking] = useState(false);
   const [selSlot, setSelSlot] = useState(null);
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
   const days = useMemo(() => {
     const out = [];
     for (let i = 0; i < 7; i++) {
@@ -76,6 +83,11 @@ export default function SelectTimeSlotScreen({ route, navigation }) {
           : true,
       }));
       setSlots(merged);
+
+      // Animate slots in (iOS only)
+      if (Platform.OS === 'ios') {
+        LayoutAnimation.configureNext(LayoutAnimations.spring);
+      }
     } catch (e) {
       console.error('loadSlots error:', e);
       // Fallback: allow user to select any slot; server will validate on create
@@ -84,6 +96,23 @@ export default function SelectTimeSlotScreen({ route, navigation }) {
   };
 
   useEffect(() => { loadSlots(); }, [selDate, pointId]);
+
+  // Animate content on mount (iOS only)
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      Animated.parallel([
+        fadeIn(fadeAnim, 400),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(1);
+      slideAnim.setValue(0);
+    }
+  }, []);
 
   const onConfirm = async () => {
     if (!selSlot) return;
@@ -145,52 +174,85 @@ export default function SelectTimeSlotScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}><Text style={styles.title}>Chọn ngày và giờ</Text></View>
-      <ScrollView>
-        <View style={styles.section}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.dates}>
-              {days.map((it) => (
-                <TouchableOpacity key={it.d.toISOString()} style={[styles.date, selDate?.d.getTime()===it.d.getTime() && styles.dateSel]} onPress={()=>{setSelDate(it); setSelSlot(null);}}>
-                  <Text style={styles.day}>{it.day}</Text>
-                  <Text style={[styles.num, selDate?.d.getTime()===it.d.getTime() && styles.numSel]}>{it.n}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ModalHeader
+        title="Chọn ngày và giờ"
+        onClose={() => navigation.goBack()}
+      />
 
-        <View style={styles.section}>
-          {loading ? (
-            <View style={{ alignItems:'center', padding: 16 }}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={{ marginTop: 8, color: colors.onSurfaceVariant }}>Đang tải lịch trống...</Text>
-            </View>
-          ) : (
-            <View style={styles.grid}>
-              {slots.map((s) => (
-                <TouchableOpacity key={s.id} style={[styles.slot, !s.available && styles.slotDis, selSlot?.id===s.id && styles.slotSel]} onPress={()=> s.available && setSelSlot(s)} disabled={!s.available}>
-                  <Text style={[styles.slotTxt, !s.available && styles.slotTxtDis, selSlot?.id===s.id && styles.slotTxtSel]}>{s.time}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}
+      >
+        <ScrollView>
+          <View style={styles.section}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.dates}>
+                {days.map((it) => (
+                  <TouchableOpacity
+                    key={it.d.toISOString()}
+                    style={[styles.date, selDate?.d.getTime()===it.d.getTime() && styles.dateSel]}
+                    onPress={()=>{
+                      setSelDate(it);
+                      setSelSlot(null);
+                      if (Platform.OS === 'ios') {
+                        LayoutAnimation.configureNext(LayoutAnimations.spring);
+                      }
+                    }}
+                  >
+                    <Text style={styles.day}>{it.day}</Text>
+                    <Text style={[styles.num, selDate?.d.getTime()===it.d.getTime() && styles.numSel]}>{it.n}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
 
-      {/* Footer safe area for critical action */}
-      <View style={{ paddingHorizontal: 16, paddingBottom: Math.max(12, insets.bottom + 8) }}>
-        <TouchableOpacity
-          style={[styles.btn, { margin: 0 }, (!selSlot || booking) && { backgroundColor: colors.surfaceDisabled }]}
-          onPress={onConfirm}
-          disabled={!selSlot || booking}
-          accessibilityRole="button"
-          accessibilityLabel="Xác nhận đặt chỗ"
-        >
-          <Text style={styles.btnTxt}>{booking ? 'Đang đặt chỗ...' : 'Xác nhận đặt chỗ'}</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.section}>
+            {loading ? (
+              <View style={{ alignItems:'center', padding: 16 }}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={{ marginTop: 8, color: colors.onSurfaceVariant }}>Đang tải lịch trống...</Text>
+              </View>
+            ) : (
+              <View style={styles.grid}>
+                {slots.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.slot, !s.available && styles.slotDis, selSlot?.id===s.id && styles.slotSel]}
+                    onPress={()=> {
+                      if (s.available) {
+                        setSelSlot(s);
+                        if (Platform.OS === 'ios') {
+                          LayoutAnimation.configureNext(LayoutAnimations.spring);
+                        }
+                      }
+                    }}
+                    disabled={!s.available}
+                  >
+                    <Text style={[styles.slotTxt, !s.available && styles.slotTxtDis, selSlot?.id===s.id && styles.slotTxtSel]}>{s.time}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Footer safe area for critical action */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: Math.max(12, insets.bottom + 8) }}>
+          <AnimatedButton
+            style={[styles.btn, { margin: 0 }, (!selSlot || booking) && { backgroundColor: colors.surfaceDisabled }]}
+            onPress={onConfirm}
+            disabled={!selSlot || booking}
+            enableHaptic={true}
+          >
+            <Text style={styles.btnTxt}>{booking ? 'Đang đặt chỗ...' : 'Xác nhận đặt chỗ'}</Text>
+          </AnimatedButton>
+        </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }

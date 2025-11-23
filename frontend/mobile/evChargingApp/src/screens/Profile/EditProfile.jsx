@@ -224,5 +224,7 @@ export default function EditProfile({ navigation }) {
       </ScrollView>
     </SafeAreaView>
   );
-}
+};
+
+export default EditProfile;
 
