@@ -2,8 +2,8 @@ import apiClient from "@/api/apiClient";
 
 export const stationService = {
   // ===== STATION =====
-  getAll: (params) =>
-    apiClient({ method: "GET", url: "api/v1/stations", params }),
+  getAll: () =>
+    apiClient({ method: "GET", url: "api/v1/stations" }),
 
   create: (payload) =>
     apiClient({ method: "POST", url: "api/v1/stations", data: payload }),

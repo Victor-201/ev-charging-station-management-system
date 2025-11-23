@@ -18,11 +18,11 @@ export const StationProvider = ({ children }) => {
 
 
   // ===== STATION =====
-  const getAll = useCallback(async (params) => {
+  const getAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await stationService.getAll(params);
+      const res = await stationService.getAll();
       const data = res?.data ?? res;
       setStations(data);
       setLoading(false);
