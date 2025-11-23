@@ -6,7 +6,7 @@ import { JwtAuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 import { RolesGuard } from 'src/auth/roles.guard';
 
-import { MessagePattern, Payload, RmqContext, Ctx } from '@nestjs/microservices';
+import { MessagePattern, Payload, RmqContext, Ctx, EventPattern } from '@nestjs/microservices';
 import { RmqService } from 'src/rmq/rmq.service';
 
 @Controller('chargers')
@@ -58,14 +58,14 @@ export class ChargerController {
         return this.chargerService.getChargerPricing(charger_id);
     }
 
-    @MessagePattern('start_session')
+    @EventPattern('start_session')
     handleStartSession(@Payload() data: any, @Ctx() context: RmqContext) {
         this.rmqService.ack(context);
         console.log('Data in rabbitmq: ', data);
         this.chargerService.handleStartSession(data);
     }
 
-    @MessagePattern('stop_session')
+    @EventPattern('stop_session')
     handleStopSession(@Payload() data: any, @Ctx() context: RmqContext) {
         this.rmqService.ack(context);
         console.log('Data in rabbitmq: ', data);
