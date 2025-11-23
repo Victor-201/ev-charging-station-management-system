@@ -8,6 +8,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'react-native-paper';
 import stationService from '../../services/stationService';
 import StationsBottomSheet from '../../components/station/StationsBottomSheet';
+import mapService from '../../services/mapService';
 
 const DEFAULT_REGION = { latitude: 10.77978, longitude: 106.699, latitudeDelta: 0.05, longitudeDelta: 0.05 };
 
@@ -103,6 +104,24 @@ export default function MapScreen({ navigation }) {
     </SafeAreaView>
   );
 
+  const handleDirections = async (station) => {
+    try {
+      const to = { lat: station.latitude, lng: station.longitude };
+      let from = null;
+      try {
+        const pos = await new Promise((resolve, reject)=>{
+          Geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:8000, maximumAge:5000 });
+        });
+        from = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      } catch (_) {
+        if (region) from = { lat: region.latitude, lng: region.longitude };
+      }
+      await mapService.openDirections({ from, to, name: station.name });
+    } catch (e) {
+      Alert.alert('Không thể mở bản đồ', e?.message || 'Vui lòng thử lại');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {Platform.OS === 'ios' ? (
@@ -141,6 +160,7 @@ export default function MapScreen({ navigation }) {
         onClose={()=> setSheetVisible(false)}
         stations={stations}
         onSelect={(s)=> navigation.navigate('StationDetailScreen', { stationId: String(s.id || s.station_id) })}
+        onDirections={handleDirections}
       />
 
       {loading && (

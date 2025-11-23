@@ -41,6 +41,8 @@
 	<array/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>MKDirectionsApplicationSupportedModes</key>
+	<array/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -52,6 +54,8 @@
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Chúng tôi cần truy cập vị trí của bạn để hiển thị các trạm sạc xe điện gần nhất.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập Lời nhắc để tạo nhắc nhở sạc xe trước giờ đặt chỗ 15 phút.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Ứng dụng cần quyền này để cung cấp trải nghiệm tốt hơn.</string>
 	<key>RCTNewArchEnabled</key>

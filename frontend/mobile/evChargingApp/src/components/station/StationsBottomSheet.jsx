@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet, Platform } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 const getStyles = (colors) => StyleSheet.create({
@@ -14,9 +14,12 @@ const getStyles = (colors) => StyleSheet.create({
   addr: { color: colors.onSurfaceVariant, marginTop: 2 },
   meta: { color: colors.onSurfaceVariant, marginTop: 4, fontSize: 12 },
   status: { fontWeight: '700' },
+  actions: { flexDirection: 'row', marginTop: 8, gap: 12 },
+  actionBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: colors.secondaryContainer },
+  actionText: { color: colors.onSecondaryContainer, fontWeight: '700' },
 });
 
-export default function StationsBottomSheet({ visible, onClose, stations = [], onSelect, currentLoc }) {
+export default function StationsBottomSheet({ visible, onClose, stations = [], onSelect, onDirections }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
@@ -25,15 +28,27 @@ export default function StationsBottomSheet({ visible, onClose, stations = [], o
   }, [stations]);
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.item} onPress={() => { onClose?.(); onSelect?.(item); }}>
-      <Text style={styles.name} numberOfLines={1}>{item.name || 'Trạm sạc'}</Text>
-      <Text style={styles.addr} numberOfLines={1}>{item.address || item.city || item.region || ''}</Text>
-      <Text style={styles.meta}>
-        {(item.distanceKm != null ? `${item.distanceKm.toFixed(2)} km` : '')}
-        {`  •  `}
-        <Text style={[styles.status, { color: item.status === 'maintenance' ? colors.error : colors.success }]}>{item.status || 'active'}</Text>
-      </Text>
-    </TouchableOpacity>
+    <View style={styles.item}>
+      <TouchableOpacity onPress={() => { onClose?.(); onSelect?.(item); }}>
+        <Text style={styles.name} numberOfLines={1}>{item.name || 'Trạm sạc'}</Text>
+        <Text style={styles.addr} numberOfLines={1}>{item.address || item.city || item.region || ''}</Text>
+        <Text style={styles.meta}>
+          {(item.distanceKm != null ? `${item.distanceKm.toFixed(2)} km` : '')}
+          {`  •  `}
+          <Text style={[styles.status, { color: item.status === 'maintenance' || item.status==='offline' ? colors.error : colors.success }]}>{item.status || 'active'}</Text>
+        </Text>
+      </TouchableOpacity>
+      <View style={styles.actions}>
+        {onDirections && (
+          <TouchableOpacity style={styles.actionBtn} onPress={() => { onDirections(item); }}>
+            <Text style={styles.actionText}>Chỉ đường</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.primary }]} onPress={() => { onClose?.(); onSelect?.(item); }}>
+          <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Chi tiết</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   return (

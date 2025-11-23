@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getWallet } from '../../store/slices/walletSlice';
+import { useInAppNotification } from '../../components/notification/InAppNotification';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -28,9 +29,22 @@ export default function TopupSuccessScreen() {
   const { amount, transactionId } = route.params || {};
   const { wallet, loading } = useSelector((s) => s.wallet);
 
+  const notifier = useInAppNotification();
+
   useEffect(() => {
     if (userId) dispatch(getWallet(userId));
   }, [userId, dispatch]);
+
+  useEffect(() => {
+    if (amount) {
+      notifier.show({
+        type: 'success',
+        icon: 'payments',
+        title: 'Nạp tiền thành công',
+        message: `+${Number(amount||0).toLocaleString('vi-VN')} ₫${wallet?.balance!=null ? `  •  Số dư: ${Number(wallet.balance).toLocaleString('vi-VN')} ₫` : ''}`,
+      });
+    }
+  }, [amount, wallet?.balance]);
 
   return (
     <SafeAreaView style={styles.container}>
