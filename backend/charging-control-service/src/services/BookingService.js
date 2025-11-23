@@ -27,23 +27,19 @@ class BookingService {
     this.qrRepo = QrRepo;
   }
 
-  async initSubscriptions() {
-    await createConsumer(
-      "payment_booking_queue",
-      "payment.booking.*",
-      async (routingKey, payload) => {
-        console.log("[Booking] Event:", routingKey);
+    async handlePaymentEvent(routingKey, payload) {
+    if (!routingKey.startsWith('payment.booking.')) return;
 
-        if (routingKey === "payment.booking.succeeded") {
-          await this.confirmReservation(payload.related_id, { payment_info: payload });
-        } else if (routingKey === "payment.booking.failed") {
-          await this.markReservationFailed(payload.related_id, {
-            cancel: true,
-            reason: payload.reason,
-          });
-        }
-      }
-    );
+    console.log('[Booking] Handling payment event:', routingKey, payload);
+
+    if (routingKey === 'payment.booking.succeeded') {
+      await this.confirmReservation(payload.related_id, { payment_info: payload });
+    } else if (routingKey === 'payment.booking.failed') {
+      await this.markReservationFailed(payload.related_id, {
+        cancel: true,
+        reason: payload.reason,
+      });
+    }
   }
 
   async calculatePricing(point_id, start_time, end_time, token) {
