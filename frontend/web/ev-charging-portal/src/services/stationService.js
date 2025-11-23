@@ -55,6 +55,10 @@ export const stationService = {
 
   getChargerPricing: (charger_id) =>
     apiClient({ method: "GET", url: `api/v1/chargers/${charger_id}/pricing` }),
+  getAssignedStation: () =>
+  apiClient({ method: "GET", url: "api/v1/stations/staff/assigned-station" }),
+
 };
+
 
 export default stationService;

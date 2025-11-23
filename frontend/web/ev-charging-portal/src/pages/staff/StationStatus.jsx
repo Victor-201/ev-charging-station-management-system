@@ -4,11 +4,18 @@ import Card from "../../components/staff/Card/index";
 import Table from "../../components/staff/Table/index";
 import chargingControlService from "@/services/chargingControlService"; // service (mình gửi mẫu bên dưới)
 import { useAuth } from "@/hooks/useAuth";
+import stationService from "@/services/stationService"; // <-- service có getAssignedStation
 
 export default function Stations() {
-  const managedStationId = "550e8400-e29b-41d4-a716-446655440001";
+  // managedStationId giờ là state, không còn hardcode nữa
+  const [managedStationId, setManagedStationId] = useState(null);
+  const [assignedLoading, setAssignedLoading] = useState(false);
+  const [assignedError, setAssignedError] = useState(null);
+
   const { user } = useAuth();
+  const token = user?.token || user?.access_token || user?.jwt || null;
   const user_id = user?.user_id;
+
   const {
     stations,
     currentStation,
@@ -33,11 +40,55 @@ export default function Stations() {
   const [loadingSession, setLoadingSession] = useState(false);
   const [error, setError] = useState(null);
 
-  // ===== Lấy dữ liệu =====
+  // ===== Lấy assigned station từ API (gửi token) =====
+  const fetchAssignedStation = useCallback(async () => {
+    setAssignedLoading(true);
+    setAssignedError(null);
+    try {
+      // Thử gửi token vào service — nếu service nhận headers thì sẽ forward
+      const opts = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+      const res = await stationService.getAssignedStation(opts);
+      const data = res?.data ?? res;
+
+      if (!data) {
+        throw new Error("Server không trả về dữ liệu trạm được phân công.");
+      }
+
+      // Nếu API trả về object trạm trực tiếp
+      if (data.id) {
+        setManagedStationId(data.id);
+      } else if (Array.isArray(data) && data.length > 0 && data[0].id) {
+        // phòng trường hợp API trả về array
+        setManagedStationId(data[0].id);
+      } else {
+        // fallback: nếu API trả về { station_id: "..." } hoặc trường khác
+        const maybeId = data.station_id || data.stationId || data.id || null;
+        if (maybeId) setManagedStationId(maybeId);
+        else throw new Error("Không tìm thấy station id trong phản hồi API.");
+      }
+
+      setAssignedLoading(false);
+      return { success: true, data };
+    } catch (err) {
+      setAssignedError(err);
+      setAssignedLoading(false);
+      console.error("fetchAssignedStation error:", err);
+      return { success: false, error: err };
+    }
+  }, [token]);
+
+  // ===== Lấy danh sách stations (xung quanh) =====
   useEffect(() => {
     const params = { lat: 10.9, lng: 106.8, radius: 10 };
     getAll(params);
   }, [getAll]);
+
+  // Khi mount: lấy assigned station
+  useEffect(() => {
+    fetchAssignedStation();
+  }, [fetchAssignedStation]);
+
+  // Khi managedStationId thay đổi: load chi tiết trạm và connectors
   useEffect(() => {
     if (managedStationId) {
       getById(managedStationId);
@@ -238,11 +289,15 @@ export default function Stations() {
   // ===== Xử lý bắt đầu sạc (initiate rồi start) =====
   async function handleStartCharging() {
     if (loadingSession) return; // prevent double click
-    // Use selectedChargerId which was set when clicking the charger card
+    // Use selectedChargerId which was set khi click trụ
     const point_id = selectedChargerId;
     if (!point_id) {
-      // no charger selected
       alert("Bạn chưa chọn trụ để bắt đầu sạc.");
+      return;
+    }
+
+    if (!managedStationId) {
+      alert("Chưa xác định trạm quản lý. Vui lòng thử lại.");
       return;
     }
 
@@ -286,6 +341,20 @@ export default function Stations() {
   }
 
   // ===== Giao diện =====
+  if (assignedLoading)
+    return (
+      <div className="text-center text-gray-500 py-12 text-lg font-medium">
+        Đang xác định trạm được phân công...
+      </div>
+    );
+
+  if (assignedError)
+    return (
+      <div className="text-center text-red-500 py-12">
+        Lỗi khi lấy trạm được phân công: {assignedError.message || String(assignedError)}
+      </div>
+    );
+
   if (loading)
     return (
       <div className="text-center text-gray-500 py-12 text-lg font-medium">
@@ -305,6 +374,14 @@ export default function Stations() {
     <div className="min-h-screen bg-gray-50 text-gray-900 px-6 py-8 font-inter">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-extrabold mb-6">Quản lý trạm — Nhân viên</h1>
+
+        {/* Hiển thị ID trạm được quản lý ở chỗ dễ nhìn */}
+        <div className="mb-4">
+          <div className="text-sm text-gray-500">Trạm được phân công:</div>
+          <div className="text-lg font-medium">{currentStation?.name || managedStationId || "—"}</div>
+          <div className="text-xs text-gray-400">ID: {managedStationId || "—"}</div>
+        </div>
+
         {/* Bộ thống kê */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
           {[
@@ -346,6 +423,7 @@ export default function Stations() {
             />
           </div>
         </div>
+
         {/* Lưới trụ sạc */}
         <div className="flex flex-col md:flex-row gap-6">
           <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -392,9 +470,13 @@ export default function Stations() {
                     </div>
                     <div className="mt-3 text-lg font-semibold text-gray-900">{ch.label || ch.name || "—"}</div>
                     <div className="text-xs text-gray-500 mt-1 flex gap-2 flex-wrap">
-                      <span>{ch.powerPoint || ch.max_power_kw || "—"} kW</span>
-                      <span>•</span>
-                      <span>{ch.lastUpdated || ch.updated_at || "—"}</span>
+                      <div className="text-sm border-b py-2">
+                        <strong>Công suất tối đa:</strong> {ch.powerPoint || ch.max_power_kw} kW
+                      </div>
+                      <div className="text-sm border-b py-2">
+                        <strong>Connector type:</strong> {ch.powerPoint || ch.type}
+                      </div>
+                      <span>{ch.lastUpdated || ch.updated_at}</span>
                     </div>
                   </div>
                 );
@@ -405,6 +487,7 @@ export default function Stations() {
               </div>
             )}
           </div>
+
           {/* Panel chi tiết */}
           {currentStation && (
             <aside className="w-full md:w-96 flex flex-col gap-4">
@@ -417,6 +500,7 @@ export default function Stations() {
                   {stats.totalChargers} trụ • {stats.available} sẵn sàng • {stats.in_use} đang dùng • {stats.fault} lỗi
                 </div>
               </div>
+
               {selectedCharger ? (
                 <>
                   {/* CHI TIẾT chính (đã gộp pricing vào đây) */}
@@ -427,12 +511,6 @@ export default function Stations() {
                     </div>
                     <div className="text-sm border-b py-2">
                       <strong>Tên / Label:</strong> {selectedChargerDetails?.name || selectedCharger.label || selectedCharger.name || "—"}
-                    </div>
-                    <div className="text-sm border-b py-2">
-                      <strong>Connector type:</strong> {selectedChargerDetails?.connector_type || selectedCharger.connector_type || selectedCharger.type || "—"}
-                    </div>
-                    <div className="text-sm border-b py-2">
-                      <strong>Công suất tối đa:</strong> {selectedChargerDetails?.max_power_kw || selectedCharger.powerPoint || selectedCharger.max_power_kw || "—"} kW
                     </div>
                     <div className="text-sm border-b py-2">
                       <strong>Trạng thái:</strong>{" "}
@@ -450,7 +528,8 @@ export default function Stations() {
                         {selectedChargerDetails?.status || selectedCharger.status || "—"}
                       </span>
                     </div>
-                    {/* ====== GỘP: Hiển thị BẢNG GIÁ tại đây ====== */}
+
+                    {/* Bảng giá */}
                     <div className="text-sm border-b py-2">
                       <strong>Bảng giá:</strong>
                       <div className="mt-2">
@@ -481,6 +560,7 @@ export default function Stations() {
                         )}
                       </div>
                     </div>
+
                     <div className="flex gap-2 mt-3 flex-wrap">
                       <button
                         onClick={() => setChargerStatus(selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id, "available")}
@@ -509,6 +589,7 @@ export default function Stations() {
                       </button>
                     </div>
                   </div>
+
                   {/* Lịch sử */}
                   <div className="bg-white rounded-xl border p-4 shadow">
                     <h3 className="font-semibold mb-2">Lịch sử trụ</h3>
@@ -533,6 +614,7 @@ export default function Stations() {
             </aside>
           )}
         </div>
+
         {/* Debug table */}
         <div className="mt-6">
           <Card title="Stations list (raw)">
