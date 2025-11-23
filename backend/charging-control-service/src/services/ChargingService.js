@@ -36,6 +36,35 @@ async initSubscriptions() {
     );
   }
 
+
+  async initiateSession({ reservation_id = null, station_id = null, point_id, user_id, connector_type = null } = {}) {
+    // VALIDATION
+    if (!point_id) throw new Error('Missing required field: point_id');
+    if (!user_id) throw new Error('Missing required field: user_id');
+    if (!station_id) throw new Error('Missing required field: station_id');
+
+    // debug log để kiểm tra payload — xóa sau khi confirm
+    console.log('[ChargingService.initiateSession] input:', { reservation_id, station_id, point_id, user_id,  connector_type });
+
+    const session = {
+      session_id: uuidv4(),
+      reservation_id: reservation_id || null,
+      station_id,
+      point_id,
+      user_id,
+      connector_type: connector_type || null,
+      status: 'initiated',
+      created_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
+      updated_at: dayjs().format('YYYY-MM-DD HH:mm:ss.SSS'),
+    };
+
+    const created = await SessionRepo.create(session);
+
+ publishEvent('charging_events', { type: 'SESSION_INITIATED', data: created });
+
+    return { session_id: created.session_id, status: created.status };
+  }
+
   /**
    * /api/v1/sessions/start
    * body: { session_id, start_meter_wh }
@@ -58,7 +87,7 @@ async startSession({ session_id, start_meter_wh = null }) {
     started_at,
   });
 
-  publishEvent('charging_events', { type: 'SESSION_STARTED', data: { session_id, started_at } });
+  publishEvent('start_session', { type: 'SESSION_STARTED', data: { point_id: s.point_id, started_at } });
 
   return { session_id: updated.session_id || session_id, status: updated.status || 'charging', started_at };
 }
@@ -299,9 +328,9 @@ async reconcileSessionWithReservation(
     console.error('[stopSession] failed to persist metadata.payment', err);
   }
 
-  publishEvent('charging_events', {
+  publishEvent('stop_session', {
     type: 'SESSION_PENDING_PAYMENT',
-    data: { session_id, ended_at }
+    data: { point_id: s.point_id, ended_at }
   });
 
   return {
