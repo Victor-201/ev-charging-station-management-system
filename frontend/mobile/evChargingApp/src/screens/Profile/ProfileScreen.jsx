@@ -66,7 +66,7 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.headerContainer}>
           <Avatar.Image
             size={90}
-            source={{ uri: user?.avatar_url || `https://ui-avatars.com/api/?name=${user?.full_name || 'U'}&background=random` }}
+            source={{ uri: user?.avatar_url || `https://api.dicebear.com/8.x/avataaars/svg?seed=${encodeURIComponent(user?.full_name || 'User')}` }}
             style={styles.avatar}
           />
           <Text style={styles.userName}>{user?.full_name || 'User Name'}</Text>

@@ -12,9 +12,9 @@ export default function ProfileHeader({ user, onAvatarPress }) {
     Animated.parallel([fadeIn(opacity, 400, 80), scale(avatarScale, 1, 500)]).start();
   }, []);
 
-  const initialsUri = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    user?.full_name || 'U'
-  )}&background=random`;
+  const defaultAvatarUri = `https://api.dicebear.com/8.x/avataaars/svg?seed=${encodeURIComponent(
+    user?.full_name || 'User'
+  )}`;
 
   return (
     <Animated.View style={[styles.container, { opacity }]}>      
@@ -22,7 +22,7 @@ export default function ProfileHeader({ user, onAvatarPress }) {
         <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
           <Avatar.Image
             size={96}
-            source={{ uri: user?.avatar_url || initialsUri }}
+            source={{ uri: user?.avatar_url || defaultAvatarUri }}
             style={styles.avatar}
           />
         </Animated.View>
