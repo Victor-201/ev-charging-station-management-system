@@ -93,7 +93,20 @@ const InvoiceScreen = () => {
 
       <View style={[styles.actionsContainer, { backgroundColor: colors.surface }]}>
         <Button icon="share-variant-outline" mode="outlined" onPress={handleShare} style={{ flex: 1 }}>Chia sẻ</Button>
-        <Button icon="download-outline" mode="contained" onPress={handleDownload} style={{ flex: 1 }} loading={downloading} disabled={downloading}>Tải PDF</Button>
+                {invoice.payment_status !== 'paid' && (
+          <Button
+            icon="credit-card-outline"
+            mode="contained"
+            style={{ flex: 1 }}
+            onPress={() => navigation.navigate('PaymentMethodScreen', {
+              invoiceId: invoice.invoice_number || invoice.id,
+              amount: invoice.total_amount
+            })}
+          >
+            Thanh toán ngay
+          </Button>
+        )}
+        <Button icon="download-outline" mode={invoice.payment_status !== 'paid' ? 'outlined' : 'contained'} onPress={handleDownload} style={{ flex: 1 }} loading={downloading} disabled={downloading}>Tải PDF</Button>
       </View>
     </SafeAreaView>
   );
