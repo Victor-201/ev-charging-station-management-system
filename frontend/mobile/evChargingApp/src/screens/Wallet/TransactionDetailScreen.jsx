@@ -1,76 +1,104 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
+import { useTheme, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const getStyles = (colors) => StyleSheet.create({
+import TransactionInfoCard from '../../components/wallet/TransactionInfoCard';
+
+const getStyles = (colors, isPositive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: colors.outline, flexDirection: 'row', alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: colors.onSurface, marginLeft: 16 },
-  content: { padding: 16, gap: 16 },
-  section: { backgroundColor: colors.surface, borderRadius: 12, padding: 16 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant },
-  lastRow: { borderBottomWidth: 0 },
-  label: { color: colors.onSurfaceVariant, fontSize: 15 },
-  value: { color: colors.onSurface, fontSize: 15, fontWeight: '600', maxWidth: '70%' },
-  amount: (isPositive) => ({
-    fontSize: 32, fontWeight: 'bold',
-    color: isPositive ? colors.success : colors.error,
-    textAlign: 'center',
-    marginVertical: 24,
-  }),
+  // Header
+  header: {
+    backgroundColor: isPositive ? colors.primary : colors.error,
+    paddingTop: Platform.OS === 'android' ? 24 : 60,
+    paddingBottom: 48,
+    paddingHorizontal: 16,
+  },
+  headerNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center', flex: 1 },
+  amountContainer: { alignItems: 'center', marginTop: 16 },
+  amount: { fontSize: 36, fontWeight: 'bold', color: '#fff' },
+  status: { fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 4, textTransform: 'capitalize' },
+  // Body
+  content: { marginTop: -32 }, // Pull up content to overlap header
+  actionsContainer: { padding: 16, borderTopWidth: 1, borderTopColor: colors.outline },
 });
 
-const DetailRow = ({ label, value, isLast = false, valueStyle }) => {
-  const { colors } = useTheme();
-  const styles = getStyles(colors);
-  return (
-    <View style={[styles.row, isLast && styles.lastRow]}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={[styles.value, valueStyle]} numberOfLines={1}>{value}</Text>
-    </View>
-  );
-};
-
 export default function TransactionDetailScreen({ route, navigation }) {
-  const { colors } = useTheme();
-  const styles = getStyles(colors);
   const { transaction } = route.params || {};
+  if (!transaction) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Không có thông tin giao dịch.</Text>
+      </SafeAreaView>
+    );
+  }
 
-  const isPositive = transaction?.amount > 0;
+  const isPositive = (transaction?.type === 'topup' || transaction?.type === 'refund');
+  const { colors } = useTheme();
+  const styles = getStyles(colors, isPositive);
+
   const formattedAmount = `${isPositive ? '+' : ''}${Number(transaction?.amount || 0).toLocaleString('vi-VN')} ₫`;
+  const statusText = transaction?.status === 'completed' ? 'Thành công' : 'Đang xử lý';
 
-  const transactionTypeMap = {
-    deposit: 'Nạp tiền vào ví',
-    payment: 'Thanh toán phí sạc',
-    refund: 'Hoàn tiền',
-    booking_fee: 'Phí đặt chỗ',
+  const handleViewSession = () => {
+    if (transaction?.metadata?.session_id) {
+      navigation.navigate('History', {
+        screen: 'SessionDetail',
+        params: { sessionId: transaction.metadata.session_id },
+      });
+    }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <View style={styles.header}>
-        <Icon name="arrow-back" size={24} color={colors.onSurface} onPress={() => navigation.goBack()} />
-        <Text style={styles.title}>Chi tiết giao dịch</Text>
+        <View style={styles.headerNav}>
+          <Icon name="arrow-left" size={24} color="#fff" onPress={() => navigation.goBack()} />
+          <Text style={styles.title}>Chi tiết giao dịch</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.amountContainer}>
+          <Text style={styles.amount}>{formattedAmount}</Text>
+          <Text style={styles.status}>{statusText}</Text>
+        </View>
       </View>
+
       <ScrollView>
         <View style={styles.content}>
-          <Text style={styles.amount(isPositive)}>{formattedAmount}</Text>
-
-          <View style={styles.section}>
-            <DetailRow label="Mã giao dịch" value={transaction?.id || transaction?.transaction_id} />
-            <DetailRow label="Thời gian" value={new Date(transaction?.created_at || Date.now()).toLocaleString('vi-VN')} />
-            <DetailRow label="Loại giao dịch" value={transactionTypeMap[transaction?.type] || 'Khác'} />
-            <DetailRow label="Trạng thái" value={transaction?.status === 'completed' ? 'Thành công' : 'Đang xử lý'} isLast />
-          </View>
+          <TransactionInfoCard transaction={transaction} />
 
           {transaction?.description && (
-            <View style={styles.section}>
-              <DetailRow label="Mô tả" value={transaction.description} isLast />
+            <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, color: colors.onBackground }}>Ghi chú</Text>
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16 }}>
+                <Text style={{ color: colors.onSurfaceVariant }}>{transaction.description}</Text>
+              </View>
             </View>
           )}
         </View>
       </ScrollView>
+
+      <View style={[styles.actionsContainer, { backgroundColor: colors.surface }]}>
+        {transaction?.type === 'payment' && transaction?.metadata?.session_id && (
+          <Button
+            icon="history"
+            mode="contained"
+            style={{ marginBottom: 8 }}
+            onPress={handleViewSession}
+          >
+            Xem phiên sạc
+          </Button>
+        )}
+        <Button
+          icon="help-circle-outline"
+          mode="outlined"
+          onPress={() => { /* Navigate to support */ }}
+        >
+          Cần hỗ trợ?
+        </Button>
+      </View>
     </SafeAreaView>
   );
 }
