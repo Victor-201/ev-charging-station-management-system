@@ -4,11 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
-import { FEATURES } from '../../config/featureFlags';
 
 import { getMe } from '../../store/slices/userSlice';
 import { getWallet } from '../../store/slices/walletSlice';
 import { getNotifications } from '../../store/slices/notificationSlice';
+import useChargingHistory from '../../hooks/useChargingHistory';
+import useWalletTransactions from '../../hooks/useWalletTransactions';
+import { timeAgo } from '../../utils/dateUtils';
 
 // New modern components
 import HeroSection from '../../components/home/HeroSection';
@@ -50,6 +52,7 @@ export default function HomeScreen() {
     if (userProfile?.user_id) {
       dispatch(getWallet(userProfile.user_id));
       // fetch notifications to update badge
+
       dispatch(getNotifications(userProfile.user_id));
     }
   }, [userProfile, dispatch]);
@@ -120,7 +123,7 @@ export default function HomeScreen() {
     {
       icon: 'chart-line',
       label: 'Thống kê',
-      onPress: () => navigation.navigate('Charging', { screen: 'ChargingHistory' }),
+      onPress: () => navigation.navigate('History', { screen: 'ChargingHistory' }),
       iconColor: colors.success,
       bgColor: colors.success + '20',
     },
@@ -140,69 +143,70 @@ export default function HomeScreen() {
     },
   ];
 
-  // Stats data
-  const statsData = [
-    {
-      icon: 'lightning-bolt',
-      value: '24',
-      label: 'Lần sạc',
-      trend: 12,
-      iconColor: colors.success,
-      iconBg: colors.success + '20',
-    },
-    {
-      icon: 'battery-charging-80',
-      value: '156 kWh',
-      label: 'Năng lượng',
-      trend: 8,
-      iconColor: colors.primary,
-      iconBg: colors.primary + '20',
-    },
-    {
-      icon: 'cash',
-      value: '2.4M',
-      label: 'Tiết kiệm',
-      trend: 15,
-      iconColor: colors.success,
-      iconBg: colors.success + '20',
-    },
-    {
-      icon: 'leaf',
-      value: '89 kg',
-      label: 'CO₂ giảm',
-      trend: 10,
-      iconColor: colors.success,
-      iconBg: colors.success + '20',
-    },
-  ];
+  // Real sessions and transactions
+  const { sessions = [] } = useChargingHistory({ autoFetch: true });
+  const { transactions = [] } = useWalletTransactions({ autoFetch: true, params: { limit: 10 } });
 
-  // Recent activities
-  const recentActivities = [
-    {
-      icon: 'lightning-bolt',
-      title: 'Sạc hoàn tất',
-      subtitle: 'Trạm Vincom Center - 45 kWh',
-      time: '2h trước',
-      iconBg: colors.success + '20',
-      iconColor: colors.success,
-    },
-    {
-      icon: 'cash-plus',
-      title: 'Nạp tiền',
-      subtitle: '+500,000 VND',
-      time: '1 ngày',
-      iconBg: colors.primary + '20',
-      iconColor: colors.primary,
-    },
-    {
-      icon: 'calendar-check',
-      title: 'Đặt chỗ thành công',
-      subtitle: 'Trạm Landmark 81 - 15:00',
-      time: '2 ngày',
-      iconBg: colors.warning + '20',
-      iconColor: colors.warning,
-    },
-  ];
+  // Stats based on recent sessions (last 30 days)
+  const statsData = (() => {
+    if (!sessions || sessions.length === 0) return [];
+    const now = Date.now();
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const recent = sessions.filter(s => {
+      const t = new Date(s.end_time || s.completed_at || s.updated_at || s.created_at).getTime();
+      return Number.isFinite(t) && now - t <= THIRTY_DAYS;
+    });
+    const totalCharges = recent.length;
+    const totalEnergy = recent.reduce((sum, s) => sum + (Number(s.energy_consumed || s.energyConsumed) || 0), 0);
+    const totalCost = recent.reduce((sum, s) => sum + (Number(s.cost || s.total_cost || s.totalCost) || 0), 0);
+    const co2SavedKg = totalEnergy * 0.5; // approx factor
+
+    return [
+      { icon: 'lightning-bolt', value: String(totalCharges), label: 'Lần sạc', iconColor: colors.success, iconBg: colors.success + '20' },
+      { icon: 'battery-charging-80', value: `${totalEnergy.toFixed(1)} kWh`, label: 'Năng lượng', iconColor: colors.primary, iconBg: colors.primary + '20' },
+      { icon: 'cash', value: `${Math.round(totalCost).toLocaleString('vi-VN')} ₫`, label: 'Chi phí', iconColor: colors.warning, iconBg: colors.warning + '20' },
+      { icon: 'leaf', value: `${co2SavedKg.toFixed(0)} kg`, label: 'CO₂ giảm', iconColor: colors.success, iconBg: colors.success + '20' },
+    ];
+  })();
+
+  // Recent activities combined from charging sessions and wallet transactions
+  const recentActivities = (() => {
+    const sessionActs = (sessions || []).slice(0, 5).map(s => {
+      const energy = Number(s.energy_consumed || s.energyConsumed) || 0;
+      const stationName = s.station_name || s.stationName || 'Trạm sạc';
+      const ts = new Date(s.end_time || s.completed_at || s.updated_at || s.created_at).getTime();
+      return {
+        icon: 'lightning-bolt',
+        title: 'Sạc hoàn tất',
+        subtitle: `${stationName} - ${energy.toFixed(1)} kWh`,
+        time: timeAgo(ts),
+        ts,
+        iconBg: colors.success + '20',
+        iconColor: colors.success,
+      };
+    });
+
+    const txActs = (transactions || []).slice(0, 5).map(tx => {
+      const isTopup = (tx.type || tx.transaction_type) === 'topup' || (tx.amount > 0 && (tx.direction === 'in'));
+      const amount = Math.abs(Number(tx.amount || tx.total_amount) || 0).toLocaleString('vi-VN');
+      const ts = new Date(tx.created_at || tx.timestamp || tx.date).getTime();
+      return {
+        icon: isTopup ? 'cash-plus' : 'cash-minus',
+        title: isTopup ? 'Nạp tiền' : 'Thanh toán',
+        subtitle: `${isTopup ? '+' : '-'}${amount} ₫`,
+        time: timeAgo(ts),
+        ts,
+        iconBg: (isTopup ? colors.primary : colors.error) + '20',
+        iconColor: isTopup ? colors.primary : colors.error,
+      };
+    });
+
+    return [...sessionActs, ...txActs]
+      .filter(a => Number.isFinite(a.ts))
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 3)
+      .map(({ ts, ...rest }) => rest);
+  })();
 
   // Show loading state while fetching user profile
   if ((authLoading || (userProfile && walletLoading)) && !wallet) {
@@ -248,7 +252,7 @@ export default function HomeScreen() {
         <QuickAccessGrid items={quickAccessItems} />
 
         {/* Stats Overview */}
-        {FEATURES.analytics && (
+        {statsData.length > 0 && (
           <StatsOverview stats={statsData} />
         )}
 
