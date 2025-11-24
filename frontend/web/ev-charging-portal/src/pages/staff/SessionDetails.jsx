@@ -1,5 +1,5 @@
 import React from "react";
-import { Pause, Play, Square, RefreshCw, DollarSign } from "lucide-react";
+import { Pause, Play, Square, RefreshCw, DollarSign, CheckCircle } from "lucide-react";
 import paymentService from "@/services/paymentService";
 import {
   formatMoney, getStatusColor, TelemetrySection, SessionEventsSection,
@@ -15,6 +15,11 @@ const SessionDetails = ({
   setShowPaymentModal, STATION_ID, setLoadingRefund, setTransactionError,
 }) => {
   const isGuestSession = !currentSession?.reservation_id || currentSession?.reservation_id === "";
+  
+  // Kiểm tra xem phiên có ở trạng thái confirmed/completed/stopped không
+  const isSessionCompleted = currentSession?.status === "confirmed" || 
+                             currentSession?.status === "completed" || 
+                             currentSession?.status === "stopped";
 
   const handlePause = async () => {
     if (!selectedSessionId) return;
@@ -62,7 +67,7 @@ const SessionDetails = ({
           actual: apiResult.session_cost, action: apiResult.settlement?.type || "none",
           settlement_message: apiResult.settlement?.message || "",
           settlement_amount: apiResult.settlement?.amount,
-          payment_status: apiResult.diff > 0 ? "pending" : (apiResult.diff < 0 ? "pending" : "completed"),
+          payment_status: isSessionCompleted ? "completed" : (apiResult.diff > 0 ? "pending" : (apiResult.diff < 0 ? "pending" : "completed")),
           autoSettled: false,
         };
       } else if (result?.success && result?.data) {
@@ -74,7 +79,7 @@ const SessionDetails = ({
           action: data.settlement?.type || data.action || "none",
           settlement_message: data.settlement?.message || data.note || "",
           settlement_amount: data.settlement?.amount,
-          payment_status: data.payment_status || (data.diff > 0 ? "pending" : "completed"),
+          payment_status: isSessionCompleted ? "completed" : (data.payment_status || (data.diff > 0 ? "pending" : "completed")),
           autoSettled: false,
         };
       } else if (result?.result) {
@@ -86,7 +91,7 @@ const SessionDetails = ({
           action: data.settlement?.type || "none",
           settlement_message: data.settlement?.message || "",
           settlement_amount: data.settlement?.amount,
-          payment_status: data.diff > 0 ? "pending" : (data.diff < 0 ? "pending" : "completed"),
+          payment_status: isSessionCompleted ? "completed" : (data.diff > 0 ? "pending" : (data.diff < 0 ? "pending" : "completed")),
           autoSettled: false,
         };
       }
@@ -119,7 +124,8 @@ const SessionDetails = ({
           message: hasReservation ? "Điều chỉnh thanh toán (fallback)" : "Thanh toán toàn bộ (fallback)"
         },
         reserved: 0, actual: finalCost, action: finalCost > 0 ? "charge" : "none",
-        payment_status: "pending", autoSettled: false,
+        payment_status: isSessionCompleted ? "completed" : "pending",
+        autoSettled: false,
         settlement_message: hasReservation ? "Điều chỉnh thanh toán (fallback)" : "Thanh toán toàn bộ (fallback)",
       });
     } catch (fallbackError) {
@@ -187,11 +193,17 @@ const SessionDetails = ({
       .finally(() => { setLoadingRefund(false); });
   };
 
-  const isPendingPayment = reconcileResult?.payment_status === "pending" &&
-    ["charge", "charge_due"].includes(reconcileResult?.action) && Number(reconcileResult?.diff) > 0;
+  // Chỉ cho phép thanh toán khi phiên chưa hoàn thành
+  const isPendingPayment = !isSessionCompleted && 
+    reconcileResult?.payment_status === "pending" &&
+    ["charge", "charge_due"].includes(reconcileResult?.action) && 
+    Number(reconcileResult?.diff) > 0;
 
-  const isRefundable = reconcileResult?.action === "refund" &&
-    Number(reconcileResult?.diff) < 0 && reconcileResult?.payment_status !== "refunded";
+  // Chỉ cho phép hoàn tiền khi phiên chưa hoàn thành
+  const isRefundable = !isSessionCompleted && 
+    reconcileResult?.action === "refund" &&
+    Number(reconcileResult?.diff) < 0 && 
+    reconcileResult?.payment_status !== "refunded";
 
   return (
     <>
@@ -243,26 +255,32 @@ const SessionDetails = ({
               </div>
             </div>
 
-            {/* CÁC NÚT ĐIỀU KHIỂN */}
+            {/* CÁC NÚT ĐIỀU KHIỂN - Chỉ hiển thị khi phiên chưa hoàn thành */}
+            {!isSessionCompleted && (
+              <div className="flex gap-3 pt-4 border-t flex-wrap">
+                {(currentSession.status === "active" || currentSession.status === "charging") && (
+                  <button onClick={handlePause} disabled={loadingSession}
+                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50">
+                    <Pause size={18} /> Tạm dừng
+                  </button>
+                )}
+                {currentSession.status === "paused" && (
+                  <button onClick={handleResume} disabled={loadingSession}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+                    <Play size={18} /> Tiếp tục
+                  </button>
+                )}
+                {(currentSession.status === "active" || currentSession.status === "charging" || currentSession.status === "paused") && (
+                  <button onClick={handleStop} disabled={loadingSession}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                    <Square size={18} /> Dừng sạc
+                  </button>
+                )}
+              </div>
+            )}
+            
+            {/* Nút xem thông tin thanh toán - Luôn hiển thị */}
             <div className="flex gap-3 pt-4 border-t flex-wrap">
-              {(currentSession.status === "active" || currentSession.status === "charging") && (
-                <button onClick={handlePause} disabled={loadingSession}
-                  className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50">
-                  <Pause size={18} /> Tạm dừng
-                </button>
-              )}
-              {currentSession.status === "paused" && (
-                <button onClick={handleResume} disabled={loadingSession}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
-                  <Play size={18} /> Tiếp tục
-                </button>
-              )}
-              {(currentSession.status === "active" || currentSession.status === "charging" || currentSession.status === "paused") && (
-                <button onClick={handleStop} disabled={loadingSession}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
-                  <Square size={18} /> Dừng sạc
-                </button>
-              )}
               <button onClick={() => getInvoiceBySession(selectedSessionId)} disabled={loadingSession}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
                 <DollarSign size={18} /> Xem hóa đơn
@@ -280,7 +298,15 @@ const SessionDetails = ({
       {(reconcileResult || loadingReconcile) && (
         <div className="bg-white rounded-lg shadow-md p-6 mt-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">💰 Thông Tin Thanh Toán / Điều Chỉnh</h3>
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              💰 Thông Tin Thanh Toán / Điều Chỉnh
+              {isSessionCompleted && reconcileResult && (
+                <span className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                  <CheckCircle size={16} />
+                  Đã thanh toán
+                </span>
+              )}
+            </h3>
             <button onClick={handleRefreshReconcile} disabled={loadingReconcile}
               className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 text-sm">
               <RefreshCw size={14} className={loadingReconcile ? "animate-spin" : ""} /> Refresh
@@ -295,14 +321,31 @@ const SessionDetails = ({
           ) : (
             <>
               <ReconcileDetailsSection reconcileResult={reconcileResult} selectedSessionId={selectedSessionId} />
-              <PaymentSection
-                reconcileResult={reconcileResult} isPendingPayment={isPendingPayment}
-                isRefundable={isRefundable} isGuestSession={isGuestSession}
-                selectedPaymentMethod={selectedPaymentMethod}
-                handleSelectPaymentMethod={handleSelectPaymentMethod}
-                handleProceedPayment={handleProceedPayment}
-                handleRefund={handleRefund} loadingRefund={loadingRefund}
-              />
+              
+              {/* Chỉ hiển thị phần thanh toán/hoàn tiền nếu phiên chưa hoàn thành */}
+              {!isSessionCompleted ? (
+                <PaymentSection
+                  reconcileResult={reconcileResult} 
+                  isPendingPayment={isPendingPayment}
+                  isRefundable={isRefundable} 
+                  isGuestSession={isGuestSession}
+                  selectedPaymentMethod={selectedPaymentMethod}
+                  handleSelectPaymentMethod={handleSelectPaymentMethod}
+                  handleProceedPayment={handleProceedPayment}
+                  handleRefund={handleRefund} 
+                  loadingRefund={loadingRefund}
+                />
+              ) : (
+                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <CheckCircle size={20} />
+                    <p className="font-medium">Phiên sạc đã hoàn thành và thanh toán thành công</p>
+                  </div>
+                  <p className="text-sm text-green-700 mt-2">
+                    Không thể thực hiện thêm giao dịch cho phiên này.
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>
