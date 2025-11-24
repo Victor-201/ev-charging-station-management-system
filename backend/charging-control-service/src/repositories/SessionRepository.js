@@ -155,7 +155,7 @@ class SessionRepository {
     const q = `
       SELECT session_id, point_id, user_id, started_at, status, metadata
       FROM sessions
-      WHERE station_id = ? AND LOWER(status) IN ('charging', 'pending')
+      WHERE station_id = ? AND LOWER(status) IN ('charging', 'pending','confirmed')
       ORDER BY started_at ASC
     `;
 

@@ -5,11 +5,13 @@ import {
   Zap,
   RefreshCw,
   AlertCircle,
+  History,
+  Activity,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import SessionDetails from "./SessionDetails";
 import PaymentModal from "./PaymentModal";
-import stationService from "@/services/stationService"; // ensure this exists
+import stationService from "@/services/stationService";
 
 const SessionManager = () => {
   const navigate = useNavigate();
@@ -56,12 +58,14 @@ const SessionManager = () => {
   // Refund state
   const [loadingRefund, setLoadingRefund] = useState(false);
 
-  // Assigned station state (dynamically lấy từ API)
+  // Assigned station state
   const [assignedStation, setAssignedStation] = useState(null);
   const [loadingStation, setLoadingStation] = useState(false);
   const [stationError, setStationError] = useState(null);
 
-  // Hàm refresh toàn bộ dữ liệu của session hiện tại
+  // History mode state
+  const [viewMode, setViewMode] = useState("active"); // "active" or "history"
+
   const refreshCurrentSession = useCallback(async () => {
     if (!selectedSessionId) return;
     
@@ -76,7 +80,6 @@ const SessionManager = () => {
     }
   }, [selectedSessionId, getSessionById, getTelemetry, getSessionEvents]);
 
-  // Hàm refresh reconcile data
   const refreshReconcileData = useCallback(async () => {
     if (!selectedSessionId) return;
 
@@ -130,7 +133,6 @@ const SessionManager = () => {
     }
   }, [selectedSessionId, currentSession, reconcileSession, getInvoiceBySession, reconcileResult?.payment_status]);
 
-  // Auto refresh telemetry khi session đang active
   useEffect(() => {
     if (!autoRefresh || !selectedSessionId) return;
     const interval = setInterval(() => {
@@ -144,7 +146,6 @@ const SessionManager = () => {
     return () => clearInterval(interval);
   }, [autoRefresh, selectedSessionId, currentSession?.status, getTelemetry]);
 
-  // loadActivePoints bây giờ nhận stationId động
   const loadActivePoints = useCallback(async (stationId) => {
     if (!stationId) return;
     try {
@@ -173,7 +174,9 @@ const SessionManager = () => {
     const colors = {
       active: "bg-green-100 text-green-800",
       charging: "bg-green-100 text-green-800",
+      pending: "bg-yellow-100 text-yellow-800",
       paused: "bg-yellow-100 text-yellow-800",
+      confirmed: "bg-blue-100 text-blue-800",
       stopped: "bg-gray-100 text-gray-800",
       completed: "bg-blue-100 text-blue-800",
       error: "bg-red-100 text-red-800",
@@ -181,9 +184,6 @@ const SessionManager = () => {
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
-  // ========== LẤY ASSIGNED STATION ==========
-  // 1) Try stationService.getAssignedStation() directly (assumes apiClient sends auth header)
-  // 2) Fallback: read token from localStorage, hash SHA-256 and call endpoint with ?token_hash=...
   const sha256Hex = async (message) => {
     if (!message) return null;
     try {
@@ -203,14 +203,12 @@ const SessionManager = () => {
     setLoadingStation(true);
     setStationError(null);
 
-    // Try direct call first (assumes apiClient includes Authorization header)
     try {
       const res = await stationService.getAssignedStation();
       const data = res?.data ?? res;
       if (data && (data.id || data.station_id)) {
         setAssignedStation(data);
         setLoadingStation(false);
-        // load active points for this station
         await loadActivePoints(data.id || data.station_id);
         return data;
       }
@@ -218,7 +216,6 @@ const SessionManager = () => {
       console.warn("getAssignedStation direct call failed, will attempt token-hash fallback:", err);
     }
 
-    // Fallback: attempt to read token from localStorage and call endpoint with token_hash
     try {
       const tokenKeys = ["token", "access_token", "authToken", "accessToken"];
       let token = null;
@@ -230,7 +227,6 @@ const SessionManager = () => {
         }
       }
 
-      // If not found, try common object 'auth' in localStorage
       if (!token) {
         const authStr = localStorage.getItem("auth") || localStorage.getItem("user");
         if (authStr) {
@@ -250,11 +246,7 @@ const SessionManager = () => {
       const hashed = await sha256Hex(token);
       if (!hashed) throw new Error("Failed to hash token");
 
-      // call endpoint with token_hash param - adjust if your backend expects different param or header
       const url = `api/v1/staff/assigned-station?token_hash=${hashed}`;
-      // use apiClient via stationService if you prefer; here we call stationService.getAssignedStationWithHash if exists
-      // fallback to direct fetch using window.fetch (will not include default apiClient baseURL/headers)
-      // Try stationService if it supports passing params:
       if (stationService.getAssignedStationWithHash) {
         const res2 = await stationService.getAssignedStationWithHash(hashed);
         const data2 = res2?.data ?? res2;
@@ -263,14 +255,12 @@ const SessionManager = () => {
         setLoadingStation(false);
         return data2;
       } else {
-        // best-effort: call with fetch to relative path
         const base = typeof window !== "undefined" ? window.location.origin : "";
         const full = `${base}/api/v1/staff/assigned-station?token_hash=${hashed}`;
         const r = await fetch(full, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            // optionally send Authorization too:
             Authorization: `Bearer ${token}`,
           },
         });
@@ -289,10 +279,32 @@ const SessionManager = () => {
     }
   }, [loadActivePoints]);
 
-  // mount: fetch assigned station
   useEffect(() => {
     fetchAssignedStation();
   }, [fetchAssignedStation]);
+
+  // Filter sessions based on view mode
+  const getFilteredSessions = () => {
+    if (!Array.isArray(activePoints?.active)) return [];
+    
+    if (viewMode === "active") {
+      // Show pending and charging sessions
+      return activePoints.active.filter(point => 
+        point.status === "pending" || 
+        point.status === "charging" ||
+        point.status === "active"
+      );
+    } else {
+      // Show confirm sessions (history)
+      return activePoints.active.filter(point => 
+        point.status === "confirmed" ||
+        point.status === "completed" ||
+        point.status === "stopped"
+      );
+    }
+  };
+
+  const filteredSessions = getFilteredSessions();
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -322,7 +334,7 @@ const SessionManager = () => {
               <button
                 onClick={() => fetchAssignedStation()}
                 disabled={loadingStation || loadingSession}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 <RefreshCw
                   size={18}
@@ -361,58 +373,112 @@ const SessionManager = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Active Points - sticky on large screens */}
+          {/* Active Points with View Toggle */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                Điểm Sạc Hoạt Động (
-                {Array.isArray(activePoints?.active)
-                  ? activePoints.active.length
-                  : 0}
-                )
-              </h2>
+              {/* View Mode Toggle */}
+            <div className="flex items-center gap-4 mb-4">
+  <button
+    onClick={() => setViewMode("active")}
+    className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-medium transition-all 
+      ${
+        viewMode === "active"
+          ? "bg-[#b28a65] text-white shadow-md scale-105 border border-[#8c6d50]"
+          : "bg-[#d7c4b0] text-[#5a4637] scale-90 hover:scale-95"
+      }`}
+  >
+    <Activity size={viewMode === "active" ? 18 : 14} />
+    <span className={viewMode === "active" ? "text-sm" : "text-xs"}>
+      Phiên Sạc
+    </span>
+  </button>
 
-              <div className="space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto">
-                {Array.isArray(activePoints?.active) &&
-                  activePoints.active.map((point, index) => (
-                    <div
-                      key={point.session_id || point.id || `point-${index}`}
-                      onClick={() =>
-                        handleSelectSession(point.session_id || point.id)
-                      }
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        selectedSessionId === (point.session_id || point.id)
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-blue-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-gray-900">
-                          Cổng {point.connector_id || point.point_id}
-                        </span>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                            point.status
-                          )}`}
-                        >
-                          {point.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        User: {point.user_id || "N/A"}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {point.energy_kwh
-                          ? `${point.energy_kwh.toFixed(2)} kWh`
-                          : "0 kWh"}
-                      </p>
+  <button
+    onClick={() => setViewMode("history")}
+    className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-medium transition-all 
+      ${
+        viewMode === "history"
+          ? "bg-[#b28a65] text-white shadow-md scale-105 border border-[#8c6d50]"
+          : "bg-[#d7c4b0] text-[#5a4637] scale-90 hover:scale-95"
+      }`}
+  >
+    <History size={viewMode === "history" ? 18 : 14} />
+    <span className={viewMode === "history" ? "text-sm" : "text-xs"}>
+      Lịch Sử
+    </span>
+  </button>
+</div>
+
+              {/* Session Count */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {viewMode === "active" ? "Đang Hoạt Động" : "Lịch Sử"}
+                </h2>
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                  {filteredSessions.length}
+                </span>
+              </div>
+
+              {/* Sessions List */}
+              <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto">
+                {filteredSessions.map((point, index) => (
+                  <div
+                    key={point.session_id || point.id || `point-${index}`}
+                    onClick={() =>
+                      handleSelectSession(point.session_id || point.id)
+                    }
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                      selectedSessionId === (point.session_id || point.id)
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-gray-200 hover:border-blue-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-gray-900">
+                        Cổng {point.connector_id || point.point_id}
+                      </span>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                          point.status
+                        )}`}
+                      >
+                        {point.status}
+                      </span>
                     </div>
-                  ))}
-                {(!Array.isArray(activePoints?.active) ||
-                  activePoints.active.length === 0) && (
-                  <p className="text-center text-gray-500 py-8">
-                    Không có phiên sạc nào đang hoạt động
-                  </p>
+                    <p className="text-sm text-gray-600">
+                      User: {point.user_id || "N/A"}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {point.energy_kwh
+                        ? `${point.energy_kwh.toFixed(2)} kWh`
+                        : "0 kWh"}
+                    </p>
+                    {point.start_time && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(point.start_time).toLocaleString('vi-VN')}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                
+                {filteredSessions.length === 0 && (
+                  <div className="text-center py-12">
+                    {viewMode === "active" ? (
+                      <>
+                        <Activity size={48} className="mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500">
+                          Không có phiên sạc đang hoạt động
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <History size={48} className="mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500">
+                          Chưa có lịch sử phiên sạc
+                        </p>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -425,6 +491,11 @@ const SessionManager = () => {
                 <Battery size={64} className="mx-auto text-gray-300 mb-4" />
                 <p className="text-gray-500 text-lg">
                   Chọn một phiên sạc để xem chi tiết
+                </p>
+                <p className="text-gray-400 text-sm mt-2">
+                  {viewMode === "active" 
+                    ? "Hiển thị các phiên đang hoạt động" 
+                    : "Hiển thị lịch sử các phiên đã hoàn thành"}
                 </p>
               </div>
             ) : (
