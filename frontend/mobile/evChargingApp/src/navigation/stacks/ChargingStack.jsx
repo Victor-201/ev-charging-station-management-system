@@ -12,6 +12,7 @@ import InvoiceScreen from '../../screens/Payment/InvoiceScreen';
 import ActiveSessionScreen from '../../screens/Charging/ActiveSessionScreen';
 import ChargingSessionDetailScreen from '../../screens/Charging/ChargingSessionDetailScreen';
 
+import InitiateChargingScreen from '../../screens/Charging/InitiateChargingScreen';
 const Stack = createNativeStackNavigator();
 
 export default function ChargingStack() {
@@ -81,6 +82,14 @@ export default function ChargingStack() {
         }}
       />
     </Stack.Navigator>
+
+      <Stack.Screen
+        name="InitiateCharging"
+        component={InitiateChargingScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
   );
 }
 

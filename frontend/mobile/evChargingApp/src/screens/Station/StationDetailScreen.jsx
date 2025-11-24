@@ -154,11 +154,26 @@ export default function StationDetailScreen({ route, navigation }) {
             ))}
 
             <View style={styles.actions}>
-              <TouchableOpacity style={[styles.btn, { backgroundColor: colors.secondaryContainer }]} onPress={()=>navigation.navigate('ReportIssue', { stationId })}>
-                <Text style={{ color: colors.onSecondaryContainer, fontWeight: '700' }}>Báo sự cố</Text>
-              </TouchableOpacity>
               <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={()=>navigation.navigate('SelectChargingPointScreen', { stationId })}>
                 <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Chọn điểm sạc</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.actions, { marginTop: 8 }]}>
+              <TouchableOpacity style={[styles.btn, { backgroundColor: colors.errorContainer, flex: 1 }]} onPress={() => {
+                const mockReservation = {
+                  id: 'res_mock_' + stationId,
+                  station_name: station.name,
+                  station_id: station.id,
+                  charger_id: 'C-01 (Test)',
+                  date: new Date().toLocaleDateString('vi-VN'),
+                  time: new Date().toLocaleTimeString('vi-VN'),
+                };
+                navigation.navigate('Charging', {
+                  screen: 'InitiateCharging',
+                  params: { reservation: mockReservation }
+                });
+              }}>
+                <Text style={{ color: colors.onErrorContainer, fontWeight: '700' }}>Bắt đầu sạc (Test)</Text>
               </TouchableOpacity>
             </View>
           </View>
