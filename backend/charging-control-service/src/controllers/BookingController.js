@@ -355,6 +355,25 @@ exports.calculateCost = async (req, res) => {
 };
 
 
+exports.calculatePricing = async (req, res) => {
+  try {
+    const { point_id, start_time, end_time } = req.query; // GET: lấy từ query
+    const token = req.headers.authorization; // token từ header
+
+    if (!point_id || !start_time || !end_time) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // gọi service để tính tiền
+    const price = await chargingService.calculatePricing(point_id, start_time, end_time, token);
+
+    res.json({ price });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to calculate pricing" });
+  }
+};
+
 /**
  * Finalize reservation: complete, set end_time, calculate cost
  * POST /reservations/:reservation_id/finalize

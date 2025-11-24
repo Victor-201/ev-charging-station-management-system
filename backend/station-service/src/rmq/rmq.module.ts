@@ -23,12 +23,15 @@ export class RmqModule {
             useFactory: (configService: ConfigService) => {
               const url = configService.getOrThrow<string>('RABBITMQ_URL');
               const queue = configService.getOrThrow<string>(`RABBITMQ_${name}_QUEUE`);
+              const exchange = configService.getOrThrow<string>('EXCHANGE_NAME');
 
               return {
                 transport: Transport.RMQ,
                 options: {
                   urls: [url],
                   queue,
+                  exchange: exchange,
+                  exchangeType: 'direct'
                 },
               };
             },

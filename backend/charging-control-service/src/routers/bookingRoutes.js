@@ -28,6 +28,7 @@ router.put('/:reservation_id', authenticate, bookingCtrl.updateReservation);
 // Cancel reservation
 router.delete('/:reservation_id', authenticate, bookingCtrl.cancelReservation);
 
+router.get('/pricing', authenticate, bookingCtrl.calculatePricing);
 // ====================
 // 🕓 WAITLIST APIs
 // ====================

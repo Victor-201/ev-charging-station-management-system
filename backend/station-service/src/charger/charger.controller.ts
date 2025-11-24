@@ -61,14 +61,12 @@ export class ChargerController {
     @EventPattern('start_session')
     handleStartSession(@Payload() data: any, @Ctx() context: RmqContext) {
         this.rmqService.ack(context);
-        console.log('Data in rabbitmq: ', data);
         this.chargerService.handleStartSession(data);
     }
 
     @EventPattern('stop_session')
     handleStopSession(@Payload() data: any, @Ctx() context: RmqContext) {
         this.rmqService.ack(context);
-        console.log('Data in rabbitmq: ', data);
         this.chargerService.handleStopSession(data);
     }
 }
