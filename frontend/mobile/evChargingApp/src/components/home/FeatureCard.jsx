@@ -1,4 +1,3 @@
-import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -12,7 +11,6 @@ export default function FeatureCard({
   badgeCount
 }) {
   const { colors } = useTheme();
-  const defaultGradient = [colors.primary, '#0052CC'];
 
   return (
     <TouchableOpacity
@@ -20,11 +18,8 @@ export default function FeatureCard({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <LinearGradient
-        colors={gradientColors || defaultGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
+      <View
+        style={[styles.gradient, { backgroundColor: (gradientColors && gradientColors[0]) || colors.primary }]}
       >
         {/* Badge */}
         {typeof badgeCount === 'number' && badgeCount > 0 && (
@@ -53,7 +48,7 @@ export default function FeatureCard({
 
         {/* Decorative circle */}
         <View style={styles.decorativeCircle} />
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 }

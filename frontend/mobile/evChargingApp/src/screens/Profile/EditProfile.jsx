@@ -226,5 +226,4 @@ export default function EditProfile({ navigation }) {
   );
 };
 
-export default EditProfile;
 

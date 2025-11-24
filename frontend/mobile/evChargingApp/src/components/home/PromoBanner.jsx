@@ -1,11 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const { width } = Dimensions.get('window');
-
-export default function PromoBanner({ 
+export default function PromoBanner({
   title, 
   description, 
   buttonText, 
@@ -15,11 +11,8 @@ export default function PromoBanner({
 }) {
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
+      <View
+        style={[styles.gradient, { backgroundColor: gradientColors?.[0] || '#f60d01' }]}
       >
         {/* Icon */}
         <View style={styles.iconContainer}>
@@ -47,7 +40,7 @@ export default function PromoBanner({
         <View style={styles.circle1} />
         <View style={styles.circle2} />
         <View style={styles.circle3} />
-      </LinearGradient>
+      </View>
     </View>
   );
 }
