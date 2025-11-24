@@ -79,8 +79,7 @@ export default function Stations() {
 
   // ===== Lấy danh sách stations (xung quanh) =====
   useEffect(() => {
-    const params = { lat: 10.9, lng: 106.8, radius: 10 };
-    getAll(params);
+    getAll();
   }, [getAll]);
 
   // Khi mount: lấy assigned station

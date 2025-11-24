@@ -4,16 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
-import { FEATURES } from '../../config/featureFlags';
 
 import { getMe } from '../../store/slices/userSlice';
 import { getWallet } from '../../store/slices/walletSlice';
 import { getNotifications } from '../../store/slices/notificationSlice';
+import useChargingHistory from '../../hooks/useChargingHistory';
+import useWalletTransactions from '../../hooks/useWalletTransactions';
+import { timeAgo } from '../../utils/dateUtils';
 
-
-import Header from '../../components/layout/Header';
-import QuickActionCard from '../../components/cards/QuickActionCard';
-import StatCard from '../../components/cards/StatCard';
+// New modern components
+import HeroSection from '../../components/home/HeroSection';
+import FeatureCard from '../../components/home/FeatureCard';
+import QuickAccessGrid from '../../components/home/QuickAccessGrid';
+import PromoBanner from '../../components/home/PromoBanner';
+import RecentActivityCard from '../../components/home/RecentActivityCard';
+import StatsOverview from '../../components/home/StatsOverview';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -47,24 +52,161 @@ export default function HomeScreen() {
     if (userProfile?.user_id) {
       dispatch(getWallet(userProfile.user_id));
       // fetch notifications to update badge
+
       dispatch(getNotifications(userProfile.user_id));
     }
   }, [userProfile, dispatch]);
 
-  // Mock stats - TODO: fetch from analytics API
-  // Quick actions
-  const quickActions = [
-    { id: 'find-station', title: 'Tìm trạm sạc', subtitle: 'Tìm trạm sạc gần nhất', onPress: () => navigation.navigate('Map') },
-    { id: 'notifications', title: 'Thông báo', subtitle: 'Tin mới từ hệ thống', onPress: () => navigation.navigate('Notification'), badgeCount: unreadCount },
-    { id: 'charging-history', title: 'Lịch sử sạc', subtitle: 'Xem lịch sử sạc xe', onPress: () => navigation.navigate('Charging', { screen: 'ChargingHistory' }) },
+  // Feature cards with gradient colors
+  const featureCards = [
     {
-      id: 'wallet',
-      title: 'Ví của tôi',
-      subtitle: walletLoading ? 'Đang tải...' : `${(wallet?.balance || 0).toLocaleString()} VND`,
-      onPress: () => navigation.navigate('Wallet'),
+      icon: 'ev-station',
+      title: 'Trạm sạc',
+      subtitle: 'Tìm và đặt chỗ tại trạm sạc gần bạn',
+      gradientColors: [colors.brand500],
+      onPress: () => navigation.navigate('Map'),
     },
-    { id: 'profile', title: 'Hồ sơ', subtitle: 'Quản lý thông tin cá nhân', onPress: () => navigation.navigate('Profile') },
+    {
+      icon: 'bell-ring',
+      title: 'Thông báo',
+      subtitle: 'Cập nhật mới nhất từ hệ thống',
+      gradientColors: [colors.warning],
+      badgeCount: unreadCount,
+      onPress: () => navigation.navigate('Notification'),
+    },
+    {
+      icon: 'history',
+      title: 'Lịch sử sạc',
+      subtitle: 'Xem chi tiết các lần sạc trước đây',
+      gradientColors: [colors.success],
+      onPress: () => navigation.navigate('History', { screen: 'ChargingHistory' }),
+    },
   ];
+
+  // Quick access grid items
+  const quickAccessItems = [
+    {
+      icon: 'wallet',
+      label: 'Ví',
+      onPress: () => navigation.navigate('Wallet'),
+      iconColor: colors.success,
+      bgColor: colors.success + '20',
+    },
+    {
+      icon: 'account',
+      label: 'Hồ sơ',
+      onPress: () => navigation.navigate('Profile'),
+      iconColor: colors.primary,
+      bgColor: colors.primary + '20',
+    },
+    {
+      icon: 'car-electric',
+      label: 'Xe của tôi',
+      onPress: () => navigation.navigate('Profile', { screen: 'VehicleListScreen' }),
+      iconColor: colors.warning,
+      bgColor: colors.warning + '20',
+    },
+    {
+      icon: 'credit-card',
+      label: 'Thanh toán',
+      onPress: () => navigation.navigate('Wallet', { screen: 'WalletMain' }),
+      iconColor: colors.error,
+      bgColor: colors.error + '20',
+    },
+    {
+      icon: 'calendar-clock',
+      label: 'Đặt chỗ',
+      onPress: () => navigation.navigate('Map', { screen: 'MyBookingsScreen' }),
+      iconColor: colors.brand300,
+      bgColor: colors.brand300 + '20',
+    },
+    {
+      icon: 'chart-line',
+      label: 'Thống kê',
+      onPress: () => navigation.navigate('History', { screen: 'ChargingHistory' }),
+      iconColor: colors.success,
+      bgColor: colors.success + '20',
+    },
+    {
+      icon: 'gift',
+      label: 'Ưu đãi',
+      onPress: () => navigation.navigate('Profile', { screen: 'SubscriptionScreen' }),
+      iconColor: colors.error,
+      bgColor: colors.error + '20',
+    },
+    {
+      icon: 'help-circle',
+      label: 'Trợ giúp',
+      onPress: () => {},
+      iconColor: colors.warning,
+      bgColor: colors.warning + '20',
+    },
+  ];
+
+  // Real sessions and transactions
+  const { sessions = [] } = useChargingHistory({ autoFetch: true });
+  const { transactions = [] } = useWalletTransactions({ autoFetch: true, params: { limit: 10 } });
+
+  // Stats based on recent sessions (last 30 days)
+  const statsData = (() => {
+    if (!sessions || sessions.length === 0) return [];
+    const now = Date.now();
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const recent = sessions.filter(s => {
+      const t = new Date(s.end_time || s.completed_at || s.updated_at || s.created_at).getTime();
+      return Number.isFinite(t) && now - t <= THIRTY_DAYS;
+    });
+    const totalCharges = recent.length;
+    const totalEnergy = recent.reduce((sum, s) => sum + (Number(s.energy_consumed || s.energyConsumed) || 0), 0);
+    const totalCost = recent.reduce((sum, s) => sum + (Number(s.cost || s.total_cost || s.totalCost) || 0), 0);
+    const co2SavedKg = totalEnergy * 0.5; // approx factor
+
+    return [
+      { icon: 'lightning-bolt', value: String(totalCharges), label: 'Lần sạc', iconColor: colors.success, iconBg: colors.success + '20' },
+      { icon: 'battery-charging-80', value: `${totalEnergy.toFixed(1)} kWh`, label: 'Năng lượng', iconColor: colors.primary, iconBg: colors.primary + '20' },
+      { icon: 'cash', value: `${Math.round(totalCost).toLocaleString('vi-VN')} ₫`, label: 'Chi phí', iconColor: colors.warning, iconBg: colors.warning + '20' },
+      { icon: 'leaf', value: `${co2SavedKg.toFixed(0)} kg`, label: 'CO₂ giảm', iconColor: colors.success, iconBg: colors.success + '20' },
+    ];
+  })();
+
+  // Recent activities combined from charging sessions and wallet transactions
+  const recentActivities = (() => {
+    const sessionActs = (sessions || []).slice(0, 5).map(s => {
+      const energy = Number(s.energy_consumed || s.energyConsumed) || 0;
+      const stationName = s.station_name || s.stationName || 'Trạm sạc';
+      const ts = new Date(s.end_time || s.completed_at || s.updated_at || s.created_at).getTime();
+      return {
+        icon: 'lightning-bolt',
+        title: 'Sạc hoàn tất',
+        subtitle: `${stationName} - ${energy.toFixed(1)} kWh`,
+        time: timeAgo(ts),
+        ts,
+        iconBg: colors.success + '20',
+        iconColor: colors.success,
+      };
+    });
+
+    const txActs = (transactions || []).slice(0, 5).map(tx => {
+      const isTopup = (tx.type || tx.transaction_type) === 'topup' || (tx.amount > 0 && (tx.direction === 'in'));
+      const amount = Math.abs(Number(tx.amount || tx.total_amount) || 0).toLocaleString('vi-VN');
+      const ts = new Date(tx.created_at || tx.timestamp || tx.date).getTime();
+      return {
+        icon: isTopup ? 'cash-plus' : 'cash-minus',
+        title: isTopup ? 'Nạp tiền' : 'Thanh toán',
+        subtitle: `${isTopup ? '+' : '-'}${amount} ₫`,
+        time: timeAgo(ts),
+        ts,
+        iconBg: (isTopup ? colors.primary : colors.error) + '20',
+        iconColor: isTopup ? colors.primary : colors.error,
+      };
+    });
+
+    return [...sessionActs, ...txActs]
+      .filter(a => Number.isFinite(a.ts))
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 3)
+      .map(({ ts, ...rest }) => rest);
+  })();
 
   // Show loading state while fetching user profile
   if ((authLoading || (userProfile && walletLoading)) && !wallet) {
@@ -77,35 +219,63 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView>
-      <Header user={userProfile} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Hero Section with gradient */}
+        <HeroSection
+          user={userProfile}
+          balance={wallet?.balance || 0}
+          onFindStation={() => navigation.navigate('Map')}
+        />
 
-      {/* Thao tác nhanh */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.brand600 }]}>Thao tác nhanh</Text>
-        {quickActions.map((a) => (
-          <QuickActionCard key={a.id} {...a} />
-        ))}
-      </View>
-
-      {/* Thống kê (ẩn bằng feature flag khi analytics-service chưa sẵn) */}
-      {FEATURES.analytics && (
+        {/* Feature Cards */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.brand600 }]}>Thống kê cá nhân</Text>
-          <View style={styles.statsGrid}>
-            <StatCard number={stats.totalCharges.toString()} label="Lần sạc" />
-            <StatCard number={`${stats.totalEnergy} kWh`} label="Năng lượng" />
-          </View>
+          {featureCards.map((card, index) => (
+            <FeatureCard key={index} {...card} />
+          ))}
         </View>
-      )}
-          </ScrollView>
+
+        {/* Promo Banner */}
+        <PromoBanner
+          title="Ưu đãi đặc biệt!"
+          description="Giảm 20% cho lần sạc tiếp theo khi nạp từ 500K"
+          buttonText="Xem chi tiết"
+          onPress={() => navigation.navigate('Profile', { screen: 'SubscriptionScreen' })}
+          gradientColors={[colors.error]}
+          icon="gift"
+        />
+
+        {/* Quick Access Grid */}
+        <QuickAccessGrid items={quickAccessItems} />
+
+        {/* Stats Overview */}
+        {statsData.length > 0 && (
+          <StatsOverview stats={statsData} />
+        )}
+
+        {/* Recent Activity */}
+        <RecentActivityCard
+          activities={recentActivities}
+          onViewAll={() => navigation.navigate('History', { screen: 'ChargingHistory' })}
+        />
+
+        {/* Bottom spacing */}
+        <View style={{ height: 32 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { padding: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-  statsGrid: { flexDirection: 'row', gap: 12 },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  section: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
 });

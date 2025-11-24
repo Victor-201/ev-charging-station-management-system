@@ -1,93 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Card, Title, Button, ActivityIndicator, Divider, Avatar } from 'react-native-paper';
+import { Text, Button, ActivityIndicator, useTheme } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
+
 import chargingService from '../../services/chargingService';
-import { useTheme } from 'react-native-paper';
+import ChargingCompleteHeader from '../../components/charging/ChargingCompleteHeader';
+import InfoRow from '../../components/common/InfoRow';
 
 const getStyles = (colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: colors.error,
-  },
-  header: {
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: colors.primary,
-  },
-  icon: {
-    backgroundColor: 'transparent',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.onPrimary,
-    marginTop: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.onPrimary + 'B3',
-    marginTop: 4,
-  },
-  card: {
-    margin: 16,
-    backgroundColor: colors.surface,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.onSurface
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  label: {
-    fontSize: 16,
-    color: colors.onSurface + '80',
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.onSurface,
-  },
-  divider: {
-    marginVertical: 8,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.onSurface,
-  },
-  totalValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: colors.error, marginBottom: 16 },
+  content: { padding: 16, marginTop: -32 }, // Pull up to overlap header
+  card: { backgroundColor: colors.surface, borderRadius: 12, padding: 16 },
   actionsContainer: {
     padding: 16,
-  },
-  button: {
-    marginBottom: 12,
-  },
-  homeButton: {
-    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.outline,
+    backgroundColor: colors.surface,
   },
 });
 
@@ -102,22 +33,25 @@ const ChargingCompleteScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        setLoading(true);
-        const { data } = await chargingService.getSession(sessionId);
-        setSession(data);
-      } catch (err) {
-        setError('Không thể tải thông tin phiên sạc.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (sessionId) {
-      fetchSession();
+  const fetchSession = async () => {
+    if (!sessionId) {
+      setError('Không có ID phiên sạc.');
+      setLoading(false);
+      return;
     }
+    try {
+      setLoading(true);
+      const { data } = await chargingService.getSession(sessionId);
+      setSession(data);
+    } catch (err) {
+      setError('Không thể tải thông tin phiên sạc.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSession();
   }, [sessionId]);
 
   if (loading) {
@@ -128,18 +62,11 @@ const ChargingCompleteScreen = () => {
     );
   }
 
-  if (error) {
+  if (error || !session) {
     return (
       <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
-        <Text style={styles.errorText}>{error}</Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (!session) {
-    return (
-      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
-        <Text>Không tìm thấy thông tin phiên sạc.</Text>
+        <Text style={styles.errorText}>{error || 'Không tìm thấy thông tin phiên sạc.'}</Text>
+        <Button onPress={fetchSession}>Thử lại</Button>
       </SafeAreaView>
     );
   }
@@ -147,61 +74,35 @@ const ChargingCompleteScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView>
-      <View style={styles.header}>
-        <Avatar.Icon size={64} icon="check-circle" style={styles.icon} color={colors.onPrimary} />
-        <Text style={styles.title}>Sạc Hoàn Tất</Text>
-        <Text style={styles.subtitle}>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</Text>
-      </View>
-
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text style={styles.cardTitle}>Tóm tắt phiên sạc</Text>
-          <Divider style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Trạm sạc:</Text>
-            <Text style={styles.value}>{session.station_name}</Text>
+        <ChargingCompleteHeader />
+        <View style={styles.content}>
+          <View style={styles.card}>
+            <InfoRow icon="map-marker-outline" label="Trạm sạc" value={session.station_name} />
+            <InfoRow icon="flash" label="Năng lượng" value={`${session.energy_consumed?.toFixed(2)} kWh`} />
+            <InfoRow icon="timer-outline" label="Thời gian" value={`${new Date(session.duration * 1000).toISOString().substr(11, 8)}`} />
+            <InfoRow icon="cash" label="Tổng chi phí" value={`${session.cost?.toLocaleString('vi-VN')} ₫`} isLast />
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Năng lượng tiêu thụ:</Text>
-            <Text style={styles.value}>{session.energy_consumed?.toFixed(2)} kWh</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Thời gian sạc:</Text>
-            <Text style={styles.value}>{new Date(session.duration * 1000).toISOString().substr(11, 8)}</Text>
-          </View>
-          <Divider style={styles.divider} />
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tổng chi phí</Text>
-            <Text style={styles.totalValue}>{session.cost?.toLocaleString('vi-VN')} ₫</Text>
-          </View>
-        </Card.Content>
-      </Card>
+        </View>
+      </ScrollView>
 
       <View style={styles.actionsContainer}>
         <Button
           mode="contained"
           icon="receipt"
-          style={styles.button}
-          onPress={() => navigation.navigate('InvoiceDetail', { id: session.invoice_id })}
+          style={{ marginBottom: 12 }}
+          onPress={() => navigation.navigate('History', {
+            screen: 'SessionDetail',
+            params: { sessionId: session.id || session.session_id }
+          })}
         >
-          Xem hóa đơn
-        </Button>
-        <Button
-          mode="outlined"
-          icon="star-outline"
-          style={styles.button}
-          onPress={() => { /* TODO: Navigate to Rating screen */ }}
-        >
-          Đánh giá trải nghiệm
+          Xem chi tiết
         </Button>
         <Button
           onPress={() => navigation.popToTop()}
-          style={styles.homeButton}
         >
           Về màn hình chính
         </Button>
       </View>
-      </ScrollView>
     </SafeAreaView>
   );
 };

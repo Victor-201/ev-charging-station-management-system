@@ -1,12 +1,16 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar, List, Button, ActivityIndicator, Text, useTheme } from 'react-native-paper';
+import { List, Button, ActivityIndicator, Text, useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMe } from '../../store/slices/userSlice';
 import { UserRole } from '../../config/roles';
 import { logoutAsync } from '../../store/slices/authSlice';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import AnimatedListItem from '../../components/common/AnimatedListItem';
+import EnhancedRefreshControl from '../../components/common/EnhancedRefreshControl';
+import ProfileHeader from '../../components/profile/ProfileHeader';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' }, // iOS-like grouped table view background
@@ -62,7 +66,7 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.headerContainer}>
           <Avatar.Image
             size={90}
-            source={{ uri: user?.avatar_url || `https://ui-avatars.com/api/?name=${user?.full_name || 'U'}&background=random` }}
+            source={{ uri: user?.avatar_url || `https://api.dicebear.com/8.x/avataaars/svg?seed=${encodeURIComponent(user?.full_name || 'User')}` }}
             style={styles.avatar}
           />
           <Text style={styles.userName}>{user?.full_name || 'User Name'}</Text>
@@ -143,5 +147,7 @@ const ProfileScreen = ({ navigation }) => {
       </ScrollView>
     </SafeAreaView>
   );
-}
+};
+
+export default ProfileScreen;
 

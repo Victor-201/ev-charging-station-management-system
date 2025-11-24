@@ -1,92 +1,31 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Card, Button, ActivityIndicator, Divider } from 'react-native-paper';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { Text, Button, ActivityIndicator, useTheme } from 'react-native-paper';
+import { useRoute, useNavigation, CommonActions } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import useSocket from '../../hooks/useSocket';
 import { updateTelemetry } from '../../store/slices/chargingSlice';
-import { useTheme } from 'react-native-paper';
 import useCharging from '../../hooks/useCharging';
-import ChargingProgress from './ChargingProgress';
+import ChargingProgressCircle from '../../components/charging/ChargingProgressCircle';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const getStyles = (colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100, // Space for fixed controls
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: colors.error,
-  },
-  card: {
-    marginBottom: 16,
-    backgroundColor: colors.surface,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-    color: colors.onSurface,
-  },
-  stationName: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    color: colors.onSurface,
-    marginBottom: 4,
-  },
-  connectorInfo: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: colors.onSurface + '80',
-  },
-  statsContainer: {
-    paddingVertical: 16,
-  },
-  statItem: {
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  statLabel: {
-    fontSize: 16,
-    color: colors.onSurface + '80',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 4,
-    color: colors.onSurface,
-  },
-  divider: {
-    marginVertical: 8,
-  },
-  controlsContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.onSurface + '20',
-  },
-  controlButton: {
-    marginBottom: 12,
-    paddingVertical: 8,
-  },
-  stopButton: {
-    paddingVertical: 8,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: colors.error, marginBottom: 16 },
+  // Content
+  content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
+  stationName: { fontSize: 20, fontWeight: '700', color: colors.onSurface, marginTop: 24, textAlign: 'center' },
+  connectorInfo: { fontSize: 16, color: colors.onSurfaceVariant, textAlign: 'center' },
+  // Stats Row
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 24 },
+  statBox: { alignItems: 'center' },
+  statValue: { fontSize: 18, fontWeight: 'bold', color: colors.onSurface },
+  statLabel: { fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4 },
+  // Controls
+  controlsContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: colors.surface },
+  stopButton: { paddingVertical: 8, borderRadius: 30 },
 });
 
 const ActiveChargingScreen = () => {
@@ -97,194 +36,95 @@ const ActiveChargingScreen = () => {
   const route = useRoute();
   const { sessionId } = route.params;
   const { activeSession, loading, error } = useSelector((state) => state.charging);
-  const { getTelemetry, pause, resume, stop } = useCharging();
-  const [actionLoading, setActionLoading] = useState(null); // 'pause', 'resume', 'stop'
+  const { getTelemetry, stop } = useCharging();
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // WebSocket event handlers
-  const eventHandlers = useCallback({
-    charging_update: (data) => {
-      dispatch(updateTelemetry({ sessionId, telemetry: data }));
-    },
-    session_terminated: (data) => {
-      Alert.alert('Phiên sạc đã kết thúc', data.message || 'Phiên sạc của bạn đã hoàn tất.', [
-        { text: 'OK', onPress: () => navigation.navigate('ChargingComplete', { sessionId }) },
-      ]);
-    },
-    error: (err) => {
-      console.error('Socket error:', err);
+  const eventHandlers = useCallback((data) => {
+    if (data.sessionId === sessionId) {
+      dispatch(updateTelemetry({ telemetry: data }));
     }
-  }, [dispatch, navigation, sessionId]);
+  }, [dispatch, sessionId]);
 
-  useSocket(eventHandlers);
+  useSocket({ 'charging_update': eventHandlers });
 
-  // Header action to open realtime detail screen
   useEffect(() => {
     if (!sessionId) return;
-    navigation.setOptions({
-      headerRight: () => (
-        <Button compact mode="text" onPress={() => navigation.navigate('ChargingSessionDetail', { sessionId })}>
-          Realtime
-        </Button>
-      ),
-    });
-  }, [navigation, sessionId]);
-
-
-  // Polling fallback for telemetry updates (every 5 seconds)
-  useEffect(() => {
-    if (!sessionId) return;
-
-    const pollTelemetry = async () => {
-      try {
-        await getTelemetry(sessionId);
-      } catch (error) {
-        console.error('Telemetry polling error:', error);
-      }
-    };
-
-    // Initial fetch
-    pollTelemetry();
-
-    // Set up polling interval
-    const interval = setInterval(pollTelemetry, 5000);
-
+    const interval = setInterval(() => getTelemetry(sessionId), 5000);
     return () => clearInterval(interval);
   }, [sessionId, getTelemetry]);
 
-  const handleAction = async (action) => {
-    setActionLoading(action);
+  const handleStopCharging = async () => {
+    setActionLoading(true);
     try {
-      let result;
-      switch (action) {
-        case 'pause':
-          result = await pause(sessionId);
-          if (result.error) {
-            throw new Error(result.error.message || 'Không thể tạm dừng');
-          }
-          Alert.alert('Thành công', 'Đã tạm dừng phiên sạc');
-          break;
-        case 'resume':
-          result = await resume(sessionId);
-          if (result.error) {
-            throw new Error(result.error.message || 'Không thể tiếp tục');
-          }
-          Alert.alert('Thành công', 'Đã tiếp tục phiên sạc');
-          break;
-        case 'stop':
-          result = await stop(sessionId);
-          if (result.error) {
-            throw new Error(result.error.message || 'Không thể dừng');
-          }
-          // Navigate to complete screen
-          navigation.replace('ChargingComplete', { sessionId });
-          break;
-        default:
-          break;
-      }
+      const result = await stop(sessionId);
+      if (result.error) throw new Error(result.error.message || 'Không thể dừng phiên sạc');
+
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 1,
+          routes: [
+            { name: 'Main' },
+            { name: 'ChargingComplete', params: { sessionId } },
+          ],
+        })
+      );
     } catch (err) {
-      Alert.alert('Lỗi', err.message || `Không thể thực hiện hành động`);
+      Alert.alert('Lỗi', err.message);
     } finally {
-      setActionLoading(null);
+      setActionLoading(false);
     }
   };
 
   if (loading && !activeSession) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    return <View style={styles.centered}><ActivityIndicator size="large" /></View>;
   }
 
-  if (error) {
-    return <View style={styles.centered}><Text style={styles.errorText}>{error}</Text></View>;
+  if (error || !activeSession) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{error || 'Không tìm thấy phiên sạc.'}</Text>
+        <Button onPress={() => navigation.goBack()}>Quay lại</Button>
+      </View>
+    );
   }
 
-  if (!activeSession) {
-    return <View style={styles.centered}><Text>Không tìm thấy thông tin phiên sạc.</Text></View>;
-  }
+  const progress = (activeSession.energy_consumed || 0) / (activeSession.target_energy || 50);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Station Info Header */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.title}>Đang sạc...</Text>
-            <Text style={styles.stationName}>{activeSession.station_name || 'Trạm sạc'}</Text>
-            <Text style={styles.connectorInfo}>
-              Cổng sạc: {activeSession.connector_id || activeSession.point_id || 'N/A'}
-            </Text>
-          </Card.Content>
-        </Card>
-
-        {/* Charging Progress Component */}
-        <ChargingProgress
-          currentEnergy={activeSession.energy_consumed || 0}
-          targetEnergy={activeSession.target_energy || 50}
-          chargingRate={activeSession.charging_rate || activeSession.power_kw || 0}
-          estimatedTime={activeSession.estimated_time || 0}
-          batteryLevel={activeSession.battery_level || activeSession.soc || 0}
-          status={activeSession.status || 'CHARGING'}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.content}>
+        <ChargingProgressCircle
+          progress={progress}
+          soc={activeSession.soc || 0}
+          power={activeSession.power_kw || 0}
         />
+        <Text style={styles.stationName}>{activeSession.station_name || 'Trạm sạc'}</Text>
+        <Text style={styles.connectorInfo}>Cổng sạc: {activeSession.connector_id || 'N/A'}</Text>
 
-        {/* Session Stats */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Năng lượng tiêu thụ</Text>
-              <Text style={styles.statValue}>{activeSession.energy_consumed?.toFixed(2) || 0} kWh</Text>
-            </View>
-            <Divider style={styles.divider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Thời gian sạc</Text>
-              <Text style={styles.statValue}>
-                {activeSession.duration ?
-                  new Date(activeSession.duration * 1000).toISOString().substring(11, 19) :
-                  '00:00:00'
-                }
-              </Text>
-            </View>
-            <Divider style={styles.divider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Chi phí hiện tại</Text>
-              <Text style={styles.statValue}>{activeSession.cost?.toLocaleString('vi-VN') || 0} ₫</Text>
-            </View>
-          </Card.Content>
-        </Card>
-      </ScrollView>
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Icon name="timer-outline" size={24} color={colors.onSurfaceVariant} />
+            <Text style={styles.statValue}>{new Date((activeSession.duration || 0) * 1000).toISOString().substr(11, 8)}</Text>
+            <Text style={styles.statLabel}>Thời gian</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Icon name="cash" size={24} color={colors.onSurfaceVariant} />
+            <Text style={styles.statValue}>{(activeSession.cost || 0).toLocaleString('vi-VN')} ₫</Text>
+            <Text style={styles.statLabel}>Chi phí</Text>
+          </View>
+        </View>
+      </View>
 
-      {/* Control Buttons */}
       <View style={styles.controlsContainer}>
-        {activeSession.status === 'CHARGING' ? (
-          <Button
-            mode="contained"
-            onPress={() => handleAction('pause')}
-            loading={actionLoading === 'pause'}
-            disabled={actionLoading}
-            style={styles.controlButton}
-            buttonColor={colors.warning}
-            icon="pause-circle"
-          >
-            Tạm dừng
-          </Button>
-        ) : (
-          <Button
-            mode="contained"
-            onPress={() => handleAction('resume')}
-            loading={actionLoading === 'resume'}
-            disabled={actionLoading}
-            style={styles.controlButton}
-            buttonColor={colors.success}
-            icon="play-circle"
-          >
-            Tiếp tục
-          </Button>
-        )}
         <Button
           mode="contained"
           buttonColor={colors.error}
-          onPress={() => handleAction('stop')}
-          loading={actionLoading === 'stop'}
+          onPress={handleStopCharging}
+          loading={actionLoading}
           disabled={actionLoading}
           style={styles.stopButton}
           icon="stop-circle"
+          contentStyle={{ paddingVertical: 8 }}
         >
           Dừng sạc
         </Button>

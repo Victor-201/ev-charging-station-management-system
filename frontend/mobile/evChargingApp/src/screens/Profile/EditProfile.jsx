@@ -133,7 +133,7 @@ export default function EditProfile({ navigation }) {
           <TouchableOpacity onPress={handleAvatarChange}>
             <Avatar.Image
               size={100}
-              source={{ uri: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || 'U'}` }}
+              source={{ uri: profile?.avatar_url || `https://api.dicebear.com/8.x/avataaars/svg?seed=${encodeURIComponent(profile?.full_name || 'User')}` }}
             />
             <View style={styles.avatarEditIcon}>
               <Avatar.Icon size={30} icon="camera" color={colors.primary} />
@@ -224,5 +224,6 @@ export default function EditProfile({ navigation }) {
       </ScrollView>
     </SafeAreaView>
   );
-}
+};
+
 

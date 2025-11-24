@@ -1,12 +1,16 @@
-import React, { useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { View, StyleSheet, FlatList, LayoutAnimation, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, ActivityIndicator, Button } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import useChargingHistory from '../../hooks/useChargingHistory';
 import SessionCard from '../../components/charging/SessionCard';
+import AnimatedListItem from '../../components/common/AnimatedListItem';
+import EnhancedRefreshControl from '../../components/common/EnhancedRefreshControl';
+import { SkeletonList } from '../../components/common/SkeletonLoader';
 import { useTheme } from 'react-native-paper';
+import { LayoutAnimations } from '../../utils/animations';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -64,6 +68,13 @@ const ChargingHistoryScreen = ({ navigation }) => {
     refresh,
   } = useChargingHistory({ autoFetch: true });
 
+  // Animate list when data changes (iOS only)
+  useEffect(() => {
+    if (Platform.OS === 'ios' && sessions.length > 0 && !loading) {
+      LayoutAnimation.configureNext(LayoutAnimations.spring);
+    }
+  }, [sessions.length, loading]);
+
   // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -71,11 +82,17 @@ const ChargingHistoryScreen = ({ navigation }) => {
     }, [fetchHistory])
   );
 
-  const renderItem = ({ item }) => (
-    <SessionCard
-      session={item}
-      onPress={() => navigation.navigate('SessionDetail', { session: item })}
-    />
+  const renderItem = ({ item, index }) => (
+    <AnimatedListItem
+      index={index}
+      delay={0}
+      staggerDelay={50}
+    >
+      <SessionCard
+        session={item}
+        onPress={() => navigation.navigate('SessionDetail', { session: item })}
+      />
+    </AnimatedListItem>
   );
 
   const renderEmptyComponent = () => (
@@ -90,12 +107,9 @@ const ChargingHistoryScreen = ({ navigation }) => {
 
   if (loading && !refreshing && sessions.length === 0) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ marginTop: 16, color: colors.onSurfaceVariant }}>
-          Đang tải lịch sử sạc...
-        </Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <SkeletonList count={5} />
+      </SafeAreaView>
     );
   }
 
@@ -120,11 +134,10 @@ const ChargingHistoryScreen = ({ navigation }) => {
         contentContainerStyle={sessions.length === 0 ? { flex: 1 } : styles.listContainer}
         ListEmptyComponent={renderEmptyComponent}
         refreshControl={
-          <RefreshControl
+          <EnhancedRefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            enableHaptic={true}
           />
         }
       />

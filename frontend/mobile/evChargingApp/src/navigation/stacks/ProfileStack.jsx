@@ -9,8 +9,7 @@ import VehicleListScreen from '../../screens/Profile/VehicleListScreen';
 import AddVehicleScreen from '../../screens/Profile/AddVehicleScreen';
 import EditVehicleScreen from '../../screens/Profile/EditVehicleScreen';
 import ChangePasswordScreen from '../../screens/Profile/ChangePasswordScreen';
-import AccountSettingsScreen from '../../screens/Profile/AccountSettingsScreen';
-import ReservationStack from './ReservationStack';
+
 import SubscriptionScreen from '../../screens/Subscription/SubscriptionScreen';
 import AdminDashboardScreen from '../../screens/Admin/AdminDashboardScreen';
 
@@ -32,9 +31,7 @@ export default function ProfileStack() {
       <Stack.Screen name="ChangePasswordScreen" component={ChangePasswordScreen} />
       <Stack.Screen name="SubscriptionScreen" component={SubscriptionScreen} />
 
-      <Stack.Screen name="AccountSettingsScreen" component={AccountSettingsScreen} />
       <Stack.Screen name="AdminDashboardScreen" component={AdminDashboardScreen} />
-      <Stack.Screen name="ReservationStack" component={ReservationStack} />
     </Stack.Navigator>
   );
 }

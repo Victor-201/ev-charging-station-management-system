@@ -35,7 +35,7 @@ export default function StationManagementPage() {
 
   // Load danh sách trạm
   useEffect(() => {
-    getAll({ latitude: 10.9, longitude: 106.8, radius: 50 });
+    getAll();
   }, [getAll]);
 
   // Khi chọn trạm → load chi tiết + connectors
