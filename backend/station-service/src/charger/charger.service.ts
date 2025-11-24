@@ -117,8 +117,8 @@ export class ChargerService {
         }
 
         await this.prisma.charging_points.update({
-            where: {id: charger_id},
-            data: {status: body.status}
+            where: { id: charger_id },
+            data: { status: body.status }
         });
 
         await this.prisma.outbox_events.create({
@@ -171,35 +171,44 @@ export class ChargerService {
     }
 
     async handleStartSession(data: any) {
-        const {point_id} = data;
+        const { point_id } = data;
+        console.log('Handle rabbitmq with point id: ', point_id);
+
         const exist = await this.prisma.charging_points.findUnique({
-            where: {id: point_id},
+            where: { id: point_id },
         });
-        if(!exist) {
-            throw new ConflictException('Charger with this ID does not exist');
+
+        if (!exist) {
+            console.error(`Charger with ID ${point_id} does not exist`);
+            return { success: false, message: 'Charger with this ID does not exist' };
         }
 
         await this.prisma.charging_points.update({
-            where: {id: point_id},
-            data: {
-                status: 'in_use'
-            }
-        })
+            where: { id: point_id },
+            data: { status: 'in_use' },
+        });
+
+        return { success: true, message: 'Session started successfully' };
     }
 
     async handleStopSession(data: any) {
-        const {point_id} = data;
+        const { point_id } = data;
+        console.log('Handle rabbitmq with point id: ', point_id);
+
         const exist = await this.prisma.charging_points.findUnique({
-            where: {id: point_id},
+            where: { id: point_id },
         });
-        if(!exist) {
-            throw new ConflictException('Charger with this ID does not exist');
+
+        if (!exist) {
+            console.error(`Charger with ID ${point_id} does not exist`);
+            return { success: false, message: 'Charger with this ID does not exist' };
         }
+
         await this.prisma.charging_points.update({
-            where: {id: point_id},
-            data: {
-                status: 'available'
-            }
-        })
+            where: { id: point_id },
+            data: { status: 'available' },
+        });
+
+        return { success: true, message: 'Session stopped successfully' };
     }
 }

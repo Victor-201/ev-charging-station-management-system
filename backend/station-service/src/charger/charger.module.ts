@@ -5,9 +5,7 @@ import { PrismaService } from 'src/prisma.service';
 import { RmqModule } from 'src/rmq/rmq.module';
 
 @Module({
-  imports: [
-    RmqModule.register({name: 'SESSION'}),
-  ],
+  imports: [RmqModule],
   controllers: [ChargerController],
   providers: [ChargerService, PrismaService]
 })
