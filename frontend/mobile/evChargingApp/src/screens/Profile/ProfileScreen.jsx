@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { List, Button, ActivityIndicator, Text, useTheme } from 'react-native-paper';
-import { useFocusEffect } from '@react-navigation/native';
+import { Avatar, List, Button, ActivityIndicator, Text, useTheme } from 'react-native-paper';
+import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMe } from '../../store/slices/userSlice';
 import { UserRole } from '../../config/roles';
@@ -34,8 +34,20 @@ const ProfileScreen = ({ navigation }) => {
   const styles = getStyles(colors);
   const dispatch = useDispatch();
   const { profile, loading, error } = useSelector((state) => state.user);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(useCallback(() => { dispatch(getMe()); }, [dispatch]));
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await dispatch(getMe());
+    setRefreshing(false);
+  }, [dispatch]);
+
+  // Initial fetch if profile does not exist
+  useEffect(() => {
+    if (!profile) {
+      dispatch(getMe());
+    }
+  }, [profile, dispatch]);
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
@@ -61,7 +73,9 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
+      >
         {/* Profile Header */}
         <View style={styles.headerContainer}>
           <Avatar.Image

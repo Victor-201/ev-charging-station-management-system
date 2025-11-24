@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getTransactions } from '../store/slices/walletSlice';
 
@@ -18,6 +18,7 @@ export default function useWalletTransactions(options = {}) {
   const authUser = useSelector((state) => state.auth?.user);
 
   const [refreshing, setRefreshing] = useState(false);
+  const hasFetchedRef = useRef(false); // Track if we've already fetched
 
   // Determine user ID from options or auth state
   const effectiveUserId = userId || authUser?.id || authUser?.user_id || authUser?.sub;
@@ -59,12 +60,18 @@ export default function useWalletTransactions(options = {}) {
 
   /**
    * Auto-fetch on mount if enabled
+   * Only fetch if we haven't fetched before and there's no data in the store
    */
   useEffect(() => {
-    if (autoFetch && effectiveUserId) {
-      fetchTransactions();
+    if (autoFetch && effectiveUserId && !hasFetchedRef.current) {
+      // Only fetch if we don't have transactions in the store yet
+      if (!transactions || transactions.length === 0) {
+        hasFetchedRef.current = true;
+        fetchTransactions();
+      }
     }
-  }, [autoFetch, effectiveUserId, fetchTransactions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFetch, effectiveUserId]);
 
   return {
     transactions: transactions || [],

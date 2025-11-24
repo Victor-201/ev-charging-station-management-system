@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { Text, ActivityIndicator, Button, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -83,11 +83,17 @@ const TransactionHistoryScreen = () => {
     setRefreshing(false);
   }, [loadTransactions]);
 
+  // Load transactions when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadTransactions();
-    }, [loadTransactions])
+    }, []) // Empty dependency array to avoid re-running on every focus
   );
+
+  // Reload transactions when filter changes
+  useEffect(() => {
+    loadTransactions();
+  }, [filter]); // Only re-run when filter changes
 
   const renderItem = ({ item }) => (
     <TransactionCard

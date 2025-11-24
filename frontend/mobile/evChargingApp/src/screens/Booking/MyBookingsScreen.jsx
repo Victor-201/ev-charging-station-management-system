@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import bookingService from '../../services/bookingService';
 
@@ -45,7 +46,12 @@ export default function MyBookingsScreen({ navigation }) {
     } finally { setLoading(false); }
   }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  // Load bookings when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const onCancel = async (item) => {
     try {
@@ -83,8 +89,13 @@ export default function MyBookingsScreen({ navigation }) {
           renderItem={({ item }) => (
             <BookingItem item={item} colors={colors} onCancel={onCancel} onOpen={onOpen} />
           )}
-          contentContainerStyle={{ paddingVertical: 12 }}
-          ListEmptyComponent={<Text style={{ color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 }}>Chưa có đặt chỗ</Text>}
+          contentContainerStyle={{ paddingVertical: 12, flexGrow: 1 }}
+          ListEmptyComponent={
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: colors.onSurfaceVariant, textAlign: 'center' }}>Chưa có đặt chỗ</Text>
+            </View>
+          }
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} colors={[colors.primary]} tintColor={colors.primary} />}
         />
       )}
     </SafeAreaView>

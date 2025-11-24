@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { getWallet } from '../../store/slices/walletSlice';
 import { getNotifications } from '../../store/slices/notificationSlice';
 import useChargingHistory from '../../hooks/useChargingHistory';
 import useWalletTransactions from '../../hooks/useWalletTransactions';
+import useRefetchOnFocus from '../../hooks/useRefetchOnFocus';
 import { timeAgo } from '../../utils/dateUtils';
 
 // New modern components
@@ -143,9 +144,40 @@ export default function HomeScreen() {
     },
   ];
 
-  // Real sessions and transactions
-  const { sessions = [] } = useChargingHistory({ autoFetch: true });
-  const { transactions = [] } = useWalletTransactions({ autoFetch: true, params: { limit: 10 } });
+  // State for manual refresh
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Real sessions and transactions - fetch on mount only
+  const { sessions = [], fetchHistory: refetchSessions } = useChargingHistory({ autoFetch: true });
+  const { transactions = [], fetchTransactions: refetchTransactions } = useWalletTransactions({ autoFetch: true, params: { limit: 10 } });
+
+  // Refetch data when screen comes back into focus (but not on first mount)
+  useRefetchOnFocus(
+    useCallback(() => {
+      if (userProfile?.user_id) {
+        refetchSessions();
+        refetchTransactions();
+      }
+    }, [userProfile, refetchSessions, refetchTransactions]),
+    true
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Refetch all necessary data
+      await Promise.all([
+        dispatch(getMe()),
+        userProfile?.user_id ? dispatch(getWallet(userProfile.user_id)) : Promise.resolve(),
+        userProfile?.user_id ? dispatch(getNotifications(userProfile.user_id)) : Promise.resolve(),
+        refetchSessions(),
+        refetchTransactions(),
+      ]);
+    } catch (error) {
+      console.error('Failed to refresh home screen data:', error);
+    }
+    setRefreshing(false);
+  }, [dispatch, userProfile, refetchSessions, refetchTransactions]);
 
   // Stats based on recent sessions (last 30 days)
   const statsData = (() => {
@@ -223,6 +255,7 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
       >
         {/* Hero Section with gradient */}
         <HeroSection
