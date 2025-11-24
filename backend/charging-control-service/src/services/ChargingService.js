@@ -101,10 +101,24 @@ class ChargingService {
       started_at,
     });
 
-    publishEvent("start_session", {
-      type: "SESSION_STARTED",
-      data: { point_id: s.point_id, started_at },
-    });
+ publishEvent("start_session", {
+  pattern: "start_session",
+  data: {
+    type: "SESSION_STARTED",
+    point_id: s.point_id,
+    started_at
+  }
+});
+  // 🔥 Khởi tạo telemetry đầu tiên = 0
+  // để frontend có dữ liệu ban đầu ngay lập tức
+  await this.pushMeterReading({
+    session_id,
+    meter_wh: start_meter_wh ?? 0,
+    power_kw: 0,
+    soc: 0,
+    timestamp: started_at
+  });
+
 
     return {
       session_id: updated.session_id || session_id,
@@ -296,6 +310,56 @@ class ChargingService {
     // simply delegate to TelemetryRepo; TelemetryRepo should support filters
     return await TelemetryRepo.getBySessionId(session_id, { from, to, limit });
   }
+async deleteBySessionId(session_id) {
+    if (!session_id) throw new Error("session_id is required");
+
+    const [result] = await pool.query(
+      `DELETE FROM telemetry WHERE session_id = ?`,
+      [session_id]
+    );
+
+    return {
+      deleted: result.affectedRows > 0,
+      affectedRows: result.affectedRows
+    };
+  }
+
+  /**
+   * Cập nhật telemetry theo session_id + timestamp
+   * (nếu bạn muốn cập nhật bản mới nhất thì để dưới phần service)
+   */
+  async updateTelemetry({ session_id, timestamp = null, meter_wh, power_kw, soc }) {
+  if (!session_id) throw new Error('session_id is required');
+
+  if (!timestamp) {
+    // lấy bản mới nhất
+    const [rows] = await pool.query(
+      `SELECT timestamp FROM telemetry WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1`,
+      [session_id]
+    );
+    if (!rows.length) throw new Error('No telemetry found to update');
+    timestamp = rows[0].timestamp;
+  }
+
+  await pool.query(
+    `
+    UPDATE telemetry
+    SET meter_wh = ?, power_kw = ?, soc = ?
+    WHERE session_id = ? AND timestamp = ?
+    `,
+    [
+      meter_wh,
+      power_kw,
+      soc,
+      session_id,
+      dayjs(timestamp).format("YYYY-MM-DD HH:mm:ss"),
+    ]
+  );
+
+  return { session_id, timestamp, meter_wh, power_kw, soc };
+}
+
+
 
   async pauseSession(session_id) {
     const s = await SessionRepo.getById(session_id);
@@ -374,11 +438,14 @@ class ChargingService {
     } catch (err) {
       console.error("[stopSession] failed to persist metadata.payment", err);
     }
-
-    publishEvent("stop_session", {
-      type: "SESSION_PENDING_PAYMENT",
-      data: { point_id: s.point_id, ended_at },
-    });
+publishEvent("stop_session", {
+  pattern: "stop_session",
+  data: {
+    type: "SESSION_STOP",
+    point_id: s.point_id,
+    ended_at
+  }
+});
 
     return {
       session_id,
