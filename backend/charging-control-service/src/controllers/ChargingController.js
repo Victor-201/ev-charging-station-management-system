@@ -217,6 +217,67 @@ exports.getTelemetry = async (req, res) => {
   }
 };
 
+// DELETE /api/v1/sessions/:session_id/telemetry
+exports.deleteTelemetry = async (req, res) => {
+  try {
+    const session_id = req.params.session_id;
+    if (!session_id)
+      return res.status(400).json({ error: 'session_id is required' });
+
+    const result = await ChargingService. deleteBySessionId(session_id);
+
+    return res.status(200).json({
+      ok: true,
+      ...result
+    });
+  } catch (err) {
+    console.error('[ChargingController.deleteTelemetry] error:', err);
+    const status = mapErrorToStatus(err.message);
+    return res.status(status).json({
+      error: err.message || 'Internal server error'
+    });
+  }
+};
+// PUT /api/v1/sessions/:session_id/telemetry
+exports.updateTelemetry = async (req, res) => {
+  try {
+    const session_id = req.params.session_id;
+    if (!session_id)
+      return res.status(400).json({ error: 'session_id is required' });
+
+    const body = req.body || {}; // <-- tránh undefined
+    const { timestamp, meter_wh, power_kw, soc } = body;
+
+    if (meter_wh == null && power_kw == null && soc == null) {
+      return res.status(400).json({
+        error: 'At least one field (meter_wh, power_kw, soc) must be provided'
+      });
+    }
+
+    const result = await ChargingService.updateTelemetry({
+      session_id,
+      timestamp: timestamp || null,
+      meter_wh,
+      power_kw,
+      soc
+    });
+
+    return res.status(200).json({
+      ok: true,
+      updated: true,
+      result
+    });
+  } catch (err) {
+    console.error('[ChargingController.updateTelemetry] error:', err);
+    const status = mapErrorToStatus(err.message);
+    return res.status(status).json({
+      error: err.message || 'Internal server error'
+    });
+  }
+};
+
+
+
 // POST /api/v1/sessions/:session_id/pause
 exports.pauseSession = async (req, res) => {
   try {
