@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Pause, Play, Square, RefreshCw, DollarSign, CheckCircle } from "lucide-react";
 import paymentService from "@/services/paymentService";
+import { leaveRoom } from "../../utils/socketClient";
+import { useSocketClient } from "@hooks/useSocket";
+
 import chargingControlService from "@/services/chargingControlService";
+import userService from "@/services/userService";
 import {
   formatMoney, getStatusColor, TelemetrySection, SessionEventsSection,
   PaymentSection, ReconcileDetailsSection
@@ -39,12 +43,19 @@ const SessionDetails = ({
   const [loadingReservation, setLoadingReservation] = useState(false);
   const [reservationError, setReservationError] = useState(null);
 
+  const socketClient = useSocketClient();
+  // states để hiển thị tên người dùng khi có reservation
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(false);
+  const [userError, setUserError] = useState(null);
+
   const isGuestSession = !currentSession?.reservation_id || currentSession?.reservation_id === "";
 
   const isSessionCompleted = ["confirmed", "completed", "stopped"].includes(currentSession?.status);
 
   // --- Fetch reservation by ID ---
   const getReservationById = useCallback(async (reservation_id) => {
+    if (!reservation_id) return;
     setLoadingReservation(true);
     setReservationError(null);
     try {
@@ -54,8 +65,32 @@ const SessionDetails = ({
     } catch (err) {
       setReservationError(err);
       console.error("Lỗi lấy reservation:", err);
+      setReservationDetail(null);
     } finally {
       setLoadingReservation(false);
+    }
+  }, []);
+
+  // --- Fetch user by id (dùng khi có reservation) ---
+  const fetchUserById = useCallback(async (userId) => {
+    if (!userId) {
+      setSelectedUser(null);
+      return null;
+    }
+    setLoadingUser(true);
+    setUserError(null);
+    try {
+      const data = await userService.getUserById(userId);
+      // Giả sử API trả về object user với trường "name" hoặc "full_name"
+      setSelectedUser(data ?? null);
+      setLoadingUser(false);
+      return data;
+    } catch (err) {
+      setUserError(err);
+      setSelectedUser(null);
+      setLoadingUser(false);
+      console.error("Lỗi lấy user:", err);
+      return null;
     }
   }, []);
 
@@ -65,8 +100,19 @@ const SessionDetails = ({
       getReservationById(currentSession.reservation_id);
     } else {
       setReservationDetail(null);
+      setSelectedUser(null); // ẩn user nếu không đặt trước
     }
   }, [currentSession?.reservation_id, getReservationById]);
+
+  // Khi reservationDetail thay đổi và có user_id -> fetch user name
+  useEffect(() => {
+    const userId = reservationDetail?.user_id || reservationDetail?.userId || reservationDetail?.user?.id;
+    if (userId) {
+      fetchUserById(userId);
+    } else {
+      setSelectedUser(null);
+    }
+  }, [reservationDetail, fetchUserById]);
 
   // --- Session controls ---
   const handlePause = async () => {
@@ -96,6 +142,8 @@ const SessionDetails = ({
       await loadActivePoints();
       await handleReconcile();
     }
+    const point_id = s.point_id;
+    leaveRoom(socketClient, point_id)
   };
 
   // --- Reconcile / payment ---
@@ -275,6 +323,28 @@ const SessionDetails = ({
     Number(reconcileResult?.diff) < 0 &&
     reconcileResult?.payment_status !== "refunded";
 
+  // Helper để hiển thị tên user (ưu tiên selectedUser.name, fallback user_id)
+  const renderUserDisplay = () => {
+    // chỉ hiện khi session có reservation
+    if (!currentSession?.reservation_id) return null;
+
+    if (loadingUser) {
+      return <p className="text-sm text-gray-500">Đang tải thông tin người dùng...</p>;
+    }
+
+    if (userError) {
+      return <p className="text-sm text-red-500">Không thể lấy tên người dùng</p>;
+    }
+
+    const name = selectedUser?.name || selectedUser?.full_name || selectedUser?.displayName || selectedUser?.username;
+    if (name) {
+      return <p className="font-medium">{name}</p>;
+    }
+
+    // nếu không có tên thì fallback show id (ít khả năng xảy ra nhưng an toàn)
+    return <p className="font-mono text-sm">{currentSession.user_id || "N/A"}</p>;
+  };
+
   return (
     <>
       {/* PHẦN CHI TIẾT PHIÊN SẠC */}
@@ -307,49 +377,55 @@ const SessionDetails = ({
                   {currentSession.status}
                 </span>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">User ID</p>
-                <p className="font-medium">{currentSession.user_id || "N/A"}</p>
-              </div>
+
+              {/* Hiển thị tên người dùng khi có reservation, nếu không thì ẩn */}
+              {currentSession?.reservation_id ? (
+                <div>
+                  <p className="text-sm text-gray-600">Người đặt / User</p>
+                  {renderUserDisplay()}
+                </div>
+              ) : null}
+
               <div>
                 <p className="text-sm text-gray-600">Connector</p>
                 <p className="font-medium">{currentSession.connector_id || "N/A"}</p>
               </div>
+
               <div>
-  <p className="text-sm text-gray-600">Thời gian đặt lịch</p>
-  <p className="font-medium">
-    {currentSession.reservation_id ? "Đã đặt trước" : "Không có (khách vãng lai)"}
-  </p>
+                <p className="text-sm text-gray-600">Thời gian đặt lịch</p>
+                <p className="font-medium">
+                  {currentSession.reservation_id ? "Đã đặt trước" : "Không có (khách vãng lai)"}
+                </p>
 
-  {loadingReservation && (
-    <span className="text-sm text-gray-500 ml-2">Đang tải chi tiết đặt trước...</span>
-  )}
+                {loadingReservation && (
+                  <span className="text-sm text-gray-500 ml-2">Đang tải chi tiết đặt trước...</span>
+                )}
 
-  {reservationDetail && (
-    <div className="text-sm text-gray-700 mt-1 space-y-1">
-      <p>
-        Bắt đầu:{" "}
-        {new Date(reservationDetail.start_time).toLocaleString("vi-VN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        })}
-      </p>
-      <p>
-        Kết thúc:{" "}
-        {new Date(reservationDetail.end_time).toLocaleString("vi-VN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        })}
-      </p>
-    </div>
-  )}
-</div>
+                {reservationDetail && (
+                  <div className="text-sm text-gray-700 mt-1 space-y-1">
+                    <p>
+                      Bắt đầu:{" "}
+                      {new Date(reservationDetail.start_time).toLocaleString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </p>
+                    <p>
+                      Kết thúc:{" "}
+                      {new Date(reservationDetail.end_time).toLocaleString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                )}
+              </div>
 
               <div>
                 <p className="text-sm text-gray-600">Loại phiên</p>

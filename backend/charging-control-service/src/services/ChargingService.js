@@ -8,6 +8,7 @@ const TelemetryRepo = require("../repositories/TelemetryRepository");
 const EventOutboxRepo = require("../repositories/EventOutboxRepository");
 const BookingService = require("./BookingService.js");
 const iotManager = require("../iot/IoTManager");
+const { io } = require ("../app");
 // Debug logger
 const debug = (...args) => console.log("[ChargingService]", ...args);
 
@@ -308,7 +309,7 @@ class ChargingService {
         { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
       );
       const pricingList = res.data?.pricing || [];
-      // Nếu muốn tính giá theo block đầu tiên (ví dụ) thì:
+
       price_per_kw = pricingList[0]?.price_per_kw || null;
     } catch (err) {
       console.error("Pricing API error:", err.response?.data || err);

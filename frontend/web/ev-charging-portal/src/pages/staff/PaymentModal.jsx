@@ -2,6 +2,8 @@
 import React, { useCallback, useState } from "react";
 import { X } from "lucide-react";
 import paymentService from "@/services/paymentService";
+import { useSocketClient } from "@/hooks/useSocket";
+import { useSocketEvent } from "@/hooks/useSocketEvent";
 
 const PaymentModal = ({
   showPaymentModal,
@@ -25,6 +27,7 @@ const PaymentModal = ({
   STATION_ID,
 }) => {
   const [pendingCashTransactionId, setPendingCashTransactionId] = useState(null);
+  const socket = useSocketClient();
 
   // =========================
   // FORMAT MONEY

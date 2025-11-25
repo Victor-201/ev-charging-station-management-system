@@ -16,7 +16,7 @@ const userService = {
       role: params.role ?? "",
       status: params.status ?? ""
     }).toString();
-
+    
     return apiClient.get(`/api/v1/auth/users?${query}`).then(res => res.data);
     // res.data = { total, users }
   },
@@ -25,6 +25,11 @@ const userService = {
   updateUser(id, patch) {
     // Nếu API chỉ có deactivate, patch có thể bỏ
     return apiClient.post(`/api/v1/auth/users/${id}/deactivate`).then(res => res.data);
+  },
+
+    getUserById(userId) {
+    if (!userId) throw new Error("userId is required");
+    return apiClient.get(`/api/v1/users/${userId}`).then(res => res.data);
   },
 
   // Delete user

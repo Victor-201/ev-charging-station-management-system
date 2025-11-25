@@ -43,7 +43,7 @@ export const stationService = {
     apiClient({ method: "POST", url: `api/v1/chargers/${charger_id}/firmware/update`, data: payload }),
 
   controlCharger: (charger_id, payload) =>
-    apiClient({ method: "POST", url: `api/v1/chargers/${charger_id}/control`, data: payload }),
+    apiClient({ method: "PUT", url: `api/v1/chargers/${charger_id}/control`, data: payload }),
 
   // ===== AVAILABILITY =====
   getAvailability: (params) =>
