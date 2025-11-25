@@ -2,12 +2,18 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useStation } from "@/hooks/useStation"; // hook lấy từ context
 import Card from "../../components/staff/Card/index";
 import Table from "../../components/staff/Table/index";
-import chargingControlService from "@/services/chargingControlService"; // service (mình gửi mẫu bên dưới)
+import chargingControlService from "@/services/chargingControlService"; // primary service for control
 import { useAuth } from "@/hooks/useAuth";
-import stationService from "@/services/stationService"; // <-- service có getAssignedStation
+import stationService from "@/services/stationService"; // <-- service có getAssignedStation (fallback control if needed)
+
+/**
+ * Stations component
+ * - tích hợp API controlCharger
+ * - 3 nút: "Set Offline", "Set Faulted", "Đặt Sẵn sàng" (available)
+ * - nút "Đặt Đang sạc" chỉ hiển thị khi trạng thái = "available"
+ */
 
 export default function Stations() {
-  // managedStationId giờ là state, không còn hardcode nữa
   const [managedStationId, setManagedStationId] = useState(null);
   const [assignedLoading, setAssignedLoading] = useState(false);
   const [assignedError, setAssignedError] = useState(null);
@@ -29,8 +35,8 @@ export default function Stations() {
     getChargerPricing,
   } = useStation();
 
-  const [selectedChargerId, setSelectedChargerId] = useState(null); // => store the chosen id string (external_id | point_id | id)
-  const [selectedChargerDetails, setSelectedChargerDetails] = useState(null); // detailed object from API
+  const [selectedChargerId, setSelectedChargerId] = useState(null);
+  const [selectedChargerDetails, setSelectedChargerDetails] = useState(null);
   const [loadingCharger, setLoadingCharger] = useState(false);
   const [loadingPricing, setLoadingPricing] = useState(false);
   const [query, setQuery] = useState("");
@@ -40,12 +46,15 @@ export default function Stations() {
   const [loadingSession, setLoadingSession] = useState(false);
   const [error, setError] = useState(null);
 
+  // control API state
+  const [controlLoading, setControlLoading] = useState(false);
+  const [controlError, setControlError] = useState(null);
+
   // ===== Lấy assigned station từ API (gửi token) =====
   const fetchAssignedStation = useCallback(async () => {
     setAssignedLoading(true);
     setAssignedError(null);
     try {
-      // Thử gửi token vào service — nếu service nhận headers thì sẽ forward
       const opts = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
       const res = await stationService.getAssignedStation(opts);
       const data = res?.data ?? res;
@@ -54,14 +63,11 @@ export default function Stations() {
         throw new Error("Server không trả về dữ liệu trạm được phân công.");
       }
 
-      // Nếu API trả về object trạm trực tiếp
       if (data.id) {
         setManagedStationId(data.id);
       } else if (Array.isArray(data) && data.length > 0 && data[0].id) {
-        // phòng trường hợp API trả về array
         setManagedStationId(data[0].id);
       } else {
-        // fallback: nếu API trả về { station_id: "..." } hoặc trường khác
         const maybeId = data.station_id || data.stationId || data.id || null;
         if (maybeId) setManagedStationId(maybeId);
         else throw new Error("Không tìm thấy station id trong phản hồi API.");
@@ -100,10 +106,10 @@ export default function Stations() {
     const list = connectors || currentStation?.chargers || [];
     return {
       totalChargers: list.length,
-      available: list.filter((c) => c.status === "available").length,
-      in_use: list.filter((c) => c.status === "in_use").length,
-      fault: list.filter((c) => c.status === "fault").length,
-      charging: list.filter((c) => c.status === "charging").length,
+      available: list.filter((c) => (c.status || "").toLowerCase() === "available").length,
+      in_use: list.filter((c) => (c.status || "").toLowerCase() === "in_use").length,
+      fault: list.filter((c) => (c.status || "").toLowerCase() === "fault").length,
+      charging: list.filter((c) => (c.status || "").toLowerCase() === "charging").length,
     };
   }, [connectors, currentStation]);
 
@@ -114,13 +120,13 @@ export default function Stations() {
       const q = query.trim().toLowerCase();
       list = list.filter(
         (c) =>
-          (c.id || "").toLowerCase().includes(q) ||
-          (c.label || c.name || "").toLowerCase().includes(q) ||
-          (c.notes || "").toLowerCase().includes(q) ||
-          (c.external_id || "").toLowerCase().includes(q)
+          (String(c.id || "")).toLowerCase().includes(q) ||
+          (String(c.label || c.name || "")).toLowerCase().includes(q) ||
+          (String(c.notes || "")).toLowerCase().includes(q) ||
+          (String(c.external_id || "")).toLowerCase().includes(q)
       );
     }
-    if (statusFilter !== "all") list = list.filter((c) => c.status === statusFilter);
+    if (statusFilter !== "all") list = list.filter((c) => (c.status || "").toLowerCase() === statusFilter);
     return list;
   }, [connectors, currentStation, query, statusFilter]);
 
@@ -148,15 +154,12 @@ export default function Stations() {
         } else if (res?.data) {
           setSelectedChargerDetails(res.data);
         } else {
-          // fallback: use the object we clicked
           setSelectedChargerDetails(ch);
         }
       } else {
-        // if hook doesn't provide, use clicked object
         setSelectedChargerDetails(ch);
       }
     } catch (err) {
-      // fallback
       setSelectedChargerDetails(ch);
     } finally {
       setLoadingCharger(false);
@@ -182,7 +185,6 @@ export default function Stations() {
           return { ...base, pricing: pricingObj || base.pricing || null };
         });
       } else {
-        // no pricing function
         setSelectedChargerDetails((prev) => prev || ch || null);
       }
     } catch (err) {
@@ -192,7 +194,62 @@ export default function Stations() {
     }
   }
 
-  // ===== Đổi trạng thái charger =====
+  // ===== Xử lý API điều khiển trụ (controlCharger) =====
+  const controlChargerApi = useCallback(async (charger_id, payload = {}, opts = {}) => {
+    setControlLoading(true);
+    setControlError(null);
+    try {
+      const serviceToUse =
+        (chargingControlService && typeof chargingControlService.controlCharger === "function")
+          ? chargingControlService
+          : stationService;
+
+      const res = await serviceToUse.controlCharger(charger_id, payload, opts);
+      const data = res?.data ?? res;
+      setControlLoading(false);
+      return { success: true, data };
+    } catch (err) {
+      setControlError(err);
+      setControlLoading(false);
+      console.error("controlChargerApi error:", err);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  // ===== Xử lý đổi trạng thái charger (cập nhật local + gọi API) =====
+  async function handleSetStatusRemote(chargerId, newStatus) {
+    if (!chargerId) {
+      alert("Chưa chọn trụ để thay đổi trạng thái.");
+      return { success: false, error: new Error("No chargerId") };
+    }
+
+    // prepare payload — chỉnh nếu backend yêu cầu khác
+    const payload = { status: newStatus };
+
+    // optimistic update: lưu old state để rollback khi lỗi
+    const listBefore = connectors || currentStation?.chargers || [];
+    const oldCharger = listBefore.find((c) => chooseChargerId(c) === chargerId);
+    const oldStatus = oldCharger?.status || null;
+
+    // update local UI ngay
+    setChargerStatus(chargerId, newStatus);
+
+    // call API
+    const res = await controlChargerApi(chargerId, payload, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+    if (!res.success) {
+      // rollback
+      if (oldStatus) setChargerStatus(chargerId, oldStatus);
+      addChargerHistory(chargerId, `Thay trạng thái thất bại: ${newStatus} — lỗi: ${res.error?.message || String(res.error)}`);
+      alert("Không thể cập nhật trạng thái trụ: " + (res.error?.message || "Lỗi mạng hoặc server"));
+      return { success: false, error: res.error };
+    }
+
+    // success -> add history
+    addChargerHistory(chargerId, `Đặt trạng thái: ${newStatus} (qua API)`);
+    return { success: true, data: res.data };
+  }
+
+  // ===== Đổi trạng thái charger (local helper) =====
   function setChargerStatus(chargerId, newStatus) {
     const now = new Date().toISOString().slice(0, 16).replace("T", " ");
     const updatedChargers = (connectors || currentStation?.chargers || []).map((c) =>
@@ -287,8 +344,7 @@ export default function Stations() {
 
   // ===== Xử lý bắt đầu sạc (initiate rồi start) =====
   async function handleStartCharging() {
-    if (loadingSession) return; // prevent double click
-    // Use selectedChargerId which was set khi click trụ
+    if (loadingSession) return;
     const point_id = selectedChargerId;
     if (!point_id) {
       alert("Bạn chưa chọn trụ để bắt đầu sạc.");
@@ -300,13 +356,18 @@ export default function Stations() {
       return;
     }
 
+    const selStatus = (selectedChargerDetails?.status || (filteredChargers.find((c) => chooseChargerId(c) === selectedChargerId)?.status) || "").toLowerCase();
+    if (selStatus !== "available") {
+      alert("Chỉ có thể bắt đầu sạc khi trụ đang ở trạng thái 'available'.");
+      return;
+    }
+
     const payload = {
       station_id: managedStationId,
       point_id,
       user_id,
     };
 
-    // 1) initiate
     const initRes = await initiateSession(payload);
     if (!initRes.success) {
       console.error("initiateSession failed", initRes.error);
@@ -314,14 +375,12 @@ export default function Stations() {
       return;
     }
 
-    // get session id from returned data
     const sessionId = initRes.data?.id || initRes.data?.session_id;
     if (!sessionId) {
       alert("Server không trả về session_id. Vui lòng kiểm tra API.");
       return;
     }
 
-    // 2) start
     const startPayload = {
       ...payload,
       session_id: sessionId,
@@ -333,13 +392,12 @@ export default function Stations() {
       return;
     }
 
-    // Success -> update UI local
     setChargerStatus(point_id, "charging");
     addChargerHistory(point_id, "Bắt đầu phiên sạc bởi nhân viên");
     alert("Phiên sạc đã được bắt đầu thành công.");
   }
 
-  // ===== Giao diện =====
+  // ===== Giao diện loading/error ban đầu =====
   if (assignedLoading)
     return (
       <div className="text-center text-gray-500 py-12 text-lg font-medium">
@@ -374,14 +432,12 @@ export default function Stations() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-extrabold mb-6">Quản lý trạm — Nhân viên</h1>
 
-        {/* Hiển thị ID trạm được quản lý ở chỗ dễ nhìn */}
         <div className="mb-4">
           <div className="text-sm text-gray-500">Trạm được phân công:</div>
           <div className="text-lg font-medium">{currentStation?.name || managedStationId || "—"}</div>
           <div className="text-xs text-gray-400">ID: {managedStationId || "—"}</div>
         </div>
 
-        {/* Bộ thống kê */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
           {[
             { key: "all", label: "Trạm", value: currentStation?.name },
@@ -423,7 +479,6 @@ export default function Stations() {
           </div>
         </div>
 
-        {/* Lưới trụ sạc */}
         <div className="flex flex-col md:flex-row gap-6">
           <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredChargers.length > 0 ? (
@@ -436,11 +491,11 @@ export default function Stations() {
                     className={`rounded-xl border p-4 shadow-md transition-all cursor-pointer
                     ${selectedChargerId === visibleId ? "border-blue-400 shadow-lg -translate-y-1" : "border-gray-200 hover:-translate-y-0.5 hover:shadow-lg"}
                     ${
-                      ch.status === "available"
+                      (ch.status || "").toLowerCase() === "available"
                         ? "bg-emerald-50"
-                        : ch.status === "in_use"
+                        : (ch.status || "").toLowerCase() === "in_use"
                         ? "bg-blue-50"
-                        : ch.status === "fault"
+                        : (ch.status || "").toLowerCase() === "fault"
                         ? "bg-red-50"
                         : "bg-gray-100"
                     }`}
@@ -453,29 +508,29 @@ export default function Stations() {
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-bold text-white capitalize
                         ${
-                          ch.status === "available"
+                          (ch.status || "").toLowerCase() === "available"
                             ? "bg-emerald-500"
-                            : ch.status === "in_use"
+                            : (ch.status || "").toLowerCase() === "in_use"
                             ? "bg-blue-500"
-                            : ch.status === "charging"
+                            : (ch.status || "").toLowerCase() === "charging"
                             ? "bg-indigo-500"
-                            : ch.status === "fault"
+                            : (ch.status || "").toLowerCase() === "fault"
                             ? "bg-red-500"
                             : "bg-gray-400"
                         }`}
                       >
-                        {ch.status}
+                        {ch.status || "unknown"}
                       </span>
                     </div>
                     <div className="mt-3 text-lg font-semibold text-gray-900">{ch.label || ch.name || "—"}</div>
                     <div className="text-xs text-gray-500 mt-1 flex gap-2 flex-wrap">
                       <div className="text-sm border-b py-2">
-                        <strong>Công suất tối đa:</strong> {ch.powerPoint || ch.max_power_kw} kW
+                        <strong>Công suất tối đa:</strong> {ch.powerPoint || ch.max_power_kw || "—"} kW
                       </div>
                       <div className="text-sm border-b py-2">
-                        <strong>Connector type:</strong> {ch.powerPoint || ch.type}
+                        <strong>Connector type:</strong> {ch.type || "—"}
                       </div>
-                      <span>{ch.lastUpdated || ch.updated_at}</span>
+                      <span>{ch.lastUpdated || ch.updated_at || ""}</span>
                     </div>
                   </div>
                 );
@@ -487,7 +542,6 @@ export default function Stations() {
             )}
           </div>
 
-          {/* Panel chi tiết */}
           {currentStation && (
             <aside className="w-full md:w-96 flex flex-col gap-4">
               <div className="bg-white rounded-xl border p-4 shadow">
@@ -502,7 +556,6 @@ export default function Stations() {
 
               {selectedCharger ? (
                 <>
-                  {/* CHI TIẾT chính (đã gộp pricing vào đây) */}
                   <div className="bg-white rounded-xl border p-4 shadow">
                     <h3 className="font-semibold mb-2">{loadingCharger ? "Đang tải chi tiết..." : `Chi tiết ${selectedCharger.label || selectedCharger.name || selectedCharger.id}`}</h3>
                     <div className="text-sm border-b py-2">
@@ -528,7 +581,6 @@ export default function Stations() {
                       </span>
                     </div>
 
-                    {/* Bảng giá */}
                     <div className="text-sm border-b py-2">
                       <strong>Bảng giá:</strong>
                       <div className="mt-2">
@@ -561,25 +613,56 @@ export default function Stations() {
                     </div>
 
                     <div className="flex gap-2 mt-3 flex-wrap">
+                      {/* Set Offline */}
                       <button
-                        onClick={() => setChargerStatus(selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id, "available")}
-                        className="px-3 py-1 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+                        onClick={async () => {
+                          const id = selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id;
+                          await handleSetStatusRemote(id, "offline");
+                        }}
+                        disabled={controlLoading}
+                        className={`px-3 py-1 text-sm rounded-lg ${controlLoading ? "bg-gray-300 cursor-not-allowed" : "bg-yellow-600 hover:bg-yellow-700"} text-white`}
                       >
-                        Đặt Sẵn sàng
+                        {controlLoading ? "Đang xử lý..." : "Set Offline"}
                       </button>
+
+                      {/* Set Faulted */}
                       <button
-                        onClick={handleStartCharging}
-                        disabled={loadingSession}
-                        className={`px-3 py-1 text-sm rounded-lg ${loadingSession ? "bg-indigo-300 cursor-not-allowed" : "bg-indigo-500 hover:bg-indigo-600"} text-white`}
+                        onClick={async () => {
+                          const id = selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id;
+                          await handleSetStatusRemote(id, "faulted");
+                        }}
+                        disabled={controlLoading}
+                        className={`px-3 py-1 text-sm rounded-lg ${controlLoading ? "bg-gray-300 cursor-not-allowed" : "bg-red-500 hover:bg-red-600"} text-white`}
                       >
-                        {loadingSession ? "Đang xử lý..." : "Đặt Đang sạc"}
+                        {controlLoading ? "Đang xử lý..." : "Set Faulted"}
                       </button>
-                      <button
-                        onClick={() => setChargerStatus(selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id, "fault")}
-                        className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
-                      >
-                        Đặt Lỗi
-                      </button>
+
+                      {/* Set Available — hiển thị khi trạng thái hiện tại KHÔNG phải available */}
+                      {((selectedChargerDetails?.status || selectedCharger.status) || "").toLowerCase() !== "available" && (
+                        <button
+                          onClick={async () => {
+                            const id = selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id;
+                            await handleSetStatusRemote(id, "available");
+                          }}
+                          disabled={controlLoading}
+                          className={`px-3 py-1 text-sm rounded-lg ${controlLoading ? "bg-gray-300 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"} text-white`}
+                        >
+                          {controlLoading ? "Đang xử lý..." : "Đặt Sẵn sàng"}
+                        </button>
+                      )}
+
+                      {/* Đặt Đang sạc — chỉ hiển thị khi currently available */}
+                      {((selectedChargerDetails?.status || selectedCharger.status) || "").toLowerCase() === "available" && (
+                        <button
+                          onClick={handleStartCharging}
+                          disabled={loadingSession}
+                          className={`px-3 py-1 text-sm rounded-lg ${loadingSession ? "bg-indigo-300 cursor-not-allowed" : "bg-indigo-500 hover:bg-indigo-600"} text-white`}
+                        >
+                          {loadingSession ? "Đang xử lý..." : "Đặt Đang sạc"}
+                        </button>
+                      )}
+
+                      {/* Thêm lịch sử */}
                       <button
                         onClick={() => addChargerHistory(selectedCharger.id || selectedCharger.point_id || selectedCharger.external_id, "Kiểm tra nhanh bởi kỹ thuật viên")}
                         className="px-3 py-1 text-sm bg-gray-200 rounded-lg hover:bg-gray-300"
@@ -587,9 +670,14 @@ export default function Stations() {
                         Thêm lịch sử
                       </button>
                     </div>
+
+                    {controlError && (
+                      <div className="text-sm text-red-600 mt-3">
+                        Lỗi điều khiển: {controlError.message || String(controlError)}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Lịch sử */}
                   <div className="bg-white rounded-xl border p-4 shadow">
                     <h3 className="font-semibold mb-2">Lịch sử trụ</h3>
                     {(selectedChargerDetails?.history?.length || selectedCharger.history?.length) ? (
@@ -614,7 +702,6 @@ export default function Stations() {
           )}
         </div>
 
-        {/* Debug table */}
         <div className="mt-6">
           <Card title="Stations list (raw)">
             <Table
