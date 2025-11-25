@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import stationService from '../services/stationService';
+import { logger } from '../utils/logger';
 
 /**
  * Custom hook for managing station data
@@ -22,29 +23,46 @@ export default function useStations(options = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const isMountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   /**
    * Fetch all stations with optional filters
    */
   const fetchStations = useCallback(async (params = {}) => {
     try {
+      if (!isMountedRef.current) return null;
+
       setLoading(true);
       setError(null);
-      
+
       const response = await stationService.getAll(params);
-      
+
       // Handle different response structures
       const data = response?.data || response?.stations || response || [];
-      setStations(Array.isArray(data) ? data : []);
-      
+
+      if (isMountedRef.current) {
+        setStations(Array.isArray(data) ? data : []);
+      }
+
       return data;
     } catch (err) {
-      console.error('Error fetching stations:', err);
-      setError(err.message || 'Failed to fetch stations');
-      setStations([]);
+      logger.error('Error fetching stations:', err?.message);
+      if (isMountedRef.current) {
+        setError(err?.message || 'Failed to fetch stations');
+        setStations([]);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -53,23 +71,32 @@ export default function useStations(options = {}) {
    */
   const fetchNearbyStations = useCallback(async (lat, lng, rad = radius) => {
     try {
+      if (!isMountedRef.current) return null;
+
       setLoading(true);
       setError(null);
-      
+
       const response = await stationService.getNearby(lat, lng, rad);
-      
+
       // Handle different response structures
       const data = response?.data || response?.stations || response || [];
-      setStations(Array.isArray(data) ? data : []);
-      
+
+      if (isMountedRef.current) {
+        setStations(Array.isArray(data) ? data : []);
+      }
+
       return data;
     } catch (err) {
-      console.error('Error fetching nearby stations:', err);
-      setError(err.message || 'Failed to fetch nearby stations');
-      setStations([]);
+      logger.error('Error fetching nearby stations:', err?.message);
+      if (isMountedRef.current) {
+        setError(err?.message || 'Failed to fetch nearby stations');
+        setStations([]);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [radius]);
 
@@ -78,19 +105,25 @@ export default function useStations(options = {}) {
    */
   const refresh = useCallback(async () => {
     try {
+      if (!isMountedRef.current) return;
+
       setRefreshing(true);
       setError(null);
-      
+
       if (latitude && longitude) {
         await fetchNearbyStations(latitude, longitude, radius);
       } else {
         await fetchStations();
       }
     } catch (err) {
-      console.error('Error refreshing stations:', err);
-      setError(err.message || 'Failed to refresh stations');
+      logger.error('Error refreshing stations:', err?.message);
+      if (isMountedRef.current) {
+        setError(err?.message || 'Failed to refresh stations');
+      }
     } finally {
-      setRefreshing(false);
+      if (isMountedRef.current) {
+        setRefreshing(false);
+      }
     }
   }, [latitude, longitude, radius, fetchNearbyStations, fetchStations]);
 
@@ -102,7 +135,7 @@ export default function useStations(options = {}) {
       const response = await stationService.getById(stationId);
       return response?.data || response;
     } catch (err) {
-      console.error('Error fetching station details:', err);
+      logger.error('Error fetching station details:', err?.message);
       throw err;
     }
   }, []);
@@ -111,7 +144,7 @@ export default function useStations(options = {}) {
    * Auto-fetch on mount if enabled
    */
   useEffect(() => {
-    if (autoFetch) {
+    if (autoFetch && isMountedRef.current) {
       if (latitude && longitude) {
         fetchNearbyStations(latitude, longitude, radius);
       } else {

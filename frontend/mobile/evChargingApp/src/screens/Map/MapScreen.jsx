@@ -12,8 +12,14 @@ import mapService from '../../services/mapService';
 import AnimatedFAB from '../../components/common/AnimatedFAB';
 import useDebounce from '../../hooks/useDebounce';
 import { logger } from '../../utils/logger';
+import { GEOLOCATION, MAP_CONFIG, TIMING } from '../../config/constants';
 
-const DEFAULT_REGION = { latitude: 10.77978, longitude: 106.699, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+const DEFAULT_REGION = {
+  latitude: GEOLOCATION.DEFAULT_LATITUDE,
+  longitude: GEOLOCATION.DEFAULT_LONGITUDE,
+  latitudeDelta: GEOLOCATION.DEFAULT_LATITUDE_DELTA,
+  longitudeDelta: GEOLOCATION.DEFAULT_LONGITUDE_DELTA
+};
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -35,7 +41,7 @@ export default function MapScreen({ navigation }) {
   const tabBarHeight = useBottomTabBarHeight();
 
   // Debounce search coordinates to avoid excessive API calls
-  const debouncedSearchCoords = useDebounce(searchCoords, 500);
+  const debouncedSearchCoords = useDebounce(searchCoords, TIMING.DEBOUNCE_DELAY);
 
   const goToMyLocation = () => {
     Geolocation.getCurrentPosition(
@@ -45,7 +51,7 @@ export default function MapScreen({ navigation }) {
         setUserLocation(newLocation);
 
         const newRegion = { ...newLocation, latitudeDelta: 0.02, longitudeDelta: 0.02 };
-        mapRef.current?.animateToRegion(newRegion, 1000);
+        mapRef.current?.animateToRegion(newRegion, TIMING.MAP_ANIMATION_DURATION);
         setSearchCoords({ lat: latitude, lng: longitude });
       },
       (error) => {
@@ -59,7 +65,11 @@ export default function MapScreen({ navigation }) {
           setSearchCoords({ lat: region.latitude, lng: region.longitude });
         }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+      {
+        enableHighAccuracy: GEOLOCATION.ENABLE_HIGH_ACCURACY,
+        timeout: GEOLOCATION.TIMEOUT,
+        maximumAge: GEOLOCATION.MAXIMUM_AGE
+      }
     );
   };
 
@@ -72,7 +82,7 @@ export default function MapScreen({ navigation }) {
     }
   };
 
-  const fetchStations = async (lat, lng, radiusKm = 5) => {
+  const fetchStations = async (lat, lng, radiusKm = GEOLOCATION.SEARCH_RADIUS_KM) => {
     try {
       setLoading(true);
       const list = await stationService.searchStations(lat, lng, radiusKm);
@@ -108,7 +118,11 @@ export default function MapScreen({ navigation }) {
         setRegion(DEFAULT_REGION);
         setSearchCoords({ lat: DEFAULT_REGION.latitude, lng: DEFAULT_REGION.longitude });
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+      {
+        enableHighAccuracy: GEOLOCATION.ENABLE_HIGH_ACCURACY,
+        timeout: GEOLOCATION.TIMEOUT,
+        maximumAge: GEOLOCATION.MAXIMUM_AGE
+      }
     );
   }, []);
 

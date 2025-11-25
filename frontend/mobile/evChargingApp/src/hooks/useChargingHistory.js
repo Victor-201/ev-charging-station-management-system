@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getChargingHistory } from '../store/slices/chargingSlice';
+import { logger } from '../utils/logger';
 
 /**
  * Custom hook for managing charging history
@@ -18,6 +19,14 @@ export default function useChargingHistory(options = {}) {
 
   const [refreshing, setRefreshing] = useState(false);
   const hasFetchedRef = useRef(false); // Track if we've already fetched
+  const isMountedRef = useRef(true); // Track component mount state
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Determine user ID from options or auth state
   const effectiveUserId = userId || authUser?.id || authUser?.user_id || authUser?.sub;
@@ -28,17 +37,21 @@ export default function useChargingHistory(options = {}) {
   const fetchHistory = useCallback(
     async (overrideUserId) => {
       const uid = overrideUserId || effectiveUserId;
-      
+
       if (!uid) {
-        console.warn('No user ID available to fetch charging history');
+        logger.warn('No user ID available to fetch charging history');
         return null;
       }
 
       try {
         const result = await dispatch(getChargingHistory(uid)).unwrap();
-        return result;
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          return result;
+        }
+        return null;
       } catch (err) {
-        console.error('Error fetching charging history:', err);
+        logger.error('Error fetching charging history:', err?.message);
         return null;
       }
     },
@@ -49,9 +62,13 @@ export default function useChargingHistory(options = {}) {
    * Refresh charging history
    */
   const refresh = useCallback(async () => {
-    setRefreshing(true);
+    if (isMountedRef.current) {
+      setRefreshing(true);
+    }
     await fetchHistory();
-    setRefreshing(false);
+    if (isMountedRef.current) {
+      setRefreshing(false);
+    }
   }, [fetchHistory]);
 
   /**
@@ -63,8 +80,7 @@ export default function useChargingHistory(options = {}) {
       hasFetchedRef.current = true;
       fetchHistory();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only run once on mount
+  }, [autoFetch, effectiveUserId, fetchHistory]);
 
   return {
     sessions,
