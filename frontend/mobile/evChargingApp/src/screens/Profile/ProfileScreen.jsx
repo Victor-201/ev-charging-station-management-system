@@ -32,6 +32,12 @@ const ProfileScreen = ({ navigation }) => {
   const { profile, loading, error } = useSelector((state) => state.user);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Move useMemo before any early returns to fix hooks order
+  const { initials: avatarInitials, backgroundColor: avatarBg, textColor: avatarText } = useMemo(
+    () => getAvatarData(profile?.full_name || 'User', colors),
+    [profile?.full_name, colors]
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     dispatch(getMe());
@@ -66,10 +72,6 @@ const ProfileScreen = ({ navigation }) => {
   }
 
   const user = profile;
-  const { initials: avatarInitials, backgroundColor: avatarBg, textColor: avatarText } = useMemo(
-    () => getAvatarData(user?.full_name || 'User', colors),
-    [user?.full_name, colors]
-  );
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

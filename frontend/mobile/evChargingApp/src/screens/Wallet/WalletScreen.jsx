@@ -53,7 +53,12 @@ const WalletScreen = () => {
     }
   }, [dispatch, user]);
 
-  useFocusEffect(loadWalletData);
+  // Fix: useFocusEffect should wrap the callback properly to avoid continuous calls
+  useFocusEffect(
+    useCallback(() => {
+      loadWalletData();
+    }, [loadWalletData])
+  );
 
   if (loading && !wallet) {
     return <View style={styles.centered}><ActivityIndicator size="large" color={colors.primary} /></View>;

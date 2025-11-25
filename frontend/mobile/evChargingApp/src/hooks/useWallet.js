@@ -10,7 +10,7 @@ export default function useWallet(autoFetch = true, providedUserId) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Determine user id from provided param or auth state
+  // Determine user id from provided param or auth state - use useMemo to prevent unnecessary re-renders
   const userId = providedUserId || authUser?.id || authUser?.user_id || authUser?.sub || null;
 
   const fetchWallet = async (overrideUserId) => {
