@@ -7,6 +7,7 @@ const SessionRepo = require("../repositories/SessionRepository");
 const TelemetryRepo = require("../repositories/TelemetryRepository");
 const EventOutboxRepo = require("../repositories/EventOutboxRepository");
 const BookingService = require("./BookingService.js");
+const iotManager = require("../iot/IoTManager");
 // Debug logger
 const debug = (...args) => console.log("[ChargingService]", ...args);
 
@@ -80,52 +81,80 @@ class ChargingService {
    * body: { session_id, start_meter_wh }
    * Trả về { session_id, status, started_at }
    */
-  async startSession({ session_id, start_meter_wh = null }) {
+  /**
+ * /api/v1/sessions/start
+ * body: { session_id, start_meter_wh, token }
+ * Trả về { session_id, status, started_at }
+ */
+  async startSession({ session_id, start_meter_wh = null, token = null }) {
     const s = await SessionRepo.getById(session_id);
     if (!s) throw new Error("Charging session not found");
 
-    if (
-      !["initiated", "pending", "PENDING"].includes(
-        (s.status || "").toLowerCase()
-      )
-    ) {
+    if (!["initiated", "pending", "PENDING"].includes((s.status || "").toLowerCase())) {
       throw new Error(`Invalid session state for starting: ${s.status}`);
     }
 
-    // format MySQL DATETIME(3)
+    //-------------------------------
+    // 1) Lấy giá theo charger/point
+    //-------------------------------
+    let price_per_kwh = null;
+
+    try {
+      const pricingRes = await axios.get(
+        `${config.STATIONBASE}/api/v1/chargers/${s.point_id}/pricing`,
+        { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
+      );
+
+      const pricingList = pricingRes.data?.pricing || [];
+
+      if (!pricingList.length) throw new Error("Pricing list empty");
+
+      // lấy giá đầu tiên (hoặc bạn chọn theo rule)
+      price_per_kwh = pricingList[0].price_per_kwh;
+    } catch (err) {
+      console.error("Pricing API error:", err.response?.data || err);
+      const e = new Error("Failed to fetch pricing for charger");
+      e.status = 500;
+      throw e;
+    }
+
     const started_at = dayjs().format("YYYY-MM-DD HH:mm:ss.SSS");
 
     const updated = await SessionRepo.updateStatus(session_id, "charging", {
-      // only set start_meter_wh if provided (null means use existing in repo)
       ...(start_meter_wh != null ? { start_meter_wh } : {}),
       started_at,
     });
 
- publishEvent("start_session", {
-  pattern: "start_session",
-  data: {
-    type: "SESSION_STARTED",
-    point_id: s.point_id,
-    started_at
-  }
-});
-  // 🔥 Khởi tạo telemetry đầu tiên = 0
-  // để frontend có dữ liệu ban đầu ngay lập tức
-  await this.pushMeterReading({
-    session_id,
-    meter_wh: start_meter_wh ?? 0,
-    power_kw: 0,
-    soc: 0,
-    timestamp: started_at
-  });
+    publishEvent("start_session", {
+      pattern: "start_session",
+      data: {
+        type: "SESSION_STARTED",
+        point_id: s.point_id,
+        started_at
+      }
+    });
 
+    const initSOC = 0; 
+    await this.pushMeterReading({
+      session_id,
+      meter_wh: start_meter_wh ?? 0,
+      power_kw: 0,
+      soc: initSOC,
+      price_per_kw: price_per_kwh,
+      timestamp: started_at
+    });
 
+    //----------------------------------
+    // 5) Trả về cho client
+    //----------------------------------
     return {
       session_id: updated.session_id || session_id,
       status: updated.status || "charging",
       started_at,
+      price_per_kwh
     };
   }
+
   async reconcileSessionWithReservation(
     token,
     session_id,
@@ -261,57 +290,63 @@ class ChargingService {
     }
   }
 
-  /**
-   * /api/v1/sessions/{session_id}/meter  (push meter)
-   * body: { timestamp, meter_wh, power_kw, soc }
-   */
-  async pushMeterReading({
-    session_id,
-    timestamp = null,
-    meter_wh,
-    power_kw = null,
-    soc = null,
-  }) {
-    const s = await SessionRepo.getById(session_id);
-    if (!s) throw new Error("Charging session not found");
+  async pushMeterReading({ session_id, meter_wh, power_kw = null, soc = null, token = null }) {
+    // 1. Check session
+    const session = await SessionRepo.getById(session_id);
+    if (!session) throw new Error("Charging session not found");
 
-    // allow telemetry push even if paused/charging (but typically require started)
-    // Here we accept when status is charging or paused
-    if (
-      !["charging", "paused", "ACTIVE", "active"].includes(
-        (s.status || "").toLowerCase()
-      )
-    ) {
+    const st = (session.status || "").toLowerCase();
+    if (!["charging", "paused", "active"].includes(st)) {
       throw new Error("Session is not active for meter pushing");
     }
 
-    const reading = {
-      telemetry_id: uuidv4(),
-      session_id,
-      timestamp: timestamp || dayjs().toISOString(),
-      meter_wh: meter_wh != null ? meter_wh : null,
-      power_kw: power_kw != null ? power_kw : null,
-      soc: soc != null ? soc : null,
-      created_at: dayjs().toISOString(),
-    };
+    // 2. Fetch pricing if needed
+    let price_per_kw = null;
+    try {
+      const res = await axios.get(
+        `${config.STATIONBASE}/api/v1/chargers/${session.point_id}/pricing`,
+        { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
+      );
+      const pricingList = res.data?.pricing || [];
+      // Nếu muốn tính giá theo block đầu tiên (ví dụ) thì:
+      price_per_kw = pricingList[0]?.price_per_kw || null;
+    } catch (err) {
+      console.error("Pricing API error:", err.response?.data || err);
+      const e = new Error("Failed to fetch pricing for charger");
+      e.status = 500;
+      throw e;
+    }
 
-    await TelemetryRepo.create(reading);
-    publishEvent("telemetry_events", {
-      type: "METER_READING_PUSHED",
-      data: reading,
+    // 3. Upsert telemetry
+    const telemetry = await TelemetryRepo.upsert({
+      session_id,
+      meter_wh,
+      power_kw,
+      price_per_kw,
+      soc
     });
 
-    return { status: "ok" };
+    return { status: "ok", telemetry };
   }
 
-  /**
-   * GET /api/v1/sessions/{session_id}/telemetry
-   */
-  async getTelemetry(session_id, { from = null, to = null, limit = 100 } = {}) {
-    // simply delegate to TelemetryRepo; TelemetryRepo should support filters
-    return await TelemetryRepo.getBySessionId(session_id, { from, to, limit });
+  async getTelemetry(session_id) {
+    return await TelemetryRepo.getBySessionId(session_id);
   }
-async deleteBySessionId(session_id) {
+
+  async updateTelemetry({ session_id, meter_wh, power_kw, soc }) {
+    const telemetry = await TelemetryRepo.getBySessionId(session_id);
+    if (!telemetry) throw new Error("No telemetry found to update");
+
+    return await TelemetryRepo.upsert({
+      session_id,
+      meter_wh: meter_wh ?? telemetry.meter_wh,
+      power_kw: power_kw ?? telemetry.power_kw,
+      price_per_kw: telemetry.price_per_kw,
+      soc: soc ?? telemetry.soc,
+    });
+  }
+
+  async deleteBySessionId(session_id) {
     if (!session_id) throw new Error("session_id is required");
 
     const [result] = await pool.query(
@@ -324,43 +359,6 @@ async deleteBySessionId(session_id) {
       affectedRows: result.affectedRows
     };
   }
-
-  /**
-   * Cập nhật telemetry theo session_id + timestamp
-   * (nếu bạn muốn cập nhật bản mới nhất thì để dưới phần service)
-   */
-  async updateTelemetry({ session_id, timestamp = null, meter_wh, power_kw, soc }) {
-  if (!session_id) throw new Error('session_id is required');
-
-  if (!timestamp) {
-    // lấy bản mới nhất
-    const [rows] = await pool.query(
-      `SELECT timestamp FROM telemetry WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1`,
-      [session_id]
-    );
-    if (!rows.length) throw new Error('No telemetry found to update');
-    timestamp = rows[0].timestamp;
-  }
-
-  await pool.query(
-    `
-    UPDATE telemetry
-    SET meter_wh = ?, power_kw = ?, soc = ?
-    WHERE session_id = ? AND timestamp = ?
-    `,
-    [
-      meter_wh,
-      power_kw,
-      soc,
-      session_id,
-      dayjs(timestamp).format("YYYY-MM-DD HH:mm:ss"),
-    ]
-  );
-
-  return { session_id, timestamp, meter_wh, power_kw, soc };
-}
-
-
 
   async pauseSession(session_id) {
     const s = await SessionRepo.getById(session_id);
@@ -439,14 +437,14 @@ async deleteBySessionId(session_id) {
     } catch (err) {
       console.error("[stopSession] failed to persist metadata.payment", err);
     }
-publishEvent("stop_session", {
-  pattern: "stop_session",
-  data: {
-    type: "SESSION_STOP",
-    point_id: s.point_id,
-    ended_at
-  }
-});
+    publishEvent("stop_session", {
+      pattern: "stop_session",
+      data: {
+        type: "SESSION_STOP",
+        point_id: s.point_id,
+        ended_at
+      }
+    });
 
     return {
       session_id,
