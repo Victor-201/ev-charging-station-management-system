@@ -195,6 +195,19 @@ services:
   retries: 5
   routes:
   - https_redirect_status_code: 426
+    name: reservation-socket-route
+    path_handling: v0
+    paths:
+    - /socket.io
+    preserve_host: true
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
     name: reservation_booking_route
     path_handling: v0
     paths:
