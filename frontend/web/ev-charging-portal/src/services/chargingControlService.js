@@ -58,6 +58,10 @@ getReservationById: (reservation_id) =>
     // ===== QR CODE =====
   validateQr: (qr_id) =>
     apiClient({ method: "GET", url: `api/v1/booking/qr/${qr_id}/validate` }),
+
+   getReservationById: (reservation_id) =>
+    apiClient({ method: "GET", url: `api/v1/booking/${reservation_id}` }),
+
 };
 
 

@@ -184,7 +184,8 @@ class ChargingService {
           const rp = await this.bookingService.calculatePricing(
             reservation.point_id,
             reservation.start_time,
-            reservation.end_time
+            reservation.end_time,
+            token
           );
           reservedCost = Number(rp.total_amount || 0);
 

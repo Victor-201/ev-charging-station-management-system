@@ -13,6 +13,8 @@ router.get('/auto-cancel', authorize('internal'), bookingCtrl.runAutoCancelJob);
 // Check availability (public)
 router.get('/check', bookingCtrl.checkAvailability);
 
+router.get('/check/price', bookingCtrl.checkPrice);
+
 // Create new reservation (user)
 router.post('/', authenticate, bookingCtrl.createReservation);
 

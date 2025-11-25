@@ -80,7 +80,7 @@ exports.reconcileSession = async (req, res) => {
     return res.status(200).json({ ok: true, result });
   } catch (err) {
     console.error('[ChargingController.reconcileSession] error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal server error', debug: err.debug });
   }
 };
 
