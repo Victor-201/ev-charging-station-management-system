@@ -95,7 +95,7 @@ static async summary(req, res, next) {
   }
 
   /** === Doanh thu hôm nay === */
-  static async today(req, res, next) {
+  static async summaryToday(req, res, next) {
     try {
       const today_revenue = await service.transactionRepo.getTodayRevenue();
       res.json({ today_revenue });
@@ -105,7 +105,7 @@ static async summary(req, res, next) {
   }
 
   /** === Doanh thu theo ngày (30 ngày gần nhất) === */
-  static async daily(req, res, next) {
+  static async summaryDaily(req, res, next) {
     try {
       const days = Number(req.query.days) || 30; // có thể truyền query ?days=10
       const daily_revenue = await service.transactionRepo.getDailyRevenue(days);
@@ -116,7 +116,7 @@ static async summary(req, res, next) {
   }
 
   /** === Doanh thu theo tháng (12 tháng gần nhất) === */
-  static async monthly(req, res, next) {
+  static async summaryMonthly(req, res, next) {
     try {
       const months = Number(req.query.months) || 12; // có thể truyền query ?months=6
       const monthly_revenue = await service.transactionRepo.getMonthlyRevenue(months);
@@ -127,12 +127,78 @@ static async summary(req, res, next) {
   }
 
   /** === Doanh thu theo type/related_type === */
-  static async byType(req, res, next) {
+  static async summaryByType(req, res, next) {
     try {
       const revenue_by_type = await service.transactionRepo.getRevenueByType();
       res.json({ revenue_by_type });
     } catch (err) {
       next(err);
+    }
+  }
+
+  /** === API: Chi phí sạc hàng tháng === */
+  static async getUserMonthlyChargingCost(req, res) {
+    try {
+      // allow both /revenue/charging/monthly (current user) and /revenue/:user_id/charging/monthly (admin or self)
+      let user_id = req.params.user_id || req.user?.user_id || req.user?.id;
+      const monthsRaw = req.query.months;
+      const months = monthsRaw ? Number(monthsRaw) : 12;
+
+      if (!user_id) {
+        return res.status(400).json({ success: false, message: 'user_id is required' });
+      }
+
+      // permission check: only admin can fetch other users' data
+      const requesterRole = req.user?.role;
+      const requesterId = req.user?.user_id || req.user?.id;
+      if (requesterRole !== 'admin' && requesterId !== user_id) {
+        return res.status(403).json({ success: false, message: 'Forbidden: cannot access other user data' });
+      }
+
+      if (!Number.isFinite(months) || months <= 0 || months > 36) {
+        return res.status(400).json({ success: false, message: 'months must be an integer between 1 and 36' });
+      }
+
+      const data = await service.getUserMonthlyChargingCost(user_id, months);
+
+      return res.json({
+        success: true,
+        user_id,
+        months,
+        data,
+      });
+    } catch (err) {
+      console.error("getUserMonthlyChargingCost error:", err);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+
+  /** === API: Tổng chi phí sạc === */
+  static async getUserChargingTotal(req, res) {
+    try {
+      // support both /revenue/charging/total (current user) and /revenue/:user_id/charging/total
+      const user_id = req.params.user_id || req.user?.user_id || req.user?.id;
+
+      if (!user_id) {
+        return res.status(400).json({ success: false, message: 'user_id is required' });
+      }
+
+      const requesterRole = req.user?.role;
+      const requesterId = req.user?.user_id || req.user?.id;
+      if (requesterRole !== 'admin' && requesterId !== user_id) {
+        return res.status(403).json({ success: false, message: 'Forbidden: cannot access other user data' });
+      }
+
+      const total = await service.getUserChargingTotal(user_id);
+
+      return res.json({
+        success: true,
+        user_id,
+        total,
+      });
+    } catch (err) {
+      console.error("getUserChargingTotal error:", err);
+      return res.status(500).json({ success: false, message: "Server error" });
     }
   }
 }

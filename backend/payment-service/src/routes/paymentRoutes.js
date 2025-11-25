@@ -27,9 +27,16 @@ router.get('/user/:user_id/payments', authorize(UserRole.ADMIN, UserRole.USER), 
 
 // revenue statistics
 router.get('/revenue/summary', PaymentController.summary);
-router.get('/revenue/today', PaymentController.today);
-router.get('/revenue/daily', PaymentController.daily);
-router.get('/revenue/monthly', PaymentController.monthly);
-router.get('/revenue/by-type', PaymentController.byType);
+router.get('/revenue/today', PaymentController.summaryToday);
+router.get('/revenue/daily', PaymentController.summaryDaily);
+router.get('/revenue/monthly', PaymentController.summaryMonthly);
+router.get('/revenue/by-type', PaymentController.summaryByType);
 
+// allow current user endpoints (no user_id param)
+router.get('/revenue/charging/monthly', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getUserMonthlyChargingCost);
+router.get('/revenue/charging/total', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getUserChargingTotal);
+
+// keep legacy/admin endpoints with explicit user id
+router.get('/revenue/:user_id/charging/monthly', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getUserMonthlyChargingCost);
+router.get('/revenue/:user_id/charging/total', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getUserChargingTotal);
 export default router;
