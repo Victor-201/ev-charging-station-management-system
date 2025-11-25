@@ -70,12 +70,19 @@ class BookingService {
     const price_per_min = Number(perMin.price);
 
     // Tính số phút
-    const minutes = dayjs(end_time).diff(dayjs(start_time), "minute");
-    if (minutes <= 0) {
-      const e = new Error("Invalid time range");
-      e.status = 400;
-      throw e;
-    }
+const minutes = dayjs(end_time).diff(dayjs(start_time), "minute");
+    if (minutes < 0) {
+      const e = new Error(`Invalid time range: ${start_time}, ${end_time}`);
+  e.status = 400;
+  e.debug = {
+    start_time,
+    end_time,
+    diff: minutes,
+    start_parsed: dayjs(start_time).format(),
+    end_parsed: dayjs(end_time).format(),
+  };
+  throw e;
+}
 
     // Tính tổng tiền
     const total_amount = minutes * price_per_min;
