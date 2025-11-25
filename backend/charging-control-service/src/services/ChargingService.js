@@ -1,4 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
+const axios = require("axios");
+const config =require("../config/env.js")
 const dayjs = require("dayjs");
 const { publishEvent } = require("../core/rabbit/publisher.js");
 const { createConsumer } = require("../core/rabbit/consumer.js");
@@ -87,7 +89,7 @@ class ChargingService {
  * body: { session_id, start_meter_wh, token }
  * Trả về { session_id, status, started_at }
  */
-  async startSession({ session_id, start_meter_wh = null, token = null }) {
+  async startSession({ session_id, start_meter_wh = null, token }) {
     const s = await SessionRepo.getById(session_id);
     if (!s) throw new Error("Charging session not found");
 
@@ -548,6 +550,17 @@ class ChargingService {
         type: "SESSION_PAYMENT_CONFIRMED",
         data: { session_id, paid_amount, payment_method, payment_ref },
       });
+
+      const session = await SessionRepo.getById(session_id);
+      if (!session) throw new Error("Charging session not found");
+      const payload = {
+        message: 'Thanh toán thành công!',
+        session_id
+      };
+
+      const point = session.point_id;
+
+      io.to(point).emit('confirm_payment', payload);
 
       debug("confirmPayment: success for session", session_id);
       return refreshed;
