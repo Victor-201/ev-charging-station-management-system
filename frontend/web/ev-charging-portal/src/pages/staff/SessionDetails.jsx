@@ -1,6 +1,9 @@
 import React from "react";
 import { Pause, Play, Square, RefreshCw, DollarSign, CheckCircle } from "lucide-react";
 import paymentService from "@/services/paymentService";
+import { leaveRoom } from "../../utils/socketClient";
+import { useSocketClient } from "@hooks/useSocket";
+
 import {
   formatMoney, getStatusColor, TelemetrySection, SessionEventsSection,
   PaymentSection, ReconcileDetailsSection
@@ -21,6 +24,7 @@ const SessionDetails = ({
                              currentSession?.status === "completed" || 
                              currentSession?.status === "stopped";
 
+  const socketClient = useSocketClient();
   const handlePause = async () => {
     if (!selectedSessionId) return;
     const result = await pauseSession(selectedSessionId);
@@ -48,6 +52,8 @@ const SessionDetails = ({
       await loadActivePoints();
       await handleReconcile();
     }
+    const point_id = s.point_id;
+    leaveRoom(socketClient, point_id)
   };
 
   const handleReconcile = async () => {

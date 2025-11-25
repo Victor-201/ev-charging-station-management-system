@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useStation } from "@/hooks/useStation"; // hook lấy từ context
+import { useSocketClient } from "@/hooks/useSocket";
 import Card from "../../components/staff/Card/index";
 import Table from "../../components/staff/Table/index";
 import chargingControlService from "@/services/chargingControlService"; // service (mình gửi mẫu bên dưới)
 import { useAuth } from "@/hooks/useAuth";
 import stationService from "@/services/stationService"; // <-- service có getAssignedStation
+import { joinRoom} from "../../utils/socketClient";
 
 export default function Stations() {
   // managedStationId giờ là state, không còn hardcode nữa
@@ -13,6 +15,7 @@ export default function Stations() {
   const [assignedError, setAssignedError] = useState(null);
 
   const { user } = useAuth();
+  const socketClient = useSocketClient();
   const token = user?.token || user?.access_token || user?.jwt || null;
   const user_id = user?.user_id;
 
@@ -28,6 +31,8 @@ export default function Stations() {
     getChargerById,
     getChargerPricing,
   } = useStation();
+
+
 
   const [selectedChargerId, setSelectedChargerId] = useState(null); // => store the chosen id string (external_id | point_id | id)
   const [selectedChargerDetails, setSelectedChargerDetails] = useState(null); // detailed object from API
@@ -171,10 +176,10 @@ export default function Stations() {
         const pricingArray = Array.isArray(payload)
           ? payload
           : Array.isArray(payload?.pricing)
-          ? payload.pricing
-          : payload?.pricing
-          ? [payload.pricing]
-          : null;
+            ? payload.pricing
+            : payload?.pricing
+              ? [payload.pricing]
+              : null;
         const pricingObj = pricingArray ? { pricing: pricingArray } : payload;
         setSelectedChargerDetails((prev) => {
           const base = prev || ch || {};
@@ -198,11 +203,11 @@ export default function Stations() {
     const updatedChargers = (connectors || currentStation?.chargers || []).map((c) =>
       chooseChargerId(c) === chargerId
         ? {
-            ...c,
-            status: newStatus,
-            lastUpdated: now,
-            history: [{ time: now, note: `Đặt trạng thái: ${newStatus}` }, ...(c.history || [])],
-          }
+          ...c,
+          status: newStatus,
+          lastUpdated: now,
+          history: [{ time: now, note: `Đặt trạng thái: ${newStatus}` }, ...(c.history || [])],
+        }
         : c
     );
     if (currentStation?.id) update(currentStation.id, { chargers: updatedChargers });
@@ -227,10 +232,10 @@ export default function Stations() {
     const updatedChargers = (connectors || currentStation?.chargers || []).map((c) =>
       chooseChargerId(c) === chargerId
         ? {
-            ...c,
-            history: [{ time: now, note }, ...(c.history || [])],
-            lastUpdated: now,
-          }
+          ...c,
+          history: [{ time: now, note }, ...(c.history || [])],
+          lastUpdated: now,
+        }
         : c
     );
     if (currentStation?.id) update(currentStation.id, { chargers: updatedChargers });
@@ -306,6 +311,7 @@ export default function Stations() {
       user_id,
     };
 
+
     // 1) initiate
     const initRes = await initiateSession(payload);
     if (!initRes.success) {
@@ -331,6 +337,14 @@ export default function Stations() {
       console.error("startSession failed", startRes.error);
       alert("Không thể bắt đầu phiên sạc: " + (startRes.error?.message || "Lỗi mạng"));
       return;
+    }
+
+    // Join in room point_id
+    if (socketClient) {
+      joinRoom(socketClient, point_id); // room = point_id
+      console.log(`Joined socket room for point_id: ${point_id}`);
+    } else {
+      console.warn("Socket chưa sẵn sàng, không join room được");
     }
 
     // Success -> update UI local
@@ -398,15 +412,14 @@ export default function Stations() {
               }}
               className={`cursor-pointer select-none flex flex-col gap-1 rounded-xl border px-4 py-3 shadow-sm transition-all
               ${statusFilter === stat.key ? "bg-blue-50 border-blue-300 shadow-md -translate-y-1" : "bg-white border-gray-200 hover:shadow-md"}
-              ${
-                stat.key === "available"
+              ${stat.key === "available"
                   ? "text-emerald-600"
                   : stat.key === "in_use"
-                  ? "text-blue-600"
-                  : stat.key === "fault"
-                  ? "text-red-600"
-                  : "text-gray-900"
-              }`}
+                    ? "text-blue-600"
+                    : stat.key === "fault"
+                      ? "text-red-600"
+                      : "text-gray-900"
+                }`}
             >
               <span className="text-sm text-gray-500">{stat.label}</span>
               <span className="text-xl font-bold">{stat.value}</span>
@@ -435,15 +448,14 @@ export default function Stations() {
                     onClick={() => handleSelectCharger(ch)}
                     className={`rounded-xl border p-4 shadow-md transition-all cursor-pointer
                     ${selectedChargerId === visibleId ? "border-blue-400 shadow-lg -translate-y-1" : "border-gray-200 hover:-translate-y-0.5 hover:shadow-lg"}
-                    ${
-                      ch.status === "available"
+                    ${ch.status === "available"
                         ? "bg-emerald-50"
                         : ch.status === "in_use"
-                        ? "bg-blue-50"
-                        : ch.status === "fault"
-                        ? "bg-red-50"
-                        : "bg-gray-100"
-                    }`}
+                          ? "bg-blue-50"
+                          : ch.status === "fault"
+                            ? "bg-red-50"
+                            : "bg-gray-100"
+                      }`}
                   >
                     <div className="flex justify-between items-center">
                       <div>
@@ -452,17 +464,16 @@ export default function Stations() {
                       </div>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-bold text-white capitalize
-                        ${
-                          ch.status === "available"
+                        ${ch.status === "available"
                             ? "bg-emerald-500"
                             : ch.status === "in_use"
-                            ? "bg-blue-500"
-                            : ch.status === "charging"
-                            ? "bg-indigo-500"
-                            : ch.status === "fault"
-                            ? "bg-red-500"
-                            : "bg-gray-400"
-                        }`}
+                              ? "bg-blue-500"
+                              : ch.status === "charging"
+                                ? "bg-indigo-500"
+                                : ch.status === "fault"
+                                  ? "bg-red-500"
+                                  : "bg-gray-400"
+                          }`}
                       >
                         {ch.status}
                       </span>
@@ -514,15 +525,14 @@ export default function Stations() {
                     <div className="text-sm border-b py-2">
                       <strong>Trạng thái:</strong>{" "}
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-bold text-white capitalize ${
-                          (selectedChargerDetails?.status || selectedCharger.status) === "available"
+                        className={`px-2 py-1 rounded-full text-xs font-bold text-white capitalize ${(selectedChargerDetails?.status || selectedCharger.status) === "available"
                             ? "bg-emerald-500"
                             : (selectedChargerDetails?.status || selectedCharger.status) === "charging"
-                            ? "bg-indigo-500"
-                            : (selectedChargerDetails?.status || selectedCharger.status) === "in_use"
-                            ? "bg-blue-500"
-                            : "bg-red-500"
-                        }`}
+                              ? "bg-indigo-500"
+                              : (selectedChargerDetails?.status || selectedCharger.status) === "in_use"
+                                ? "bg-blue-500"
+                                : "bg-red-500"
+                          }`}
                       >
                         {selectedChargerDetails?.status || selectedCharger.status || "—"}
                       </span>
