@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Pause, Play, Square, RefreshCw, DollarSign, CheckCircle } from "lucide-react";
 import paymentService from "@/services/paymentService";
 import { leaveRoom } from "../../utils/socketClient";
-import { useSocketClient } from "@hooks/useSocket";
+import { useSocketClient } from "@/hooks/useSocket";
 
 import chargingControlService from "@/services/chargingControlService";
 import userService from "@/services/userService";
