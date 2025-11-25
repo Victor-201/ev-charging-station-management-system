@@ -119,27 +119,30 @@ export default class PaymentService {
         transaction.markSuccess({ paid_at: new Date().toISOString() });
         await this.transactionRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
-        await this._createOutbox(
-          eventType,
-          transaction.id,
-          {
-            user_id: transaction.user_id,
-            transaction_id: transaction.id,
-            related_id: transaction.related_id,
-            related_type: transaction.related_type,
-            amount: transaction.amount,
-            method: transaction.method,
-          }
-        );
+        if (related_type === 'chaging_session') {
+          const eventType = `payment.charging.succeeded`;
+          await this._createOutbox(
+            eventType,
+            transaction.id,
+            {
+              user_id: transaction.user_id,
+              transaction_id: transaction.id,
+              related_id: transaction.related_id,
+              related_type: transaction.related_type,
+              amount: transaction.amount,
+              method: transaction.method,
+            }
+          );
 
-        try {
-          publishEvent(eventType, {
-            user_id: transaction.user_id,
-            transaction_id: transaction.id,
-            related_id: transaction.related_id,
-            amount: transaction.amount,
-          });
-        } catch (err) { }
+          try {
+            publishEvent(eventType, {
+              user_id: transaction.user_id,
+              transaction_id: transaction.id,
+              related_id: transaction.related_id,
+              amount: transaction.amount,
+            });
+          } catch (err) { }
+        }
       } catch (err) {
         transaction.markFailed({ reason: err.message });
         await this.transactionRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
@@ -326,27 +329,27 @@ export default class PaymentService {
     if (category) {
       const eventType = `payment.${category}.succeeded`;
       await this._createOutbox(
-      eventType,
-      transaction.id,
-      {
-        user_id: transaction.user_id,
-        transaction_id: transaction.id,
-        related_id: transaction.related_id,
-        related_type: transaction.related_type,
-        amount: incoming,
-        method: transaction.method,
-        reference_code: refCode,
-      }
-    );
+        eventType,
+        transaction.id,
+        {
+          user_id: transaction.user_id,
+          transaction_id: transaction.id,
+          related_id: transaction.related_id,
+          related_type: transaction.related_type,
+          amount: incoming,
+          method: transaction.method,
+          reference_code: refCode,
+        }
+      );
 
-    try {
-      publishEvent(eventType, {
-        user_id: transaction.user_id,
-        transaction_id: transaction.id,
-        related_id: transaction.related_id,
-        amount: incoming,
-      });
-    } catch (err) { }
+      try {
+        publishEvent(eventType, {
+          user_id: transaction.user_id,
+          transaction_id: transaction.id,
+          related_id: transaction.related_id,
+          amount: incoming,
+        });
+      } catch (err) { }
     }
 
     return {
