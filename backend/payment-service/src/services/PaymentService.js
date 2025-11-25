@@ -119,7 +119,7 @@ export default class PaymentService {
         transaction.markSuccess({ paid_at: new Date().toISOString() });
         await this.transactionRepo.updateStatus(transaction.id, transaction.status, transaction.meta);
 
-        if (related_type === 'chaging_session') {
+        if (related_type === 'charging_session') {
           const eventType = `payment.charging.succeeded`;
           await this._createOutbox(
             eventType,
