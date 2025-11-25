@@ -1,5 +1,5 @@
 const EventEmitter = require("events");
-const TelemetryService = require("../services/TelemetryService");
+const ChargingService = require("../services/ChargingService");
 const SessionRepo = require("../repositories/SessionRepository");
 const dayjs = require("dayjs");
 
@@ -72,7 +72,7 @@ class FakeCharger extends EventEmitter {
     const cost = (this.state.meter_wh / 1000) * this.state.price_per_kw;
 
     // Push telemetry vào DB
-    await TelemetryService.pushMeterReading({
+    await ChargingService.pushMeterReading({
       session_id: this.session_id,
       meter_wh: Math.round(this.state.meter_wh),
       power_kw: this.power_kw,
