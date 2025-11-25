@@ -1,18 +1,38 @@
-import { Router } from 'express';
+// routes/analytics.routes.js
+import { Router } from "express";
 import {
-  userMonthly,
-  stationDaily,
+  getMonitoringHealth,
+  getMonitoringMetrics,
+  getMonitoringLogs,
+  getMonitoringAlerts,
+  acknowledgeAlert,
+
+  usersMonthlyList,
+  stationsMonthlyList,
   revenueReport,
+
   forecastTrain,
-  stationForecast
-} from '../controllers/analytics.controller.js';
+  stationForecast,
+} from "../controllers/analytics.controller.js";
 
 const router = Router();
 
-router.get('/reports/user/:user_id/monthly', userMonthly);
-router.get('/reports/station/:station_id/daily', stationDaily);
-router.get('/reports/revenue', revenueReport);
-router.post('/forecast/train', forecastTrain);
-router.get('/forecast/:station_id', stationForecast);
+/* =============== MONITORING (prefix /api/v1/analytics) ================= */
+router.get("/monitoring/health", getMonitoringHealth);
+router.get("/monitoring/metrics", getMonitoringMetrics);
+router.get("/monitoring/logs", getMonitoringLogs);
+router.get("/monitoring/alerts", getMonitoringAlerts);
+router.post("/monitoring/alerts/ack", acknowledgeAlert);
+
+/* =============== ANALYTICS LIST MODE ================= */
+router.get("/reports/users/monthly", usersMonthlyList);
+router.get("/reports/stations/monthly", stationsMonthlyList);
+
+/* =============== OPTIONAL REVENUE SUMMARY ================= */
+router.get("/reports/revenue", revenueReport);
+
+/* =============== FORECAST ================== */
+router.post("/forecast/train", forecastTrain);
+router.get("/forecast/:station_id", stationForecast);
 
 export default router;

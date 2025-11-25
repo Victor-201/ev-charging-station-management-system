@@ -29,7 +29,6 @@ export default function SubscriptionPlans() {
     setError("");
 
     const res = await getAllSubscriptions();
-
     if (!res?.success) {
       setError("Không thể tải danh sách subscriptions");
       setSubscriptions([]);
@@ -39,7 +38,6 @@ export default function SubscriptionPlans() {
 
     const data = res.data?.data ?? res.data ?? [];
     setSubscriptions(Array.isArray(data) ? data : []);
-
     setLoadingList(false);
   };
 
@@ -64,12 +62,9 @@ export default function SubscriptionPlans() {
       plan_id: editing.plan_id,
     };
 
-    console.log("➡ Sending payload:", payload);
-
     const res = await createSubscription(payload);
 
     if (!res?.success) {
-      console.log("❌ Subscription create error:", res);
       setError("Không thể tạo subscription mới");
       setSaving(false);
       return;
@@ -194,7 +189,9 @@ export default function SubscriptionPlans() {
           {loadingList ? (
             <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />
           ) : (
-            <Table columns={columns} data={subscriptions} />
+            <div className="max-h-[600px] overflow-y-auto rounded-xl border">
+              <Table columns={columns} data={subscriptions} />
+            </div>
           )}
         </Section>
 
@@ -205,7 +202,9 @@ export default function SubscriptionPlans() {
 
               {/* USER ID */}
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">User ID</label>
+                <label className="text-xs text-slate-500 mb-1 block">
+                  User ID
+                </label>
                 <input
                   value={editing.user_id}
                   onChange={(e) =>
@@ -218,7 +217,9 @@ export default function SubscriptionPlans() {
 
               {/* PLAN ID */}
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Plan ID</label>
+                <label className="text-xs text-slate-500 mb-1 block">
+                  Plan ID
+                </label>
                 <input
                   value={editing.plan_id}
                   onChange={(e) =>

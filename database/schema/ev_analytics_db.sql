@@ -22,8 +22,10 @@ CREATE TABLE IF NOT EXISTS monitoring_logs (
   service_name VARCHAR(64) NOT NULL,
   level ENUM('debug','info','warn','error') NOT NULL,
   message TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL
 );
+
+
 
 -- === monitoring_alerts ===
 CREATE TABLE IF NOT EXISTS monitoring_alerts (
