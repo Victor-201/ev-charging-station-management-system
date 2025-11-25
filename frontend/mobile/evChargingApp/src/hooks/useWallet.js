@@ -47,9 +47,12 @@ export default function useWallet(autoFetch = true, providedUserId) {
   };
 
   useEffect(() => {
-    if (autoFetch) fetchWallet();
+    // Only fetch once on mount if autoFetch is true and userId is available
+    if (autoFetch && userId) {
+      fetchWallet();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoFetch, userId]);
+  }, []);
 
   return { wallet, loading, error, fetchWallet };
 }

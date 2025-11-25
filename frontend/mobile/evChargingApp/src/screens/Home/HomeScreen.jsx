@@ -53,10 +53,9 @@ export default function HomeScreen() {
     if (userProfile?.user_id) {
       dispatch(getWallet(userProfile.user_id));
       // fetch notifications to update badge
-
       dispatch(getNotifications(userProfile.user_id));
     }
-  }, [userProfile, dispatch]);
+  }, [userProfile?.user_id, dispatch]); // Only depend on user_id, not entire userProfile object
 
   // Feature cards with gradient colors
   const featureCards = [

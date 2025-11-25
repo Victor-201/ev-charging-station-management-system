@@ -35,7 +35,12 @@ const NotificationListScreen = () => {
     return Promise.resolve();
   }, [dispatch, user?.id, user?.user_id, user?.sub]);
 
-  useFocusEffect(loadNotifications);
+  // Fix: Wrap loadNotifications in useCallback to prevent continuous calls
+  useFocusEffect(
+    React.useCallback(() => {
+      loadNotifications();
+    }, [loadNotifications])
+  );
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);

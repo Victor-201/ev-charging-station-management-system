@@ -17,7 +17,12 @@ const AdminDashboardScreen = () => {
     dispatch(getUsers());
   }, [dispatch]);
 
-  useFocusEffect(loadUsers);
+  // Fix: Wrap in useCallback to prevent continuous calls
+  useFocusEffect(
+    useCallback(() => {
+      loadUsers();
+    }, [loadUsers])
+  );
 
   const renderContent = () => {
     if (loading) {
