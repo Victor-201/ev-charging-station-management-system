@@ -170,8 +170,10 @@ exports.startSession = async (req, res) => {
   try {
     const { session_id, start_meter_wh } = req.body || {};
     if (!session_id) return res.status(400).json({ error: 'session_id is required' });
+    const token = req.user.token;
+    console.log("hbshsdhcvsd",token);
+    const result = await ChargingService.startSession({ session_id, start_meter_wh,token});
 
-    const result = await ChargingService.startSession({ session_id, start_meter_wh });
     // per API table: { session_id, status, started_at }
     return res.status(200).json(result);
   } catch (err) {
