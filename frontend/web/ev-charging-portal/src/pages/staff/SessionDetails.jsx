@@ -1,26 +1,74 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Pause, Play, Square, RefreshCw, DollarSign, CheckCircle } from "lucide-react";
 import paymentService from "@/services/paymentService";
+import chargingControlService from "@/services/chargingControlService";
 import {
   formatMoney, getStatusColor, TelemetrySection, SessionEventsSection,
   PaymentSection, ReconcileDetailsSection
 } from "./SessionDetailsComponents";
 
 const SessionDetails = ({
-  selectedSessionId, currentSession, telemetry, sessionEvents, reconcileResult,
-  loadingSession, loadingReconcile, loadingRefund, autoRefresh, setAutoRefresh,
-  refreshCurrentSession, pauseSession, resumeSession, stopSession, getInvoiceBySession,
-  reconcileSession, setReconcileResult, setLoadingReconcile, loadActivePoints,
-  refreshReconcileData, selectedPaymentMethod, setSelectedPaymentMethod,
-  setShowPaymentModal, STATION_ID, setLoadingRefund, setTransactionError,
+  selectedSessionId,
+  currentSession,
+  telemetry,
+  sessionEvents,
+  reconcileResult,
+  loadingSession,
+  loadingReconcile,
+  loadingRefund,
+  autoRefresh,
+  setAutoRefresh,
+  refreshCurrentSession,
+  pauseSession,
+  resumeSession,
+  stopSession,
+  getInvoiceBySession,
+  reconcileSession,
+  setReconcileResult,
+  setLoadingReconcile,
+  loadActivePoints,
+  refreshReconcileData,
+  selectedPaymentMethod,
+  setSelectedPaymentMethod,
+  setShowPaymentModal,
+  STATION_ID,
+  setLoadingRefund,
+  setTransactionError,
 }) => {
-  const isGuestSession = !currentSession?.reservation_id || currentSession?.reservation_id === "";
-  
-  // Kiểm tra xem phiên có ở trạng thái confirmed/completed/stopped không
-  const isSessionCompleted = currentSession?.status === "confirmed" || 
-                             currentSession?.status === "completed" || 
-                             currentSession?.status === "stopped";
+  const [reservationDetail, setReservationDetail] = useState(null);
+  const [loadingReservation, setLoadingReservation] = useState(false);
+  const [reservationError, setReservationError] = useState(null);
 
+  const isGuestSession = !currentSession?.reservation_id || currentSession?.reservation_id === "";
+
+  const isSessionCompleted = ["confirmed", "completed", "stopped"].includes(currentSession?.status);
+
+  // --- Fetch reservation by ID ---
+  const getReservationById = useCallback(async (reservation_id) => {
+    setLoadingReservation(true);
+    setReservationError(null);
+    try {
+      const res = await chargingControlService.getReservationById(reservation_id);
+      const data = res?.data ?? res;
+      setReservationDetail(data);
+    } catch (err) {
+      setReservationError(err);
+      console.error("Lỗi lấy reservation:", err);
+    } finally {
+      setLoadingReservation(false);
+    }
+  }, []);
+
+  // Khi có reservation_id trong session, tự động fetch reservation
+  useEffect(() => {
+    if (currentSession?.reservation_id) {
+      getReservationById(currentSession.reservation_id);
+    } else {
+      setReservationDetail(null);
+    }
+  }, [currentSession?.reservation_id, getReservationById]);
+
+  // --- Session controls ---
   const handlePause = async () => {
     if (!selectedSessionId) return;
     const result = await pauseSession(selectedSessionId);
@@ -50,21 +98,25 @@ const SessionDetails = ({
     }
   };
 
+  // --- Reconcile / payment ---
   const handleReconcile = async () => {
     if (!selectedSessionId) return;
     setLoadingReconcile(true);
     try {
       const result = await reconcileSession(selectedSessionId, {});
-      console.log("Reconcile API response:", result);
       let reconcileData = null;
 
       if (result?.ok && result?.result) {
         const apiResult = result.result;
         reconcileData = {
-          session_id: apiResult.session_id, session_cost: apiResult.session_cost,
-          reserved_cost: apiResult.reserved_cost, diff: apiResult.diff,
-          settlement: apiResult.settlement, reserved: apiResult.reserved_cost,
-          actual: apiResult.session_cost, action: apiResult.settlement?.type || "none",
+          session_id: apiResult.session_id,
+          session_cost: apiResult.session_cost,
+          reserved_cost: apiResult.reserved_cost,
+          diff: apiResult.diff,
+          settlement: apiResult.settlement,
+          reserved: apiResult.reserved_cost,
+          actual: apiResult.session_cost,
+          action: apiResult.settlement?.type || "none",
           settlement_message: apiResult.settlement?.message || "",
           settlement_amount: apiResult.settlement?.amount,
           payment_status: isSessionCompleted ? "completed" : (apiResult.diff > 0 ? "pending" : (apiResult.diff < 0 ? "pending" : "completed")),
@@ -73,9 +125,13 @@ const SessionDetails = ({
       } else if (result?.success && result?.data) {
         const data = result.data?.result || result.data;
         reconcileData = {
-          session_id: data.session_id, session_cost: data.session_cost,
-          reserved_cost: data.reserved_cost, diff: data.diff, settlement: data.settlement,
-          reserved: data.reserved_cost || data.reserved, actual: data.session_cost || data.actual,
+          session_id: data.session_id,
+          session_cost: data.session_cost,
+          reserved_cost: data.reserved_cost,
+          diff: data.diff,
+          settlement: data.settlement,
+          reserved: data.reserved_cost || data.reserved,
+          actual: data.session_cost || data.actual,
           action: data.settlement?.type || data.action || "none",
           settlement_message: data.settlement?.message || data.note || "",
           settlement_amount: data.settlement?.amount,
@@ -85,9 +141,13 @@ const SessionDetails = ({
       } else if (result?.result) {
         const data = result.result;
         reconcileData = {
-          session_id: data.session_id, session_cost: data.session_cost,
-          reserved_cost: data.reserved_cost, diff: data.diff, settlement: data.settlement,
-          reserved: data.reserved_cost, actual: data.session_cost,
+          session_id: data.session_id,
+          session_cost: data.session_cost,
+          reserved_cost: data.reserved_cost,
+          diff: data.diff,
+          settlement: data.settlement,
+          reserved: data.reserved_cost,
+          actual: data.session_cost,
           action: data.settlement?.type || "none",
           settlement_message: data.settlement?.message || "",
           settlement_amount: data.settlement?.amount,
@@ -100,11 +160,10 @@ const SessionDetails = ({
         setReconcileResult(reconcileData);
         await refreshCurrentSession();
       } else {
-        console.warn("Không parse được reconcile response, thử lấy invoice");
         await handleFallbackInvoice();
       }
     } catch (e) {
-      console.error("Error calling reconcile API:", e);
+      console.error("Error reconcile:", e);
       await handleFallbackInvoice();
     } finally {
       setLoadingReconcile(false);
@@ -118,23 +177,27 @@ const SessionDetails = ({
       const finalCost = invoiceData?.total_cost ?? invoiceData?.cost ?? currentSession?.cost ?? 0;
       const hasReservation = currentSession?.reservation_id != null && currentSession?.reservation_id !== "";
       setReconcileResult({
-        session_id: selectedSessionId, session_cost: finalCost, reserved_cost: 0, diff: finalCost,
+        session_id: selectedSessionId,
+        session_cost: finalCost,
+        reserved_cost: 0,
+        diff: finalCost,
         settlement: {
-          type: finalCost > 0 ? "charge" : "none", amount: finalCost,
+          type: finalCost > 0 ? "charge" : "none",
+          amount: finalCost,
           message: hasReservation ? "Điều chỉnh thanh toán (fallback)" : "Thanh toán toàn bộ (fallback)"
         },
-        reserved: 0, actual: finalCost, action: finalCost > 0 ? "charge" : "none",
+        reserved: 0,
+        actual: finalCost,
+        action: finalCost > 0 ? "charge" : "none",
         payment_status: isSessionCompleted ? "completed" : "pending",
         autoSettled: false,
         settlement_message: hasReservation ? "Điều chỉnh thanh toán (fallback)" : "Thanh toán toàn bộ (fallback)",
       });
     } catch (fallbackError) {
-      console.error("Error in fallback invoice:", fallbackError);
+      console.error("Error fallback invoice:", fallbackError);
       alert("Không thể lấy thông tin thanh toán");
     }
   };
-
-  const handleRefreshReconcile = async () => { await handleReconcile(); };
 
   const handleSelectPaymentMethod = (method) => {
     setSelectedPaymentMethod(method);
@@ -164,13 +227,20 @@ const SessionDetails = ({
     }
 
     const payload = {
-      user_id, type: "refund", method: "wallet", related_id: session_id, related_type,
+      user_id,
+      type: "refund",
+      method: "wallet",
+      related_id: session_id,
+      related_type,
       amount: refundAmount,
       meta: {
         description: `Hoàn tiền ${hasReservation ? 'đặt sạc' : 'sạc khách vãng lai'} tại trạm ${STATION_ID}`,
-        start_time, end_time, reservation_id: currentSession?.reservation_id || null,
+        start_time,
+        end_time,
+        reservation_id: currentSession?.reservation_id || null,
         connector_id: currentSession?.connector_id || null,
-        refund_reason: "Sạc ít hơn đặt trước", refund_confirmed_at: new Date().toISOString(),
+        refund_reason: "Sạc ít hơn đặt trước",
+        refund_confirmed_at: new Date().toISOString(),
       },
     };
 
@@ -193,16 +263,16 @@ const SessionDetails = ({
       .finally(() => { setLoadingRefund(false); });
   };
 
-  // Chỉ cho phép thanh toán khi phiên chưa hoàn thành
-  const isPendingPayment = !isSessionCompleted && 
+  const handleRefreshReconcile = async () => { await handleReconcile(); };
+
+  const isPendingPayment = !isSessionCompleted &&
     reconcileResult?.payment_status === "pending" &&
-    ["charge", "charge_due"].includes(reconcileResult?.action) && 
+    ["charge", "charge_due"].includes(reconcileResult?.action) &&
     Number(reconcileResult?.diff) > 0;
 
-  // Chỉ cho phép hoàn tiền khi phiên chưa hoàn thành
-  const isRefundable = !isSessionCompleted && 
+  const isRefundable = !isSessionCompleted &&
     reconcileResult?.action === "refund" &&
-    Number(reconcileResult?.diff) < 0 && 
+    Number(reconcileResult?.diff) < 0 &&
     reconcileResult?.payment_status !== "refunded";
 
   return (
@@ -246,16 +316,48 @@ const SessionDetails = ({
                 <p className="font-medium">{currentSession.connector_id || "N/A"}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Reservation ID</p>
-                <p className="font-medium">{currentSession.reservation_id || "Không có (khách vãng lai)"}</p>
-              </div>
+  <p className="text-sm text-gray-600">Thời gian đặt lịch</p>
+  <p className="font-medium">
+    {currentSession.reservation_id ? "Đã đặt trước" : "Không có (khách vãng lai)"}
+  </p>
+
+  {loadingReservation && (
+    <span className="text-sm text-gray-500 ml-2">Đang tải chi tiết đặt trước...</span>
+  )}
+
+  {reservationDetail && (
+    <div className="text-sm text-gray-700 mt-1 space-y-1">
+      <p>
+        Bắt đầu:{" "}
+        {new Date(reservationDetail.start_time).toLocaleString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })}
+      </p>
+      <p>
+        Kết thúc:{" "}
+        {new Date(reservationDetail.end_time).toLocaleString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })}
+      </p>
+    </div>
+  )}
+</div>
+
               <div>
                 <p className="text-sm text-gray-600">Loại phiên</p>
                 <p className="font-medium">{currentSession.reservation_id ? "Đặt trước" : "Khách vãng lai"}</p>
               </div>
             </div>
 
-            {/* CÁC NÚT ĐIỀU KHIỂN - Chỉ hiển thị khi phiên chưa hoàn thành */}
+            {/* CÁC NÚT ĐIỀU KHIỂN */}
             {!isSessionCompleted && (
               <div className="flex gap-3 pt-4 border-t flex-wrap">
                 {(currentSession.status === "active" || currentSession.status === "charging") && (
@@ -278,8 +380,8 @@ const SessionDetails = ({
                 )}
               </div>
             )}
-            
-            {/* Nút xem thông tin thanh toán - Luôn hiển thị */}
+
+            {/* Nút xem hóa đơn / reconcile */}
             <div className="flex gap-3 pt-4 border-t flex-wrap">
               <button onClick={() => getInvoiceBySession(selectedSessionId)} disabled={loadingSession}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
@@ -294,7 +396,7 @@ const SessionDetails = ({
         )}
       </div>
 
-      {/* PHẦN HIỂN THỊ THÔNG TIN THANH TOÁN TỪ API RECONCILE */}
+      {/* Thông tin thanh toán */}
       {(reconcileResult || loadingReconcile) && (
         <div className="bg-white rounded-lg shadow-md p-6 mt-4">
           <div className="flex items-center justify-between mb-4">
@@ -321,8 +423,6 @@ const SessionDetails = ({
           ) : (
             <>
               <ReconcileDetailsSection reconcileResult={reconcileResult} selectedSessionId={selectedSessionId} />
-              
-              {/* Chỉ hiển thị phần thanh toán/hoàn tiền nếu phiên chưa hoàn thành */}
               {!isSessionCompleted ? (
                 <PaymentSection
                   reconcileResult={reconcileResult} 
