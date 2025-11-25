@@ -206,4 +206,55 @@ export default class TransactionRepository extends BaseRepository {
       total: Number(r.total ?? 0),
     }));
   }
+
+/** === Báo cáo chi phí sạc hàng tháng cho người dùng (payment - refund) === */
+async getUserMonthlyChargingCost(user_id, months = 12) {
+  const query = `
+    SELECT 
+      TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+      COALESCE(SUM(
+        CASE 
+          WHEN type = 'payment' THEN amount
+          WHEN type = 'refund' THEN -amount
+          ELSE 0
+        END
+      )::numeric, 0) AS total
+    FROM ${this.tableName}
+    WHERE (type = 'payment' OR type = 'refund')
+      AND related_type = 'charging_session'
+      AND user_id = $1
+      AND created_at >= NOW() - make_interval(months => $2)
+      AND status = 'completed'
+    GROUP BY DATE_TRUNC('month', created_at)
+    ORDER BY month ASC
+  `;
+
+  const { rows } = await db.query(query, [user_id, months]);
+
+  return rows.reduce((acc, r) => {
+    acc[r.month] = Number(r.total ?? 0);
+    return acc;
+  }, {});
+}
+
+/** === Tổng chi phí sạc của user (payment - refund) === */
+async getUserChargingTotal(user_id) {
+  const query = `
+    SELECT COALESCE(SUM(
+      CASE 
+        WHEN type = 'payment' THEN amount
+        WHEN type = 'refund' THEN -amount
+        ELSE 0
+      END
+    )::numeric, 0) AS total
+    FROM ${this.tableName}
+    WHERE user_id = $1
+      AND (type = 'payment' OR type = 'refund')
+      AND related_type = 'charging_session'
+      AND status = 'completed'
+  `;
+
+  const { rows } = await db.query(query, [user_id]);
+  return Number(rows[0]?.total ?? 0);
+}
 }

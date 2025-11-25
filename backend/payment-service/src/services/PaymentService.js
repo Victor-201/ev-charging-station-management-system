@@ -390,4 +390,14 @@ export default class PaymentService {
   async getTotalTransactions() {
     return this.transactionRepo.count({ status: 'completed' });
   }
+
+    /** Chi phí sạc hàng tháng của từng user */
+  async getUserMonthlyChargingCost(user_id, months = 12) {
+    return this.transactionRepo.getUserMonthlyChargingCost(user_id, months);
+  }
+
+  /** Tổng chi phí sạc */
+  async getUserChargingTotal(user_id) {
+    return this.transactionRepo.getUserChargingTotal(user_id);
+  }
 }
