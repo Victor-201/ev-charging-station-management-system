@@ -6,7 +6,16 @@ const chargingRoutes = require('./routers/chargingRoutes');
 const notificationRoutes = require('./routers/notificationRoutes');
 
 const app = express();
+const server = require('http').createServer(app);
+
 app.use(bodyParser.json());
+
+// Connect socket io
+const io = require('socket.io')(server, {
+    cors: {
+        origin: "*"
+    }
+});
 
 // --- Mount grouped routes ---
 app.use('/api/v1/booking', bookingRoutes);
@@ -15,4 +24,4 @@ app.use('/api/v1/notifications', notificationRoutes);
 
 app.get('/', (req, res) => res.send('🚗 EV Charging Service Running'));
 
-module.exports = app;
+module.exports = {app, server, io};
