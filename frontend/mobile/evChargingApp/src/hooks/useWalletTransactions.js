@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getTransactions } from '../store/slices/walletSlice';
+import { logger } from '../utils/logger';
 
 /**
  * Custom hook for managing wallet transactions
@@ -19,12 +20,21 @@ export default function useWalletTransactions(options = {}) {
 
   const [refreshing, setRefreshing] = useState(false);
   const hasFetchedRef = useRef(false); // Track if we've already fetched
+  const isMountedRef = useRef(true); // Track component mount state
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Determine user ID from options or auth state
   const effectiveUserId = userId || authUser?.id || authUser?.user_id || authUser?.sub;
 
   /**
    * Fetch wallet transactions
+   * Wrapped in useCallback with stable dependencies
    */
   const fetchTransactions = useCallback(
     async (overrideUserId, overrideParams) => {
@@ -32,7 +42,7 @@ export default function useWalletTransactions(options = {}) {
       const queryParams = overrideParams || params;
 
       if (!uid) {
-        console.warn('No user ID available to fetch wallet transactions');
+        logger.warn('No user ID available to fetch wallet transactions');
         return null;
       }
 
@@ -40,9 +50,14 @@ export default function useWalletTransactions(options = {}) {
         const result = await dispatch(
           getTransactions({ userId: uid, params: queryParams })
         ).unwrap();
-        return result;
+
+        // Only update state if component is still mounted
+        if (isMountedRef.current) {
+          return result;
+        }
+        return null;
       } catch (err) {
-        console.error('Error fetching wallet transactions:', err);
+        logger.error('Error fetching wallet transactions:', err?.message);
         return null;
       }
     },
@@ -55,7 +70,9 @@ export default function useWalletTransactions(options = {}) {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     await fetchTransactions();
-    setRefreshing(false);
+    if (isMountedRef.current) {
+      setRefreshing(false);
+    }
   }, [fetchTransactions]);
 
   /**
@@ -70,8 +87,7 @@ export default function useWalletTransactions(options = {}) {
         fetchTransactions();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoFetch, effectiveUserId]);
+  }, [autoFetch, effectiveUserId, fetchTransactions, transactions]);
 
   return {
     transactions: transactions || [],

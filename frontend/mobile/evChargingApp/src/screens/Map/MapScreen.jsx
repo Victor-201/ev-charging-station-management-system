@@ -11,6 +11,7 @@ import StationsBottomSheet from '../../components/station/StationsBottomSheet';
 import mapService from '../../services/mapService';
 import AnimatedFAB from '../../components/common/AnimatedFAB';
 import useDebounce from '../../hooks/useDebounce';
+import { logger } from '../../utils/logger';
 
 const DEFAULT_REGION = { latitude: 10.77978, longitude: 106.699, latitudeDelta: 0.05, longitudeDelta: 0.05 };
 
@@ -47,8 +48,16 @@ export default function MapScreen({ navigation }) {
         mapRef.current?.animateToRegion(newRegion, 1000);
         setSearchCoords({ lat: latitude, lng: longitude });
       },
-      () => {
-        Alert.alert('Lỗi vị trí', 'Không thể lấy vị trí hiện tại của bạn.');
+      (error) => {
+        logger.error('Geolocation error:', error?.message || error);
+        Alert.alert(
+          'Lỗi vị trí',
+          'Không thể lấy vị trí hiện tại của bạn. Sử dụng vị trí mặc định.'
+        );
+        // Use default region as fallback
+        if (region) {
+          setSearchCoords({ lat: region.latitude, lng: region.longitude });
+        }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
     );
@@ -93,7 +102,9 @@ export default function MapScreen({ navigation }) {
         setRegion({ ...location, latitudeDelta: 0.05, longitudeDelta: 0.05 });
         setSearchCoords({ lat: latitude, lng: longitude });
       },
-      () => {
+      (error) => {
+        logger.warn('Could not get initial location, using default:', error?.message);
+        // Fallback to default region
         setRegion(DEFAULT_REGION);
         setSearchCoords({ lat: DEFAULT_REGION.latitude, lng: DEFAULT_REGION.longitude });
       },
@@ -133,12 +144,39 @@ export default function MapScreen({ navigation }) {
 
   const onWebMessage = (e) => {
     try {
-      const data = JSON.parse(e?.nativeEvent?.data || '{}');
-      if (data.t === 'tap' && data.id) navigation.navigate('StationDetailScreen', { stationId: String(data.id) });
+      const messageData = e?.nativeEvent?.data;
+
+      // Validate message data exists before parsing
+      if (!messageData || typeof messageData !== 'string') {
+        logger.warn('Invalid WebView message data:', messageData);
+        return;
+      }
+
+      const data = JSON.parse(messageData);
+
+      // Validate parsed data structure
+      if (!data || typeof data !== 'object') {
+        logger.warn('Invalid WebView message structure:', data);
+        return;
+      }
+
+      // Handle station tap event
+      if (data.t === 'tap' && data.id) {
+        const stationId = String(data.id).trim();
+        if (stationId) {
+          navigation.navigate('StationDetailScreen', { stationId });
+        } else {
+          logger.warn('Invalid station ID from WebView tap:', data.id);
+        }
+      }
+
+      // Handle map move event
       if (data.t === 'move' && typeof data.lat === 'number' && typeof data.lng === 'number') {
         setSearchCoords({ lat: data.lat, lng: data.lng });
       }
-    } catch {}
+    } catch (error) {
+      logger.error('Error parsing WebView message:', error?.message || error);
+    }
   };
 
   if (!region) return (
