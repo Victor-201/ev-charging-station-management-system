@@ -56,18 +56,15 @@ export default function useChargingHistory(options = {}) {
 
   /**
    * Auto-fetch on mount if enabled
-   * Only fetch if we haven't fetched before and there's no data in the store
+   * Only fetch once on mount to prevent continuous requests
    */
   useEffect(() => {
     if (autoFetch && effectiveUserId && !hasFetchedRef.current) {
-      // Only fetch if we don't have sessions in the store yet
-      if (!sessions || sessions.length === 0) {
-        hasFetchedRef.current = true;
-        fetchHistory();
-      }
+      hasFetchedRef.current = true;
+      fetchHistory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoFetch, effectiveUserId]);
+  }, []); // Empty deps - only run once on mount
 
   return {
     sessions,

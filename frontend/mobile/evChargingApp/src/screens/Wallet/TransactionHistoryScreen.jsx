@@ -87,13 +87,13 @@ const TransactionHistoryScreen = () => {
   useFocusEffect(
     useCallback(() => {
       loadTransactions();
-    }, []) // Empty dependency array to avoid re-running on every focus
+    }, [loadTransactions])
   );
 
   // Reload transactions when filter changes
   useEffect(() => {
     loadTransactions();
-  }, [filter]); // Only re-run when filter changes
+  }, [filter, loadTransactions]); // Include loadTransactions in deps
 
   const renderItem = ({ item }) => (
     <TransactionCard
