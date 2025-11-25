@@ -151,7 +151,6 @@ const SepayQRCodeScreen = () => {
       } else {
         setStatus('pending');
       }
-      }
     } catch (error) {
       logger.error('Failed to check payment status', error);
       setStatus('pending');
