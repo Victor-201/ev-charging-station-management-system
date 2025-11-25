@@ -7,6 +7,7 @@ const SessionRepo = require("../repositories/SessionRepository");
 const TelemetryRepo = require("../repositories/TelemetryRepository");
 const EventOutboxRepo = require("../repositories/EventOutboxRepository");
 const BookingService = require("./BookingService.js");
+import { io } from "../app.js";
 // Debug logger
 const debug = (...args) => console.log("[ChargingService]", ...args);
 
@@ -548,6 +549,18 @@ publishEvent("stop_session", {
         type: "SESSION_PAYMENT_CONFIRMED",
         data: { session_id, paid_amount, payment_method, payment_ref },
       });
+
+      // emit event vao room point_id
+      const session = await SessionRepo.getById(session_id);
+      if (!session) throw new Error("Charging session not found");
+      const payload = {
+        message: 'Thanh toán thành công!',
+        session_id
+      };
+
+      const point = session.point_id;
+
+      io.to(point).emit('confirm_payment', payload);
 
       debug("confirmPayment: success for session", session_id);
       return refreshed;
