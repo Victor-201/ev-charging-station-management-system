@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Avatar, Text, useTheme } from 'react-native-paper';
 import { scale, fadeIn } from '../../utils/animations';
+import { getAvatarData } from '../../utils/avatarUtils';
 
 export default function ProfileHeader({ user, onAvatarPress }) {
   const { colors } = useTheme();
@@ -12,19 +13,17 @@ export default function ProfileHeader({ user, onAvatarPress }) {
     Animated.parallel([fadeIn(opacity, 400, 80), scale(avatarScale, 1, 500)]).start();
   }, []);
 
-  const defaultAvatarUri = `https://api.dicebear.com/8.x/avataaars/svg?seed=${encodeURIComponent(
-    user?.full_name || 'User'
-  )}`;
+  const { initials, backgroundColor, textColor } = getAvatarData(user?.full_name || 'User', colors);
 
   return (
-    <Animated.View style={[styles.container, { opacity }]}>      
+    <Animated.View style={[styles.container, { opacity }]}>
       <TouchableOpacity onPress={onAvatarPress} activeOpacity={0.8}>
         <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
-          <Avatar.Image
-            size={96}
-            source={{ uri: user?.avatar_url || defaultAvatarUri }}
-            style={styles.avatar}
-          />
+          {user?.avatar_url ? (
+            <Avatar.Image size={96} source={{ uri: user.avatar_url }} style={styles.avatar} />
+          ) : (
+            <Avatar.Text size={96} label={initials} style={[styles.avatar, { backgroundColor }]} color={textColor} />
+          )}
         </Animated.View>
       </TouchableOpacity>
       <Text style={[styles.userName, { color: colors.onSurface }]} numberOfLines={1}>

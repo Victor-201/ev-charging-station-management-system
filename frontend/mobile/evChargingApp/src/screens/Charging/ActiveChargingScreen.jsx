@@ -45,12 +45,24 @@ const ActiveChargingScreen = () => {
     }
   }, [dispatch, sessionId]);
 
-  useSocket({ 'charging_update': eventHandlers });
+  // Socket events for real-time updates
+  const socketEventHandlers = {
+    'charging_update': eventHandlers,
+    'telemetry_update': (data) => {
+      if (data.sessionId === sessionId) {
+        // Update telemetry data in real-time via socket
+        console.log('Received telemetry update:', data);
+        // You can dispatch an action to update telemetry in Redux if needed
+      }
+    }
+  };
 
+  useSocket(socketEventHandlers);
+
+  // Initial telemetry fetch only (no polling)
   useEffect(() => {
     if (!sessionId) return;
-    const interval = setInterval(() => getTelemetry(sessionId), 5000);
-    return () => clearInterval(interval);
+    getTelemetry(sessionId); // Fetch once, then rely on socket updates
   }, [sessionId, getTelemetry]);
 
   const handleStopCharging = async () => {

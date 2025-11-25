@@ -23,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import sepayService from '../../services/sepayService';
 import { getWallet } from '../../store/slices/walletSlice';
 import { logger } from '../../utils/logger';
+import useSocket from '../../hooks/useSocket';
 
 const SepayQRCodeScreen = () => {
   const navigation = useNavigation();
@@ -35,7 +36,6 @@ const SepayQRCodeScreen = () => {
 
   const [status, setStatus] = useState('pending'); // pending, checking, completed, failed
   const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const pollingInterval = useRef(null);
 
   // Extract payment data from transaction
   const paymentData = {
@@ -58,35 +58,79 @@ const SepayQRCodeScreen = () => {
       return;
     }
 
-    // Start polling for payment status
-    startPolling();
+    // Check payment status once initially
+    checkPaymentStatus();
 
-    return () => {
-      stopPolling();
-    };
+    // No need to return cleanup function as useSocket handles it
   }, [transaction]);
 
-  /**
-   * Start polling for payment status
-   */
-  const startPolling = () => {
-    pollingInterval.current = setInterval(async () => {
-      await checkPaymentStatus();
-    }, 5000); // Check every 5 seconds
-  };
+  // Setup socket event handlers for payment updates
+  const paymentSocketHandlers = {
+    'payment:update': (data) => {
+      const transactionId = transaction?.id || transaction?.transaction_id;
 
-  /**
-   * Stop polling
-   */
-  const stopPolling = () => {
-    if (pollingInterval.current) {
-      clearInterval(pollingInterval.current);
-      pollingInterval.current = null;
+      // Only process updates for our transaction
+      if (data.transactionId === transactionId) {
+        console.log('Received payment update via socket:', data);
+
+        if (data.status === 'completed' || data.status === 'success') {
+          handlePaymentSuccess(transactionId);
+        } else if (data.status === 'failed') {
+          handlePaymentFailure();
+        }
+      }
     }
   };
 
+  // Initialize socket connection
+  useSocket(paymentSocketHandlers);
+
   /**
-   * Check payment status
+   * Handle payment success
+   */
+  const handlePaymentSuccess = async (transactionId) => {
+    setStatus('completed');
+
+    // Refresh wallet balance
+    if (userId) {
+      dispatch(getWallet(userId));
+    }
+
+    // Optional local push in case server push hasn't arrived yet
+    try {
+      const { default: notificationService } = await import('../../services/notificationService');
+      await notificationService.onDisplayNotification({
+        notification: {
+          title: 'Nạp tiền thành công',
+          body: `Bạn vừa nạp ${sepayService.formatAmount(amount)} vào ví`,
+        },
+      });
+    } catch {}
+
+    // Navigate to success screen
+    navigation.replace('TopupSuccessScreen', { amount, transactionId });
+  };
+
+  /**
+   * Handle payment failure
+   */
+  const handlePaymentFailure = () => {
+    setStatus('failed');
+
+    Alert.alert(
+      'Thất bại',
+      'Giao dịch không thành công. Vui lòng thử lại.',
+      [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ],
+    );
+  };
+
+  /**
+   * Check payment status (called once initially)
    */
   const checkPaymentStatus = async () => {
     try {
@@ -101,43 +145,12 @@ const SepayQRCodeScreen = () => {
       const result = await sepayService.checkPaymentStatus(transactionId);
 
       if (result.status === 'completed' || result.status === 'success') {
-        stopPolling();
-        setStatus('completed');
-
-        // Refresh wallet balance
-        if (userId) {
-          dispatch(getWallet(userId));
-        }
-
-        // Optional local push in case server push hasn't arrived yet
-        try {
-          const { default: notificationService } = await import('../../services/notificationService');
-          await notificationService.onDisplayNotification({
-            notification: {
-              title: 'Nạp tiền thành công',
-              body: `Bạn vừa nạp ${sepayService.formatAmount(amount)} vào ví`,
-            },
-          });
-        } catch {}
-
-        // Navigate to success screen
-        navigation.replace('TopupSuccessScreen', { amount, transactionId });
+        await handlePaymentSuccess(transactionId);
       } else if (result.status === 'failed') {
-        stopPolling();
-        setStatus('failed');
-
-        Alert.alert(
-          'Thất bại',
-          'Giao dịch không thành công. Vui lòng thử lại.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack(),
-            },
-          ],
-        );
+        handlePaymentFailure();
       } else {
         setStatus('pending');
+      }
       }
     } catch (error) {
       logger.error('Failed to check payment status', error);
@@ -179,7 +192,6 @@ const SepayQRCodeScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
-            stopPolling();
             navigation.goBack();
           }}
         >

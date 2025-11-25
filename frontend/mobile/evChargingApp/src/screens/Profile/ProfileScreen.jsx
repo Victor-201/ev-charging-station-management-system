@@ -1,16 +1,12 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, List, Button, ActivityIndicator, Text, useTheme } from 'react-native-paper';
-import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMe } from '../../store/slices/userSlice';
 import { UserRole } from '../../config/roles';
 import { logoutAsync } from '../../store/slices/authSlice';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import AnimatedListItem from '../../components/common/AnimatedListItem';
-import EnhancedRefreshControl from '../../components/common/EnhancedRefreshControl';
-import ProfileHeader from '../../components/profile/ProfileHeader';
+import { getAvatarData } from '../../utils/avatarUtils';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' }, // iOS-like grouped table view background
@@ -38,7 +34,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await dispatch(getMe());
+    dispatch(getMe());
     setRefreshing(false);
   }, [dispatch]);
 
@@ -70,6 +66,10 @@ const ProfileScreen = ({ navigation }) => {
   }
 
   const user = profile;
+  const { initials: avatarInitials, backgroundColor: avatarBg, textColor: avatarText } = useMemo(
+    () => getAvatarData(user?.full_name || 'User', colors),
+    [user?.full_name, colors]
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -78,11 +78,20 @@ const ProfileScreen = ({ navigation }) => {
       >
         {/* Profile Header */}
         <View style={styles.headerContainer}>
-          <Avatar.Image
-            size={90}
-            source={{ uri: user?.avatar_url || `https://api.dicebear.com/8.x/avataaars/svg?seed=${encodeURIComponent(user?.full_name || 'User')}` }}
-            style={styles.avatar}
-          />
+          {user?.avatar_url ? (
+            <Avatar.Image
+              size={90}
+              source={{ uri: user.avatar_url }}
+              style={styles.avatar}
+            />
+          ) : (
+            <Avatar.Text
+              size={90}
+              label={avatarInitials}
+              style={[styles.avatar, { backgroundColor: avatarBg }]}
+              color={avatarText}
+            />
+          )}
           <Text style={styles.userName}>{user?.full_name || 'User Name'}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
         </View>

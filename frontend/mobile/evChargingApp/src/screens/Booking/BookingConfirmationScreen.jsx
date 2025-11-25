@@ -7,6 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import bookingService from '../../services/bookingService';
 import QRCodeDisplay from '../../components/booking/QRCodeDisplay';
 import reminderService from '../../services/reminderService';
+import useSocket from '../../hooks/useSocket';
 
 import { useInAppNotification } from '../../components/notification/InAppNotification';
 
@@ -92,11 +93,38 @@ export default function BookingConfirmationScreen() {
     }
   };
 
-  // Poll reservation status; if session started -> go to realtime session detail
+  // Socket event handlers for reservation updates
+  const reservationSocketHandlers = {
+    'reservation:update': (data) => {
+      // Only process updates for our reservation
+      if (data.reservationId === reservationId) {
+        console.log('Received reservation update via socket:', data);
+
+        const sessionId = data.session_id || data.sessionId;
+        const status = (data.status || '').toLowerCase();
+
+        if (sessionId || status === 'started' || status === 'checked_in') {
+          navigation.replace('ChargingSessionDetail', { sessionId });
+        }
+      }
+    },
+    'charging:started': (data) => {
+      // Handle charging started event
+      if (data.reservationId === reservationId && data.sessionId) {
+        console.log('Charging started for reservation:', reservationId);
+        navigation.replace('ChargingSessionDetail', { sessionId: data.sessionId });
+      }
+    }
+  };
+
+  // Initialize socket connection
+  useSocket(reservationSocketHandlers);
+
+  // Check reservation status once initially (no polling)
   useEffect(() => {
     if (!reservationId) return;
-    let timer = null;
-    const poll = async () => {
+
+    const checkInitialStatus = async () => {
       try {
         const res = await bookingService.getById(reservationId);
         const sessionId = res?.session_id || res?.reservation?.session_id;
@@ -108,8 +136,8 @@ export default function BookingConfirmationScreen() {
         // silent; QR flow vẫn hoạt động bình thường
       }
     };
-    timer = setInterval(poll, 5000);
-    return () => { if (timer) clearInterval(timer); };
+
+    checkInitialStatus();
   }, [reservationId, navigation]);
 
 
