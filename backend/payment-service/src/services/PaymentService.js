@@ -43,11 +43,11 @@ export default class PaymentService {
     amount = Number(amount);
     if (isNaN(amount) || amount <= 0) throw new Error('Amount must be positive');
 
-    if (action === 'payment') {
+    if (action === 'topup') {
       if (wallet.balance < amount) throw new Error('Insufficient wallet balance');
       wallet.decrease(amount);
       await this.walletRepo.updateBalance(wallet.id, wallet.balance);
-    } else if (['topup', 'refund'].includes(action)) {
+    } else if (action === 'refund') {
       wallet.increase(amount);
       await this.walletRepo.updateBalance(wallet.id, wallet.balance);
     } else throw new Error('Invalid wallet action');
@@ -106,7 +106,7 @@ export default class PaymentService {
         let wallet = await this.walletRepo.findByUserId(user_id);
         if (!wallet) wallet = await this.walletRepo.create(user_id);
 
-        await this._handleWalletInternal(user_id, amount, 'payment', transaction.id);
+        await this._handleWalletInternal(user_id, amount, type, transaction.id);
 
         await this.walletTxRepo.addTransaction({
           wallet_id: wallet.id,
