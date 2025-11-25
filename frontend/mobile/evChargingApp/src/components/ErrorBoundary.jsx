@@ -1,7 +1,9 @@
+
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from 'react-native-paper';
-import { logger } from '../../utils/logger';
+import { logger } from '../utils/logger';
 
 class ErrorBoundaryInner extends React.Component {
   constructor(props) {
