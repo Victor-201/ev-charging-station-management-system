@@ -20,65 +20,119 @@ export const getStatusColor = (status) => {
   return colors[status] || "bg-gray-100 text-gray-800";
 };
 
-// Component hiển thị thông tin Telemetry
+// --- Helpers to normalize telemetry coming from various backends ---
+// This accepts either an object like { energy_kwh, power_kw, ... }
+// or the payload you sent: { telemetry: [ { meter_wh, power_kw, soc, timestamp } ] }
+
+function pickLatestFromArray(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+  // sort by timestamp (if exists) or keep last element
+  const sorted = arr
+    .slice()
+    .sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return ta - tb;
+    });
+  return sorted[sorted.length - 1];
+}
+
+export function normalizeTelemetryInput(input) {
+  // input may be:
+  // - null/undefined
+  // - an object directly: { energy_kwh, power_kw, voltage_v, current_a, soc_percent, temperature_c, cost, timestamp }
+  // - an object with property `telemetry` which is an array like your example
+  // - an array of telemetry objects
+  if (!input) return null;
+
+  // if wrapper { telemetry: [...] }
+  if (input.telemetry) {
+    const latest = pickLatestFromArray(input.telemetry);
+    if (!latest) return null;
+    return {
+      energy_kwh: latest.energy_kwh ?? (latest.meter_wh != null ? Number(latest.meter_wh) / 1000 : undefined),
+      power_kw: latest.power_kw ?? latest.kW ?? latest.power ?? undefined,
+      voltage_v: latest.voltage_v ?? latest.voltage ?? undefined,
+      current_a: latest.current_a ?? latest.current ?? undefined,
+      soc_percent: latest.soc_percent ?? latest.soc ?? undefined,
+      temperature_c: latest.temperature_c ?? latest.temp_c ?? undefined,
+      cost: latest.cost ?? undefined,
+      timestamp: latest.timestamp ?? undefined,
+      raw: latest,
+    };
+  }
+
+  // if input is an array
+  if (Array.isArray(input)) {
+    const latest = pickLatestFromArray(input);
+    if (!latest) return null;
+    return normalizeTelemetryInput({ telemetry: [latest] });
+  }
+
+  // assume it's already a telemetry object
+  return {
+    energy_kwh: input.energy_kwh ?? (input.meter_wh != null ? Number(input.meter_wh) / 1000 : undefined),
+    power_kw: input.power_kw ?? input.kW ?? input.power ?? undefined,
+    voltage_v: input.voltage_v ?? input.voltage ?? undefined,
+    current_a: input.current_a ?? input.current ?? undefined,
+    soc_percent: input.soc_percent ?? input.soc ?? undefined,
+    temperature_c: input.temperature_c ?? input.temp_c ?? undefined,
+    cost: input.cost ?? undefined,
+    timestamp: input.timestamp ?? undefined,
+    raw: input,
+  };
+}
+
+// Component hiển thị thông tin Telemetry — bây giờ hỗ trợ payload dạng bạn đưa lên
 export const TelemetrySection = ({ telemetry }) => {
-  if (!telemetry) return null;
-  
+  const t = normalizeTelemetryInput(telemetry);
+  if (!t) return null;
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mt-4">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">📊 Thông Tin Telemetry</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-2">📊 Thông Tin Telemetry</h3>
+      {t.timestamp && (
+        <p className="text-sm text-gray-500 mb-3">Cập nhật: {new Date(t.timestamp).toLocaleString('vi-VN')}</p>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-blue-50 p-4 rounded-lg">
           <p className="text-sm text-gray-600 mb-1">Năng lượng</p>
           <p className="text-2xl font-bold text-blue-600">
-            {telemetry.energy_kwh?.toFixed(2) || "0"} kWh
+            {(t.energy_kwh != null ? Number(t.energy_kwh).toFixed(2) : '0')} kWh
           </p>
         </div>
+
         <div className="bg-green-50 p-4 rounded-lg">
           <p className="text-sm text-gray-600 mb-1">Công suất</p>
           <p className="text-2xl font-bold text-green-600">
-            {telemetry.power_kw?.toFixed(2) || "0"} kW
+            {(t.power_kw != null ? Number(t.power_kw).toFixed(2) : '0')} kW
           </p>
         </div>
-        <div className="bg-purple-50 p-4 rounded-lg">
-          <p className="text-sm text-gray-600 mb-1">Điện áp</p>
-          <p className="text-2xl font-bold text-purple-600">
-            {telemetry.voltage_v?.toFixed(0) || "0"} V
-          </p>
-        </div>
-        <div className="bg-orange-50 p-4 rounded-lg">
-          <p className="text-sm text-gray-600 mb-1">Dòng điện</p>
-          <p className="text-2xl font-bold text-orange-600">
-            {telemetry.current_a?.toFixed(2) || "0"} A
-          </p>
-        </div>
+
         <div className="bg-yellow-50 p-4 rounded-lg">
           <p className="text-sm text-gray-600 mb-1">SoC</p>
           <p className="text-2xl font-bold text-yellow-600">
-            {telemetry.soc_percent?.toFixed(0) || "0"}%
+            {t.soc_percent != null ? Number(t.soc_percent).toFixed(0) : '0'}%
           </p>
         </div>
-        <div className="bg-red-50 p-4 rounded-lg">
-          <p className="text-sm text-gray-600 mb-1">Nhiệt độ</p>
-          <p className="text-2xl font-bold text-red-600">
-            {telemetry.temperature_c?.toFixed(1) || "0"}°C
-          </p>
-        </div>
+
         <div className="bg-indigo-50 p-4 rounded-lg col-span-2">
           <p className="text-sm text-gray-600 mb-1">Chi phí hiện tại</p>
           <p className="text-2xl font-bold text-indigo-600">
-            {formatMoney(telemetry.cost)}
+            {formatMoney(t.cost)}
           </p>
+          {/* debug raw payload (optional) */}
         </div>
       </div>
     </div>
   );
 };
 
-// Component hiển thị lịch sử sự kiện
+// Component hiển thị lịch sử sự kiện (giữ nguyên)
 export const SessionEventsSection = ({ sessionEvents }) => {
   if (!sessionEvents || sessionEvents.length === 0) return null;
-  
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mt-4">
       <h3 className="text-lg font-bold text-gray-900 mb-4">📜 Lịch Sử Sự Kiện</h3>
@@ -88,9 +142,7 @@ export const SessionEventsSection = ({ sessionEvents }) => {
             <Clock size={16} className="text-gray-400 mt-1" />
             <div className="flex-1">
               <p className="font-medium text-gray-900">{event.event_type}</p>
-              <p className="text-sm text-gray-600">
-                {new Date(event.timestamp).toLocaleString("vi-VN")}
-              </p>
+              <p className="text-sm text-gray-600">{new Date(event.timestamp).toLocaleString("vi-VN")}</p>
               {event.data && (
                 <p className="text-xs text-gray-500 mt-1">{JSON.stringify(event.data)}</p>
               )}
@@ -102,7 +154,7 @@ export const SessionEventsSection = ({ sessionEvents }) => {
   );
 };
 
-// Component hiển thị phần thanh toán
+// Payment & Reconcile sections (giữ nguyên nhưng export để dùng lại)
 export const PaymentSection = ({
   reconcileResult, isPendingPayment, isRefundable, isGuestSession,
   selectedPaymentMethod, handleSelectPaymentMethod, handleProceedPayment,
@@ -110,7 +162,6 @@ export const PaymentSection = ({
 }) => {
   return (
     <>
-      {/* PHẦN THANH TOÁN - CHO PHIÊN CẦN THU THÊM */}
       {isPendingPayment && (
         <div className="pt-4 border-t border-gray-200">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
@@ -118,7 +169,7 @@ export const PaymentSection = ({
               ⚠️ Khách hàng cần thanh toán thêm: {formatMoney(reconcileResult?.diff)}
             </p>
           </div>
-          
+
           <p className="text-gray-700 font-semibold mb-3">Chọn phương thức thanh toán:</p>
           <div className={`grid ${isGuestSession ? 'grid-cols-2' : 'grid-cols-3'} gap-3 mb-4`}>
             <button
@@ -171,7 +222,6 @@ export const PaymentSection = ({
         </div>
       )}
 
-      {/* PHẦN HOÀN TIỀN */}
       {isRefundable && (
         <div className="pt-4 border-t border-gray-200">
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
@@ -204,7 +254,6 @@ export const PaymentSection = ({
         </div>
       )}
 
-      {/* TRẠNG THÁI ĐÃ HOÀN TẤT */}
       {reconcileResult?.payment_status === "completed" && reconcileResult?.diff === 0 && (
         <div className="flex items-center justify-center gap-2 text-green-600 py-4 bg-green-50 rounded-lg">
           <CheckCircle size={24} />
@@ -227,11 +276,9 @@ export const PaymentSection = ({
   );
 };
 
-// Component hiển thị chi tiết reconcile
 export const ReconcileDetailsSection = ({ reconcileResult, selectedSessionId }) => {
   return (
     <div className="space-y-4">
-      {/* THÔNG TIN CHI TIẾT TỪ API */}
       <div className="bg-gray-50 rounded-lg p-4">
         <h4 className="font-semibold text-gray-800 mb-3">📋 Chi tiết từ API Reconcile</h4>
         <div className="space-y-2">
@@ -265,7 +312,6 @@ export const ReconcileDetailsSection = ({ reconcileResult, selectedSessionId }) 
         </div>
       </div>
 
-      {/* THÔNG TIN SETTLEMENT */}
       {reconcileResult?.settlement && (
         <div className="bg-blue-50 rounded-lg p-4">
           <h4 className="font-semibold text-blue-800 mb-3">🔄 Thông tin Settlement</h4>
@@ -297,7 +343,6 @@ export const ReconcileDetailsSection = ({ reconcileResult, selectedSessionId }) 
         </div>
       )}
 
-      {/* TRẠNG THÁI THANH TOÁN */}
       <div className="flex justify-between py-3 px-4 bg-gray-100 rounded-lg">
         <span className="text-gray-700 font-medium">Trạng thái thanh toán</span>
         <span className={`font-bold px-3 py-1 rounded-full ${
