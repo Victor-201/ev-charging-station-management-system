@@ -138,140 +138,167 @@ class ChargingService {
     };
   }
 
-  async reconcileSessionWithReservation(
-    token,
-    session_id,
-    { autoSettle = false, threshold = 1000, operator = null } = {}
-  ) {
-    if (!session_id) throw new Error("session_id is required");
+async reconcileSessionWithReservation(
+  token,
+  session_id,
+  { autoSettle = false, threshold = 1000, operator = null } = {}
+) {
+  if (!session_id) throw new Error("session_id is required");
 
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
 
-      // 1) LOCK SESSION
-      const [sessRows] = await conn.query(
-        "SELECT * FROM sessions WHERE session_id = ? FOR UPDATE",
-        [session_id]
+    // 1) LOCK SESSION
+    const [sessRows] = await conn.query(
+      "SELECT * FROM sessions WHERE session_id = ? FOR UPDATE",
+      [session_id]
+    );
+    if (!sessRows.length) throw new Error("Session not found");
+    const session = sessRows[0];
+
+    // giữ nguyên: dùng giá trị DB nếu có, không tự set ended_at = now() cho mục đích tính session_minutes
+    const started_at = session.started_at ? dayjs(session.started_at) : null;
+    const ended_at = session.ended_at ? dayjs(session.ended_at) : null;
+
+    // 2) LOAD RESERVATION (IF ANY)
+    let reservation = null;
+    if (session.reservation_id) {
+      const [resRows] = await conn.query(
+        "SELECT * FROM reservations WHERE reservation_id = ? FOR UPDATE",
+        [session.reservation_id]
       );
-      if (!sessRows.length) throw new Error("Session not found");
-      const session = sessRows[0];
+      reservation = resRows.length ? resRows[0] : null;
+    }
 
-      const started_at = session.started_at ? dayjs(session.started_at) : null;
-      const ended_at = session.ended_at ? dayjs(session.ended_at) : dayjs();
+    // 3) CALCULATE SESSION PRICE
+    let sessionCost = 0;
+    // để tính giá: nếu session đã có started_at thì dùng ended_at nếu có, còn không thì dùng now() (giữ logic cũ)
+    if (started_at) {
+      const pricingEndedAt = session.ended_at ? dayjs(session.ended_at) : dayjs();
 
-      // 2) LOAD RESERVATION (IF ANY)
-      let reservation = null;
-      if (session.reservation_id) {
-        const [resRows] = await conn.query(
-          "SELECT * FROM reservations WHERE reservation_id = ? FOR UPDATE",
-          [session.reservation_id]
-        );
-        reservation = resRows.length ? resRows[0] : null;
-      }
+      const sessionMinutesForPricing = Math.max(
+        0,
+        pricingEndedAt.diff(started_at, "minute")
+      );
 
-      // 3) CALCULATE SESSION PRICE
-      let sessionCost = 0;
-      let sessionMinutes = 0;
-      if (started_at) {
-        sessionMinutes = Math.max(0, ended_at.diff(started_at, "minute"));
+      const pricing = await this.bookingService.calculatePricing(
+        session.point_id,
+        started_at.toISOString(),
+        pricingEndedAt.toISOString(),
+        token
+      );
 
-        const pricing = await this.bookingService.calculatePricing(
-          session.point_id,
-          started_at.toISOString(),
-          ended_at.toISOString(),
+      sessionCost = Number(pricing.total_amount || 0);
+    }
+
+    // 4) CALCULATE RESERVED COST
+    let reservedCost = 0;
+    if (reservation) {
+      if (reservation.total_cost && Number(reservation.total_cost) > 0) {
+        reservedCost = Number(reservation.total_cost);
+      } else if (reservation.start_time && reservation.end_time) {
+        const rp = await this.bookingService.calculatePricing(
+          reservation.point_id,
+          reservation.start_time,
+          reservation.end_time,
           token
         );
+        reservedCost = Number(rp.total_amount || 0);
 
-        sessionCost = Number(pricing.total_amount || 0);
+        await conn.query(
+          "UPDATE reservations SET total_cost = ?, updated_at = NOW(3) WHERE reservation_id = ?",
+          [reservedCost, reservation.reservation_id]
+        );
       }
-
-      // 4) CALCULATE RESERVED COST
-      let reservedCost = 0;
-      if (reservation) {
-        if (reservation.total_cost && Number(reservation.total_cost) > 0) {
-          reservedCost = Number(reservation.total_cost);
-        } else if (reservation.start_time && reservation.end_time) {
-          const rp = await this.bookingService.calculatePricing(
-            reservation.point_id,
-            reservation.start_time,
-            reservation.end_time,
-            token
-          );
-          reservedCost = Number(rp.total_amount || 0);
-
-          await conn.query(
-            "UPDATE reservations SET total_cost = ?, updated_at = NOW(3) WHERE reservation_id = ?",
-            [reservedCost, reservation.reservation_id]
-          );
-        }
-      }
-
-      // 5) CALCULATE DIFF AND SETTLEMENT
-      const diff = sessionCost - reservedCost;
-
-      let settlementType = "none";
-      let settleAmount = 0;
-      let settlementMessage = "";
-
-      if (diff > 0) {
-        settlementType = "charge";
-        settleAmount = diff;
-        settlementMessage = `Khách hàng cần thanh toán thêm ${diff}.`;
-      } else if (diff < 0) {
-        settlementType = "refund";
-        settleAmount = Math.abs(diff);
-        settlementMessage = `Khách hàng được hoàn lại ${Math.abs(diff)}.`;
-      } else {
-        settlementType = "none";
-        settleAmount = 0;
-        settlementMessage = "Không phát sinh thu thêm hoặc hoàn tiền.";
-      }
-
-      // 6) UPDATE SESSION
-      session.metadata = session.metadata
-        ? typeof session.metadata === "object"
-          ? session.metadata
-          : JSON.parse(session.metadata)
-        : {};
-
-      session.metadata.payment = session.metadata.payment || {};
-      session.metadata.payment.status =
-        settleAmount > 0 ? "settlement_required" : "completed";
-      session.metadata.payment.session_cost = sessionCost;
-      session.metadata.payment.reserved_cost = reservedCost;
-      session.metadata.payment.diff = diff;
-      session.metadata.payment.operator = operator;
-      session.metadata.payment.settlement_type = settlementType;
-      session.metadata.payment.settlement_amount = settleAmount;
-      session.metadata.payment.settlement_message = settlementMessage;
-      session.metadata.payment.finalized_at = dayjs().format(
-        "YYYY-MM-DD HH:mm:ss.SSS"
-      );
-      session.metadata.session_minutes = sessionMinutes; // lưu vào metadata, không lỗi SQL
-
-      await conn.commit();
-
-      return {
-        ok: true,
-        session_id,
-        session_cost: sessionCost,
-        reserved_cost: reservedCost,
-        diff,
-        settlement: {
-          type: settlementType,
-          amount: settleAmount,
-          message: settlementMessage,
-        },
-      };
-    } catch (err) {
-      await conn.rollback();
-      console.error("[reconcileSessionWithReservation] ERROR:", err);
-      throw err;
-    } finally {
-      conn.release();
     }
+
+    // 5) CALCULATE DIFF AND SETTLEMENT
+    const diff = sessionCost - reservedCost;
+
+    let settlementType = "none";
+    let settleAmount = 0;
+    let settlementMessage = "";
+
+    if (diff > 0) {
+      settlementType = "charge";
+      settleAmount = diff;
+      settlementMessage = `Khách hàng cần thanh toán thêm ${diff}.`;
+    } else if (diff < 0) {
+      settlementType = "refund";
+      settleAmount = Math.abs(diff);
+      settlementMessage = `Khách hàng được hoàn lại ${Math.abs(diff)}.`;
+    } else {
+      settlementType = "none";
+      settleAmount = 0;
+      settlementMessage = "Không phát sinh thu thêm hoặc hoàn tiền.";
+    }
+
+    // 6) COMPUTE session minutes based strictly on DB end - start (if both exist)
+    //    dùng seconds và làm tròn lên từng phút (ceil). Nếu không có ended_at hoặc started_at => 0
+    let sessionMinutes = 0;
+    if (started_at && ended_at) {
+      const seconds = Math.max(0, ended_at.diff(started_at, "second"));
+      sessionMinutes = Math.ceil(seconds / 60);
+    } else {
+      sessionMinutes = 0;
+    }
+
+    // 7) UPDATE SESSION (in-memory metadata)
+    session.metadata = session.metadata
+      ? typeof session.metadata === "object"
+        ? session.metadata
+        : JSON.parse(session.metadata)
+      : {};
+
+    session.metadata.payment = session.metadata.payment || {};
+    session.metadata.payment.status =
+      settleAmount > 0 ? "settlement_required" : "completed";
+    session.metadata.payment.session_cost = sessionCost;
+    session.metadata.payment.reserved_cost = reservedCost;
+    session.metadata.payment.diff = diff;
+    session.metadata.payment.operator = operator;
+    session.metadata.payment.settlement_type = settlementType;
+    session.metadata.payment.settlement_amount = settleAmount;
+    session.metadata.payment.settlement_message = settlementMessage;
+    session.metadata.payment.finalized_at = dayjs().format(
+      "YYYY-MM-DD HH:mm:ss.SSS"
+    );
+    session.metadata.session_minutes = sessionMinutes; // lưu vào metadata
+
+    // --- START: small changes to persist cost and metadata ---
+    // Save calculated cost and metadata (including session_minutes) to sessions table
+    await conn.query(
+      "UPDATE sessions SET cost = ?, metadata = ?, updated_at = NOW(3) WHERE session_id = ?",
+      [sessionCost, JSON.stringify(session.metadata), session_id]
+    );
+    // --- END: small changes ---
+
+    await conn.commit();
+
+    return {
+      ok: true,
+      session_id,
+      session_cost: sessionCost,
+      reserved_cost: reservedCost,
+      diff,
+      session_minutes: sessionMinutes, // <-- trả về số phút: ended_at - started_at
+      settlement: {
+        type: settlementType,
+        amount: settleAmount,
+        message: settlementMessage,
+      },
+    };
+  } catch (err) {
+    await conn.rollback();
+    console.error("[reconcileSessionWithReservation] ERROR:", err);
+    throw err;
+  } finally {
+    conn.release();
   }
+}
+
+
 
 async pushMeterReading({ session_id, timestamp = null, meter_wh, power_kw = null, soc = null, token = null }) {
   if (!session_id) throw new Error('session_id is required');
@@ -570,6 +597,97 @@ async pushMeterReading({ session_id, timestamp = null, meter_wh, power_kw = null
     }
   }
 
+async summarizeDailyChargingByStation(token, station_id) {
+  if (!station_id) throw new Error("station_id is required");
+  if (!token) throw new Error("token is required");
+
+  const raw = await this.getActivePointsByStation(station_id);
+
+  console.log("Active points raw:", raw);
+
+  // hỗ trợ cả dạng array và dạng { active: [] }
+  const sessions = Array.isArray(raw) ? raw : (raw.active || []);
+
+  if (sessions.length === 0) {
+    console.log("No active sessions found");
+    return {};
+  }
+
+  const result = {};
+
+  for (const sess of sessions) {
+    const session_id = sess.session_id;
+
+    try {
+      const pricing = await this.reconcileSessionWithReservation(
+        token,
+        session_id,
+        {} // options
+      );
+
+      const session_cost = pricing.session_cost;
+      const session_minutes = pricing.session_minutes;
+      const started_at = sess.started_at;
+
+      const dateKey = dayjs(started_at).format("YYYY-MM-DD");
+
+      if (!result[dateKey]) {
+        result[dateKey] = {
+          total_amount: 0,
+          total_minutes: 0,
+          total_sessions: 0,
+          sessions: [],
+        };
+      }
+
+      result[dateKey].total_amount += session_cost;
+      result[dateKey].total_minutes += session_minutes;
+      result[dateKey].total_sessions += 1;
+
+      result[dateKey].sessions.push({
+        session_id,
+        session_cost,
+        session_minutes,
+        point_id: sess.point_id,
+        user_id: sess.user_id,
+        started_at,
+        ended_at: null,
+      });
+
+    } catch (err) {
+      console.error(`Error in session ${session_id}:`, err.message);
+    }
+  }
+
+  return result;
+}
+
+async getAll(filters = {}) {
+    const { status, from, to, limit = 100, offset = 0 } = filters;
+
+    // Query thẳng DB (tuỳ bạn muốn làm phức tạp hay đơn giản)
+    const [rows] = await require("../config/db").query(
+      `
+        SELECT * FROM sessions
+        WHERE ( ? IS NULL OR status = ? )
+          AND ( ? IS NULL OR started_at >= ? )
+          AND ( ? IS NULL OR ended_at <= ? )
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+      `,
+      [
+        status || null, status || null,
+        from || null, from || null,
+        to || null, to || null,
+        Number(limit), Number(offset),
+      ]
+    );
+
+    return rows;
+  }
+
+
+
   async failPayment(session_id, { reason = null, cancel = false } = {}) {
     if (!session_id) throw new Error("session_id is required");
 
@@ -651,6 +769,7 @@ async pushMeterReading({ session_id, timestamp = null, meter_wh, power_kw = null
       throw err;
     }
   }
+  
 
   // ... other methods ...
 
