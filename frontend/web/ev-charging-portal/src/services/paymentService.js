@@ -156,6 +156,17 @@ export const paymentService = {
       url: "api/v1/payments/revenue/summary",
     }),
 
+  getRevenueByStation: () =>
+    apiClient({
+      method: "GET",
+      url: "api/v1/payments/revenue/station",
+    }),
+
+    getRevenueByRegion: () =>
+    apiClient({
+      method: "GET",
+      url: "api/v1/payments/revenue/region",
+    }),
   // ============================
   // TRANSACTIONS
   // ============================
