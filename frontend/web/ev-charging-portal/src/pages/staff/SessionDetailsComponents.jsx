@@ -26,38 +26,53 @@ export const getStatusColor = (status) => {
 
 function pickLatestFromArray(arr) {
   if (!Array.isArray(arr) || arr.length === 0) return null;
-  // sort by timestamp (if exists) or keep last element
-  const sorted = arr
-    .slice()
-    .sort((a, b) => {
-      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-      return ta - tb;
-    });
-  return sorted[sorted.length - 1];
+  return arr[arr.length - 1];
 }
 
 export function normalizeTelemetryInput(input) {
   if (!input) return null;
 
-  if (input.telemetry) {
-    const t = Array.isArray(input.telemetry)
-      ? pickLatestFromArray(input.telemetry)
-      : input.telemetry; 
-
+  const normalizeSingle = (t) => {
     if (!t) return null;
 
+    // convert Wh -> kWh
+    let energy_kwh = t.energy_kwh;
+    if (energy_kwh == null && t.meter_wh != null) {
+      energy_kwh = Number(t.meter_wh) / 1000; // 1000 Wh = 1 kWh
+    }
+
+    // price always number
+    const price_per_kw = t.price_per_kw != null ? Number(t.price_per_kw) : undefined;
+
+    // total cost = lấy từ total_cost nếu có, fallback theo block 1000 Wh
+    const cost = t.total_cost != null 
+      ? Math.floor(t.total_cost) 
+      : price_per_kw != null && t.meter_wh != null 
+        ? Math.floor(Math.floor(t.meter_wh / 800) * price_per_kw)
+        : undefined;
+
+    console.log("normalizeSingle:", {
+      meter_wh: t.meter_wh,
+      energy_kwh,
+      price_per_kw,
+      cost,
+    });
+
     return {
-      energy_kwh: t.energy_kwh ?? (t.meter_wh != null ? Number(t.meter_wh) / 1000 : undefined),
+      energy_kwh,
       power_kw: t.power_kw ?? t.kW ?? t.power ?? undefined,
       soc_percent: t.soc_percent ?? t.soc ?? undefined,
-      cost:
-        typeof t.price_per_kw === "number" && typeof t.meter_wh === "number"
-          ? (t.price_per_kw * t.meter_wh) / 1000
-          : undefined,
+      cost,
       timestamp: t.timestamp,
       raw: t,
     };
+  };
+
+  if (input.telemetry) {
+    const t = Array.isArray(input.telemetry)
+      ? pickLatestFromArray(input.telemetry)
+      : input.telemetry;
+    return normalizeSingle(t);
   }
 
   if (Array.isArray(input)) {
@@ -65,20 +80,8 @@ export function normalizeTelemetryInput(input) {
     return latest ? normalizeTelemetryInput({ telemetry: latest }) : null;
   }
 
-  return {
-    energy_kwh: input.energy_kwh ?? (input.meter_wh != null ? Number(input.meter_wh) / 1000 : undefined),
-    power_kw: input.power_kw ?? input.kW ?? input.power ?? undefined,
-    soc_percent: input.soc_percent ?? input.soc ?? undefined,
-    cost:
-      typeof input.price_per_kw === "number" && typeof input.meter_wh === "number"
-        ? (input.price_per_kw * input.meter_wh) / 1000
-        : undefined,
-    timestamp: input.timestamp,
-    raw: input,
-  };
+  return normalizeSingle(input);
 }
-
-
 // Component hiển thị thông tin Telemetry — bây giờ hỗ trợ payload dạng bạn đưa lên
 export const TelemetrySection = ({ telemetry }) => {
   const t = normalizeTelemetryInput(telemetry);

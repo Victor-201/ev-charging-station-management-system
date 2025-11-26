@@ -1,4 +1,3 @@
-// iot/FakeCharger.js
 const EventEmitter = require("events");
 const dayjs = require("dayjs");
 
@@ -7,31 +6,35 @@ class FakeCharger extends EventEmitter {
     super();
     this.point_id = point_id;
     this.meter_wh = 0;
-    this.meterWhFloat = 0; // <-- keep fractional Wh to avoid floor truncation losing progress
-    this.power_kw = 1 + Math.random() * 4;
+    this.meterWhFloat = 0; // giữ số lẻ để tránh tròn sớm
+    this.power_kw = 1 + Math.random() * 4; // chỉ hiển thị, không ảnh hưởng Wh
     this.timer = null;
     this.paused = false;
+    this.MAX_WH = 60000; // 60 kWh
   }
 
   start() {
-    // Only prevent double-start when timer already running.
     if (this.timer) return;
-
     this.paused = false;
 
     const tick = () => {
-      // small fluctuation to power so telemetry is not completely static
+      // fluctuation power nhẹ (chỉ hiển thị)
       this.power_kw += (Math.random() - 0.5) * 0.4; // +/- ~0.2 kW
       if (this.power_kw < 0.2) this.power_kw = 0.2;
       if (this.power_kw > 22) this.power_kw = 22;
 
-      // accurate Wh-per-second accumulation to avoid meter_wh staying at 0
-      const deltaWh = (this.power_kw * 1000) / 3600; // kW -> Wh/sec
+      // ============================
+      // FIXED ENERGY LOGIC
+      // 1 phút => 1000 Wh
+      // tick mỗi giây => deltaWh = 1000 / 60 ≈ 16.666 Wh
+      // ============================
+      const deltaWh = 1000 / 60; 
       this.meterWhFloat += deltaWh;
-      const newMeterWh = Math.floor(this.meterWhFloat);
+
+      const newMeterWh = Math.min(Math.floor(this.meterWhFloat), this.MAX_WH);
       if (newMeterWh !== this.meter_wh) this.meter_wh = newMeterWh;
 
-      const soc = Math.min(100, Math.floor((this.meter_wh / 50000) * 100));
+      const soc = Math.min(100, Math.floor((this.meter_wh / this.MAX_WH) * 100));
 
       this.emit("telemetry", {
         point_id: this.point_id,
@@ -40,10 +43,13 @@ class FakeCharger extends EventEmitter {
         soc,
         timestamp: dayjs().format("YYYY-MM-DD HH:mm:ss.SSS"),
       });
+
+      if (this.meter_wh >= this.MAX_WH) {
+        this.stop();
+      }
     };
 
-    // emit once immediately so FE/DB get an initial reading without waiting 1s
-    tick();
+    tick(); // emit ngay
     this.timer = setInterval(tick, 1000);
 
     console.log("[FakeCharger] started:", this.point_id);
@@ -59,7 +65,6 @@ class FakeCharger extends EventEmitter {
   }
 
   resume() {
-    // allow resume to actually restart the interval
     if (!this.timer && this.paused) {
       this.paused = false;
       this.start();
