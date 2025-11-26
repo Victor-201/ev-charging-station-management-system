@@ -4,17 +4,29 @@ import { ROUTERS } from "@/utils/constants";
 import Loader from "@/components/common/Loader";
 
 const PrivateRoute = ({ children, roles = [] }) => {
-  const { auth, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) return <Loader />;
+  // chờ auth load
+  if (loading) return <Loader />;
 
-  if (!auth?.token)
-    return <Navigate to={ROUTERS.PUBLIC.LOGIN} state={{ from: location }} replace />;
+  // chưa login → redirect login
+  if (!user) {
+    return (
+      <Navigate
+        to={ROUTERS.PUBLIC.LOGIN}
+        replace
+        state={{ from: location }}
+      />
+    );
+  }
 
-  if (roles.length > 0 && !roles.includes(auth.role))
+  // sai role → 403
+  if (roles.length > 0 && !roles.includes(user.role)) {
     return <Navigate to={ROUTERS.PRIVATE.FORBIDDEN} replace />;
+  }
 
+  // hợp lệ → cho vào
   return children;
 };
 
