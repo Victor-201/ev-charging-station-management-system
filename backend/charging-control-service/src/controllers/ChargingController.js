@@ -100,6 +100,45 @@ exports.getActivePoints = async (req, res) => {
   }
 };
 
+exports.getAll = async (req, res) => {
+  try {
+    const data = await ChargingService.getAll(req.query);
+    res.json(data);
+  } catch (err) {
+    console.error("getAll error:", err);
+    res.status(500).json({ error: "Failed to fetch sessions" });
+  }
+};
+
+
+
+// GET /api/v1/stations/:station_id/daily-summary
+exports.getDailySummaryByStation = async (req, res) => {
+  try {
+    const station_id = req.params.station_id;
+    if (!station_id) return res.status(400).json({ error: 'station_id is required' });
+
+    // --- lấy token từ header hoặc req.user ---
+    const authHeader = req.headers?.authorization || req.get('Authorization');
+    const tokenFromHeader = authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.split(' ')[1]
+      : authHeader || null;
+    const token = tokenFromHeader || req.user?.token || null;
+
+    if (!token) return res.status(401).json({ error: 'Authentication token is required' });
+
+    // --- gọi service ---
+    const summary = await ChargingService.summarizeDailyChargingByStation(token, station_id);
+
+    // --- trả về ---
+    return res.status(200).json({ ok: true, station_id, summary });
+  } catch (err) {
+    console.error('[ChargingController.getDailySummaryByStation] error:', err);
+    const status = mapErrorToStatus(err.message);
+    return res.status(status).json({ error: err.message || 'Internal server error' });
+  }
+};
+
 // GET /api/v1/sessions/:session_id/invoice
 exports.getInvoice = async (req, res) => {
   try {
