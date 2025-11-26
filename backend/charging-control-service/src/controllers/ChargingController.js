@@ -85,6 +85,24 @@ exports.reconcileSession = async (req, res) => {
   }
 };
 
+exports.getPeakHours = async (req, res) => {
+  try {
+    const station_id = req.params.station_id;
+    if (!station_id) return res.status(400).json({ error: 'station_id is required' });
+
+    const peakHours = await ChargingService.getPeakHoursByStation(station_id);
+
+    return res.status(200).json({
+      station_id,
+      peak_hours: peakHours
+    });
+  } catch (err) {
+    console.error('[ChargingReportController.getPeakHours] error:', err);
+    const status = mapErrorToStatus(err.message);
+    return res.status(status).json({ error: err.message || 'Internal server error' });
+  }
+};
+
 // GET /api/v1/stations/:station_id/active-points
 exports.getActivePoints = async (req, res) => {
   try {
