@@ -203,9 +203,11 @@ services:
     protocols:
     - http
     - https
+    - ws
+    - wss
     regex_priority: 0
-    request_buffering: true
-    response_buffering: true
+    request_buffering: false
+    response_buffering: false
     strip_path: false
   - https_redirect_status_code: 426
     name: reservation_booking_route
