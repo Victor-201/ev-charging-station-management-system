@@ -625,7 +625,7 @@ export default function Stations() {
                         disabled={controlLoading}
                         className={`px-3 py-1 text-sm rounded-lg ${controlLoading ? "bg-gray-300 cursor-not-allowed" : "bg-yellow-600 hover:bg-yellow-700"} text-white`}
                       >
-                        {controlLoading ? "Đang xử lý..." : "Set Offline"}
+                        {controlLoading ? "Đang xử lý..." : "Đặt nghỉ"}
                       </button>
 
                       {/* Set Faulted */}
@@ -637,7 +637,7 @@ export default function Stations() {
                         disabled={controlLoading}
                         className={`px-3 py-1 text-sm rounded-lg ${controlLoading ? "bg-gray-300 cursor-not-allowed" : "bg-red-500 hover:bg-red-600"} text-white`}
                       >
-                        {controlLoading ? "Đang xử lý..." : "Set Faulted"}
+                        {controlLoading ? "Đang xử lý..." : "Đặt lỗi"}
                       </button>
 
                       {/* Set Available — hiển thị khi trạng thái hiện tại KHÔNG phải available */}
