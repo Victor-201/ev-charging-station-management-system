@@ -18,13 +18,16 @@ export default {
   DB_PORT: process.env.DB_PORT || 5432,
   DB_NAME: process.env.DB_NAME,
 
+  CHARGING_URL: process.env.CHARGING_SERVICE_URL,
+  STATION_URL: process.env.STATION_SERVICE_URL,
+
   RABBITMQ_USER,
   RABBITMQ_PASS,
   RABBITMQ_HOST,
   RABBITMQ_PORT,
   RABBITMQ_URL: process.env.RABBITMQ_URL || `amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}`,
   EXCHANGE_NAME: process.env.EXCHANGE_NAME ||'ev_charging_exchange',
-  
+
   WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
   JWT_SECRET: process.env.JWT_SECRET,
 
