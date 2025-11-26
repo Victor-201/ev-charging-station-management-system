@@ -15,7 +15,8 @@ export async function getSystemStats() {
     return {
       active_users: Number(stats.active_users ?? 0),
       total_stations: Number(stats.total_stations ?? 0),
-      total_energy_kwh: Number(stats.total_energy_kwh ?? 0)
+      total_energy_kwh: Number(stats.total_energy_kwh ?? 0),
+      total_revenue: Number(stats.total_revenue ?? 0)
     };
   } catch (error) {
     if (error?.code === 'ER_NO_SUCH_TABLE') {

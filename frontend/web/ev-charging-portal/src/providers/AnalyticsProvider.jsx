@@ -29,6 +29,9 @@ export const AnalyticsProvider = ({ children }) => {
   const [overview, setOverview] = useState(null);
   const [stationStats, setStationStats] = useState(null);
   const [revenue, setRevenue] = useState(null);
+  const [aiStats, setAiStats] = useState(null);
+  const [aiUserBehavior, setAiUserBehavior] = useState([]);
+  const [aiForecast, setAiForecast] = useState(null);
 
   // ===== MONITORING =====
   const getHealth = useCallback(async () => {
@@ -193,6 +196,61 @@ export const AnalyticsProvider = ({ children }) => {
     }
   }, []);
 
+  // ===== AI / EXPERIMENTAL =====
+  const getAIStats = useCallback(async () => {
+    setLoadingAnalytics(true);
+    setError(null);
+    try {
+      const res = await analyticsService.getAIStats();
+      const data = res?.data ?? res;
+      const normalized = data?.data ?? data;
+      setAiStats(normalized);
+      setLoadingAnalytics(false);
+      return { success: true, data: normalized };
+    } catch (err) {
+      setError(err);
+      setLoadingAnalytics(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  const getAIUserBehavior = useCallback(async () => {
+    setLoadingAnalytics(true);
+    setError(null);
+    try {
+      const res = await analyticsService.getAIUserBehavior();
+      const data = res?.data ?? res;
+      const normalized = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      setAiUserBehavior(normalized);
+      setLoadingAnalytics(false);
+      return { success: true, data: normalized };
+    } catch (err) {
+      setError(err);
+      setLoadingAnalytics(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  const getAIForecast = useCallback(async ({ stationId, days }) => {
+    setLoadingAnalytics(true);
+    setError(null);
+    try {
+      const res = await analyticsService.forecastStationDemand(stationId, days);
+      const data = res?.data ?? res;
+      const normalized = {
+        station_id: data?.station_id ?? stationId,
+        forecast: data?.forecast ?? data?.data ?? [],
+      };
+      setAiForecast(normalized);
+      setLoadingAnalytics(false);
+      return { success: true, data: normalized };
+    } catch (err) {
+      setError(err);
+      setLoadingAnalytics(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
   // ===== TELEMETRY =====
   const getRawTelemetry = useCallback(async (params) => {
     setLoadingTelemetry(true);
@@ -318,6 +376,9 @@ export const AnalyticsProvider = ({ children }) => {
       overview,
       stationStats,
       revenue,
+      aiStats,
+      aiUserBehavior,
+      aiForecast,
 
       // monitoring
       getHealth,
@@ -332,6 +393,9 @@ export const AnalyticsProvider = ({ children }) => {
       getRevenueReport,
       trainForecastModel,
       getForecastByStation,
+      getAIStats,
+      getAIUserBehavior,
+      getAIForecast,
 
       // telemetry
       getRawTelemetry,
@@ -360,6 +424,9 @@ export const AnalyticsProvider = ({ children }) => {
       setOverview,
       setStationStats,
       setRevenue,
+      setAiStats,
+      setAiUserBehavior,
+      setAiForecast,
     }),
     [
       error,
@@ -382,6 +449,9 @@ export const AnalyticsProvider = ({ children }) => {
       overview,
       stationStats,
       revenue,
+      aiStats,
+      aiUserBehavior,
+      aiForecast,
       // callbacks stable via useCallback; included for completeness
       getHealth,
       getMetrics,
@@ -393,6 +463,9 @@ export const AnalyticsProvider = ({ children }) => {
       getRevenueReport,
       trainForecastModel,
       getForecastByStation,
+      getAIStats,
+      getAIUserBehavior,
+      getAIForecast,
       getRawTelemetry,
       getDashboards,
       createDashboard,

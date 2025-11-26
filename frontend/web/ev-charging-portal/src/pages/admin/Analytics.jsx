@@ -19,18 +19,28 @@ export default function Analytics() {
     metrics,
     logs,
     alerts,
+    aiStats,
+    aiUserBehavior,
+    aiForecast,
     getHealth,
     getMetrics,
     getLogs,
     getAlerts,
     ackAlert,
+    getAIStats,
+    getAIUserBehavior,
+    getAIForecast,
   } = useAnalytics();
 
   const [localError, setLocalError] = useState("");
+  const [aiError, setAIError] = useState("");
   const [reportType, setReportType] = useState("revenue");
   const [selectedMonth, setSelectedMonth] = useState(
     String(new Date().getMonth() + 1).padStart(2, "0")
   );
+  const [forecastStationId, setForecastStationId] = useState("");
+  const [forecastDays, setForecastDays] = useState(7);
+  const [loadingReports, setLoadingReports] = useState(false);
 
   const [tableColumns, setTableColumns] = useState([]);
   const [tableData, setTableData] = useState([]);
@@ -77,6 +87,46 @@ export default function Analytics() {
   }, [metrics]);
 
   /* ====================================================
+     AI INSIGHTS DATA
+  ==================================================== */
+  const aiStatCards = useMemo(() => {
+    if (!aiStats) return [];
+    return [
+      {
+        label: "Người dùng hoạt động",
+        value: Number(aiStats.active_users ?? 0),
+      },
+      {
+        label: "Tổng số trạm",
+        value: Number(aiStats.total_stations ?? 0),
+      },
+      {
+        label: "Tổng sản lượng (kWh)",
+        value: Number(aiStats.total_energy_kwh ?? 0),
+      },
+      {
+        label: "Tổng doanh thu",
+        value: Number(aiStats.total_revenue ?? 0),
+        isCurrency: true,
+      },
+    ];
+  }, [aiStats]);
+
+  const topUserBehavior = useMemo(() => {
+    if (!Array.isArray(aiUserBehavior) || aiUserBehavior.length === 0) return null;
+    return aiUserBehavior[0];
+  }, [aiUserBehavior]);
+
+  const forecastChart = useMemo(() => {
+    const list = aiForecast?.forecast || (Array.isArray(aiForecast) ? aiForecast : []);
+    if (!Array.isArray(list)) return [];
+    return list.map((f) => ({
+      label: `Day ${f.day}`,
+      value: Number(f.predicted_usage || 0),
+    }));
+  }, [aiForecast]);
+
+  /* ====================================================
      COMMON
   ==================================================== */
   const resetTable = () => {
@@ -117,11 +167,51 @@ export default function Analytics() {
   };
 
   /* ====================================================
+     LOAD AI INSIGHTS
+  ==================================================== */
+  const loadAIInsights = async () => {
+    setAIError("");
+    try {
+      const [statsRes, behaviorRes] = await Promise.all([
+        getAIStats(),
+        getAIUserBehavior(),
+      ]);
+
+      if (statsRes?.success === false || behaviorRes?.success === false) {
+        setAIError("Không thể tải dữ liệu AI.");
+      }
+    } catch {
+      setAIError("Không thể tải dữ liệu AI.");
+    }
+  };
+
+  const handleForecast = async (e) => {
+    e?.preventDefault?.();
+    setAIError("");
+
+    const stationId = forecastStationId.trim();
+    const daysValue = Number.isFinite(Number(forecastDays))
+      ? Number(forecastDays)
+      : 7;
+
+    if (!stationId) {
+      setAIError("Vui lòng nhập Station ID để dự báo.");
+      return;
+    }
+
+    const res = await getAIForecast({ stationId, days: daysValue });
+    if (res?.success === false) {
+      setAIError(res?.error?.message || "Không thể dự báo nhu cầu trạm.");
+    }
+  };
+
+  /* ====================================================
      LOAD REPORTS (LIST MODE)
   ==================================================== */
   const loadReports = async () => {
     resetTable();
     setLocalError("");
+    setLoadingReports(true);
 
     const monthYYYYMM = buildMonthYYYYMM();
 
@@ -218,6 +308,8 @@ export default function Analytics() {
           e?.message ||
           "Không thể tải báo cáo."
       );
+    } finally {
+      setLoadingReports(false);
     }
   };
 
@@ -227,6 +319,7 @@ export default function Analytics() {
   useEffect(() => {
     loadMonitoring();
     loadReports();
+    loadAIInsights();
   }, []);
 
   /* ====================================================
@@ -242,6 +335,187 @@ export default function Analytics() {
             {showError}
           </div>
         )}
+
+        {/* ===================== AI INSIGHTS ===================== */}
+        <Section title="AI Insights">
+          {aiError && (
+            <div className="mb-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2 text-sm">
+              {aiError}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <button
+              onClick={loadAIInsights}
+              disabled={loadingAnalytics}
+              className="px-4 py-2 bg-indigo-700 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loadingAnalytics ? "Đang phân tích..." : "Làm mới AI"}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {aiStatCards.length === 0 ? (
+              <div className="col-span-full bg-white border rounded-xl p-4 text-slate-500 text-sm">
+                Chưa có dữ liệu thống kê AI. Nhấn "Làm mới AI" để tải.
+              </div>
+            ) : (
+              aiStatCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="bg-white border rounded-xl p-4 shadow-sm"
+                >
+                  <div className="text-sm text-slate-500">{card.label}</div>
+                  <div className="text-2xl font-bold mt-1">
+                    {card.isCurrency
+                      ? Number(card.value || 0).toLocaleString("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                          maximumFractionDigits: 0,
+                        })
+                      : Number(card.value || 0).toLocaleString("vi-VN")}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white border rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-semibold text-slate-800">
+                  Phân tích hành vi người dùng
+                </div>
+                <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-full">
+                  AI
+                </span>
+              </div>
+
+              {topUserBehavior ? (
+                <div className="space-y-2">
+                  <div className="text-lg font-semibold">
+                    Người dùng: {topUserBehavior.user_id}
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    Phân loại:{" "}
+                    <span className="font-semibold text-blue-800">
+                      {topUserBehavior.category}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <div className="text-slate-500">Tổng phiên</div>
+                      <div className="text-lg font-semibold">
+                        {Number(topUserBehavior.total_sessions ?? 0).toLocaleString(
+                          "vi-VN"
+                        )}
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <div className="text-slate-500">Thời lượng TB</div>
+                      <div className="text-lg font-semibold">
+                        {topUserBehavior.avg_duration != null
+                          ? Number(topUserBehavior.avg_duration).toLocaleString(
+                              "vi-VN",
+                              { maximumFractionDigits: 1 }
+                            ) + " phút"
+                          : "N/A"}
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <div className="text-slate-500">Năng lượng TB</div>
+                      <div className="text-lg font-semibold">
+                        {topUserBehavior.avg_energy != null
+                          ? Number(topUserBehavior.avg_energy).toLocaleString(
+                              "vi-VN",
+                              { maximumFractionDigits: 1 }
+                            ) + " kWh"
+                          : "N/A"}
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <div className="text-slate-500">Nhóm</div>
+                      <div className="text-lg font-semibold text-indigo-700">
+                        {topUserBehavior.category}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-slate-500">
+                  Chưa có dữ liệu hành vi người dùng. Nhấn "Làm mới AI" để tải.
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white border rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-semibold text-slate-800">
+                  Dự báo nhu cầu trạm (AI)
+                </div>
+              </div>
+
+              <form
+                onSubmit={handleForecast}
+                className="flex flex-wrap items-end gap-3 mb-3"
+              >
+                <div className="flex-1 min-w-[200px]">
+                  <label className="text-xs text-slate-600 block mb-1">
+                    Station ID
+                  </label>
+                  <input
+                    value={forecastStationId}
+                    onChange={(e) => setForecastStationId(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    placeholder="Nhập Station ID"
+                  />
+                </div>
+                <div className="w-[140px]">
+                  <label className="text-xs text-slate-600 block mb-1">
+                    Số ngày dự báo
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={forecastDays}
+                    onChange={(e) => setForecastDays(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loadingAnalytics}
+                  className="px-4 py-2 bg-blue-800 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {loadingAnalytics ? "Đang dự báo..." : "Dự báo"}
+                </button>
+              </form>
+
+              {forecastChart.length === 0 ? (
+                <div className="text-sm text-slate-500 h-[220px] flex items-center justify-center border rounded-lg">
+                  Nhập Station ID và nhấn Dự báo để xem kết quả.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Chart
+                    type="line"
+                    height={240}
+                    data={forecastChart}
+                    xKey="label"
+                    yKey="value"
+                  />
+                  {aiForecast?.station_id && (
+                    <div className="text-xs text-slate-500">
+                      Station: <span className="font-semibold">{aiForecast.station_id}</span>{" "}
+                      • Horizon: {forecastChart.length} ngày
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </Section>
 
         {/* ===================== MONITORING ===================== */}
         <Section title="Monitoring">
@@ -403,9 +677,10 @@ export default function Analytics() {
             <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={loadReports}
-                className="px-5 py-2 bg-blue-800 text-white rounded-lg"
+                disabled={loadingReports}
+                className="px-5 py-2 bg-blue-800 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {loadingAnalytics ? "Đang tải..." : "Lấy dữ liệu"}
+                {loadingReports ? "Đang tải..." : "Lấy dữ liệu"}
               </button>
             </div>
           </div>

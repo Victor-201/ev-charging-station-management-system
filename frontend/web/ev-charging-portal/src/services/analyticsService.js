@@ -55,6 +55,28 @@ const analyticsService = {
     }),
 
   /* ======================================================
+     AI INSIGHTS
+  ====================================================== */
+  getAIStats: () =>
+    apiClient({
+      method: "GET",
+      url: "/api/v1/analytics/ai/stats",
+    }),
+
+  getAIUserBehavior: () =>
+    apiClient({
+      method: "GET",
+      url: "/api/v1/analytics/ai/users",
+    }),
+
+  forecastStationDemand: (station_id, days = 7) =>
+    apiClient({
+      method: "GET",
+      url: `/api/v1/analytics/ai/forecast/${station_id}`,
+      params: { days },
+    }),
+
+  /* ======================================================
      FORECAST (optional - không auto gọi)
   ====================================================== */
   getForecastByStation: (station_id, horizonDays = 7) =>
