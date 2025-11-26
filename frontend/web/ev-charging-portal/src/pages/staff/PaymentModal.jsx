@@ -28,6 +28,42 @@ const PaymentModal = ({
 }) => {
   const [pendingCashTransactionId, setPendingCashTransactionId] = useState(null);
   const socket = useSocketClient();
+  // =========================
+// SOCKET LISTEN PAYMENT UPDATE
+// =========================
+useSocketEvent(socket, "transaction_status_updated", async (data) => {
+  if (!data) return;
+
+  const { transaction_id, status, invoice_id } = data;
+
+  // Nếu đúng session đang thanh toán
+  if (data.related_id !== selectedSessionId) return;
+
+  console.log("SOCKET PAYMENT UPDATE:", data);
+
+  // Nếu backend báo completed → đóng modal, refresh giao diện
+  if (status === "completed" || status === "success" || status === "paid") {
+    alert("Thanh toán đã được xác nhận thành công!");
+
+    setReconcileResult((prev) => ({
+      ...prev,
+      payment_status: "completed",
+    }));
+
+    setShowPaymentModal(false);
+    setQrCodeUrl(null);
+
+    // In hóa đơn nếu có
+    if (invoice_id) {
+      await askInvoice(invoice_id);
+    }
+
+    await refreshReconcileData();
+    await refreshCurrentSession();
+    await loadActivePoints();
+  }
+});
+
 
   // =========================
   // FORMAT MONEY

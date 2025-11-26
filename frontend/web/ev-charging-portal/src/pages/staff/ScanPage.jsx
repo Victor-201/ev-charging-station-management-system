@@ -5,6 +5,7 @@ import { ROUTERS } from '@/utils/constants';
 import apiClient from '@/api/apiClient';
 import userService from '@/services/userService';
 import chargingControlService from '@/services/chargingControlService';
+import stationService from '@/services/stationService';
 
 export default function ScanPage() {
   const [status, setStatus] = useState('init');
@@ -24,6 +25,11 @@ export default function ScanPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(false);
   const [userError, setUserError] = useState(null);
+
+  // charger state (new) - gọi API lấy thông tin point/charger
+  const [charger, setCharger] = useState(null);
+  const [loadingCharger, setLoadingCharger] = useState(false);
+  const [chargerError, setChargerError] = useState(null);
 
   const navigate = useNavigate();
   const scannerRef = useRef(null);
@@ -101,6 +107,25 @@ export default function ScanPage() {
       setSelectedUser(null);
       setLoadingUser(false);
       return null;
+    }
+  }, []);
+
+  // ================= Helper: fetch charger/point by id (mới) =================
+  const getChargerById = useCallback(async (charger_id) => {
+    if (!charger_id) return { success: false, error: new Error('missing charger_id') };
+    setLoadingCharger(true);
+    setChargerError(null);
+    try {
+      const res = await stationService.getChargerById(charger_id);
+      const data = res?.data ?? res;
+      setCharger(data ?? null);
+      setLoadingCharger(false);
+      return { success: true, data };
+    } catch (err) {
+      setChargerError(err);
+      setCharger(null);
+      setLoadingCharger(false);
+      return { success: false, error: err };
     }
   }, []);
 
@@ -211,12 +236,20 @@ export default function ScanPage() {
               setSelectedUser(null);
             }
 
-            // ✅ Tạo phiên sạc - ĐÃ THÊM reservation_id vào payload
+            // --- MỚI: lấy thông tin charger/point bằng point_id và hiển thị tên point ---
+            const pointId = resData.point_id || reservationFetch?.data?.point_id;
+            if (pointId) {
+              await getChargerById(pointId);
+            } else {
+              setCharger(null);
+            }
+
+            // ✅ Tạo phiên sạc - vẫn gọi nhưng chúng ta sẽ không hiển thị session_id và station_id ở UI
             const initPayload = {
-              reservation_id: reservation_id,  // ✅ THÊM reservation_id
+              reservation_id: reservation_id, // ✅ THÊM reservation_id
               station_id: resData.station_id,
               point_id: resData.point_id,
-              user_id: resData.user_id
+              user_id: resData.user_id,
             };
             const initRes = await apiClient.post(`/api/v1/charging/initiate`, initPayload);
             setSessionData(initRes.data);
@@ -291,6 +324,7 @@ export default function ScanPage() {
     setSessionData(null);
     setErrorMsg(null);
     setSelectedUser(null);
+    setCharger(null);
     setStatus('init');
     initScanner();
   };
@@ -327,10 +361,10 @@ export default function ScanPage() {
       {scanned && (reservation || reservationDetail) && (
         <div className="fixed inset-0 flex items-center justify-center z-[100000] bg-black/40 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-2xl shadow-xl w-[520px] max-w-[95%] animate-[popIn_0.26s_ease-out_forwards]">
-            <h3 className="font-semibold text-2xl mb-4 text-center">Thông tin lượt sạc</h3>
+            <h3 className="font-semibold text-2xl mb-4 text-center">Thông tin phiên xạc</h3>
 
             {/* Reservation ID */}
-            <p className="mb-2"><strong>Reservation ID:</strong> {reservation?.id || reservationDetail?.id}</p>
+            <p className="mb-2"><strong></strong> {reservation?.id || reservationDetail?.id}</p>
 
             {/* User: hiển thị tên nếu có, ẩn user_id nếu tên tồn tại */}
             <p className="mb-2">
@@ -346,9 +380,20 @@ export default function ScanPage() {
               )}
             </p>
 
-            {/* Station / Point */}
-            <p className="mb-2"><strong>Station:</strong> {reservation?.station_name || reservationDetail?.station_name || reservation?.station_id || 'N/A'}</p>
-            <p className="mb-2"><strong>Point:</strong> {reservation?.point_id || reservationDetail?.point_id || 'N/A'}</p>
+            {/* Chỉ hiển thị tên point (charger) - theo yêu cầu */}
+            <p className="mb-2">
+              <strong>Point:</strong>{' '}
+              {loadingCharger ? (
+                <span className="text-sm text-gray-500">Đang tải thông tin point...</span>
+              ) : chargerError ? (
+                <span className="text-sm text-red-500">Không lấy được thông tin point</span>
+              ) : charger ? (
+                <span className="font-medium">{charger.name || charger.display_name || charger.point_name || charger.id || 'N/A'}</span>
+              ) : (
+                <span className="font-mono text-sm">{reservation?.point_id || reservationDetail?.point_id || 'N/A'}</span>
+              )}
+            </p>
+
             <p className="mb-2"><strong>Status:</strong> {reservation?.status || reservationDetail?.status || 'N/A'}</p>
 
             {/* Hiển thị thời gian bắt đầu - kết thúc lấy từ reservationDetail nếu có */}
@@ -359,11 +404,7 @@ export default function ScanPage() {
               </div>
             )}
 
-            {sessionData && (
-              <p className="mb-2 text-green-600">
-                <strong>Session ID:</strong> {sessionData.session_id}
-              </p>
-            )}
+            {/* GỢI Ý: không hiển thị session_id và station_id theo yêu cầu */}
 
             <div className="mt-4 flex gap-4 justify-center">
               <button
