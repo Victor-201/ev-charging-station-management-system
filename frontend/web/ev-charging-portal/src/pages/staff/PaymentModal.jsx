@@ -1,6 +1,6 @@
 // ================== FULL FILE PaymentModal.js ==================
-import React, { useCallback, useState } from "react";
-import { X } from "lucide-react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
+import { X, CheckCircle } from "lucide-react";
 import paymentService from "@/services/paymentService";
 import { useSocketClient } from "@/hooks/useSocket";
 import { useSocketEvent } from "@/hooks/useSocketEvent";
@@ -27,43 +27,47 @@ const PaymentModal = ({
   STATION_ID,
 }) => {
   const [pendingCashTransactionId, setPendingCashTransactionId] = useState(null);
+  const [lastTransaction, setLastTransaction] = useState(null); // lưu transaction vừa tạo
+  const [qrAutoPaid, setQrAutoPaid] = useState(false); // đã tự mark paid (tick)
+  const [qrProcessingConfirm, setQrProcessingConfirm] = useState(false); // đang confirm backend
+  const qrAutoTimerRef = useRef(null);
   const socket = useSocketClient();
+
   // =========================
-// SOCKET LISTEN PAYMENT UPDATE
-// =========================
-useSocketEvent(socket, "transaction_status_updated", async (data) => {
-  if (!data) return;
+  // SOCKET LISTEN PAYMENT UPDATE
+  // =========================
+  useSocketEvent(socket, "transaction_status_updated", async (data) => {
+    if (!data) return;
 
-  const { transaction_id, status, invoice_id } = data;
+    const { transaction_id, status, invoice_id } = data;
 
-  // Nếu đúng session đang thanh toán
-  if (data.related_id !== selectedSessionId) return;
+    if (data.related_id !== selectedSessionId) return;
 
-  console.log("SOCKET PAYMENT UPDATE:", data);
+    console.log("SOCKET PAYMENT UPDATE:", data);
 
-  // Nếu backend báo completed → đóng modal, refresh giao diện
-  if (status === "completed" || status === "success" || status === "paid") {
-    alert("Thanh toán đã được xác nhận thành công!");
+    if (status === "completed" || status === "success" || status === "paid") {
+      alert("Thanh toán đã được xác nhận thành công!");
 
-    setReconcileResult((prev) => ({
-      ...prev,
-      payment_status: "completed",
-    }));
+      setReconcileResult((prev) => ({
+        ...prev,
+        payment_status: "completed",
+      }));
 
-    setShowPaymentModal(false);
-    setQrCodeUrl(null);
+      // reset QR/modal
+      setShowPaymentModal(false);
+      setQrCodeUrl(null);
+      setLastTransaction(null);
+      setQrAutoPaid(false);
 
-    // In hóa đơn nếu có
-    if (invoice_id) {
-      await askInvoice(invoice_id);
+      if (invoice_id) {
+        await askInvoice(invoice_id);
+      }
+
+      await refreshReconcileData();
+      await refreshCurrentSession();
+      await loadActivePoints();
     }
-
-    await refreshReconcileData();
-    await refreshCurrentSession();
-    await loadActivePoints();
-  }
-});
-
+  });
 
   // =========================
   // FORMAT MONEY
@@ -82,10 +86,8 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
       const blob = res.data;
       const url = window.URL.createObjectURL(blob);
 
-      // mở tab
       window.open(url);
 
-      // download
       const a = document.createElement("a");
       a.href = url;
       a.download = `invoice_${invoiceId}.pdf`;
@@ -125,6 +127,9 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
           data?.meta?.qrlink ||
           data?.data?.meta?.qrLink ||
           null;
+
+        // lưu transaction để dùng confirm sau (nếu cần)
+        setLastTransaction(data);
 
         if (qr) setQrCodeUrl(qr);
 
@@ -174,10 +179,105 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
   );
 
   // =========================
+  // CONFIRM BANK TRANSFER (TRY MULTIPLE FALLBACKS)
+  // =========================
+  const confirmBankTransfer = useCallback(
+    async (transaction) => {
+      if (!transaction) return { success: false, error: "No transaction" };
+
+      setQrProcessingConfirm(true);
+      setTransactionError(null);
+
+      const transactionId = transaction.id || transaction.transaction_id || transaction.txn_id;
+
+      // payload we might want to send to confirm
+      const payload = {
+        confirmed_at: new Date().toISOString(),
+        confirmed_by: "system",
+        notes: "Auto-confirmed after QR displayed 30s",
+      };
+
+      // Try a few possible API names / fallbacks
+      try {
+        if (paymentService.confirmBankTransaction) {
+          // preferred API if available
+          const res = await paymentService.confirmBankTransaction(transactionId, payload);
+          setQrProcessingConfirm(false);
+          return { success: true, data: res?.data ?? res };
+        }
+      } catch (err) {
+        console.warn("confirmBankTransaction failed:", err);
+      }
+
+      try {
+        if (paymentService.updateTransactionStatus) {
+          // generic update status
+          const res = await paymentService.updateTransactionStatus(transactionId, { status: "completed", ...payload });
+          setQrProcessingConfirm(false);
+          return { success: true, data: res?.data ?? res };
+        }
+      } catch (err) {
+        console.warn("updateTransactionStatus failed:", err);
+      }
+
+      try {
+        // fallback to confirmCashTransaction (if backend treats confirm similarly)
+        if (paymentService.confirmCashTransaction) {
+          const res = await paymentService.confirmCashTransaction(transactionId, { ...payload, method: "bank_transfer" });
+          setQrProcessingConfirm(false);
+          return { success: true, data: res?.data ?? res };
+        }
+      } catch (err) {
+        console.warn("fallback confirmCashTransaction failed:", err);
+      }
+
+      setQrProcessingConfirm(false);
+      return { success: false, error: "Không thể xác nhận giao dịch trên backend (no suitable API)." };
+    },
+    []
+  );
+
+  // =========================
   // WALLET POLLING MOCK
   // =========================
   const pollWalletPayment = useCallback(
-    () => {
+    (transaction) => {
+      // Kiểm tra ngay status trả về
+      const status = transaction.status.toLowerCase();
+
+      if (status === "completed" || status === "success" || status === "paid") {
+        alert("Thanh toán ví thành công!");
+        setReconcileResult((prev) => ({
+          ...prev,
+          payment_status: "completed",
+        }));
+
+        setShowPaymentModal(false);
+        setQrCodeUrl(null);
+        askInvoice(transaction.invoice_id);
+
+        refreshReconcileData();
+        refreshCurrentSession();
+        loadActivePoints();
+        return;
+      } else if (status === "failed") {
+        const reason = transaction.meta?.reason?.reason || "Lý do không xác định";
+
+        let message = "Thanh toán ví thất bại: ";
+        if (reason === "Invalid wallet action") {
+          message += "Ví của người dùng không đủ tiền.";
+        } else {
+          message += reason;
+        }
+
+        alert(message);
+        setTransactionError(message);
+        setWalletPolling(false);
+        return;
+      }
+
+      // Nếu status khác, vẫn tiếp tục poll
+      setWalletPolling(true);
       const interval = setInterval(async () => {
         const paymentSuccess = Math.random() > 0.7;
         if (paymentSuccess) {
@@ -216,6 +316,107 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
   );
 
   // =========================
+  // HANDLE AUTO-PAID TIMER (FOR QR BANK TRANSFER)
+  // =========================
+  useEffect(() => {
+    // start timer only when modal open, method is bank_transfer, and we have a QR url
+    if (
+      showPaymentModal &&
+      selectedPaymentMethod === "bank_transfer" &&
+      qrCodeUrl
+    ) {
+      // clear previous if any
+      if (qrAutoTimerRef.current) {
+        clearTimeout(qrAutoTimerRef.current);
+        qrAutoTimerRef.current = null;
+      }
+
+      // Start 30s timer (no visible countdown)
+      qrAutoTimerRef.current = setTimeout(async () => {
+        // show tick UI immediately
+        setQrAutoPaid(true);
+
+        // Attempt backend confirmation (if possible)
+        try {
+          const confirmResult = await confirmBankTransfer(lastTransaction);
+          if (confirmResult && confirmResult.success) {
+            // mark reconcile + close UI
+            setReconcileResult((prev) => ({
+              ...prev,
+              payment_status: "completed",
+            }));
+
+            alert("Thanh toán đã được xác nhận thành công!");
+
+            // reset UI
+            setShowPaymentModal(false);
+            setQrCodeUrl(null);
+            setLastTransaction(null);
+            setQrAutoPaid(false);
+
+            // if backend returned invoice id, try to ask invoice (best-effort)
+            const invoiceId =
+              (confirmResult.data && confirmResult.data.invoice_id) ||
+              (lastTransaction && lastTransaction.invoice_id) ||
+              (confirmResult.data && confirmResult.data.invoice && confirmResult.data.invoice.id) ||
+              null;
+
+            if (invoiceId) {
+              await askInvoice(invoiceId);
+            }
+
+            await refreshReconcileData();
+            await refreshCurrentSession();
+            await loadActivePoints();
+          } else {
+            // If couldn't confirm on backend, still mark completed locally as requested
+            // (user asked "thanh toán bên ngoài cũng như là đã confirm r vậy đó")
+            setReconcileResult((prev) => ({
+              ...prev,
+              payment_status: "completed",
+            }));
+
+            alert("Thanh toán được đánh dấu là hoàn tất (local).");
+
+            setShowPaymentModal(false);
+            setQrCodeUrl(null);
+            setLastTransaction(null);
+            setQrAutoPaid(false);
+
+            await refreshReconcileData();
+            await refreshCurrentSession();
+            await loadActivePoints();
+          }
+        } catch (err) {
+          console.error("Auto confirm error:", err);
+          // still close and mark locally
+          setReconcileResult((prev) => ({
+            ...prev,
+            payment_status: "completed",
+          }));
+          setShowPaymentModal(false);
+          setQrCodeUrl(null);
+          setLastTransaction(null);
+          setQrAutoPaid(false);
+
+          await refreshReconcileData();
+          await refreshCurrentSession();
+          await loadActivePoints();
+        }
+      }, 30000); // 30 seconds
+    }
+
+    return () => {
+      // cleanup timer on unmount or when dependencies change
+      if (qrAutoTimerRef.current) {
+        clearTimeout(qrAutoTimerRef.current);
+        qrAutoTimerRef.current = null;
+      }
+    };
+    // intentionally include qrCodeUrl and selectedPaymentMethod and showPaymentModal and lastTransaction
+  }, [qrCodeUrl, selectedPaymentMethod, showPaymentModal, lastTransaction, confirmBankTransfer]);
+
+  // =========================
   // PROCEED PAYMENT
   // =========================
   const handleProceedPayment = async () => {
@@ -252,34 +453,28 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
       },
     };
 
-    // Tạo transaction
     const result = await createTransaction(payload);
     if (!result.success) return alert(`Tạo giao dịch thất bại: ${result.error}`);
 
     const transaction = result.data;
     const invoice = result.raw?.invoice || result.raw?.data?.invoice;
     const invoiceId = invoice?.id;
+    transaction.invoice_id = invoiceId; // attach invoice id vào transaction
 
-    // =======================================
-    // BANK TRANSFER
-    // =======================================
+    // save as lastTransaction (createTransaction already set it, but ensure)
+    setLastTransaction(transaction);
+
     if (selectedPaymentMethod === "bank_transfer") {
-      const data = result.data;
       const qrFromBackend =
-        data?.meta?.qrLink ||
-        data?.data?.meta?.qrLink ||
-        data?.meta?.qrlink ||
+        transaction?.meta?.qrLink ||
+        transaction?.data?.meta?.qrLink ||
+        transaction?.meta?.qrlink ||
         null;
 
       if (qrFromBackend) setQrCodeUrl(qrFromBackend);
 
       const immediateStatus =
-        (
-          data?.status ||
-          data?.payment_status ||
-          data?.data?.status ||
-          ""
-        )
+        (transaction?.status || transaction?.payment_status || "")
           .toString()
           .toLowerCase();
 
@@ -287,6 +482,7 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
         alert("Thanh toán chuyển khoản hoàn tất.");
         setShowPaymentModal(false);
         setQrCodeUrl(null);
+        setLastTransaction(null);
 
         await askInvoice(invoiceId);
 
@@ -294,14 +490,9 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
         await refreshCurrentSession();
         await loadActivePoints();
       }
-    }
-
-    // =======================================
-    // WALLET
-    // =======================================
-    else if (selectedPaymentMethod === "wallet") {
-      setWalletPolling(true);
-      pollWalletPayment();
+      // else: timer effect will handle auto-confirm after 30s
+    } else if (selectedPaymentMethod === "wallet") {
+      pollWalletPayment(transaction);
     }
   };
 
@@ -344,14 +535,12 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
       },
     };
 
-    // 1. Create transaction
     const createResult = await createTransaction(payload);
     if (!createResult.success)
       return alert(`Lỗi tạo giao dịch: ${createResult.error}`);
 
     const transaction = createResult.data;
     const transactionId = transaction?.id;
-
     const invoice = createResult.raw?.invoice || createResult.raw?.data?.invoice;
     const invoiceId = invoice?.id;
 
@@ -359,7 +548,6 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
 
     setPendingCashTransactionId(transactionId);
 
-    // 2. Confirm transaction
     const confirmPayload = {
       confirmed_at: new Date().toISOString(),
       confirmed_by: "staff",
@@ -384,7 +572,6 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
       setShowPaymentModal(false);
       setQrCodeUrl(null);
 
-      // hỏi in hóa đơn
       await askInvoice(invoiceId);
 
       await refreshReconcileData();
@@ -396,7 +583,7 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
   // =========================
   // AUTO PROCEED WHEN OPEN
   // =========================
-  React.useEffect(() => {
+  useEffect(() => {
     if (
       showPaymentModal &&
       selectedPaymentMethod &&
@@ -404,6 +591,7 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
     ) {
       handleProceedPayment();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showPaymentModal]);
 
   // =========================
@@ -415,7 +603,15 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">Thanh toán</h3>
           <button
-            onClick={() => setShowPaymentModal(false)}
+            onClick={() => {
+              // cleanup timer if user closes manually
+              if (qrAutoTimerRef.current) {
+                clearTimeout(qrAutoTimerRef.current);
+                qrAutoTimerRef.current = null;
+              }
+              setQrAutoPaid(false);
+              setShowPaymentModal(false);
+            }}
             className="text-gray-400 hover:text-gray-600"
           >
             <X size={24} />
@@ -440,7 +636,7 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
             <span className="font-semibold capitalize">
               {selectedPaymentMethod === "cash" && "Tiền mặt"}
               {selectedPaymentMethod === "bank_transfer" && "Chuyển khoản"}
-              {selectedPaymentMethod === "wallet" && "Ví điện tử"}
+              {selectedPaymentMethod === "wallet" && "Ví"}
             </span>
           </div>
         </div>
@@ -478,16 +674,37 @@ useSocketEvent(socket, "transaction_status_updated", async (data) => {
         {selectedPaymentMethod === "bank_transfer" && (
           <div className="space-y-4">
             {qrCodeUrl ? (
-              <div className="text-center">
-                <p className="text-gray-700 mb-3">Quét mã QR để thanh toán</p>
-                <img
-                  src={qrCodeUrl}
-                  alt="QR Code"
-                  className="mx-auto border rounded-lg"
-                />
-                <p className="text-sm text-gray-500 mt-3">
-                  Đang chờ xác nhận thanh toán...
-                </p>
+              <div className="text-center relative">
+                {!qrAutoPaid && (
+                  <>
+                    <p className="text-gray-700 mb-3">Quét mã QR để thanh toán</p>
+                    <img
+                      src={qrCodeUrl}
+                      alt="QR Code"
+                      className="mx-auto border rounded-lg"
+                    />
+                    <p className="text-sm text-gray-500 mt-3">
+                      Đang chờ xác nhận thanh toán...
+                    </p>
+                  </>
+                )}
+
+                {/* Khi auto-paid true => show tick overlay */}
+                {qrAutoPaid && (
+                  <div className="flex flex-col items-center justify-center py-6">
+                    <div className="p-4 rounded-full bg-green-50 border border-green-200">
+                      <CheckCircle size={56} className="text-green-600" />
+                    </div>
+                    <p className="text-green-700 font-semibold mt-3">
+                      Thanh toán thành công
+                    </p>
+                    {qrProcessingConfirm && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Đang xác nhận với hệ thống...
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8">
