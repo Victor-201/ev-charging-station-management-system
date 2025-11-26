@@ -38,50 +38,46 @@ function pickLatestFromArray(arr) {
 }
 
 export function normalizeTelemetryInput(input) {
-  // input may be:
-  // - null/undefined
-  // - an object directly: { energy_kwh, power_kw, voltage_v, current_a, soc_percent, temperature_c, cost, timestamp }
-  // - an object with property `telemetry` which is an array like your example
-  // - an array of telemetry objects
   if (!input) return null;
 
-  // if wrapper { telemetry: [...] }
   if (input.telemetry) {
-    const latest = pickLatestFromArray(input.telemetry);
-    if (!latest) return null;
+    const t = Array.isArray(input.telemetry)
+      ? pickLatestFromArray(input.telemetry)
+      : input.telemetry; 
+
+    if (!t) return null;
+
     return {
-      energy_kwh: latest.energy_kwh ?? (latest.meter_wh != null ? Number(latest.meter_wh) / 1000 : undefined),
-      power_kw: latest.power_kw ?? latest.kW ?? latest.power ?? undefined,
-      voltage_v: latest.voltage_v ?? latest.voltage ?? undefined,
-      current_a: latest.current_a ?? latest.current ?? undefined,
-      soc_percent: latest.soc_percent ?? latest.soc ?? undefined,
-      temperature_c: latest.temperature_c ?? latest.temp_c ?? undefined,
-      cost: latest.cost ?? undefined,
-      timestamp: latest.timestamp ?? undefined,
-      raw: latest,
+      energy_kwh: t.energy_kwh ?? (t.meter_wh != null ? Number(t.meter_wh) / 1000 : undefined),
+      power_kw: t.power_kw ?? t.kW ?? t.power ?? undefined,
+      soc_percent: t.soc_percent ?? t.soc ?? undefined,
+      cost:
+        typeof t.price_per_kw === "number" && typeof t.meter_wh === "number"
+          ? (t.price_per_kw * t.meter_wh) / 1000
+          : undefined,
+      timestamp: t.timestamp,
+      raw: t,
     };
   }
 
-  // if input is an array
   if (Array.isArray(input)) {
     const latest = pickLatestFromArray(input);
-    if (!latest) return null;
-    return normalizeTelemetryInput({ telemetry: [latest] });
+    return latest ? normalizeTelemetryInput({ telemetry: latest }) : null;
   }
 
-  // assume it's already a telemetry object
   return {
     energy_kwh: input.energy_kwh ?? (input.meter_wh != null ? Number(input.meter_wh) / 1000 : undefined),
     power_kw: input.power_kw ?? input.kW ?? input.power ?? undefined,
-    voltage_v: input.voltage_v ?? input.voltage ?? undefined,
-    current_a: input.current_a ?? input.current ?? undefined,
     soc_percent: input.soc_percent ?? input.soc ?? undefined,
-    temperature_c: input.temperature_c ?? input.temp_c ?? undefined,
-    cost: input.cost ?? undefined,
-    timestamp: input.timestamp ?? undefined,
+    cost:
+      typeof input.price_per_kw === "number" && typeof input.meter_wh === "number"
+        ? (input.price_per_kw * input.meter_wh) / 1000
+        : undefined,
+    timestamp: input.timestamp,
     raw: input,
   };
 }
+
 
 // Component hiển thị thông tin Telemetry — bây giờ hỗ trợ payload dạng bạn đưa lên
 export const TelemetrySection = ({ telemetry }) => {
