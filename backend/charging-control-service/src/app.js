@@ -13,8 +13,9 @@ app.use(bodyParser.json());
 // Connect socket io
 const io = require('socket.io')(server, {
     cors: {
-        origin: "*"
-    }
+        origin: "*",
+    },
+    path: "/socket.io"
 });
 
 // --- Mount grouped routes ---
@@ -22,6 +23,6 @@ app.use('/api/v1/booking', bookingRoutes);
 app.use('/api/v1/charging', chargingRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 
-app.get('/', (req, res) => res.send('🚗 EV Charging Service Running'));
+app.get('/', (req, res) => res.send('EV Charging Service Running'));
 
 module.exports = {app, server, io};
