@@ -26,5 +26,6 @@ router.get('/:session_id/invoice', authenticate, sessionCtrl.getInvoice);
 router.get('/:user_id/sessions', authenticate, sessionCtrl.getUserSessions);
 router.get("/", authenticate, sessionCtrl.getAll);
 
+router.get('/:station_id/peak-hours', sessionCtrl.getPeakHours);
 
 module.exports = router;

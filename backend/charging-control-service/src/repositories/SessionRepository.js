@@ -153,7 +153,7 @@ class SessionRepository {
     if (!station_id) throw new Error('station_id is required');
 
     const q = `
-      SELECT session_id, point_id, user_id, started_at, status, metadata
+      SELECT session_id, point_id, user_id, started_at,started_at, status, metadata
       FROM sessions
       WHERE station_id = ? AND LOWER(status) IN ('charging', 'pending','confirmed')
       ORDER BY started_at ASC
