@@ -435,12 +435,11 @@ export default function Stations() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 px-6 py-8 font-inter">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-extrabold mb-6">Quản lý trạm — Nhân viên</h1>
+        <h1 className="text-3xl font-extrabold mb-6">Quản lý trạm</h1>
 
         <div className="mb-4">
           <div className="text-sm text-gray-500">Trạm được phân công:</div>
           <div className="text-lg font-medium">{currentStation?.name || managedStationId || "—"}</div>
-          <div className="text-xs text-gray-400">ID: {managedStationId || "—"}</div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 mb-6">

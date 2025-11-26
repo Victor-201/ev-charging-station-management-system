@@ -19,28 +19,28 @@ export default function Dashboard() {
   const quickCards = [
     {
       key: "payments",
-      title: "Payments",
+      title: "Quản lý",
       subtitle: "Xử lý & ghi nhận",
       icon: <CreditCard size={42} strokeWidth={1.5} className="text-blue-600" />,
       route: ROUTERS.STAFF.PAYMENTS,
     },
     {
       key: "stations",
-      title: "Stations",
+      title: "Trạm xạc",
       subtitle: "Quản lý trạm sạc",
       icon: <Zap size={42} strokeWidth={1.5} className="text-green-600" />,
       route: ROUTERS.STAFF.STATIONS,
     },
     {
       key: "sessions",
-      title: "Sessions",
+      title: "Phiên xạc",
       subtitle: "Phiên đang chạy",
       icon: <Battery size={42} strokeWidth={1.5} className="text-yellow-600" />,
       route: ROUTERS.STAFF.SESSIONS,
     },
     {
       key: "IncidentReport",
-      title: "Incident Report",
+      title: "Báo cáo",
       subtitle: "Báo cáo hệ thống",
       icon: <Settings size={42} strokeWidth={1.5} className="text-purple-600" />,
       route: ROUTERS.STAFF.INCIDENT_REPORT,
@@ -62,7 +62,7 @@ export default function Dashboard() {
     <div className="min-h-screen flex justify-center bg-[#f6f8fb] text-[#0f1724] font-[Inter] px-6 py-9">
       <div className="w-full max-w-[980px] space-y-6">
         <h1 className="text-center text-3xl md:text-4xl font-extrabold mb-6">
-          Dashboard
+          Trang chủ
         </h1>
 
         {/* QR Scan Button */}

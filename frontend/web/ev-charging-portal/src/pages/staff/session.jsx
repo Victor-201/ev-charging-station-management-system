@@ -66,9 +66,14 @@ const SessionManager = () => {
   // History mode state
   const [viewMode, setViewMode] = useState("active"); // "active" or "history"
 
+  // Charger lookup cache & loading/error state
+  const [chargerMap, setChargerMap] = useState({}); // { [chargerId]: { success: true, data: {...} } }
+  const [loadingCharger, setLoadingCharger] = useState(false);
+  const [chargerError, setChargerError] = useState(null);
+
   const refreshCurrentSession = useCallback(async () => {
     if (!selectedSessionId) return;
-    
+
     try {
       await Promise.all([
         getSessionById(selectedSessionId),
@@ -283,20 +288,92 @@ const SessionManager = () => {
     fetchAssignedStation();
   }, [fetchAssignedStation]);
 
+  // ---------------------------
+  // getChargerById (the provided API wrapper)
+  // ---------------------------
+  const getChargerById = useCallback(async (charger_id) => {
+    // Use local loading/error specific to charger lookups
+    setLoadingCharger(true);
+    setChargerError(null);
+    try {
+      const res = await stationService.getChargerById(charger_id);
+      const data = res?.data ?? res;
+      setLoadingCharger(false);
+      return { success: true, data };
+    } catch (err) {
+      setChargerError(err);
+      setLoadingCharger(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  // When activePoints change, fetch charger names for each point_id (cache results)
+  useEffect(() => {
+    if (!activePoints || !Array.isArray(activePoints.active)) return;
+
+    const points = activePoints.active;
+    // gather unique charger ids (use point_id or connector_id or id)
+    const ids = Array.from(
+      new Set(
+        points.map((p) => p.point_id || p.connector_id || p.id).filter(Boolean)
+      )
+    );
+
+    // only fetch those not already in cache
+    const toFetch = ids.filter((id) => !chargerMap[id]);
+
+    if (toFetch.length === 0) return;
+
+    let mounted = true;
+    (async () => {
+      // optional: set a combined loading flag
+      setLoadingCharger(true);
+      try {
+        const promises = toFetch.map(async (id) => {
+          try {
+            const r = await getChargerById(id);
+            return { id, result: r };
+          } catch (e) {
+            return { id, result: { success: false, error: e } };
+          }
+        });
+
+        const results = await Promise.all(promises);
+        if (!mounted) return;
+
+        setChargerMap((prev) => {
+          const next = { ...prev };
+          for (const { id, result } of results) {
+            next[id] = result;
+          }
+          return next;
+        });
+      } catch (e) {
+        console.error("Error fetching chargers for activePoints", e);
+      } finally {
+        if (mounted) setLoadingCharger(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activePoints, getChargerById, chargerMap]);
+
   // Filter sessions based on view mode
   const getFilteredSessions = () => {
     if (!Array.isArray(activePoints?.active)) return [];
-    
+
     if (viewMode === "active") {
       // Show pending and charging sessions
-      return activePoints.active.filter(point => 
-        point.status === "pending" || 
+      return activePoints.active.filter(point =>
+        point.status === "pending" ||
         point.status === "charging" ||
         point.status === "active"
       );
     } else {
       // Show confirm sessions (history)
-      return activePoints.active.filter(point => 
+      return activePoints.active.filter(point =>
         point.status === "confirmed" ||
         point.status === "completed" ||
         point.status === "stopped"
@@ -305,6 +382,21 @@ const SessionManager = () => {
   };
 
   const filteredSessions = getFilteredSessions();
+
+  // helper to display point name (use cache -> fallback to id)
+  const renderPointLabel = (point) => {
+    const id = point.point_id || point.connector_id || point.id;
+    if (!id) return "N/A";
+
+    const cached = chargerMap[id];
+    if (cached?.success && cached.data) {
+      // prefer common name fields - adapt if your API uses different keys
+      return cached.data.name || cached.data.display_name || cached.data.point_name || String(id);
+    }
+
+    // if fetch failed earlier, still show id (could also show error)
+    return String(id);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -322,7 +414,7 @@ const SessionManager = () => {
                 {loadingStation ? (
                   <span className="text-gray-500">Đang tải...</span>
                 ) : assignedStation ? (
-                  <span>{assignedStation.name} ({assignedStation.id})</span>
+                  <span>{assignedStation.name}</span>
                 ) : stationError ? (
                   <span className="text-red-600">Lỗi lấy trạm</span>
                 ) : (
@@ -435,7 +527,8 @@ const SessionManager = () => {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold text-gray-900">
-                        Cổng {point.connector_id || point.point_id}
+                        {/* Use charger name from cache, fallback to id */}
+                        Cổng {renderPointLabel(point)}
                       </span>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
@@ -445,9 +538,6 @@ const SessionManager = () => {
                         {point.status}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      User: {point.user_id || "N/A"}
-                    </p>
                     <p className="text-sm text-gray-600">
                       {point.energy_kwh
                         ? `${point.energy_kwh.toFixed(2)} kWh`
@@ -460,7 +550,7 @@ const SessionManager = () => {
                     )}
                   </div>
                 ))}
-                
+
                 {filteredSessions.length === 0 && (
                   <div className="text-center py-12">
                     {viewMode === "active" ? (
