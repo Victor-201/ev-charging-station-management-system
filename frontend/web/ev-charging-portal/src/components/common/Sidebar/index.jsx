@@ -19,21 +19,20 @@ export default function Sidebar({ active = true, mode = "staff" }) {
   const [expanded, setExpanded] = useState(active);
 
   const STAFF_ITEMS = [
-    { key: "dashboard", label: "Dashboard", to: ROUTERS.STAFF.DASHBOARD, icon: <Home size={20} /> },
-    { key: "stations", label: "Stations", to: ROUTERS.STAFF.STATIONS, icon: <Zap size={20} /> },
-    { key: "sessions", label: "Sessions", to: ROUTERS.STAFF.SESSIONS, icon: <BarChart3 size={20} /> },
-    { key: "payments", label: "Payments", to: ROUTERS.STAFF.PAYMENTS, icon: <CreditCard size={20} /> },
-    { key: "scan", label: "QR Scan", to: ROUTERS.STAFF.SCAN, icon: <ScanLine size={20} /> },
-    { key: "reports", label: "Incident Report", to: ROUTERS.STAFF.INCIDENT_REPORT, icon: <FileText size={20} /> },
-    { key: "settings", label: "Settings", to: ROUTERS.STAFF.SETTINGS, icon: <Settings size={20} /> },
+    { key: "dashboard", label: "Trang Chủ", to: ROUTERS.STAFF.DASHBOARD, icon: <Home size={20} /> },
+    { key: "stations", label: "Trạm xạc", to: ROUTERS.STAFF.STATIONS, icon: <Zap size={20} /> },
+    { key: "sessions", label: "Phiên xạc", to: ROUTERS.STAFF.SESSIONS, icon: <BarChart3 size={20} /> },
+    { key: "payments", label: "Quản lý", to: ROUTERS.STAFF.PAYMENTS, icon: <CreditCard size={20} /> },
+    { key: "scan", label: "QUét mã QR", to: ROUTERS.STAFF.SCAN, icon: <ScanLine size={20} /> },
+    { key: "reports", label: "Báo cáo", to: ROUTERS.STAFF.INCIDENT_REPORT, icon: <FileText size={20} /> },
   ];
 
   const ADMIN_ITEMS = [
-    { key: "dashboard", label: "Dashboard", to: ROUTERS.ADMIN.DASHBOARD, icon: <Home size={20} /> },
-    { key: "analytics", label: "Analytics", to: ROUTERS.ADMIN.ANALYTICS, icon: <BarChart3 size={20} /> },
-    { key: "stations", label: "Stations", to: ROUTERS.ADMIN.STATION_MANAGEMENT, icon: <Zap size={20} /> },
-    { key: "subscriptions", label: "Subscriptions", to: ROUTERS.ADMIN.SUBSCRIPTION_PLANS, icon: <Coins size={20} /> },
-    { key: "users", label: "Users", to: ROUTERS.ADMIN.USER_MANAGEMENT, icon: <Users size={20} /> },
+    { key: "dashboard", label: "Trang chủ", to: ROUTERS.ADMIN.DASHBOARD, icon: <Home size={20} /> },
+    { key: "analytics", label: "Phân tích", to: ROUTERS.ADMIN.ANALYTICS, icon: <BarChart3 size={20} /> },
+    { key: "stations", label: "Trạm xạc", to: ROUTERS.ADMIN.STATION_MANAGEMENT, icon: <Zap size={20} /> },
+    { key: "subscriptions", label: "Quản lý dịch vụ", to: ROUTERS.ADMIN.SUBSCRIPTION_PLANS, icon: <Coins size={20} /> },
+    { key: "users", label: "Người dùng", to: ROUTERS.ADMIN.USER_MANAGEMENT, icon: <Users size={20} /> },
   ];
 
   const items = mode === "admin" ? ADMIN_ITEMS : STAFF_ITEMS;
