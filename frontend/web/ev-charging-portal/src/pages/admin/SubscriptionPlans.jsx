@@ -4,22 +4,42 @@ import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
 import { usePayment } from "@/hooks/usePayment";
+import { useUser } from "@/hooks/useUser";
 
 export default function SubscriptionPlans() {
   const {
     loadingSubscription,
+    loadingPlans,
     createSubscription,
     cancelSubscription,
     getAllSubscriptions,
+    getAllPlans,
   } = usePayment();
+  const { fetchAllUsers } = useUser();
 
   const [subscriptions, setSubscriptions] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [planOptions, setPlanOptions] = useState([]);
+  const [userOptions, setUserOptions] = useState([]);
+  const [loadingLookup, setLoadingLookup] = useState(false);
 
   // FORM STATE
   const [editing, setEditing] = useState(null); // { user_id, plan_id }
+  const getErrorMessage = (err, fallback) => {
+    if (!err) return fallback;
+    if (typeof err === "string") return err;
+    return (
+      err?.response?.data?.error ||
+      err?.response?.data?.message ||
+      err?.error ||
+      err?.message ||
+      fallback
+    );
+  };
+  const isSaving = saving || loadingSubscription;
+  const lookupBusy = loadingLookup || loadingPlans;
 
   /* ================================
    * LOAD ALL SUBSCRIPTIONS
@@ -30,7 +50,12 @@ export default function SubscriptionPlans() {
 
     const res = await getAllSubscriptions();
     if (!res?.success) {
-      setError("Không thể tải danh sách subscriptions");
+      setError(
+        getErrorMessage(
+          res?.error,
+          "Không thể tải danh sách subscriptions"
+        )
+      );
       setSubscriptions([]);
       setLoadingList(false);
       return;
@@ -38,11 +63,48 @@ export default function SubscriptionPlans() {
 
     const data = res.data?.data ?? res.data ?? [];
     setSubscriptions(Array.isArray(data) ? data : []);
+    setError("");
     setLoadingList(false);
+  };
+
+  /* ================================
+   * LOAD PLANS + USERS FOR QUICK PICK
+   * ================================ */
+  const loadLookupData = async () => {
+    setLoadingLookup(true);
+    try {
+      const [plansRes, usersRes] = await Promise.allSettled([
+        getAllPlans?.(),
+        fetchAllUsers({ page: 1, size: 8 }),
+      ]);
+
+      if (plansRes.status === "fulfilled" && plansRes.value) {
+        const planData =
+          plansRes.value?.data?.data ?? plansRes.value?.data ?? [];
+        setPlanOptions(Array.isArray(planData) ? planData : []);
+      }
+
+      if (usersRes.status === "fulfilled" && usersRes.value) {
+        const usersPayload =
+          usersRes.value?.users ??
+          usersRes.value?.data?.users ??
+          usersRes.value?.data ??
+          [];
+        const normalized = Array.isArray(usersPayload)
+          ? usersPayload.filter((u) => u?.id || u?.user_id).slice(0, 8)
+          : [];
+        setUserOptions(normalized);
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, "Không tải được dữ liệu gợi ý"));
+    } finally {
+      setLoadingLookup(false);
+    }
   };
 
   useEffect(() => {
     loadSubscriptions();
+    loadLookupData();
   }, []);
 
   /* ================================
@@ -65,12 +127,15 @@ export default function SubscriptionPlans() {
     const res = await createSubscription(payload);
 
     if (!res?.success) {
-      setError("Không thể tạo subscription mới");
+      setError(
+        getErrorMessage(res?.error, "Không thể tạo subscription mới")
+      );
       setSaving(false);
       return;
     }
 
     setEditing(null);
+    setError("");
     await loadSubscriptions();
     setSaving(false);
   };
@@ -84,10 +149,11 @@ export default function SubscriptionPlans() {
     const res = await cancelSubscription(id);
 
     if (!res?.success) {
-      setError("Không thể hủy subscription");
+      setError(getErrorMessage(res?.error, "Không thể hủy subscription"));
       return;
     }
 
+    setError("");
     await loadSubscriptions();
   };
 
@@ -230,6 +296,76 @@ export default function SubscriptionPlans() {
                 />
               </div>
 
+              {(lookupBusy || planOptions.length > 0 || userOptions.length > 0) && (
+                <div className="md:col-span-3 bg-slate-50 border rounded-lg p-3 space-y-3">
+                  <div className="text-xs text-slate-500">
+                    {lookupBusy
+                      ? "Đang tải gợi ý Plan/User..."
+                      : "Chọn nhanh từ danh sách có sẵn"}
+                  </div>
+
+                  {planOptions.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        Plans khả dụng
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {planOptions.map((plan) => (
+                          <button
+                            type="button"
+                            key={plan.id}
+                            onClick={() =>
+                              setEditing((p) => ({
+                                ...p,
+                                plan_id: plan.id,
+                              }))
+                            }
+                            className="border rounded-lg px-3 py-2 text-left hover:border-blue-500 hover:bg-blue-50 transition focus:outline-none focus:ring-2 focus:ring-blue-200"
+                          >
+                            <div className="text-sm font-semibold">
+                              {plan.name || "Plan"}
+                            </div>
+                            <div className="text-[11px] text-slate-600">
+                              {plan.id}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {userOptions.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                        User ID mẫu (lấy từ trang người dùng)
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {userOptions.map((u) => {
+                          const uid = u.id || u.user_id;
+                          return (
+                            <button
+                              type="button"
+                              key={uid}
+                              onClick={() =>
+                                setEditing((p) => ({ ...p, user_id: uid }))
+                              }
+                              className="border rounded-lg px-3 py-2 text-left hover:border-blue-500 hover:bg-blue-50 transition focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            >
+                              <div className="text-sm font-semibold">
+                                {u.email || u.username || "User"}
+                              </div>
+                              <div className="text-[11px] text-slate-600">
+                                {uid}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* BUTTONS */}
               <div className="md:col-span-3 flex justify-end gap-2">
                 <button
@@ -241,12 +377,10 @@ export default function SubscriptionPlans() {
 
                 <button
                   onClick={saveSubscription}
-                  disabled={saving || loadingSubscription}
+                  disabled={isSaving}
                   className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
                 >
-                  {saving || loadingSubscription
-                    ? "Đang lưu..."
-                    : "Tạo subscription"}
+                  {isSaving ? "Đang lưu..." : "Tạo subscription"}
                 </button>
               </div>
             </div>

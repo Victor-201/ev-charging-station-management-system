@@ -10,6 +10,7 @@ export const PaymentProvider = ({ children }) => {
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
+  const [loadingPlans, setLoadingPlans] = useState(false);
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
   const [loadingLedger, setLoadingLedger] = useState(false);
@@ -349,6 +350,21 @@ export const PaymentProvider = ({ children }) => {
   // =====================================================
   // SUBSCRIPTIONS
   // =====================================================
+  const getAllPlans = useCallback(async () => {
+    setLoadingPlans(true);
+    setError(null);
+    try {
+      const res = await paymentService.getAllPlans();
+      return { success: true, data: res?.data ?? res };
+    } catch (err) {
+      const e = err?.response?.data ?? err;
+      setError(e);
+      return { success: false, error: e };
+    } finally {
+      setLoadingPlans(false);
+    }
+  }, []);
+
   const createSubscription = useCallback(async (payload) => {
     setLoadingSubscription(true);
     setError(null);
@@ -555,6 +571,7 @@ export const PaymentProvider = ({ children }) => {
       loadingPayments,
       loadingTransactions,
       loadingInvoice,
+      loadingPlans,
       loadingWallet,
       loadingSubscription,
       loadingLedger,
@@ -592,6 +609,7 @@ export const PaymentProvider = ({ children }) => {
       transferWallet,
 
       // SUBSCRIPTIONS
+      getAllPlans,
       createSubscription,
       cancelSubscription,
       getAllSubscriptions,
@@ -619,6 +637,7 @@ export const PaymentProvider = ({ children }) => {
       loadingPayments,
       loadingTransactions,
       loadingInvoice,
+      loadingPlans,
       loadingWallet,
       loadingSubscription,
       loadingLedger,

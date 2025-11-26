@@ -51,6 +51,15 @@ export const paymentService = {
     },
   }),
 
+  // ============================
+  // PLANS
+  // ============================
+  getAllPlans: () =>
+    apiClient({
+      method: "GET",
+      url: "api/v1/plans",
+    }),
+
 
   // ============================
   // BILLING
