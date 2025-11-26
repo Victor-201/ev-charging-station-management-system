@@ -7,6 +7,13 @@ import apiClient from "@/api/apiClient";
 export const ChargingControlProvider = ({ children }) => {
   // Global error
   const [error, setError] = useState(null);
+// Peak Hours
+const [loadingPeakHours, setLoadingPeakHours] = useState(false);
+const [peakHours, setPeakHours] = useState([]);
+
+// Daily Summary
+const [loadingDailySummary, setLoadingDailySummary] = useState(false);
+const [dailySummary, setDailySummary] = useState(null);
 
   // Loading flags
   const [loadingSession, setLoadingSession] = useState(false);
@@ -373,6 +380,43 @@ const getReservationById = useCallback(async (reservation_id) => {
   }
 }, []);
 
+ const getPeakHours = useCallback(async (station_id) => {
+    setLoadingPeakHours(true);
+    setError(null);
+    try {
+      const res = await stationService.getPeakHours(station_id);
+      const data = res?.data ?? res;
+
+      setPeakHours(data);
+      setLoadingPeakHours(false);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setLoadingPeakHours(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
+  /**
+   * Lấy báo cáo tổng hợp theo ngày của trạm
+   */
+  const getDailySummaryByStation = useCallback(async (station_id, params = {}) => {
+    setLoadingDailySummary(true);
+    setError(null);
+    try {
+      const res = await stationService.getDailySummaryByStation(station_id, params);
+      const data = res?.data ?? res;
+
+      setDailySummary(data);
+      setLoadingDailySummary(false);
+      return { success: true, data };
+    } catch (err) {
+      setError(err);
+      setLoadingDailySummary(false);
+      return { success: false, error: err };
+    }
+  }, []);
+
 
   /**
    * Điều chỉnh session nếu có lỗi (reconcile)
@@ -438,85 +482,124 @@ const getReservationById = useCallback(async (reservation_id) => {
 
   // Memoize context value
   const value = useMemo(
-    () => ({
-      // State
-      error,
-      loadingSession,
-      loadingTelemetry,
-      loadingInvoice,
-      sessions,
-      currentSession,
-      activePoints,
-      telemetry,
-      sessionEvents,
-      invoice,
+  () => ({
+    // State
+    error,
+    loadingSession,
+    loadingTelemetry,
+    loadingInvoice,
+    sessions,
+    currentSession,
+    activePoints,
+    telemetry,
+    sessionEvents,
+    invoice,
 
-      // Session Management
-      initiateSession,
-      startSession,
-      getActivePointsByStation,
-      getUserSessions,
-      getSessionById,
-      getTelemetry,
-      getSessionEvents,
+    // Session Management
+    initiateSession,
+    startSession,
+    getActivePointsByStation,
+    getUserSessions,
+    getSessionById,
+    getTelemetry,
+    getSessionEvents,
 
-      // Staff Controls
-      pauseSession,
-      resumeSession,
-      stopSession,
-      getInvoiceBySession,
-      reconcileSession,
+    // Staff Controls
+    pauseSession,
+    resumeSession,
+    stopSession,
+    getInvoiceBySession,
+    reconcileSession,
 
-      // Utilities
-      clearError,
-      clearCurrentSession,
-      refreshSession,
+    // Utilities
+    clearError,
+    clearCurrentSession,
+    refreshSession,
 
-      // ===== thêm vào value =====
-      loadingQr,
-      qrResult,
-      validateQr,
-      loadingReservation,
-       reservationDetail,
-      getReservationById,
+    // QR & Reservation
+    loadingQr,
+    qrResult,
+    validateQr,
+    loadingReservation,
+    reservationDetail,
+    getReservationById,
 
+    // Peak Hours & Daily Summary
+    loadingPeakHours,
+    peakHours,
+    getPeakHours,
+    loadingDailySummary,
+    dailySummary,
+    getDailySummaryByStation,
 
-      // Setters (for manual updates if needed)
-      setSessions,
-      setCurrentSession,
-      setActivePoints,
-      setTelemetry,
-      setSessionEvents,
-      setInvoice,
-    }),
-    [
-      error,
-      loadingSession,
-      loadingTelemetry,
-      loadingInvoice,
-      sessions,
-      currentSession,
-      activePoints,
-      telemetry,
-      sessionEvents,
-      invoice,
-      initiateSession,
-      startSession,
-      getActivePointsByStation,
-      getUserSessions,
-      getSessionById,
-      getTelemetry,
-      getSessionEvents,
-      pauseSession,
-      resumeSession,
-      stopSession,
-      getInvoiceBySession,
-      reconcileSession,
-      clearError,
-      clearCurrentSession,
-      refreshSession,
-    ]
-  );
+    // Setters
+    setSessions,
+    setCurrentSession,
+    setActivePoints,
+    setTelemetry,
+    setSessionEvents,
+    setInvoice,
+    setPeakHours,
+    setDailySummary,
+    setQrResult,
+    setReservationDetail,
+  }),
+  [
+    // State dependencies
+    error,
+    loadingSession,
+    loadingTelemetry,
+    loadingInvoice,
+    sessions,
+    currentSession,
+    activePoints,
+    telemetry,
+    sessionEvents,
+    invoice,
+    loadingQr,
+    qrResult,
+    loadingReservation,
+    reservationDetail,
+    loadingPeakHours,
+    peakHours,
+    loadingDailySummary,
+    dailySummary,
+
+    // Function dependencies
+    initiateSession,
+    startSession,
+    getActivePointsByStation,
+    getUserSessions,
+    getSessionById,
+    getTelemetry,
+    getSessionEvents,
+    pauseSession,
+    resumeSession,
+    stopSession,
+    getInvoiceBySession,
+    reconcileSession,
+    clearError,
+    clearCurrentSession,
+    refreshSession,
+    validateQr,
+    getReservationById,
+    getPeakHours,
+    getDailySummaryByStation,
+
+    // Setters
+    setSessions,
+    setCurrentSession,
+    setActivePoints,
+    setTelemetry,
+    setSessionEvents,
+    setInvoice,
+    setPeakHours,
+    setDailySummary,
+    setQrResult,
+    setReservationDetail,
+  ]
+);
+
 
   return (
     <ChargingControlContext.Provider value={value}>

@@ -62,6 +62,23 @@ getReservationById: (reservation_id) =>
    getReservationById: (reservation_id) =>
     apiClient({ method: "GET", url: `api/v1/booking/${reservation_id}` }),
 
+      getPeakHours: (station_id) =>
+    apiClient({
+      method: "GET",
+      url: `api/v1/charging/${station_id}/peak-hours`,
+    }),
+  // ...các
+
+  // ===== DAILY SUMMARY =====
+  // Lấy báo cáo tổng hợp theo ngày của trạm (cần quyền STAFF hoặc ADMIN)
+  getDailySummaryByStation: (station_id, params) =>
+    apiClient({
+      method: "GET",
+      url: `api/v1/charging/${station_id}/daily-summary`,
+      params, // ví dụ { date: '2025-11-26' }
+    }),
+
+
 };
 
 
