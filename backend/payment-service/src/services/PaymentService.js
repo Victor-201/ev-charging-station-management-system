@@ -8,6 +8,8 @@ import { publishEvent } from "../core/rabbit/publisher.js";
 import { initRabbitConnection } from '../core/rabbit/connection.js';
 import config from '../config/env.js';
 import { randomUUID } from 'crypto';
+import ChargingClient from '../clients/ChargingClient.js';
+import StationClient from '../clients/StationClient.js';
 
 export default class PaymentService {
   constructor() {
@@ -412,5 +414,78 @@ export default class PaymentService {
   /** Tổng chi phí sạc */
   async getUserChargingTotal(user_id) {
     return this.transactionRepo.getUserChargingTotal(user_id);
+  }
+
+  /** === Doanh thu theo trạm === */
+  async revenueByStation(token) {
+    const transactions = await this.transactionRepo.listChargingCompleted();
+    if (!transactions.length) return [];
+
+    const sessionIds = transactions.map(t => t.related_id);
+    const sessions = await ChargingClient.getSessions(sessionIds, token);
+    const sessionMap = {};
+    for (const s of sessions) {
+      sessionMap[s.session_id] = {
+        station_id: s.station_id,
+        point_id: s.point_id
+      };
+    }
+
+    const stationIds = [...new Set(sessions.map(s => s.station_id))];
+    const stations = await StationClient.getStations(stationIds, token);
+
+    const stationInfo = {};
+    for (const st of stations) {
+      stationInfo[st.id] = st;
+    }
+
+    // 7. Gom doanh thu theo station
+    const revenueMap = {};
+    for (const tx of transactions) {
+      const sess = sessionMap[tx.related_id];
+      if (!sess) continue;
+      const st = stationInfo[sess.station_id];
+      if (!st) continue;
+
+      if (!revenueMap[sess.station_id]) {
+        revenueMap[sess.station_id] = {
+          station_id: sess.station_id,
+          station_name: st.name,
+          region: st.region,
+          total_revenue: 0,
+          total_sessions: 0
+        };
+      }
+
+      revenueMap[sess.station_id].total_revenue += Number(tx.amount);
+      revenueMap[sess.station_id].total_sessions++;
+    }
+
+    return Object.values(revenueMap);
+  }
+
+  /** === Doanh thu theo khu vực === */
+  async revenueByRegion(token) {
+    const byStation = await this.revenueByStation(token);
+    if (!byStation.length) return [];
+
+    const regionMap = {};
+    for (const st of byStation) {
+      const region = st.region || 'unknown';
+      if (!regionMap[region]) {
+        regionMap[region] = {
+          region,
+          total_revenue: 0,
+          total_sessions: 0,
+          station_count: 0
+        };
+      }
+
+      regionMap[region].total_revenue += st.total_revenue;
+      regionMap[region].total_sessions += st.total_sessions;
+      regionMap[region].station_count++;
+    }
+
+    return Object.values(regionMap);
   }
 }

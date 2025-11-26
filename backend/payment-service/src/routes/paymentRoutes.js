@@ -31,7 +31,8 @@ router.get('/revenue/today', PaymentController.summaryToday);
 router.get('/revenue/daily', PaymentController.summaryDaily);
 router.get('/revenue/monthly', PaymentController.summaryMonthly);
 router.get('/revenue/by-type', PaymentController.summaryByType);
-
+router.get('/revenue/station', PaymentController.getRevenueByStation);
+router.get('/revenue/region', PaymentController.getRevenueByRegion);
 // allow current user endpoints (no user_id param)
 router.get('/revenue/charging/monthly', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getUserMonthlyChargingCost);
 router.get('/revenue/charging/total', authorize(UserRole.ADMIN, UserRole.USER), PaymentController.getUserChargingTotal);
