@@ -23,18 +23,30 @@ const userService = {
 
   // Update user (ở đây đang deactivate)
   updateUser(id, patch) {
-    // Nếu API chỉ có deactivate, patch có thể bỏ
-    return apiClient.post(`/api/v1/auth/users/${id}/deactivate`).then(res => res.data);
+    if (!id) throw new Error("userId is required");
+
+    // Trạng thái được map sang activate/deactivate do API tách riêng 2 endpoint
+    if (patch?.status === "inactive") {
+      return apiClient.post(`/api/v1/auth/users/${id}/deactivate`).then(res => res.data);
+    }
+    if (patch?.status === "active") {
+      return apiClient.post(`/api/v1/auth/users/${id}/activate`).then(res => res.data);
+    }
+
+    // Các trường khác (nếu có) fallback qua user-service
+    return apiClient.put(`/api/v1/users/${id}`, patch).then(res => res.data);
   },
 
-    getUserById(userId) {
+  getUserById(userId) {
     if (!userId) throw new Error("userId is required");
     return apiClient.get(`/api/v1/users/${userId}`).then(res => res.data);
   },
 
   // Delete user
   deleteUser(id) {
-    return apiClient.delete(`/api/v1/auth/users/${id}`).then(res => res.data);
+    if (!id) throw new Error("userId is required");
+    // Hiện API chỉ hỗ trợ deactivate, dùng như "soft delete"
+    return apiClient.post(`/api/v1/auth/users/${id}/deactivate`).then(res => res.data);
   }
 };
 

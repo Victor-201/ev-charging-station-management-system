@@ -71,9 +71,15 @@ const UserProvider = ({ children }) => {
         UPDATE USER
   ================================= */
   const updateUser = useCallback(
-    async (id, patch) => {
-      await userService.updateUser(id, patch);
-      await fetchAllUsers();
+    async (id, patch, params = null) => {
+      try {
+        await userService.updateUser(id, patch);
+        // refresh list với bộ lọc/pagination hiện tại (nếu có)
+        return await fetchAllUsers(params || {});
+      } catch (err) {
+        setError(err);
+        throw err;
+      }
     },
     [fetchAllUsers]
   );
@@ -82,9 +88,15 @@ const UserProvider = ({ children }) => {
         DELETE USER
   ================================= */
   const deleteUser = useCallback(
-    async (id) => {
-      await userService.deleteUser(id);
-      await fetchAllUsers();
+    async (id, params = null) => {
+      try {
+        await userService.deleteUser(id);
+        // refresh list với bộ lọc/pagination hiện tại (nếu có)
+        return await fetchAllUsers(params || {});
+      } catch (err) {
+        setError(err);
+        throw err;
+      }
     },
     [fetchAllUsers]
   );

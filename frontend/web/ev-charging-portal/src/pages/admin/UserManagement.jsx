@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Section from "@/components/admin/Section";
 import PageHeader from "@/components/admin/PageHeader";
 import Table from "@/components/admin/Table";
@@ -13,6 +13,34 @@ export default function UserManagement() {
   const [total, setTotal] = useState(0);
   const [displayedUsers, setDisplayedUsers] = useState([]);
 
+  const loadUsers = useCallback(() => {
+    return fetchAllUsers({ page, size, q: filter }).then((res) => {
+      setTotal(res.total || 0);
+      setDisplayedUsers(res.users || []);
+      return res;
+    });
+  }, [fetchAllUsers, page, size, filter]);
+
+  const handleStatusChange = async (userId, nextStatus) => {
+    try {
+      const res = await updateUser(userId, { status: nextStatus }, { page, size, q: filter });
+      setTotal(res?.total || 0);
+      setDisplayedUsers(res?.users || []);
+    } catch (err) {
+      // error state đã được provider set
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    try {
+      const res = await deleteUser(userId, { page, size, q: filter });
+      setTotal(res?.total || 0);
+      setDisplayedUsers(res?.users || []);
+    } catch (err) {
+      // error state đã được provider set
+    }
+  };
+
   /* =======================
         RESET PAGE WHEN FILTER CHANGES
   ======================= */
@@ -24,13 +52,8 @@ export default function UserManagement() {
         FETCH USERS
   ======================= */
   useEffect(() => {
-    fetchAllUsers({ page, size, q: filter })
-      .then((res) => {
-        setTotal(res.total || 0);
-        setDisplayedUsers(res.users || []);
-      })
-      .catch(() => {});
-  }, [page, size, filter, fetchAllUsers]);
+    loadUsers().catch(() => {});
+  }, [loadUsers]);
 
   /* =======================
         TABLE COLUMNS
@@ -62,7 +85,7 @@ export default function UserManagement() {
       render: (value, row) => (
         <select
           value={value}
-          onChange={(e) => updateUser(row.user_id, { status: e.target.value })}
+          onChange={(e) => handleStatusChange(row.user_id, e.target.value)}
           className={`border rounded px-2 py-1 text-xs ${
             value === "active" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
           }`}
@@ -78,7 +101,10 @@ export default function UserManagement() {
       title: "",
       dataIndex: "actions",
       render: (_, row) => (
-        <button onClick={() => deleteUser(row.user_id)} className="text-xs px-2 py-1 rounded bg-red-600 text-white">
+        <button
+          onClick={() => handleDeleteUser(row.user_id)}
+          className="text-xs px-2 py-1 rounded bg-red-600 text-white"
+        >
           Xoá
         </button>
       ),
@@ -112,12 +138,7 @@ export default function UserManagement() {
               />
 
               <button
-                onClick={() =>
-                  fetchAllUsers({ page, size, q: filter }).then((res) => {
-                    setTotal(res.total || 0);
-                    setDisplayedUsers(res.users || []);
-                  })
-                }
+                onClick={() => loadUsers().catch(() => {})}
                 className="px-3 py-2 rounded-lg border text-sm"
                 disabled={loading}
               >
