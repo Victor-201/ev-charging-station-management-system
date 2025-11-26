@@ -18,11 +18,13 @@ router.post('/:session_id/resume', authenticate, authorize(UserRole.STAFF, UserR
 router.post('/:session_id/stop', authenticate, authorize(UserRole.STAFF, UserRole.ADMIN), sessionCtrl.stopSession);
 router.post('/:session_id/reconcile', authenticate, authorize(UserRole.STAFF, UserRole.ADMIN), sessionCtrl.reconcileSession);
 router.get('/:station_id/active-points', authenticate, authorize(UserRole.STAFF, UserRole.ADMIN), sessionCtrl.getActivePoints);
+router.get('/:station_id/daily-summary', authenticate, authorize(UserRole.STAFF, UserRole.ADMIN), sessionCtrl.getDailySummaryByStation);
 
 router.get('/:session_id', authenticate, sessionCtrl.getSession);
 router.get('/:session_id/events', authenticate, sessionCtrl.getEvents);
 router.get('/:session_id/invoice', authenticate, sessionCtrl.getInvoice);
 router.get('/:user_id/sessions', authenticate, sessionCtrl.getUserSessions);
+router.get("/", authenticate, sessionCtrl.getAll);
 
 
 module.exports = router;
