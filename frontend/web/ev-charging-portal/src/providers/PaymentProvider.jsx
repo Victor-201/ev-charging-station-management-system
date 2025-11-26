@@ -20,17 +20,20 @@ export const PaymentProvider = ({ children }) => {
     summary: false,
     today: false,
     all: false,
+    station: false,
+    region: false,
   });
 
   // CACHED STATES
   const [lastPayment, setLastPayment] = useState(null);
   const [lastInvoice, setLastInvoice] = useState(null);
   const [walletBalance, setWalletBalance] = useState(null);
-
   const [dailyRevenue, setDailyRevenue] = useState(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState(null);
   const [todayRevenue, setTodayRevenue] = useState(null);
   const [summaryRevenue, setSummaryRevenue] = useState(null);
+  const [stationRevenue, setStationRevenue] = useState(null);
+  const [regionRevenue, setRegionRevenue] = useState(null);
 
   const [qrCodeUrl, setQrCodeUrl] = useState(null);
   const [transactionPolling, setTransactionPolling] = useState(false);
@@ -46,8 +49,7 @@ export const PaymentProvider = ({ children }) => {
       const res = await paymentService.createTransaction(payload);
       const data = res?.data ?? res;
 
-      const qr =
-        data?.meta?.qrLink || data?.data?.meta?.qrLink || null;
+      const qr = data?.meta?.qrLink || data?.data?.meta?.qrLink || null;
       if (qr) setQrCodeUrl(qr);
 
       setLastPayment(data);
@@ -60,7 +62,7 @@ export const PaymentProvider = ({ children }) => {
       setLoadingTransactions(false);
     }
   }, []);
-    // =====================================================
+  // =====================================================
   // INVOICE (PDF)
   // =====================================================
   const getInvoiceById = useCallback(async (invoiceId) => {
@@ -71,7 +73,10 @@ export const PaymentProvider = ({ children }) => {
       const res = await paymentService.getInvoiceById(invoiceId);
 
       // API trả về blob PDF
-      const blob = res?.data instanceof Blob ? res.data : new Blob([res], { type: "application/pdf" });
+      const blob =
+        res?.data instanceof Blob
+          ? res.data
+          : new Blob([res], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
 
       // Mở tab mới xem PDF
@@ -98,7 +103,6 @@ export const PaymentProvider = ({ children }) => {
       setLoadingInvoice(false);
     }
   }, []);
-
 
   const confirmCashTransaction = useCallback(async (transactionId, payload) => {
     setLoadingTransactions(true);
@@ -135,8 +139,7 @@ export const PaymentProvider = ({ children }) => {
       const res = await paymentService.getTransaction(transactionId);
       const data = res?.data ?? res;
 
-      const qr =
-        data?.meta?.qrLink || data?.data?.meta?.qrLink || null;
+      const qr = data?.meta?.qrLink || data?.data?.meta?.qrLink || null;
       if (qr) setQrCodeUrl(qr);
 
       setLastPayment(data);
@@ -152,10 +155,7 @@ export const PaymentProvider = ({ children }) => {
 
   // POLLING
   const pollTransactionStatus = useCallback(
-    (
-      transactionId,
-      { intervalMs = 3000, timeoutMs = 120000 } = {}
-    ) => {
+    (transactionId, { intervalMs = 3000, timeoutMs = 120000 } = {}) => {
       if (!transactionId)
         return Promise.resolve({
           success: false,
@@ -184,17 +184,29 @@ export const PaymentProvider = ({ children }) => {
               tx?.payment_status ||
               tx?.data?.payment_status;
 
-            if (["completed", "success", "paid"].includes(String(status).toLowerCase())) {
+            if (
+              ["completed", "success", "paid"].includes(
+                String(status).toLowerCase()
+              )
+            ) {
               setTransactionPolling(false);
               setLastPayment(tx);
               resolve({ success: true, data: tx });
               return;
             }
 
-            if (["failed", "cancelled", "error"].includes(String(status).toLowerCase())) {
+            if (
+              ["failed", "cancelled", "error"].includes(
+                String(status).toLowerCase()
+              )
+            ) {
               setTransactionPolling(false);
               setLastPayment(tx);
-              resolve({ success: false, error: "transaction_failed", data: tx });
+              resolve({
+                success: false,
+                error: "transaction_failed",
+                data: tx,
+              });
               return;
             }
           } catch (_) {}
@@ -295,7 +307,6 @@ export const PaymentProvider = ({ children }) => {
   // =====================================================
   // INVOICE
   // =====================================================
-  
 
   const generateBilling = useCallback(async (payload) => {
     setLoadingInvoice(true);
@@ -447,6 +458,28 @@ export const PaymentProvider = ({ children }) => {
     }
   }, []);
 
+  const getStationsRevenue = useCallback(async (stationIds, token) => {
+    try {
+      const data = await stationClient.getStations(stationIds, token);
+      return { success: true, data };
+    } catch (err) {
+      const e = err?.response?.data ?? err;
+      setError(e);
+      return { success: false, error: e };
+    }
+  }, []);
+
+  const getSessionsRevenue = useCallback(async (sessionIds, token) => {
+    try {
+      const data = await chargingClient.getSessions(sessionIds, token);
+      return { success: true, data };
+    } catch (err) {
+      const e = err?.response?.data ?? err;
+      setError(e);
+      return { success: false, error: e };
+    }
+  }, []);
+
   // =====================================================
   // REVENUE
   // =====================================================
@@ -524,6 +557,46 @@ export const PaymentProvider = ({ children }) => {
     }
   }, []);
 
+  const getRevenueByStation = useCallback(async () => {
+    setLoadingRevenue((s) => ({ ...s, station: true }));
+    setError(null);
+
+    try {
+      const res = await paymentService.getRevenueByStation();
+      const data = res?.data ?? res;
+
+      setStationRevenue(data);
+      return { success: true, data };
+    } catch (err) {
+      const e = err?.response?.data ?? err;
+      setError(e);
+      setStationRevenue(null);
+      return { success: false, error: e };
+    } finally {
+      setLoadingRevenue((s) => ({ ...s, station: false }));
+    }
+  }, []);
+
+  const getRevenueByRegion = useCallback(async () => {
+    setLoadingRevenue((s) => ({ ...s, region: true }));
+    setError(null);
+
+    try {
+      const res = await paymentService.getRevenueByRegion();
+      const data = res?.data ?? res;
+
+      setRegionRevenue(data);
+      return { success: true, data };
+    } catch (err) {
+      const e = err?.response?.data ?? err;
+      setError(e);
+      setRegionRevenue(null);
+      return { success: false, error: e };
+    } finally {
+      setLoadingRevenue((s) => ({ ...s, region: false }));
+    }
+  }, []);
+
   const fetchAllRevenue = useCallback(async () => {
     setLoadingRevenue({
       daily: true,
@@ -584,8 +657,9 @@ export const PaymentProvider = ({ children }) => {
       monthlyRevenue,
       todayRevenue,
       summaryRevenue,
+      stationRevenue,
+      regionRevenue,
       getInvoiceById,
-
 
       // TRANSACTIONS
       createTransaction,
@@ -625,6 +699,8 @@ export const PaymentProvider = ({ children }) => {
       getDailyRevenue,
       getMonthlyRevenue,
       getSummaryRevenue,
+      getRevenueByStation,
+      getRevenueByRegion,
       fetchAllRevenue,
 
       // HELPERS
@@ -651,6 +727,9 @@ export const PaymentProvider = ({ children }) => {
       monthlyRevenue,
       todayRevenue,
       summaryRevenue,
+      stationRevenue,
+      regionRevenue,
+      getInvoiceById,
 
       qrCodeUrl,
       transactionPolling,
@@ -658,9 +737,7 @@ export const PaymentProvider = ({ children }) => {
   );
 
   return (
-    <PaymentContext.Provider value={value}>
-      {children}
-    </PaymentContext.Provider>
+    <PaymentContext.Provider value={value}>{children}</PaymentContext.Provider>
   );
 };
 
