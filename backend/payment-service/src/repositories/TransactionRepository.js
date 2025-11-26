@@ -5,6 +5,7 @@ import BaseRepository from './BaseRepository.js';
 export default class TransactionRepository extends BaseRepository {
   constructor() {
     super(Transaction, 'transactions');
+    this.db = db;
   }
 
   /** === Tạo giao dịch mới === */
@@ -41,7 +42,7 @@ export default class TransactionRepository extends BaseRepository {
       meta,
     ];
 
-    const { rows } = await db.query(query, values);
+    const { rows } = await this.db.query(query, values);
     return Transaction.fromRow(rows[0]);
   }
 
@@ -53,7 +54,7 @@ export default class TransactionRepository extends BaseRepository {
       WHERE id = $1
       RETURNING *;
     `;
-    const { rows } = await db.query(query, [id, status, meta]);
+    const { rows } = await this.db.query(query, [id, status, meta]);
     return rows[0] ? Transaction.fromRow(rows[0]) : null;
   }
 
@@ -65,13 +66,13 @@ export default class TransactionRepository extends BaseRepository {
       WHERE id = $1
       RETURNING *;
     `;
-    const { rows } = await db.query(query, [id, external_id]);
+    const { rows } = await this.db.query(query, [id, external_id]);
     return rows[0] ? Transaction.fromRow(rows[0]) : null;
   }
 
   /** === Tìm theo mã tham chiếu === */
   async findByReferenceCode(code) {
-    const { rows } = await db.query(
+    const { rows } = await this.db.query(
       `SELECT * FROM ${this.tableName} WHERE reference_code = $1`,
       [code]
     );
@@ -80,7 +81,7 @@ export default class TransactionRepository extends BaseRepository {
 
   /** === Tìm theo external_id === */
   async findByExternalId(external_id) {
-    const { rows } = await db.query(
+    const { rows } = await this.db.query(
       `SELECT * FROM ${this.tableName} WHERE external_id = $1`,
       [external_id]
     );
@@ -89,7 +90,7 @@ export default class TransactionRepository extends BaseRepository {
 
   /** === Tìm theo đối tượng liên quan === */
   async findByRelated(related_id, related_type) {
-    const { rows } = await db.query(
+    const { rows } = await this.db.query(
       `SELECT * FROM ${this.tableName} WHERE related_id = $1 AND related_type = $2`,
       [related_id, related_type]
     );
@@ -98,7 +99,7 @@ export default class TransactionRepository extends BaseRepository {
 
   /** === Lấy toàn bộ giao dịch của user === */
   async listByUser(user_id) {
-    const { rows } = await db.query(
+    const { rows } = await this.db.query(
       `SELECT * FROM ${this.tableName}
        WHERE user_id = $1
        ORDER BY created_at DESC`,
@@ -107,9 +108,20 @@ export default class TransactionRepository extends BaseRepository {
     return rows.map(Transaction.fromRow);
   }
 
+  /** === Lấy các giao dịch charging đã hoàn tất === */
+  async listChargingCompleted() {
+    const query = `
+      SELECT *
+      FROM ${this.tableName}
+      WHERE status = 'completed'
+        AND related_type = 'charging_session'
+    `;
+    const { rows } = await this.db.query(query);
+    return rows.map(row => this.model.fromRow(row));
+  }
+
   // ================= Revenue / Analytics =================
 
-  /** === Tổng doanh thu === */
   async getRevenueSummary() {
     const query = `
       SELECT COALESCE(SUM(amount)::numeric, 0) AS total
@@ -117,11 +129,10 @@ export default class TransactionRepository extends BaseRepository {
       WHERE status = 'completed'
         AND method IN ('bank_transfer','cash')
     `;
-    const { rows } = await db.query(query);
+    const { rows } = await this.db.query(query);
     return Number(rows[0]?.total ?? 0);
   }
 
-  /** === Tổng số giao dịch đã hoàn thành === */
   async getTotalTransactions() {
     const query = `
       SELECT COUNT(*) AS total
@@ -129,11 +140,10 @@ export default class TransactionRepository extends BaseRepository {
       WHERE status = 'completed'
         AND method IN ('bank_transfer','cash')
     `;
-    const { rows } = await db.query(query);
+    const { rows } = await this.db.query(query);
     return Number(rows[0]?.total ?? 0);
   }
 
-  /** === Doanh thu hôm nay === */
   async getTodayRevenue() {
     const query = `
       SELECT COALESCE(SUM(amount)::numeric, 0) AS total
@@ -142,11 +152,10 @@ export default class TransactionRepository extends BaseRepository {
         AND DATE(created_at) = CURRENT_DATE
         AND method IN ('bank_transfer','cash')
     `;
-    const { rows } = await db.query(query);
+    const { rows } = await this.db.query(query);
     return Number(rows[0]?.total ?? 0);
   }
 
-  /** === Doanh thu hàng ngày (mặc định 30 ngày gần nhất) === */
   async getDailyRevenue(days = 30) {
     const query = `
       SELECT 
@@ -159,14 +168,13 @@ export default class TransactionRepository extends BaseRepository {
       GROUP BY DATE(created_at)
       ORDER BY date ASC
     `;
-    const { rows } = await db.query(query, [days]);
+    const { rows } = await this.db.query(query, [days]);
     return rows.reduce((acc, r) => {
       acc[r.date] = Number(r.total ?? 0);
       return acc;
     }, {});
   }
 
-  /** === Doanh thu theo tháng (mặc định 12 tháng gần nhất) === */
   async getMonthlyRevenue(months = 12) {
     const query = `
       SELECT 
@@ -179,14 +187,13 @@ export default class TransactionRepository extends BaseRepository {
       GROUP BY DATE_TRUNC('month', created_at)
       ORDER BY month ASC
     `;
-    const { rows } = await db.query(query, [months]);
+    const { rows } = await this.db.query(query, [months]);
     return rows.reduce((acc, r) => {
       acc[r.month] = Number(r.total ?? 0);
       return acc;
     }, {});
   }
 
-  /** === Doanh thu theo type/related_type === */
   async getRevenueByType() {
     const query = `
       SELECT 
@@ -199,7 +206,7 @@ export default class TransactionRepository extends BaseRepository {
       GROUP BY type, related_type
       ORDER BY type, related_type
     `;
-    const { rows } = await db.query(query);
+    const { rows } = await this.db.query(query);
     return rows.map(r => ({
       type: r.type,
       related_type: r.related_type,
@@ -207,54 +214,49 @@ export default class TransactionRepository extends BaseRepository {
     }));
   }
 
-/** === Báo cáo chi phí sạc hàng tháng cho người dùng (payment - refund) === */
-async getUserMonthlyChargingCost(user_id, months = 12) {
-  const query = `
-    SELECT 
-      TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
-      COALESCE(SUM(
+  async getUserMonthlyChargingCost(user_id, months = 12) {
+    const query = `
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+        COALESCE(SUM(
+          CASE 
+            WHEN type = 'payment' THEN amount
+            WHEN type = 'refund' THEN -amount
+            ELSE 0
+          END
+        )::numeric, 0) AS total
+      FROM ${this.tableName}
+      WHERE (type = 'payment' OR type = 'refund')
+        AND related_type = 'charging_session'
+        AND user_id = $1
+        AND created_at >= NOW() - make_interval(months => $2)
+        AND status = 'completed'
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY month ASC
+    `;
+    const { rows } = await this.db.query(query, [user_id, months]);
+    return rows.reduce((acc, r) => {
+      acc[r.month] = Number(r.total ?? 0);
+      return acc;
+    }, {});
+  }
+
+  async getUserChargingTotal(user_id) {
+    const query = `
+      SELECT COALESCE(SUM(
         CASE 
           WHEN type = 'payment' THEN amount
           WHEN type = 'refund' THEN -amount
           ELSE 0
         END
       )::numeric, 0) AS total
-    FROM ${this.tableName}
-    WHERE (type = 'payment' OR type = 'refund')
-      AND related_type = 'charging_session'
-      AND user_id = $1
-      AND created_at >= NOW() - make_interval(months => $2)
-      AND status = 'completed'
-    GROUP BY DATE_TRUNC('month', created_at)
-    ORDER BY month ASC
-  `;
-
-  const { rows } = await db.query(query, [user_id, months]);
-
-  return rows.reduce((acc, r) => {
-    acc[r.month] = Number(r.total ?? 0);
-    return acc;
-  }, {});
-}
-
-/** === Tổng chi phí sạc của user (payment - refund) === */
-async getUserChargingTotal(user_id) {
-  const query = `
-    SELECT COALESCE(SUM(
-      CASE 
-        WHEN type = 'payment' THEN amount
-        WHEN type = 'refund' THEN -amount
-        ELSE 0
-      END
-    )::numeric, 0) AS total
-    FROM ${this.tableName}
-    WHERE user_id = $1
-      AND (type = 'payment' OR type = 'refund')
-      AND related_type = 'charging_session'
-      AND status = 'completed'
-  `;
-
-  const { rows } = await db.query(query, [user_id]);
-  return Number(rows[0]?.total ?? 0);
-}
+      FROM ${this.tableName}
+      WHERE user_id = $1
+        AND (type = 'payment' OR type = 'refund')
+        AND related_type = 'charging_session'
+        AND status = 'completed'
+    `;
+    const { rows } = await this.db.query(query, [user_id]);
+    return Number(rows[0]?.total ?? 0);
+  }
 }

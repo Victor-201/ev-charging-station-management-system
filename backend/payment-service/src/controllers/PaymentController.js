@@ -201,4 +201,28 @@ static async summary(req, res, next) {
       return res.status(500).json({ success: false, message: "Server error" });
     }
   }
+
+/** Doanh thu theo từng trạm */
+  static async getRevenueByStation(req, res) {
+    try {
+      const token = req.headers.authorization?.split(' ')[1] || null;
+      const data = await service.revenueByStation(token);
+      res.json(data);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+  /** Doanh thu theo khu vực */
+  static async getRevenueByRegion(req, res) {
+    try {
+      const token = req.headers.authorization?.split(' ')[1] || null;
+      const data = await service.revenueByRegion(token);
+      res.json(data);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  }
 }
