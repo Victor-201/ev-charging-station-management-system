@@ -1,5 +1,6 @@
 // controllers/ChargingController.js
 const ChargingService = require('../services/ChargingService');
+const IoT = require('../iot/IoTManagerInstance');
 
 function mapErrorToStatus(errMsg) {
   if (!errMsg) return 500;
@@ -170,11 +171,19 @@ exports.startSession = async (req, res) => {
   try {
     const { session_id, start_meter_wh } = req.body || {};
     if (!session_id) return res.status(400).json({ error: 'session_id is required' });
-    const token = req.user.token;
-    console.log("hbshsdhcvsd",token);
-    const result = await ChargingService.startSession({ session_id, start_meter_wh,token});
 
-    // per API table: { session_id, status, started_at }
+    const token = req.user?.token || null;
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication token is required to start session' });
+    }
+
+    // 1) Backend logic
+    const result = await ChargingService.startSession({ session_id, start_meter_wh, token });
+
+    // 2) Kích hoạt Fake IoT (pass token)
+    console.log(`[Controller] Starting FakeIoT for session ${session_id}`);
+    IoT.startDevice(session_id, token); // <-- changed
+
     return res.status(200).json(result);
   } catch (err) {
     console.error('[ChargingController.startSession] error:', err);
@@ -191,7 +200,17 @@ exports.pushMeterReading = async (req, res) => {
     if (!session_id) return res.status(400).json({ error: 'session_id is required' });
     if (meter_wh == null) return res.status(400).json({ error: 'meter_wh is required' });
 
-    const result = await ChargingService.pushMeterReading({ session_id, timestamp, meter_wh, power_kw, soc });
+    const token = req.user?.token || null;
+
+    const result = await ChargingService.pushMeterReading({
+      session_id,
+      timestamp,
+      meter_wh,
+      power_kw,
+      soc,
+      token
+    });
+
     return res.status(200).json(result);
   } catch (err) {
     console.error('[ChargingController.pushMeterReading] error:', err);
@@ -226,7 +245,7 @@ exports.deleteTelemetry = async (req, res) => {
     if (!session_id)
       return res.status(400).json({ error: 'session_id is required' });
 
-    const result = await ChargingService. deleteBySessionId(session_id);
+    const result = await ChargingService.deleteBySessionId(session_id);
 
     return res.status(200).json({
       ok: true,
@@ -280,13 +299,17 @@ exports.updateTelemetry = async (req, res) => {
 
 
 
-// POST /api/v1/sessions/:session_id/pause
 exports.pauseSession = async (req, res) => {
   try {
     const session_id = req.params.session_id;
     if (!session_id) return res.status(400).json({ error: 'session_id is required' });
 
     const result = await ChargingService.pauseSession(session_id);
+
+    // ❗ Pause IoT device
+    console.log(`[Controller] Pausing FakeIoT for session ${session_id}`);
+    IoT.pauseDevice(session_id);
+
     return res.status(200).json(result);
   } catch (err) {
     console.error('[ChargingController.pauseSession] error:', err);
@@ -295,13 +318,17 @@ exports.pauseSession = async (req, res) => {
   }
 };
 
-// POST /api/v1/sessions/:session_id/resume
 exports.resumeSession = async (req, res) => {
   try {
     const session_id = req.params.session_id;
     if (!session_id) return res.status(400).json({ error: 'session_id is required' });
 
     const result = await ChargingService.resumeSession(session_id);
+
+    // Resume Fake IoT
+    console.log(`[Controller] Resuming FakeIoT for session ${session_id}`);
+    IoT.resumeDevice(session_id);
+
     return res.status(200).json(result);
   } catch (err) {
     console.error('[ChargingController.resumeSession] error:', err);
@@ -309,7 +336,6 @@ exports.resumeSession = async (req, res) => {
     return res.status(status).json({ error: err.message || 'Internal server error' });
   }
 };
-
 // POST /api/v1/sessions/:session_id/stop
 // controller (stopSession)
 exports.stopSession = async (req, res) => {
@@ -318,40 +344,37 @@ exports.stopSession = async (req, res) => {
     if (!session_id)
       return res.status(400).json({ error: 'session_id is required' });
 
-    // 1) Stop session (không tính tiền)
+    // 1) Stop session in DB
     const stopped = await ChargingService.stopSession({ session_id });
 
-    // --- secure token extraction ---
+    // Extract token
     const authHeader = req.headers?.authorization || req.get('Authorization');
     const tokenFromHeader = authHeader && authHeader.startsWith('Bearer ')
       ? authHeader.split(' ')[1]
       : authHeader || null;
     const token = tokenFromHeader || req.user?.token || null;
 
-    if (!token) {
-      // optional: chỉ log, không block (tùy yêu cầu bảo mật)
-      console.warn('[stopSession] token is missing; proceeding with null token');
-    }
-
-    // 2) Toàn bộ việc tính tiền nằm ở reconcile
-    const reconcileResult = await ChargingService.reconcileSessionWithReservation(
+    // 2) Reconcile payment
+    const settle = await ChargingService.reconcileSessionWithReservation(
       token,
       session_id,
     );
 
+    // 3) Stop Fake IoT
+    console.log(`[Controller] Stopping FakeIoT for session ${session_id}`);
+    IoT.stopDevice(session_id);
+
     return res.status(200).json({
       ok: true,
       stop_result: stopped,
-      settle_result: reconcileResult
+      settle_result: settle
     });
-
   } catch (err) {
     console.error('[ChargingController.stopSession] error:', err);
     const status = mapErrorToStatus(err.message);
     return res.status(status).json({ error: err.message || 'Internal server error' });
   }
 };
-
 
 
 
