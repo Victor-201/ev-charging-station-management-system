@@ -490,6 +490,38 @@ async pushMeterReading({ session_id, timestamp = null, meter_wh, power_kw = null
     return await SessionRepo.getActiveByStationId(station_id);
   }
 
+async getPeakHoursByStation(station_id) {
+  if (!station_id) throw new Error("station_id is required");
+
+  const activeSessions = await this.getActivePointsByStation(station_id);
+
+  // Nếu activeSessions là object { active: [...] } thì lấy active, nếu là mảng thì dùng luôn
+  const active = Array.isArray(activeSessions) ? activeSessions : activeSessions.active || [];
+
+  const hourCount = Array(24).fill(0);
+
+  active.forEach(session => {
+    const startedAt = new Date(session.started_at);
+    const finalizedAt = session.metadata?.payment?.finalized_at
+      ? new Date(session.metadata.payment.finalized_at)
+      : new Date();
+
+    const startHour = startedAt.getHours();
+    const endHour = finalizedAt.getHours();
+
+    for (let h = startHour; h <= endHour; h++) {
+      hourCount[h]++;
+    }
+  });
+
+  const result = {};
+  hourCount.forEach((count, hour) => {
+    result[hour] = count;
+  });
+
+  return result;
+}
+
   async confirmPayment(
     session_id,
     { paid_amount = null, payment_method = null, payment_ref = null } = {}
