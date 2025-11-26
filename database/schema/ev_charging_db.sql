@@ -81,11 +81,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- ===============================
--- TELEMETRY
--- ===============================
 CREATE TABLE IF NOT EXISTS telemetry (
-  telemetry_id INT AUTO_INCREMENT PRIMARY KEY,
+  telemetry_id VARCHAR(50) PRIMARY KEY,
   session_id VARCHAR(50) NOT NULL,
   timestamp DATETIME(3) NOT NULL,
   meter_wh INT,
