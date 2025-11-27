@@ -20,7 +20,6 @@ import FeatureCard from '../../components/home/FeatureCard';
 import QuickAccessGrid from '../../components/home/QuickAccessGrid';
 import PromoBanner from '../../components/home/PromoBanner';
 import RecentActivityCard from '../../components/home/RecentActivityCard';
-import StatsOverview from '../../components/home/StatsOverview';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -152,15 +151,15 @@ export default function HomeScreen() {
   const { transactions = [], fetchTransactions: refetchTransactions } = useWalletTransactions({ autoFetch: true, params: { limit: 10 } });
 
   // Refetch data when screen comes back into focus (but not on first mount)
-  useRefetchOnFocus(
-    useCallback(() => {
-      if (userProfile?.user_id) {
-        refetchSessions();
-        refetchTransactions();
-      }
-    }, [userProfile, refetchSessions, refetchTransactions]),
-    true
-  );
+  // Use useCallback with stable dependencies to prevent infinite loops
+  const handleRefetch = useCallback(() => {
+    if (userProfile?.user_id) {
+      refetchSessions();
+      refetchTransactions();
+    }
+  }, [userProfile?.user_id, refetchSessions, refetchTransactions]);
+
+  useRefetchOnFocus(handleRefetch, true);
 
   // Socket events for real-time updates
   const socketEventHandlers = useMemo(() => ({
@@ -200,28 +199,6 @@ export default function HomeScreen() {
     }
     setRefreshing(false);
   }, [dispatch, userProfile, refetchSessions, refetchTransactions]);
-
-  // Stats based on recent sessions (last 30 days)
-  const statsData = (() => {
-    if (!sessions || sessions.length === 0) return [];
-    const now = Date.now();
-    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    const recent = sessions.filter(s => {
-      const t = new Date(s.end_time || s.completed_at || s.updated_at || s.created_at).getTime();
-      return Number.isFinite(t) && now - t <= THIRTY_DAYS;
-    });
-    const totalCharges = recent.length;
-    const totalEnergy = recent.reduce((sum, s) => sum + (Number(s.energy_consumed || s.energyConsumed) || 0), 0);
-    const totalCost = recent.reduce((sum, s) => sum + (Number(s.cost || s.total_cost || s.totalCost) || 0), 0);
-    const co2SavedKg = totalEnergy * 0.5; // approx factor
-
-    return [
-      { icon: 'lightning-bolt', value: String(totalCharges), label: 'Lần sạc', iconColor: colors.success, iconBg: colors.success + '20' },
-      { icon: 'battery-charging-80', value: `${totalEnergy.toFixed(1)} kWh`, label: 'Năng lượng', iconColor: colors.primary, iconBg: colors.primary + '20' },
-      { icon: 'cash', value: `${Math.round(totalCost).toLocaleString('vi-VN')} ₫`, label: 'Chi phí', iconColor: colors.warning, iconBg: colors.warning + '20' },
-      { icon: 'leaf', value: `${co2SavedKg.toFixed(0)} kg`, label: 'CO₂ giảm', iconColor: colors.success, iconBg: colors.success + '20' },
-    ];
-  })();
 
   // Recent activities combined from charging sessions and wallet transactions
   const recentActivities = (() => {
@@ -305,11 +282,6 @@ export default function HomeScreen() {
 
         {/* Quick Access Grid */}
         <QuickAccessGrid items={quickAccessItems} />
-
-        {/* Stats Overview */}
-        {statsData.length > 0 && (
-          <StatsOverview stats={statsData} />
-        )}
 
         {/* Recent Activity */}
         <RecentActivityCard

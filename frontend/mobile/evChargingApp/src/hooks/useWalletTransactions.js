@@ -87,7 +87,7 @@ export default function useWalletTransactions(options = {}) {
         fetchTransactions();
       }
     }
-  }, [autoFetch, effectiveUserId, fetchTransactions, transactions]);
+  }, [autoFetch, effectiveUserId, transactions]);
 
   return {
     transactions: transactions || [],

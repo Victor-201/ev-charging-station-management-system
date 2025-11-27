@@ -80,7 +80,7 @@ export default function useChargingHistory(options = {}) {
       hasFetchedRef.current = true;
       fetchHistory();
     }
-  }, [autoFetch, effectiveUserId, fetchHistory]);
+  }, [autoFetch, effectiveUserId]);
 
   return {
     sessions,
