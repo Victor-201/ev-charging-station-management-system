@@ -18,12 +18,11 @@ import {
 import AppHeader from '../../components/common/AppHeader';
 import { useDispatch, useSelector } from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useInAppNotification } from '../../components/notification/InAppNotification';
-import { addNotification } from '../../store/slices/notificationSlice';
+
 import {
   getAvailablePlans,
   getSubscriptions,
-  subscribeToPlan,
+
   cancelSubscription,
   clearError,
 } from '../../store/slices/subscriptionSlice';
@@ -33,7 +32,7 @@ const SubscriptionScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const dispatch = useDispatch();
   const styles = getStyles(colors);
-  const notifier = useInAppNotification();
+
 
   // Redux state
   const { profile } = useSelector((state) => state.user);
@@ -87,58 +86,26 @@ const SubscriptionScreen = ({ navigation }) => {
     }
   }, [error, dispatch]);
 
-  // Handle subscribe
-  const handleSubscribe = useCallback(
-    (planId) => {
-      if (!userId) {
-        Alert.alert('Lỗi', 'Không thể xác định người dùng');
-        return;
-      }
-      dispatch(subscribeToPlan({ userId, planId, autoRenew: true }))
-        .unwrap()
-        .then(() => {
-          setSnackbarMessage('Đăng ký gói thành công!');
-          setSnackbarVisible(true);
+  const handleSubscribe = (planId) => {
+    const plan = availablePlans.find(p => p.id === planId);
+    if (!plan) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin gói.');
+      return;
+    }
 
-          // In-app banner
-          try {
-            const plan = (availablePlans || []).find(p => p.id === planId);
-            notifier.show({
-              type: 'success',
-              icon: 'check-circle',
-              title: 'Đăng ký gói thành công',
-              message: plan ? `${plan.name} • ${plan.duration || ''}` : undefined,
-            });
-          } catch {}
-
-          // Push to notification center (unread badge)
-          try {
-            const plan = (availablePlans || []).find(p => p.id === planId);
-            dispatch(addNotification({
-              id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-              type: 'subscription',
-              title: 'Đăng ký gói thành công',
-              message: plan ? `${plan.name} đã được kích hoạt` : 'Gói đã được kích hoạt',
-              timestamp: Date.now(),
-              read: false,
-            }));
-          } catch {}
-
-          // Refresh subscriptions
-          dispatch(getSubscriptions(userId));
-        })
-        .catch((err) => {
-          const message =
-            err?.response?.data?.error ||
-            err?.response?.data?.message ||
-            err?.message ||
-            err?.error ||
-            'Không thể đăng ký gói. Vui lòng thử lại.';
-          Alert.alert('Lỗi', message);
-        });
-    },
-    [userId, dispatch]
-  );
+    navigation.navigate('Wallet', {
+      screen: 'SepayTopUp',
+      params: {
+        amount: plan.price,
+        description: `Thanh toán gói ${plan.name}`,
+        metadata: {
+          type: 'SUBSCRIPTION_PURCHASE',
+          plan_id: plan.id,
+          user_id: userId,
+        },
+      },
+    });
+  };
 
   // Handle cancel
   const handleCancel = useCallback(

@@ -22,7 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import sepayService from '../../services/sepayService';
 import { logger } from '../../utils/logger';
 
-const SepayTopUpScreen = () => {
+const SepayTopUpScreen = ({ route }) => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   
@@ -30,7 +30,10 @@ const SepayTopUpScreen = () => {
   const profile = useSelector(state => state.user?.profile);
   const userId = profile?.user_id || profile?.id;
 
-  const [amount, setAmount] = useState('');
+  const { amount: initialAmount, description, metadata } = route.params || {};
+  const isFixedAmount = !!initialAmount;
+
+  const [amount, setAmount] = useState(initialAmount?.toString() || '');
   const [customAmount, setCustomAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -80,11 +83,13 @@ const SepayTopUpScreen = () => {
       setLoading(true);
       setError('');
 
-      // Create top-up request with userId
-      const transaction = await sepayService.createTopUpRequest(
-        finalAmount,
+      // Create top-up request with userId, description, and metadata
+      const transaction = await sepayService.createTopUpRequest({
+        amount: finalAmount,
         userId,
-      );
+        description: description || `Nạp tiền vào ví`,
+        metadata: metadata || { type: 'WALLET_TOPUP' },
+      });
 
       // Navigate to QR code screen with transaction data
       navigation.navigate('SepayQRCode', {
@@ -112,8 +117,9 @@ const SepayTopUpScreen = () => {
     return (
       <TouchableOpacity
         key={value}
-        style={[styles.amountButton, isSelected && styles.amountButtonSelected]}
-        onPress={() => handleAmountSelect(value)}
+        style={[styles.amountButton, isSelected && styles.amountButtonSelected, isFixedAmount && styles.amountButtonDisabled]}
+        onPress={() => !isFixedAmount && handleAmountSelect(value)}
+        disabled={isFixedAmount}
       >
         <Text
           style={[styles.amountText, isSelected && styles.amountTextSelected]}
@@ -141,13 +147,23 @@ const SepayTopUpScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Info Card */}
-        <View style={styles.infoCard}>
-          <Icon name="information" size={24} color="#2196F3" />
-          <Text style={styles.infoText}>
-            Nạp tiền vào ví qua chuyển khoản ngân hàng. Tiền sẽ được cập nhật tự
-            động sau khi chuyển khoản thành công.
-          </Text>
-        </View>
+        {isFixedAmount && description ? (
+          <View style={styles.infoCard}>
+            <Icon name="cart-check" size={24} color="#4CAF50" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.infoText, { color: '#2E7D32' }]}>{description}</Text>
+              <Text style={styles.fixedAmountValue}>{sepayService.formatAmount(initialAmount)}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.infoCard}>
+            <Icon name="information" size={24} color="#2196F3" />
+            <Text style={styles.infoText}>
+              Nạp tiền vào ví qua chuyển khoản ngân hàng. Tiền sẽ được cập nhật tự
+              động sau khi chuyển khoản thành công.
+            </Text>
+          </View>
+        )}
 
         {/* Predefined Amounts */}
         <Text style={styles.sectionTitle}>Chọn số tiền</Text>
@@ -162,8 +178,9 @@ const SepayTopUpScreen = () => {
             style={styles.input}
             placeholder="Nhập số tiền"
             keyboardType="numeric"
-            value={customAmount}
+            value={isFixedAmount ? '' : customAmount}
             onChangeText={handleCustomAmountChange}
+            editable={!isFixedAmount}
           />
           <Text style={styles.inputSuffix}>VND</Text>
         </View>
@@ -239,6 +256,12 @@ const styles = StyleSheet.create({
     color: '#1976D2',
     lineHeight: 20,
   },
+  fixedAmountValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1B5E20',
+    marginTop: 4,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -263,6 +286,10 @@ const styles = StyleSheet.create({
   amountButtonSelected: {
     backgroundColor: '#4CAF50',
     borderColor: '#4CAF50',
+  },
+  amountButtonDisabled: {
+    backgroundColor: '#E0E0E0',
+    borderColor: '#BDBDBD',
   },
   amountText: {
     fontSize: 14,
