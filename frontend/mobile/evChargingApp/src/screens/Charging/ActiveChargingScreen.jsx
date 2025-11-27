@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, ActivityIndicator, useTheme } from 'react-native-paper';
@@ -59,13 +59,24 @@ const ActiveChargingScreen = () => {
   }), [sessionId, dispatch]);
 
   // Use real-time updates via WebSocket (replaces polling)
-  useRealTimeUpdates(socketEventHandlers, !!sessionId);
+  const { isConnected } = useRealTimeUpdates(socketEventHandlers, !!sessionId);
 
-  // Initial telemetry fetch only (no polling)
+  // Initial telemetry fetch
   useEffect(() => {
     if (!sessionId) return;
-    getTelemetry(sessionId); // Fetch once, then rely on socket updates
+    getTelemetry(sessionId); // Fetch once
   }, [sessionId, getTelemetry]);
+
+  // Fallback polling when socket is not connected
+  useEffect(() => {
+    if (!sessionId) return;
+    if (isConnected) return; // no polling when socket works
+
+    const id = setInterval(() => {
+      getTelemetry(sessionId);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [sessionId, isConnected, getTelemetry]);
 
   const handleStopCharging = async () => {
     setActionLoading(true);

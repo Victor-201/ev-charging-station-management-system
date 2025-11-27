@@ -5,7 +5,7 @@
  */
 
 import io from 'socket.io-client';
-import { API_BASE_URL } from '../config/env';
+import { API_BASE_URL, SOCKET_BASE_URL } from '../config/env';
 import { logger } from '../utils/logger';
 
 class SocketService {
@@ -35,7 +35,8 @@ class SocketService {
     }
 
     try {
-      this.socket = io(API_BASE_URL, {
+      const baseUrl = SOCKET_BASE_URL || API_BASE_URL;
+      this.socket = io(baseUrl, {
         transports: ['websocket'],
         auth: { token: accessToken },
         reconnectionAttempts: this.maxReconnectAttempts,

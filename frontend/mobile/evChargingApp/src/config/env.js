@@ -26,4 +26,9 @@ export const FACEBOOK_APP_ID = ENV_FACEBOOK_APP_ID || FALLBACKS.FACEBOOK_APP_ID;
 export const FACEBOOK_APP_NAME = ENV_FACEBOOK_APP_NAME || FALLBACKS.FACEBOOK_APP_NAME;
 export const GOOGLE_MAPS_API_KEY = ENV_GOOGLE_MAPS_API_KEY || FALLBACKS.GOOGLE_MAPS_API_KEY;
 
+// Derive WebSocket base URL by stripping trailing /api or /api/vX
+export const SOCKET_BASE_URL = API_BASE_URL
+  .replace(/\/(api)(\/v\d+)?$/, '')
+  .replace(/\/(api)(\/)?$/, '');
+
 export const getApiUrl = (path = '') => `${API_BASE_URL}/${path.replace(/^\/+/, '')}`;
