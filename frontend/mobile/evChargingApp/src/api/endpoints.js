@@ -143,6 +143,13 @@ export const ENDPOINTS = {
     USER_PAYMENTS: '/payments/user/:user_id/payments',
     // Webhook
     BANK_WEBHOOK: '/payments/webhook',
+    // Revenue / Charging Cost
+    REVENUE: {
+      MONTHLY_CHARGING_COST: '/payments/revenue/:user_id/charging/monthly',
+      TOTAL_CHARGING_COST: '/payments/revenue/:user_id/charging/total',
+      MONTHLY_CHARGING_COST_CURRENT: '/payments/revenue/charging/monthly',
+      TOTAL_CHARGING_COST_CURRENT: '/payments/revenue/charging/total',
+    },
   },
 
   // ==================== ANALYTICS SERVICE (Port 3006) ====================
