@@ -130,12 +130,9 @@ const subscriptionSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(subscribeToPlan.fulfilled, (state, action) => {
+      .addCase(subscribeToPlan.fulfilled, (state) => {
         state.loading = false;
-        // Refresh subscriptions after successful subscription
-        if (action.payload?.subscription_id) {
-          state.subscriptions.push(action.payload);
-        }
+        // Do not mutate subscriptions here; UI will refetch the list for accuracy
       })
       .addCase(subscribeToPlan.rejected, (state, action) => {
         state.loading = false;

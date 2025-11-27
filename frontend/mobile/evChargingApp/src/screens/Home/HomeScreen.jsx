@@ -275,7 +275,7 @@ export default function HomeScreen() {
           title="Ưu đãi đặc biệt!"
           description="Giảm 20% cho lần sạc tiếp theo khi nạp từ 500K"
           buttonText="Xem chi tiết"
-          onPress={() => navigation.navigate('Subscription')}
+          onPress={() => navigation.navigate('Profile', { screen: 'SubscriptionScreen' })}
           gradientColors={[colors.error]}
           icon="gift"
         />

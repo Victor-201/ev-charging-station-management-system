@@ -5,7 +5,6 @@ import {
   FlatList,
   RefreshControl,
   Alert,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -173,6 +172,16 @@ const SubscriptionScreen = ({ navigation }) => {
     );
   };
 
+  // Get subscription id for a given plan
+  const getSubscriptionIdByPlan = (planId) => {
+    const sub = subscriptions?.find(
+      (s) =>
+        s.plan_id === planId &&
+        (s.status === 'active' || s.status === 'ACTIVE')
+    );
+    return sub?.subscription_id || sub?.id;
+  };
+
   // Render loading state
   if (plansLoading && !availablePlans.length) {
     return (
@@ -214,7 +223,14 @@ const SubscriptionScreen = ({ navigation }) => {
             plan={item}
             isActive={isSubscribedToPlan(item.id)}
             onSubscribe={() => handleSubscribe(item.id)}
-            onCancel={() => handleCancel(item.id)}
+            onCancel={() => {
+              const subId = getSubscriptionIdByPlan(item.id);
+              if (!subId) {
+                Alert.alert('Lỗi', 'Không tìm thấy đăng ký để hủy.');
+                return;
+              }
+              handleCancel(subId);
+            }}
             loading={loading}
           />
         )}

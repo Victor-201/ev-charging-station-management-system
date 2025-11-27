@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar, List, Button, ActivityIndicator, Text, useTheme, Chip, Card } from 'react-native-paper';
+import { Avatar, List, Button, ActivityIndicator, Text, useTheme, Card } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getMe } from '../../store/slices/userSlice';
@@ -11,8 +11,8 @@ import { getAvatarData } from '../../utils/avatarUtils';
 import useSubscriptions from '../../hooks/useSubscriptions';
 
 const getStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' }, // iOS-like grouped table view background
-  centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#F2F2F7' },
+  container: { flex: 1, backgroundColor: colors.background }, // Use theme background
+  centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: colors.background },
   errorText: { color: colors.error, marginBottom: 16, textAlign: 'center' },
   // Header
   headerContainer: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 16 },
@@ -44,7 +44,7 @@ const ProfileScreen = ({ navigation }) => {
 
   // Get subscription data
   const userId = profile?.user_id || profile?.id;
-  const { subscriptions, subscriptionsLoading, getActiveSubscription } = useSubscriptions({
+  const { getActiveSubscription } = useSubscriptions({
     userId,
     autoFetch: true,
   });
