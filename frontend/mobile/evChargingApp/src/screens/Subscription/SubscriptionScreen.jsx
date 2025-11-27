@@ -1,90 +1,302 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Card, Title, Paragraph, ActivityIndicator, useTheme } from 'react-native-paper';
+import {
+  ActivityIndicator,
+  useTheme,
+  Text,
+  Button,
+  Divider,
+  Snackbar,
+} from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
-import { getSubscriptions, subscribeToPlan, cancelSubscription } from '../../store/slices/subscriptionSlice';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {
+  getAvailablePlans,
+  getSubscriptions,
+  subscribeToPlan,
+  cancelSubscription,
+  clearError,
+} from '../../store/slices/subscriptionSlice';
+import PlanCard from '../../components/subscription/PlanCard';
 
-const SubscriptionScreen = () => {
+const SubscriptionScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const dispatch = useDispatch();
+  const styles = getStyles(colors);
+
+  // Redux state
   const { profile } = useSelector((state) => state.user);
-  const { subscriptions, loading, error } = useSelector((state) => state.subscriptions);
+  const {
+    availablePlans,
+    subscriptions,
+    plansLoading,
+    subscriptionsLoading,
+    loading,
+    plansError,
+    subscriptionsError,
+    error,
+  } = useSelector((state) => state.subscriptions);
+
+  // Local state
+  const [refreshing, setRefreshing] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const userId = profile?.user_id || profile?.id;
 
+  // Fetch data on mount
   useEffect(() => {
     if (userId) {
+      dispatch(getAvailablePlans());
       dispatch(getSubscriptions(userId));
     }
   }, [dispatch, userId]);
 
-  const handleSubscribe = (planId) => {
-    if (!userId) return;
-    dispatch(subscribeToPlan({ userId, planId }));
-  };
+  // Show error messages
+  useEffect(() => {
+    if (plansError) {
+      setSnackbarMessage(plansError);
+      setSnackbarVisible(true);
+      dispatch(clearError());
+    }
+  }, [plansError, dispatch]);
 
-  const handleCancel = (subscriptionId) => {
-    if (!userId) return;
-    dispatch(cancelSubscription({ userId, subscriptionId }));
-  };
+  useEffect(() => {
+    if (subscriptionsError) {
+      setSnackbarMessage(subscriptionsError);
+      setSnackbarVisible(true);
+      dispatch(clearError());
+    }
+  }, [subscriptionsError, dispatch]);
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
-        <ActivityIndicator />
-      </SafeAreaView>
-    );
-  }
+  useEffect(() => {
+    if (error) {
+      setSnackbarMessage(error);
+      setSnackbarVisible(true);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
 
-  if (error) {
-    return (
-      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
-        <Text>{error}</Text>
-      </SafeAreaView>
-    );
-  }
-
-  const renderItem = ({ item }) => (
-    <Card style={styles.card}>
-      <Card.Content>
-        <Title>{item.plan.name}</Title>
-        <Paragraph>{item.plan.description}</Paragraph>
-        <Paragraph>Price: {item.plan.price}</Paragraph>
-        {item.isActive ? (
-          <Button onPress={() => handleCancel(item.id)}>Cancel</Button>
-        ) : (
-          <Button onPress={() => handleSubscribe(item.plan.id)}>Subscribe</Button>
-        )}
-      </Card.Content>
-    </Card>
+  // Handle subscribe
+  const handleSubscribe = useCallback(
+    (planId) => {
+      if (!userId) {
+        Alert.alert('Lỗi', 'Không thể xác định người dùng');
+        return;
+      }
+      dispatch(subscribeToPlan({ userId, planId, autoRenew: true }))
+        .unwrap()
+        .then(() => {
+          setSnackbarMessage('Đăng ký gói thành công!');
+          setSnackbarVisible(true);
+          // Refresh subscriptions
+          dispatch(getSubscriptions(userId));
+        })
+        .catch((err) => {
+          const message =
+            err?.message ||
+            err?.error ||
+            'Không thể đăng ký gói. Vui lòng thử lại.';
+          Alert.alert('Lỗi', message);
+        });
+    },
+    [userId, dispatch]
   );
+
+  // Handle cancel
+  const handleCancel = useCallback(
+    (subscriptionId) => {
+      Alert.alert(
+        'Hủy đăng ký',
+        'Bạn có chắc chắn muốn hủy đăng ký gói này?',
+        [
+          { text: 'Không', style: 'cancel' },
+          {
+            text: 'Hủy đăng ký',
+            style: 'destructive',
+            onPress: () => {
+              if (!userId) {
+                Alert.alert('Lỗi', 'Không thể xác định người dùng');
+                return;
+              }
+              dispatch(cancelSubscription({ userId, subscriptionId }))
+                .unwrap()
+                .then(() => {
+                  setSnackbarMessage('Hủy đăng ký thành công!');
+                  setSnackbarVisible(true);
+                  // Refresh subscriptions
+                  dispatch(getSubscriptions(userId));
+                })
+                .catch((err) => {
+                  const message =
+                    err?.message ||
+                    err?.error ||
+                    'Không thể hủy đăng ký. Vui lòng thử lại.';
+                  Alert.alert('Lỗi', message);
+                });
+            },
+          },
+        ]
+      );
+    },
+    [userId, dispatch]
+  );
+
+  // Handle refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        dispatch(getAvailablePlans()).unwrap(),
+        userId ? dispatch(getSubscriptions(userId)).unwrap() : Promise.resolve(),
+      ]);
+    } catch (err) {
+      console.error('Failed to refresh:', err);
+    }
+    setRefreshing(false);
+  }, [dispatch, userId]);
+
+  // Check if plan is subscribed
+  const isSubscribedToPlan = (planId) => {
+    return subscriptions?.some(
+      (sub) =>
+        sub.plan_id === planId &&
+        (sub.status === 'active' || sub.status === 'ACTIVE')
+    );
+  };
+
+  // Render loading state
+  if (plansLoading && !availablePlans.length) {
+    return (
+      <SafeAreaView style={styles.centerContainer} edges={['top', 'bottom']}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Đang tải gói đăng ký...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // Render empty state
+  if (!availablePlans || availablePlans.length === 0) {
+    return (
+      <SafeAreaView style={styles.centerContainer} edges={['top', 'bottom']}>
+        <MaterialCommunityIcons
+          name="package-variant"
+          size={64}
+          color={colors.outlineVariant}
+          style={{ marginBottom: 16 }}
+        />
+        <Text style={styles.emptyText}>Không có gói đăng ký nào</Text>
+        <Button
+          mode="contained"
+          onPress={onRefresh}
+          style={{ marginTop: 16 }}
+        >
+          Tải lại
+        </Button>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <FlatList
-        data={subscriptions}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
+        data={availablePlans}
+        renderItem={({ item }) => (
+          <PlanCard
+            plan={item}
+            isActive={isSubscribedToPlan(item.id)}
+            onSubscribe={() => handleSubscribe(item.id)}
+            onCancel={() => handleCancel(item.id)}
+            loading={loading}
+          />
+        )}
+        keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          subscriptions && subscriptions.length > 0 ? (
+            <View style={styles.headerSection}>
+              <Text variant="titleMedium" style={styles.headerTitle}>
+                Gói đăng ký của bạn
+              </Text>
+              <Text variant="bodySmall" style={styles.headerSubtitle}>
+                {subscriptions.length} gói đang hoạt động
+              </Text>
+              <Divider style={styles.divider} />
+            </View>
+          ) : null
+        }
       />
+
+      {/* Snackbar for messages */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        action={{ label: 'Đóng' }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  card: {
-    marginBottom: 16,
-  },
-});
+const getStyles = (colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    loadingText: {
+      marginTop: 12,
+      color: colors.onSurfaceVariant,
+    },
+    emptyText: {
+      color: colors.onSurfaceVariant,
+      fontSize: 16,
+      textAlign: 'center',
+    },
+    listContent: {
+      paddingVertical: 12,
+    },
+    headerSection: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    headerTitle: {
+      color: colors.onSurface,
+      fontWeight: 'bold',
+      marginBottom: 4,
+    },
+    headerSubtitle: {
+      color: colors.onSurfaceVariant,
+      marginBottom: 12,
+    },
+    divider: {
+      marginVertical: 8,
+    },
+  });
 
 export default SubscriptionScreen;
 

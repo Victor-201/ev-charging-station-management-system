@@ -1,12 +1,14 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar, List, Button, ActivityIndicator, Text, useTheme } from 'react-native-paper';
+import { Avatar, List, Button, ActivityIndicator, Text, useTheme, Chip, Card } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getMe } from '../../store/slices/userSlice';
 import { UserRole } from '../../config/roles';
 import { logoutAsync } from '../../store/slices/authSlice';
 import { getAvatarData } from '../../utils/avatarUtils';
+import useSubscriptions from '../../hooks/useSubscriptions';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' }, // iOS-like grouped table view background
@@ -31,6 +33,14 @@ const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { profile, loading, error } = useSelector((state) => state.user);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Get subscription data
+  const userId = profile?.user_id || profile?.id;
+  const { subscriptions, subscriptionsLoading, getActiveSubscription } = useSubscriptions({
+    userId,
+    autoFetch: true,
+  });
+  const activeSubscription = getActiveSubscription();
 
   // Move useMemo before any early returns to fix hooks order
   const { initials: avatarInitials, backgroundColor: avatarBg, textColor: avatarText } = useMemo(
@@ -116,6 +126,55 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Subscription Status Section */}
+        {activeSubscription && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>Gói đăng ký hiện tại</Text>
+            <Card style={[styles.listSection, { marginHorizontal: 16 }]}>
+              <Card.Content style={styles.subscriptionContent}>
+                <View style={styles.subscriptionHeader}>
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={24}
+                    color={colors.success}
+                    style={{ marginRight: 12 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text variant="titleSmall" style={styles.subscriptionTitle}>
+                      Đang sử dụng
+                    </Text>
+                    <Text variant="bodySmall" style={styles.subscriptionSubtitle}>
+                      Gói: {activeSubscription.plan_id}
+                    </Text>
+                  </View>
+                </View>
+                {activeSubscription.end_date && (
+                  <View style={styles.subscriptionDetail}>
+                    <MaterialCommunityIcons
+                      name="calendar-end"
+                      size={16}
+                      color={colors.onSurfaceVariant}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text variant="bodySmall" style={styles.subscriptionDetailText}>
+                      Hết hạn: {new Date(activeSubscription.end_date).toLocaleDateString('vi-VN')}
+                    </Text>
+                  </View>
+                )}
+                <Button
+                  mode="outlined"
+                  icon="pencil"
+                  onPress={() => navigation.navigate('Subscription')}
+                  style={styles.subscriptionButton}
+                  size="small"
+                >
+                  Quản lý gói
+                </Button>
+              </Card.Content>
+            </Card>
+          </View>
+        )}
+
         {/* App Usage Section */}
         <View style={styles.section}>
           <View style={styles.listSection}>
@@ -132,11 +191,11 @@ const ProfileScreen = ({ navigation }) => {
               onPress={() => navigation.navigate('VehicleListScreen')}
             />
             <List.Item
-              title="Quản lý đăng ký"
+              title="Quản lý gói đăng ký"
               description="Xem và quản lý các gói đăng ký của bạn"
               left={(props) => <List.Icon {...props} icon="credit-card-outline" />}
               right={(props) => <List.Icon {...props} icon="chevron-right" />}
-              onPress={() => navigation.navigate('SubscriptionScreen')}
+              onPress={() => navigation.navigate('Subscription')}
             />
           </View>
         </View>

@@ -129,8 +129,8 @@ export default function HomeScreen() {
     },
     {
       icon: 'gift',
-      label: 'Ưu đãi',
-      onPress: () => navigation.navigate('Profile', { screen: 'SubscriptionScreen' }),
+      label: 'Gói đăng ký',
+      onPress: () => navigation.navigate('Subscription'),
       iconColor: colors.error,
       bgColor: colors.error + '20',
     },
@@ -275,7 +275,7 @@ export default function HomeScreen() {
           title="Ưu đãi đặc biệt!"
           description="Giảm 20% cho lần sạc tiếp theo khi nạp từ 500K"
           buttonText="Xem chi tiết"
-          onPress={() => navigation.navigate('Profile', { screen: 'SubscriptionScreen' })}
+          onPress={() => navigation.navigate('Subscription')}
           gradientColors={[colors.error]}
           icon="gift"
         />

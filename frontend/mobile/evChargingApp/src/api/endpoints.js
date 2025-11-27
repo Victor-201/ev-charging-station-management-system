@@ -55,11 +55,20 @@ export const ENDPOINTS = {
     TOPUP_CALLBACK: '/payments/wallet/topup/callback',
   },
 
-  // Subscription Management
+  // Subscription Management (User Service)
   SUBSCRIPTION: {
     LIST: '/users/:user_id/subscriptions',
     SUBSCRIBE: '/users/:user_id/subscriptions',
     CANCEL: '/users/:user_id/subscriptions/:subscription_id/cancel',
+  },
+
+  // Plan Management (Payment Service)
+  PLAN: {
+    LIST: '/plans',
+    DETAIL: '/plans/:id',
+    CREATE: '/plans',
+    UPDATE: '/plans/:id',
+    DELETE: '/plans/:id',
   },
 
   // Notification Management
