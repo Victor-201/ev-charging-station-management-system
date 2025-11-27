@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, ActivityIndicator, Text, FAB } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from 'react-native-paper';
+import AppHeader from '../../components/common/AppHeader';
 import useVehicles from '../../hooks/useVehicles';
 import VehicleCard from '../../components/profile/VehicleCard';
 
@@ -84,6 +85,7 @@ export default function VehicleListScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <AppHeader title="Phương tiện của tôi" onBack={() => navigation.goBack()} />
       {vehicles.length === 0 ? (
         <View style={styles.centeredContainer}>
           <Text style={styles.emptyText}>Bạn chưa có phương tiện nào.</Text>

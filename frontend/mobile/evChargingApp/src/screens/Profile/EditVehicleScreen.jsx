@@ -8,6 +8,7 @@ import { useTheme } from 'react-native-paper';
 import { vehicleSchema } from '../../utils/validators';
 import useVehicles from '../../hooks/useVehicles';
 import AppInput from '../../components/common/AppInput';
+import AppHeader from '../../components/common/AppHeader';
 
 const getStyles = (colors) => StyleSheet.create({
   container: {
@@ -85,12 +86,12 @@ export default function EditVehicleScreen({ navigation, route }) {
   useEffect(() => {
     if (vehicle) {
       reset({
-        make: vehicle.make,
-        model: vehicle.model,
-        year: vehicle.year.toString(),
-        license_plate: vehicle.license_plate,
-        battery_capacity: vehicle.battery_capacity.toString(),
-        connector_type: vehicle.connector_type,
+        brand: vehicle.brand || vehicle.make || '',
+        model: vehicle.model || '',
+        year: (vehicle.year!=null ? String(vehicle.year) : ''),
+        plate_number: vehicle.plate_number || vehicle.license_plate || '',
+        battery_kwh: vehicle.battery_kwh != null ? String(vehicle.battery_kwh) : '',
+        connector_type: vehicle.connector_type || '',
       });
     }
   }, [vehicle, reset]);
@@ -141,13 +142,14 @@ export default function EditVehicleScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <AppHeader title="Chỉnh sửa phương tiện" onBack={() => navigation.goBack()} />
       <ScrollView>
       <View style={styles.contentContainer}>
-        <Controller 
-          control={control} name="make" 
+        <Controller
+          control={control} name="brand"
           render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput label="Hãng xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.make?.message} style={styles.input} />
-          )} 
+            <AppInput label="Hãng xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.brand?.message} style={styles.input} />
+          )}
         />
         <Controller 
           control={control} name="model" 
@@ -161,17 +163,17 @@ export default function EditVehicleScreen({ navigation, route }) {
             <AppInput label="Năm sản xuất *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.year?.message} keyboardType="numeric" style={styles.input} />
           )} 
         />
-        <Controller 
-          control={control} name="license_plate" 
+        <Controller
+          control={control} name="plate_number"
           render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput label="Biển số xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.license_plate?.message} autoCapitalize="characters" style={styles.input} />
-          )} 
+            <AppInput label="Biển số xe *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.plate_number?.message} autoCapitalize="characters" style={styles.input} />
+          )}
         />
-        <Controller 
-          control={control} name="battery_capacity" 
+        <Controller
+          control={control} name="battery_kwh"
           render={({ field: { onChange, value, onBlur } }) => (
-            <AppInput label="Dung lượng pin (kWh) *" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.battery_capacity?.message} keyboardType="numeric" style={styles.input} />
-          )} 
+            <AppInput label="Dung lượng pin (kWh)" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.battery_kwh?.message} keyboardType="numeric" style={styles.input} />
+          )}
         />
         <Controller 
           control={control} name="connector_type" 

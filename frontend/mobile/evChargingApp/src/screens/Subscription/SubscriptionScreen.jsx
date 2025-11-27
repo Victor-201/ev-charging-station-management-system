@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,8 +15,11 @@ import {
   Divider,
   Snackbar,
 } from 'react-native-paper';
+import AppHeader from '../../components/common/AppHeader';
 import { useDispatch, useSelector } from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useInAppNotification } from '../../components/notification/InAppNotification';
+import { addNotification } from '../../store/slices/notificationSlice';
 import {
   getAvailablePlans,
   getSubscriptions,
@@ -30,6 +33,7 @@ const SubscriptionScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const dispatch = useDispatch();
   const styles = getStyles(colors);
+  const notifier = useInAppNotification();
 
   // Redux state
   const { profile } = useSelector((state) => state.user);
@@ -37,7 +41,6 @@ const SubscriptionScreen = ({ navigation }) => {
     availablePlans,
     subscriptions,
     plansLoading,
-    subscriptionsLoading,
     loading,
     plansError,
     subscriptionsError,
@@ -96,11 +99,38 @@ const SubscriptionScreen = ({ navigation }) => {
         .then(() => {
           setSnackbarMessage('Đăng ký gói thành công!');
           setSnackbarVisible(true);
+
+          // In-app banner
+          try {
+            const plan = (availablePlans || []).find(p => p.id === planId);
+            notifier.show({
+              type: 'success',
+              icon: 'check-circle',
+              title: 'Đăng ký gói thành công',
+              message: plan ? `${plan.name} • ${plan.duration || ''}` : undefined,
+            });
+          } catch {}
+
+          // Push to notification center (unread badge)
+          try {
+            const plan = (availablePlans || []).find(p => p.id === planId);
+            dispatch(addNotification({
+              id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+              type: 'subscription',
+              title: 'Đăng ký gói thành công',
+              message: plan ? `${plan.name} đã được kích hoạt` : 'Gói đã được kích hoạt',
+              timestamp: Date.now(),
+              read: false,
+            }));
+          } catch {}
+
           // Refresh subscriptions
           dispatch(getSubscriptions(userId));
         })
         .catch((err) => {
           const message =
+            err?.response?.data?.error ||
+            err?.response?.data?.message ||
             err?.message ||
             err?.error ||
             'Không thể đăng ký gói. Vui lòng thử lại.';
@@ -216,6 +246,7 @@ const SubscriptionScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <AppHeader title="Gói đăng ký" onBack={() => navigation.goBack()} />
       <FlatList
         data={availablePlans}
         renderItem={({ item }) => (
@@ -245,17 +276,17 @@ const SubscriptionScreen = ({ navigation }) => {
         }
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
-          subscriptions && subscriptions.length > 0 ? (
-            <View style={styles.headerSection}>
-              <Text variant="titleMedium" style={styles.headerTitle}>
-                Gói đăng ký của bạn
-              </Text>
+          <View style={styles.headerSection}>
+            <Text variant="titleMedium" style={styles.headerTitle}>
+              Danh sách gói
+            </Text>
+            {subscriptions && subscriptions.length > 0 && (
               <Text variant="bodySmall" style={styles.headerSubtitle}>
-                {subscriptions.length} gói đang hoạt động
+                Bạn đang có {subscriptions.length} gói hoạt động
               </Text>
-              <Divider style={styles.divider} />
-            </View>
-          ) : null
+            )}
+            <Divider style={styles.divider} />
+          </View>
         }
       />
 

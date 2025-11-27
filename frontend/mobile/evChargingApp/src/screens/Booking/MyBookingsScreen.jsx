@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
+import AppHeader from '../../components/common/AppHeader';
 import { useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -73,10 +74,7 @@ export default function MyBookingsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.outline, flexDirection:'row', alignItems:'center', gap: 8 }}>
-        <Icon name="event" size={22} color={colors.primary} />
-        <Text style={{ color: colors.onSurface, fontWeight: '700', fontSize: 18 }}>Đặt chỗ của tôi</Text>
-      </View>
+      <AppHeader title="Đặt chỗ của tôi" onBack={() => navigation.goBack()} />
 
       {loading ? (
         <View style={{ flex:1, justifyContent:'center', alignItems:'center' }}>

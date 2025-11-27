@@ -10,6 +10,8 @@ import reminderService from '../../services/reminderService';
 import useSocket from '../../hooks/useSocket';
 
 import { useInAppNotification } from '../../components/notification/InAppNotification';
+import { useDispatch } from 'react-redux';
+import { addNotification } from '../../store/slices/notificationSlice';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -30,6 +32,7 @@ export default function BookingConfirmationScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const { reservationId, station, point, slot } = route.params || {};
+  const dispatch = useDispatch();
 
   const [qrCode, setQrCode] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,13 +58,20 @@ export default function BookingConfirmationScreen() {
   // Show success banner and provide quick context
   useEffect(() => {
     if (reservationId) {
+      const title = 'Đặt chỗ thành công';
+      const message = `${station?.name || 'Trạm sạc'} • ${slot?.time || ''}`;
       try {
-        notifier.show({
-          type: 'success',
-          icon: 'event-available',
-          title: 'Đặt chỗ thành công',
-          message: `${station?.name || 'Trạm sạc'} • ${slot?.time || ''}`,
-        });
+        notifier.show({ type: 'success', icon: 'event-available', title, message });
+      } catch {}
+      try {
+        dispatch(addNotification({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+          type: 'booking',
+          title,
+          message,
+          timestamp: Date.now(),
+          read: false,
+        }));
       } catch {}
     }
   }, [reservationId]);

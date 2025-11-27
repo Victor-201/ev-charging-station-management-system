@@ -6,6 +6,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { getWallet } from '../../store/slices/walletSlice';
 import { useInAppNotification } from '../../components/notification/InAppNotification';
+import { addNotification } from '../../store/slices/notificationSlice';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -37,12 +38,26 @@ export default function TopupSuccessScreen() {
 
   useEffect(() => {
     if (amount) {
-      notifier.show({
-        type: 'success',
-        icon: 'payments',
-        title: 'Nạp tiền thành công',
-        message: `+${Number(amount||0).toLocaleString('vi-VN')} ₫${wallet?.balance!=null ? `  •  Số dư: ${Number(wallet.balance).toLocaleString('vi-VN')} ₫` : ''}`,
-      });
+      const prettyAmount = Number(amount||0).toLocaleString('vi-VN');
+      const balancePart = wallet?.balance!=null ? `  •  Số dư: ${Number(wallet.balance).toLocaleString('vi-VN')} ₫` : '';
+      try {
+        notifier.show({
+          type: 'success',
+          icon: 'payments',
+          title: 'Nạp tiền thành công',
+          message: `+${prettyAmount} ₫${balancePart}`,
+        });
+      } catch {}
+      try {
+        dispatch(addNotification({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+          type: 'wallet',
+          title: 'Nạp tiền thành công',
+          message: `+${prettyAmount} ₫`,
+          timestamp: Date.now(),
+          read: false,
+        }));
+      } catch {}
     }
   }, [amount, wallet?.balance]);
 

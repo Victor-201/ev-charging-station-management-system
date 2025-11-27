@@ -8,6 +8,7 @@ import { useTheme } from 'react-native-paper';
 import { vehicleSchema } from '../../utils/validators';
 import useVehicles from '../../hooks/useVehicles';
 import AppInput from '../../components/common/AppInput';
+import AppHeader from '../../components/common/AppHeader';
 import vehicleService from '../../services/vehicleService';
 
 const getStyles = (colors) => StyleSheet.create({
@@ -146,8 +147,11 @@ export default function AddVehicleScreen({ navigation, route }) {
     }
   };
 
+  const headerTitle = isEditMode ? 'Chỉnh sửa phương tiện' : 'Thêm phương tiện mới';
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <AppHeader title={headerTitle} onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.contentContainer}>
       <View style={styles.contentContainer}>
         <View style={styles.lookupContainer}>
