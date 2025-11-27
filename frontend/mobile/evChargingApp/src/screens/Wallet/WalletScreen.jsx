@@ -79,10 +79,13 @@ const WalletScreen = () => {
   useRealTimeUpdates(socketEventHandlers, !!userId);
 
   // Load wallet data on focus
+  // Only refetch if we have wallet data already (avoid duplicate calls on first mount)
   useFocusEffect(
     useCallback(() => {
-      loadWalletData();
-    }, [loadWalletData])
+      if (wallet) {
+        loadWalletData();
+      }
+    }, [loadWalletData, wallet])
   );
 
   if (loading && !wallet) {

@@ -76,10 +76,13 @@ const ChargingHistoryScreen = ({ navigation }) => {
   }, [sessions.length, loading]);
 
   // Refresh data when screen comes into focus
+  // Only refetch if we have sessions already (avoid duplicate calls on first mount)
   useFocusEffect(
     useCallback(() => {
-      fetchHistory();
-    }, [fetchHistory])
+      if (sessions && sessions.length > 0) {
+        fetchHistory();
+      }
+    }, [fetchHistory, sessions])
   );
 
   const renderItem = ({ item, index }) => (

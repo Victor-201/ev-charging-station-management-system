@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
@@ -150,14 +150,23 @@ export default function HomeScreen() {
   const { sessions = [], fetchHistory: refetchSessions } = useChargingHistory({ autoFetch: true });
   const { transactions = [], fetchTransactions: refetchTransactions } = useWalletTransactions({ autoFetch: true, params: { limit: 10 } });
 
+  // Keep stable references to fetch functions
+  const refetchSessionsRef = useRef(refetchSessions);
+  const refetchTransactionsRef = useRef(refetchTransactions);
+
+  useEffect(() => {
+    refetchSessionsRef.current = refetchSessions;
+    refetchTransactionsRef.current = refetchTransactions;
+  }, [refetchSessions, refetchTransactions]);
+
   // Refetch data when screen comes back into focus (but not on first mount)
-  // Use useCallback with stable dependencies to prevent infinite loops
+  // Use stable refs to prevent infinite loops
   const handleRefetch = useCallback(() => {
     if (userProfile?.user_id) {
-      refetchSessions();
-      refetchTransactions();
+      refetchSessionsRef.current();
+      refetchTransactionsRef.current();
     }
-  }, [userProfile?.user_id, refetchSessions, refetchTransactions]);
+  }, [userProfile?.user_id]);
 
   useRefetchOnFocus(handleRefetch, true);
 
@@ -170,15 +179,15 @@ export default function HomeScreen() {
     },
     'charging_session_completed': (data) => {
       if (data?.userId === userProfile?.user_id) {
-        refetchSessions();
+        refetchSessionsRef.current();
       }
     },
     'transaction_completed': (data) => {
       if (data?.userId === userProfile?.user_id) {
-        refetchTransactions();
+        refetchTransactionsRef.current();
       }
     },
-  }), [userProfile?.user_id, dispatch, refetchSessions, refetchTransactions]);
+  }), [userProfile?.user_id, dispatch]);
 
   // Subscribe to real-time updates
   useRealTimeUpdates(socketEventHandlers, !!userProfile?.user_id);
@@ -191,14 +200,14 @@ export default function HomeScreen() {
         dispatch(getMe()),
         userProfile?.user_id ? dispatch(getWallet(userProfile.user_id)) : Promise.resolve(),
         userProfile?.user_id ? dispatch(getNotifications(userProfile.user_id)) : Promise.resolve(),
-        refetchSessions(),
-        refetchTransactions(),
+        refetchSessionsRef.current(),
+        refetchTransactionsRef.current(),
       ]);
     } catch (error) {
       console.error('Failed to refresh home screen data:', error);
     }
     setRefreshing(false);
-  }, [dispatch, userProfile, refetchSessions, refetchTransactions]);
+  }, [dispatch, userProfile?.user_id]);
 
   // Recent activities combined from charging sessions and wallet transactions
   const recentActivities = (() => {

@@ -24,6 +24,8 @@ export default function MainTabs() {
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        lazy: true, // Only render screens when they come into focus
+        lazyPlaceholder: () => null, // Don't show placeholder while loading
       }}
     >
       <Tab.Screen
