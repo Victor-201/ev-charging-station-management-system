@@ -130,7 +130,7 @@ export default function HomeScreen() {
     {
       icon: 'gift',
       label: 'Gói đăng ký',
-      onPress: () => navigation.navigate('Subscription'),
+      onPress: () => navigation.navigate('Profile', { screen: 'SubscriptionScreen' }),
       iconColor: colors.error,
       bgColor: colors.error + '20',
     },
