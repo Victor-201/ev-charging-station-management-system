@@ -27,6 +27,7 @@ export default function SubscriptionPlans() {
 
   // FORM STATE
   const [editing, setEditing] = useState(null); // { user_id, plan_id }
+
   const getErrorMessage = (err, fallback) => {
     if (!err) return fallback;
     if (typeof err === "string") return err;
@@ -38,6 +39,7 @@ export default function SubscriptionPlans() {
       fallback
     );
   };
+
   const isSaving = saving || loadingSubscription;
   const lookupBusy = loadingLookup || loadingPlans;
 
@@ -68,7 +70,7 @@ export default function SubscriptionPlans() {
   };
 
   /* ================================
-   * LOAD PLANS + USERS FOR QUICK PICK
+   * LOAD PLANS + USERS
    * ================================ */
   const loadLookupData = async () => {
     setLoadingLookup(true);
@@ -78,12 +80,14 @@ export default function SubscriptionPlans() {
         fetchAllUsers({ page: 1, size: 8 }),
       ]);
 
+      // PLANS
       if (plansRes.status === "fulfilled" && plansRes.value) {
         const planData =
           plansRes.value?.data?.data ?? plansRes.value?.data ?? [];
         setPlanOptions(Array.isArray(planData) ? planData : []);
       }
 
+      // USERS
       if (usersRes.status === "fulfilled" && usersRes.value) {
         const usersPayload =
           usersRes.value?.users ??
@@ -161,14 +165,18 @@ export default function SubscriptionPlans() {
    * TABLE CONFIG
    * ================================ */
   const columns = [
-    { key: "id", title: "ID", dataIndex: "id" },
+    // ❌ ĐÃ XOÁ CỘT ID Subscription (ẩn id)
+
     { key: "user_id", title: "User ID", dataIndex: "user_id" },
 
     {
-      key: "plan_id",
-      title: "Plan ID",
+      key: "plan_name",
+      title: "Gói",
       dataIndex: "plan_id",
-      render: (value, row) => value || row.package_id || "-",
+      render: (plan_id) => {
+        const plan = planOptions.find((p) => p.id === plan_id);
+        return plan ? plan.name : "Không xác định";
+      },
     },
 
     {
@@ -222,7 +230,7 @@ export default function SubscriptionPlans() {
       <div className="max-w-6xl mx-auto space-y-6">
         <PageHeader
           title="Subscriptions"
-          subtitle="Quản lý gói subscription của người dùng (API payment-service)"
+          subtitle="Quản lý gói dịch vụ và subscriptions của người dùng"
         />
 
         {/* ERROR */}
@@ -231,6 +239,44 @@ export default function SubscriptionPlans() {
             {error}
           </div>
         )}
+
+        {/* LIST OF PLANS */}
+        <Section title="Danh sách gói dịch vụ">
+          {lookupBusy ? (
+            <div className="h-32 bg-slate-100 animate-pulse rounded-xl" />
+          ) : planOptions.length === 0 ? (
+            <div className="text-sm text-slate-500">Không có gói dịch vụ nào.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {planOptions.map((plan) => (
+                <div
+                  key={plan.id}
+                  className="border rounded-xl bg-white shadow-sm p-4 space-y-2"
+                >
+                  <div className="text-base font-semibold text-slate-800">
+                    {plan.name}
+                  </div>
+
+                  <div className="text-xs text-slate-500 break-all">
+                    ID: {plan.id}
+                  </div>
+
+                  {plan.description && (
+                    <div className="text-sm text-slate-600">
+                      {plan.description}
+                    </div>
+                  )}
+
+                  <div className="text-sm font-medium text-blue-600">
+                    {plan.price
+                      ? plan.price.toLocaleString("vi-VN") + " VNĐ"
+                      : "Không có giá"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
 
         {/* LIST */}
         <Section title="Danh sách subscriptions">
@@ -304,6 +350,7 @@ export default function SubscriptionPlans() {
                       : "Chọn nhanh từ danh sách có sẵn"}
                   </div>
 
+                  {/* LIST OF PLANS */}
                   {planOptions.length > 0 && (
                     <div className="space-y-1">
                       <div className="text-[11px] uppercase tracking-wide text-slate-500">
@@ -334,10 +381,11 @@ export default function SubscriptionPlans() {
                     </div>
                   )}
 
+                  {/* LIST OF USERS */}
                   {userOptions.length > 0 && (
                     <div className="space-y-1">
                       <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        User ID mẫu (lấy từ trang người dùng)
+                        User ID mẫu
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {userOptions.map((u) => {
