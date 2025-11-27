@@ -25,6 +25,14 @@ const getStyles = (colors) => StyleSheet.create({
   listSection: { backgroundColor: colors.surface, borderRadius: 10, marginHorizontal: 16, overflow: 'hidden' },
   logoutItem: { justifyContent: 'center', alignItems: 'center', height: 50 },
   logoutText: { color: colors.error, fontSize: 16 },
+  // Subscription Section
+  subscriptionContent: { paddingVertical: 12 },
+  subscriptionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  subscriptionTitle: { color: colors.onSurface, fontWeight: 'bold' },
+  subscriptionSubtitle: { color: colors.onSurfaceVariant, marginTop: 2 },
+  subscriptionDetail: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingLeft: 36 },
+  subscriptionDetailText: { color: colors.onSurfaceVariant },
+  subscriptionButton: { marginTop: 8, borderColor: colors.primary },
 });
 
 const ProfileScreen = ({ navigation }) => {
