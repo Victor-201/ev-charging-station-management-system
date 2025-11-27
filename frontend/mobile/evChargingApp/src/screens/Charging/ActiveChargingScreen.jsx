@@ -1,12 +1,12 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, ActivityIndicator, useTheme } from 'react-native-paper';
 import { useRoute, useNavigation, CommonActions } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
-import useSocket from '../../hooks/useSocket';
 import { updateTelemetry } from '../../store/slices/chargingSlice';
 import useCharging from '../../hooks/useCharging';
+import useRealTimeUpdates from '../../hooks/useRealTimeUpdates';
 import ChargingProgressCircle from '../../components/charging/ChargingProgressCircle';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -39,25 +39,27 @@ const ActiveChargingScreen = () => {
   const { getTelemetry, stop } = useCharging();
   const [actionLoading, setActionLoading] = useState(false);
 
-  const eventHandlers = useCallback((data) => {
-    if (data.sessionId === sessionId) {
-      dispatch(updateTelemetry({ telemetry: data }));
-    }
-  }, [dispatch, sessionId]);
-
-  // Socket events for real-time updates
-  const socketEventHandlers = {
-    'charging_update': eventHandlers,
-    'telemetry_update': (data) => {
-      if (data.sessionId === sessionId) {
-        // Update telemetry data in real-time via socket
-        console.log('Received telemetry update:', data);
-        // You can dispatch an action to update telemetry in Redux if needed
+  // Memoize event handlers to prevent unnecessary re-renders
+  const socketEventHandlers = useMemo(() => ({
+    'charging_update': (data) => {
+      if (data?.sessionId === sessionId) {
+        dispatch(updateTelemetry({ telemetry: data }));
       }
-    }
-  };
+    },
+    'telemetry_update': (data) => {
+      if (data?.sessionId === sessionId) {
+        dispatch(updateTelemetry({ telemetry: data }));
+      }
+    },
+    'session_status_change': (data) => {
+      if (data?.sessionId === sessionId) {
+        dispatch(updateTelemetry({ telemetry: data }));
+      }
+    },
+  }), [sessionId, dispatch]);
 
-  useSocket(socketEventHandlers);
+  // Use real-time updates via WebSocket (replaces polling)
+  useRealTimeUpdates(socketEventHandlers, !!sessionId);
 
   // Initial telemetry fetch only (no polling)
   useEffect(() => {

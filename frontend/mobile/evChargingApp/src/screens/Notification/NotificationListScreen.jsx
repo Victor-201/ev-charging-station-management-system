@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import NetworkErrorView from '../../components/common/NetworkErrorView';
 import { useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../../store/slices/notificationSlice';
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, addNotification } from '../../store/slices/notificationSlice';
+import useRealTimeUpdates from '../../hooks/useRealTimeUpdates';
 
 const NotificationListScreen = () => {
   const navigation = useNavigation();
@@ -26,14 +27,31 @@ const NotificationListScreen = () => {
   const { notifications, unreadCount, loading, error } = useSelector((state) => state.notification);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, unread, read
+  const userId = user?.id || user?.user_id || user?.sub;
 
   const loadNotifications = React.useCallback(() => {
-    const uid = user?.id || user?.user_id || user?.sub;
-    if (uid) {
-      return dispatch(getNotifications(uid)).unwrap?.();
+    if (userId) {
+      return dispatch(getNotifications(userId)).unwrap?.();
     }
     return Promise.resolve();
-  }, [dispatch, user?.id, user?.user_id, user?.sub]);
+  }, [dispatch, userId]);
+
+  // Socket events for real-time notifications
+  const socketEventHandlers = useMemo(() => ({
+    'notification_received': (data) => {
+      if (data?.userId === userId) {
+        dispatch(addNotification(data));
+      }
+    },
+    'notification_updated': (data) => {
+      if (data?.userId === userId) {
+        loadNotifications();
+      }
+    },
+  }), [userId, dispatch, loadNotifications]);
+
+  // Subscribe to real-time notifications
+  useRealTimeUpdates(socketEventHandlers, !!userId);
 
   // Fix: Wrap loadNotifications in useCallback to prevent continuous calls
   useFocusEffect(

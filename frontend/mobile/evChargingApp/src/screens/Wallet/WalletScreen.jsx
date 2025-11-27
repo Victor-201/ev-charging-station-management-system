@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, Card, ActivityIndicator, useTheme } from 'react-native-paper';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
-import { getWallet, getTransactions } from '../../store/slices/walletSlice'; // To be created
+import { getWallet, getTransactions, updateWalletBalance } from '../../store/slices/walletSlice';
+import useRealTimeUpdates from '../../hooks/useRealTimeUpdates';
 
 const getStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
@@ -37,9 +38,9 @@ const WalletScreen = () => {
   const dispatch = useDispatch();
   const { profile: user } = useSelector((state) => state.user);
   const { wallet, transactions, loading, error } = useSelector((state) => state.wallet || {});
+  const userId = user?.user_id || user?.id;
 
   const loadWalletData = useCallback(() => {
-    const userId = user?.user_id || user?.id;
     if (userId) {
       const fetchData = async () => {
         try {
@@ -51,9 +52,33 @@ const WalletScreen = () => {
       };
       fetchData();
     }
-  }, [dispatch, user]);
+  }, [dispatch, userId]);
 
-  // Fix: useFocusEffect should wrap the callback properly to avoid continuous calls
+  // Socket events for real-time wallet updates
+  const socketEventHandlers = useMemo(() => ({
+    'wallet_balance_updated': (data) => {
+      if (data?.userId === userId) {
+        dispatch(updateWalletBalance(data.balance));
+      }
+    },
+    'transaction_created': (data) => {
+      if (data?.userId === userId) {
+        // Refetch transactions when new one is created
+        dispatch(getTransactions({ userId, params: { limit: 5 } }));
+      }
+    },
+    'wallet_topup_confirmed': (data) => {
+      if (data?.userId === userId) {
+        dispatch(updateWalletBalance(data.newBalance));
+        dispatch(getTransactions({ userId, params: { limit: 5 } }));
+      }
+    },
+  }), [userId, dispatch]);
+
+  // Subscribe to real-time wallet updates
+  useRealTimeUpdates(socketEventHandlers, !!userId);
+
+  // Load wallet data on focus
   useFocusEffect(
     useCallback(() => {
       loadWalletData();

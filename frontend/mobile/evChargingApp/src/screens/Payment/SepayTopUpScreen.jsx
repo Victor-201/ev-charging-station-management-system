@@ -3,7 +3,7 @@
  * Allows users to top up their wallet via bank transfer
  */
 
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,10 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -24,8 +25,16 @@ import { logger } from '../../utils/logger';
 
 const SepayTopUpScreen = ({ route }) => {
   const navigation = useNavigation();
-  const dispatch = useDispatch();
-  
+
+  // Ensure Android hardware back stays in Wallet tab
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      navigation.replace('WalletMain');
+      return true;
+    });
+    return () => sub.remove();
+  }, [navigation]);
+
   // Get user from profile
   const profile = useSelector(state => state.user?.profile);
   const userId = profile?.user_id || profile?.id;
@@ -134,7 +143,12 @@ const SepayTopUpScreen = ({ route }) => {
     <SafeAreaView style={styles.container} edges={['top','bottom']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          onPress={() => {
+            // Ensure we return to Wallet main instead of previous tab
+            navigation.replace('WalletMain');
+          }}
+        >
           <Icon name="arrow-left" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nạp tiền qua Sepay</Text>

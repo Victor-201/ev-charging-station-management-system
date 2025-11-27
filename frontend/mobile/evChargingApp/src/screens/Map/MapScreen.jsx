@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { View, Text, ActivityIndicator, Platform, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
@@ -11,6 +11,7 @@ import StationsBottomSheet from '../../components/station/StationsBottomSheet';
 import mapService from '../../services/mapService';
 import AnimatedFAB from '../../components/common/AnimatedFAB';
 import useDebounce from '../../hooks/useDebounce';
+import useRealTimeUpdates from '../../hooks/useRealTimeUpdates';
 import { logger } from '../../utils/logger';
 import { GEOLOCATION, MAP_CONFIG, TIMING } from '../../config/constants';
 
@@ -132,6 +133,33 @@ export default function MapScreen({ navigation }) {
       fetchStations(debouncedSearchCoords.lat, debouncedSearchCoords.lng, 5);
     }
   }, [debouncedSearchCoords]);
+
+  // Socket events for real-time station availability updates
+  const socketEventHandlers = useMemo(() => ({
+    'station_availability_updated': (data) => {
+      // Update station availability in real-time
+      setStations(prevStations =>
+        prevStations.map(station =>
+          station.id === data.stationId
+            ? { ...station, available_ports: data.availablePorts, status: data.status }
+            : station
+        )
+      );
+    },
+    'station_status_changed': (data) => {
+      // Update station status (online/offline/maintenance)
+      setStations(prevStations =>
+        prevStations.map(station =>
+          station.id === data.stationId
+            ? { ...station, status: data.status }
+            : station
+        )
+      );
+    },
+  }), []);
+
+  // Subscribe to real-time station updates
+  useRealTimeUpdates(socketEventHandlers, true);
 
   const getPinColor = (s) => {
     if (s.status === 'maintenance' || s.status === 'offline') return colors.error;

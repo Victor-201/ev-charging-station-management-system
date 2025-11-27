@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
@@ -7,10 +7,11 @@ import { useSelector, useDispatch } from 'react-redux';
 
 import { getMe } from '../../store/slices/userSlice';
 import { getWallet } from '../../store/slices/walletSlice';
-import { getNotifications } from '../../store/slices/notificationSlice';
+import { getNotifications, addNotification } from '../../store/slices/notificationSlice';
 import useChargingHistory from '../../hooks/useChargingHistory';
 import useWalletTransactions from '../../hooks/useWalletTransactions';
 import useRefetchOnFocus from '../../hooks/useRefetchOnFocus';
+import useRealTimeUpdates from '../../hooks/useRealTimeUpdates';
 import { timeAgo } from '../../utils/dateUtils';
 
 // New modern components
@@ -160,6 +161,28 @@ export default function HomeScreen() {
     }, [userProfile, refetchSessions, refetchTransactions]),
     true
   );
+
+  // Socket events for real-time updates
+  const socketEventHandlers = useMemo(() => ({
+    'notification_received': (data) => {
+      if (data?.userId === userProfile?.user_id) {
+        dispatch(addNotification(data));
+      }
+    },
+    'charging_session_completed': (data) => {
+      if (data?.userId === userProfile?.user_id) {
+        refetchSessions();
+      }
+    },
+    'transaction_completed': (data) => {
+      if (data?.userId === userProfile?.user_id) {
+        refetchTransactions();
+      }
+    },
+  }), [userProfile?.user_id, dispatch, refetchSessions, refetchTransactions]);
+
+  // Subscribe to real-time updates
+  useRealTimeUpdates(socketEventHandlers, !!userProfile?.user_id);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

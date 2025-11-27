@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Button, Card, TextInput, RadioButton, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
@@ -8,8 +8,10 @@ import { topupWallet } from '../../store/slices/walletSlice';
 const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: colors.background,
+  },
+  scrollContent: {
+    padding: 16,
   },
   title: {
     fontSize: 24,
@@ -124,10 +126,11 @@ const TopupScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
       <Text style={styles.title}>Nạp tiền vào ví</Text>
 
       {/* Sepay Quick Top-up Button */}
-      <Card style={[styles.card, { backgroundColor: colors.success + '15' }]>
+      <Card style={[styles.card, { backgroundColor: colors.success + '15' }]}>
         <Card.Content>
           <Text style={[styles.methodTitle, { color: colors.success }]}>
             🚀 Nạp tiền nhanh qua Sepay
@@ -186,6 +189,7 @@ const TopupScreen = ({ navigation }) => {
       >
         Lấy mã nạp tiền
       </Button>
+      </ScrollView>
     </SafeAreaView>
   );
 };

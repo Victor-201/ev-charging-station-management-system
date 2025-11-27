@@ -13,6 +13,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  BackHandler,
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -191,7 +192,8 @@ const SepayQRCodeScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
-            navigation.goBack();
+            // Always go back to Wallet tab main screen
+            navigation.replace('WalletMain');
           }}
         >
           <Icon name="close" size={24} color="#000" />

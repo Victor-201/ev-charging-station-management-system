@@ -13,12 +13,27 @@ import { logger } from '../utils/logger';
 export const sepayService = {
   /**
    * Create a top-up request
-   * @param {number} amount - Amount to top up (VND)
-   * @param {string} userId - User ID
+   * @param {Object|number} amountOrConfig - Amount to top up (VND) or config object
+   * @param {string} userIdParam - User ID (optional, for backward compatibility)
    * @returns {Promise<Object>} Payment data including QR code info
    */
-  async createTopUpRequest(amount, userId) {
+  async createTopUpRequest(amountOrConfig, userIdParam) {
     try {
+      // Handle both object and individual parameter formats
+      let amount, userId, description, metadata;
+
+      if (typeof amountOrConfig === 'object') {
+        // Object format: { amount, userId, description, metadata }
+        amount = amountOrConfig.amount;
+        userId = amountOrConfig.userId;
+        description = amountOrConfig.description;
+        metadata = amountOrConfig.metadata;
+      } else {
+        // Individual parameters format: (amount, userId)
+        amount = amountOrConfig;
+        userId = userIdParam;
+      }
+
       // Validate inputs
       if (!userId) {
         throw new Error('userId is required');
@@ -37,7 +52,7 @@ export const sepayService = {
         method: 'bank_transfer',
         currency: 'VND',
         meta: {
-          description: 'Nạp tiền vào ví qua chuyển khoản ngân hàng'
+          description: description || 'Nạp tiền vào ví qua chuyển khoản ngân hàng'
         }
       };
 
