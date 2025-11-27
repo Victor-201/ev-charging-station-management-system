@@ -60,6 +60,26 @@ export const paymentService = {
       url: "api/v1/plans",
     }),
 
+  createPlan: (payload) =>
+    apiClient({
+      method: "POST",
+      url: "api/v1/plans",
+      data: payload,
+    }),
+
+  updatePlan: (id, payload) =>
+    apiClient({
+      method: "PUT",
+      url: `api/v1/plans/${id}`,
+      data: payload,
+    }),
+
+  deletePlan: (id) =>
+    apiClient({
+      method: "DELETE",
+      url: `api/v1/plans/${id}`,
+    }),
+
 
   // ============================
   // BILLING

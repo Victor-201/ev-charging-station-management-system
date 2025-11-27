@@ -42,58 +42,67 @@ class BookingService {
     }
   }
 
-  async calculatePricing(point_id, start_time, end_time, token) {
-    // Fetch pricing từ station service
-    let pricingList = [];
-    try {
-      const res = await axios.get(
-        `${config.STATIONBASE}/api/v1/chargers/${point_id}/pricing`,
-        { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
-      );
+async calculatePricing(point_id, start_time, end_time, token) {
+  // Fetch pricing từ station service
+  let pricingList = [];
+  try {
+    const res = await axios.get(
+      `${config.STATIONBASE}/api/v1/chargers/${point_id}/pricing`,
+      { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
+    );
 
-      pricingList = res.data?.pricing || [];
-    } catch (err) {
-      console.error("Pricing API error:", err.response?.data || err);
-      const e = new Error("Failed to fetch pricing for charger");
-      e.status = 500;
-      throw e;
-    }
+    pricingList = res.data?.pricing || [];
+  } catch (err) {
+    console.error("Pricing API error:", err.response?.data || err);
+    const e = new Error("Failed to fetch pricing for charger");
+    e.status = 500;
+    throw e;
+  }
 
-    // Tìm model per_minute
-    const perMin = pricingList.find((p) => p.model === "per_minute");
-    if (!perMin) {
-      const e = new Error("per_minute pricing model not found");
-      e.status = 400;
-      throw e;
-    }
+  // Tìm model per_minute
+  const perMin = pricingList.find((p) => p.model === "per_minute");
+  if (!perMin) {
+    const e = new Error("per_minute pricing model not found");
+    e.status = 400;
+    throw e;
+  }
 
-    const price_per_min = Number(perMin.price);
+  const price_per_min = Number(perMin.price);
 
-    // Tính số phút
-const minutes = dayjs(end_time).diff(dayjs(start_time), "minute");
-    if (minutes < 0) {
-      const e = new Error(`Invalid time range: ${start_time}, ${end_time}`);
-  e.status = 400;
-  e.debug = {
-    start_time,
-    end_time,
-    diff: minutes,
-    start_parsed: dayjs(start_time).format(),
-    end_parsed: dayjs(end_time).format(),
+  // ==============================
+  // Tính số phút
+  // ==============================
+  let minutes = dayjs(end_time).diff(dayjs(start_time), "minute");
+
+  if (minutes < 0) {
+    const e = new Error(`Invalid time range: ${start_time}, ${end_time}`);
+    e.status = 400;
+    e.debug = {
+      start_time,
+      end_time,
+      diff: minutes,
+      start_parsed: dayjs(start_time).format(),
+      end_parsed: dayjs(end_time).format(),
+    };
+    throw e;
+  }
+
+  // Nếu dưới 1 phút → tính thành 1 phút
+  minutes = Math.max(minutes, 1);
+
+  // ==============================
+  // Tính tổng tiền
+  // ==============================
+  const total_amount = minutes * price_per_min;
+
+  return {
+    pricingList,
+    price_per_min,
+    minutes,
+    total_amount
   };
-  throw e;
 }
 
-    // Tính tổng tiền
-    const total_amount = minutes * price_per_min;
-
-    return {
-      pricingList,
-      price_per_min,
-      minutes,
-      total_amount
-    };
-  }
 
 
   async createReservation(data, token) {
